@@ -60,7 +60,7 @@ async function fetchSentinelWMTS() {
 fetchSentinelWMTS();
 
 /**
- * Alterna la capa NDVI y la recorta al polígono dibujado (usando Process API de Sentinel Hub)
+ * Alterna la capa NDVI usando WMTS seguro
  */
 export async function toggleNDVILayer(viewer) {
     if (!viewer) {
@@ -87,129 +87,30 @@ export async function toggleNDVILayer(viewer) {
         console.log("Capa NDVI desactivada. Zoom habilitado.");
         return;
     }
-    // Obtener el polígono actual
-    const polygonLonLat = getCurrentPolygonLonLat();
-    if (!polygonLonLat) {
-        alert("Dibuja o selecciona una parcela para visualizar NDVI.");
-        return;
-    }
     // Ocultar los bordes de las parcelas
     viewer.entities.values.forEach(entity => {
         if (entity.polyline && entity.polyline.material && entity.polyline.material.color && entity.polyline.material.color.getValue().toCssColorString() === '#145a32') {
             entity.show = false;
         }
     });
-    // Construir GeoJSON del polígono (cerrado)
-    const geojson = {
-        type: "Polygon",
-        coordinates: [polygonLonLat.concat([polygonLonLat[0]])]
-    };
-    // Calcular bounding box del polígono
-    const lons = polygonLonLat.map(c => c[0]);
-    const lats = polygonLonLat.map(c => c[1]);
-    const minLon = Math.min(...lons);
-    const maxLon = Math.max(...lons);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    // Definir parámetros de la imagen
-    const width = 512;
-    const height = 512;
-    // Payload para Process API (rango de fechas extendido y comentarios)
-    // Evalscript NDVI estándar: rojo (bajo), amarillo, verde claro, verde oscuro (alto), sin azul
-    const evalscript = `//VERSION=3
-function setup() {
-  return {
-    input: ["B04", "B08", "dataMask"],
-    output: { bands: 4 }
-  };
-}
-function evaluatePixel(sample) {
-  if (sample.dataMask === 0) {
-    return [0, 0, 0, 0];
-  }
-  let ndvi = (sample.B08 - sample.B04) / (sample.B08 + sample.B04);
-  let r = 0, g = 0, b = 0;
-  if (ndvi < 0.2) {
-    // Rojo
-    r = 1.0; g = 0.0; b = 0.0;
-  } else if (ndvi < 0.4) {
-    // Amarillo
-    r = 1.0; g = 1.0; b = 0.0;
-  } else if (ndvi < 0.6) {
-    // Verde claro
-    r = 0.6; g = 1.0; b = 0.2;
-  } else {
-    // Verde oscuro
-    r = 0.0; g = 0.5; b = 0.0;
-  }
-  return [r, g, b, 1];
-}`;
-    const payload = {
-        input: {
-            bounds: {
-                bbox: [minLon, minLat, maxLon, maxLat],
-                geometry: geojson
-            },
-            data: [{
-                type: "sentinel-2-l2a",
-                dataFilter: {
-                    mosaickingOrder: "mostRecent"
-                }
-            }]
-        },
-        output: {
-            width: width,
-            height: height,
-            responses: [{identifier: "default", format: {type: "image/png"}}]
-        },
-        evalscript: evalscript
-    };
-
-    // Llamar a la Process API
-    let imageBlob;
-    try {
-        const response = await axios.post(
-            "https://services.sentinel-hub.com/api/v1/process",
-            payload,
-            {
-                responseType: "blob",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                    "Accept": "image/png" // <-- Solución al error 400 por mime type
-                }
-            }
-        );
-        imageBlob = response.data;
-    } catch (error) {
-        // Mostrar error detallado
-        console.error("Error al obtener imagen NDVI de Sentinel Hub Process API:", error);
-        if (error.response && error.response.data) {
-            // Intentar leer el mensaje de error del backend
-            error.response.data.text().then(msg => {
-                console.error("Detalle del error 400:", msg);
-            });
-        }
-        alert("No se pudo obtener la imagen NDVI recortada a la parcela. Revisa la consola para detalles del error 400.");
-        return;
-    }
-    // Crear URL de la imagen
-    const imageUrl = URL.createObjectURL(imageBlob);
-    // Agregar la imagen como capa en Cesium
+    // Agregar la capa WMTS NDVI
     ndviLayer = viewer.imageryLayers.addImageryProvider(
-        new Cesium.SingleTileImageryProvider({
-            url: imageUrl,
-            rectangle: Cesium.Rectangle.fromDegrees(minLon, minLat, maxLon, maxLat)
+        new Cesium.WebMapTileServiceImageryProvider({
+            url: sentinelWMTS.ndvi,
+            layer: 'NDVI',
+            style: 'default',
+            format: 'image/png',
+            tileMatrixSetID: 'PopularWebMercator512',
         })
     );
     ndviEnabled = true;
     viewer.scene.screenSpaceCameraController.enableZoom = false;
     updateNDVIButtonText(true);
-    console.log("NDVI recortado a la parcela y mostrado como imagen estática. Zoom bloqueado.");
+    console.log("NDVI WMTS agregado correctamente.");
 }
 
 /**
- * Alterna la capa NDMI (Índice de Humedad de Diferencia Normalizada) y la recorta al polígono dibujado
+ * Alterna la capa NDMI usando WMTS seguro
  */
 export async function toggleNDMILayer(viewer) {
     if (!viewer) return;
@@ -224,104 +125,19 @@ export async function toggleNDMILayer(viewer) {
         updateNDMIButtonText(false);
         return;
     }
-    const polygonLonLat = getCurrentPolygonLonLat();
-    if (!polygonLonLat) {
-        alert("Dibuja o selecciona una parcela para visualizar NDMI.");
-        return;
-    }
-    const geojson = {
-        type: "Polygon",
-        coordinates: [polygonLonLat.concat([polygonLonLat[0]])]
-    };
-    const lons = polygonLonLat.map(c => c[0]);
-    const lats = polygonLonLat.map(c => c[1]);
-    const minLon = Math.min(...lons);
-    const maxLon = Math.max(...lons);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const width = 512;
-    const height = 512;
-    let token = window.SENTINEL_ACCESS_TOKEN;
-    if (!token && tokenPromise) {
-        try {
-            const resp = await tokenPromise;
-            token = resp.data.access_token;
-        } catch (e) {
-            alert("No se pudo obtener el token de Sentinel Hub");
-            return;
-        }
-    }
-    // Evalscript NDMI
-    const evalscript = `//VERSION=3
-function setup() {
-  return {
-    input: ["B08", "B11", "dataMask"],
-    output: { bands: 4 }
-  };
-}
-function evaluatePixel(sample) {
-  if (sample.dataMask === 0) {
-    return [0, 0, 0, 0];
-  }
-  let ndmi = (sample.B08 - sample.B11) / (sample.B08 + sample.B11);
-  let r = 0, g = 0, b = 0;
-  if (ndmi < 0.1) {
-    r = 0.8; g = 0.2; b = 0.2; // seco: rojo
-  } else if (ndmi < 0.3) {
-    r = 1.0; g = 1.0; b = 0.0; // intermedio: amarillo
-  } else {
-    r = 0.0; g = 0.6; b = 1.0; // húmedo: azul verdoso
-  }
-  return [r, g, b, 1];
-}`;
-    const payload = {
-        input: {
-            bounds: {
-                bbox: [minLon, minLat, maxLon, maxLat],
-                geometry: geojson
-            },
-            data: [{
-                type: "sentinel-2-l2a",
-                dataFilter: {
-                    mosaickingOrder: "mostRecent"
-                }
-            }]
-        },
-        output: {
-            width: width,
-            height: height,
-            responses: [{identifier: "default", format: {type: "image/png"}}]
-        },
-        evalscript: evalscript
-    };
-    let imageBlob;
-    try {
-        const response = await axios.post(
-            "https://services.sentinel-hub.com/api/v1/process",
-            payload,
-            {
-                responseType: "blob",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json",
-                    "Accept": "image/png"
-                }
-            }
-        );
-        imageBlob = response.data;
-    } catch (error) {
-        alert("No se pudo obtener la imagen NDMI recortada a la parcela.");
-        return;
-    }
-    const imageUrl = URL.createObjectURL(imageBlob);
+    // Agregar la capa WMTS NDMI
     ndmiLayer = viewer.imageryLayers.addImageryProvider(
-        new Cesium.SingleTileImageryProvider({
-            url: imageUrl,
-            rectangle: Cesium.Rectangle.fromDegrees(minLon, minLat, maxLon, maxLat)
+        new Cesium.WebMapTileServiceImageryProvider({
+            url: sentinelWMTS.ndmi,
+            layer: 'NDMI',
+            style: 'default',
+            format: 'image/png',
+            tileMatrixSetID: 'PopularWebMercator512',
         })
     );
     ndmiEnabled = true;
     updateNDMIButtonText(true);
+    console.log("NDMI WMTS agregado correctamente.");
 }
 
 /**
