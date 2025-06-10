@@ -1,0 +1,107 @@
+{% extends 'vertical_base.html' %}
+
+{% load static %}
+
+{% block title %}Chartjs Charts{% endblock title %}
+
+{% block page_content %}
+
+<div class="container-fluid">
+    <!-- Page-Title -->
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="page-title-box">
+                <div class="float-end">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="#">Metrica</a></li>
+                        <li class="breadcrumb-item"><a href="#">Charts</a></li>
+                        <li class="breadcrumb-item active">Chartjs</li>
+                    </ol>
+                </div>
+                <h4 class="page-title">Chartjs Charts</h4>
+            </div>
+            <!--end page-title-box-->
+        </div>
+        <!--end col-->
+    </div>
+    <!-- end page title end breadcrumb -->
+    <div class="row">
+        <div class="col-lg-12 col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Line Chart</h4>
+                </div><!--end card-header-->
+                <div class="card-body">            
+                    <canvas id="lineChart" width="300" height="300"></canvas>            
+                </div><!--end card-body-->
+            </div><!--end card-->
+        </div> <!-- end col -->
+
+        <div class="col-lg-12 col-xl-4">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Donut Chart</h4>
+                </div><!--end card-header-->
+                <div class="card-body">            
+                    <canvas id="doughnut" height="300"></canvas>            
+                </div><!--end card-body-->
+            </div><!--end card-->
+        </div> <!-- end col -->
+
+        <div class="col-lg-12 col-xl-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Bar Chart</h4>
+                </div><!--end card-header-->
+                <div class="card-body">          
+                    <canvas id="bar" height="300"></canvas>            
+                </div><!--end card-body-->
+            </div><!--end card-->
+        </div> <!-- end col -->
+
+        <div class="col-lg-12 col-xl-4">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Polar Chart</h4>
+                </div><!--end card-header-->
+                <div class="card-body">    
+                    <canvas id="polarArea" height="300"> </canvas>            
+                </div><!--end card-body-->
+            </div><!--end card-->
+        </div> <!-- end col -->                                
+    </div> <!-- end row -->        
+
+    <div class="row">
+        <div class="col-lg-12 col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Pie Chart</h4>
+                </div><!--end card-header-->
+                <div class="card-body">         
+                    <canvas id="pie" height="300"></canvas>            
+                </div><!--end card-body-->
+            </div> <!-- end card -->  
+        </div> <!-- end col -->
+        
+        <div class="col-lg-12 col-xl-6">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">Radar Chart</h4>
+                </div><!--end card-header-->
+                <div class="card-body"> 
+                    <canvas id="radar" height="300"></canvas>            
+                </div><!--end card-body-->
+            </div> <!-- end card -->  
+        </div> <!-- end col -->
+    </div> <!-- end row -->
+
+</div><!-- container -->
+
+{% endblock %}
+
+{% block extra_javascript %}
+
+<script src="{% static 'libs/chart.js/chart.min.js' %}"></script>
+<script src="{% static 'js/pages/chartjs.init.js' %}"></script>
+
+{% endblock %}

@@ -1,0 +1,53 @@
+from django.contrib import admin
+from django.conf import settings
+from django.conf.urls.static import static
+from django.urls import include, path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from django.views import defaults as default_views
+
+urlpatterns = [
+    # 🔹 Autenticación y Tokens JWT
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path("api/authentication/", include("authentication.urls", namespace="authentication")),
+
+    # 🔹 Administración
+    path("admin/", admin.site.urls),
+
+    # 🔹 Gestión de usuarios
+    path("users/", include("metrica.users.urls", namespace="users")),
+    path("accounts/", include("allauth.urls")),
+
+    # 🔹 Routers para usuarios
+    path("users/api/", include("metrica.users.routers")),
+    # los namespaces son importantes para evitar conflictos con el app_name de los routers
+
+
+    # 🔹 Módulos principales del sistema
+    path("api/RRHH/", include("RRHH.routers")),         # Recursos Humanos para posiciones y departamentos
+    path("fields/", include("fields.urls", namespace="fields")),   # Gestión de campos
+    path("api/parcels/", include("parcels.routers", namespace="parcels")),# Gestión de parcelas
+    path("parcels/", include("parcels.urls", namespace="parcels")),  # Dashboard de parcelas
+
+    # 🔹 Interfaz y páginas
+    path("pages/", include("pages.urls", namespace="pages")),      # Páginas estáticas
+    path("uikit/", include("uikit.urls", namespace="uikit")),      # Componentes UI
+
+    # 🔹 Recarga en desarrollo (solo para DEBUG)
+    path("__reload__/", include("django_browser_reload.urls")),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
+# 🔹 Modo DEBUG: Manejo de errores y Debug Toolbar
+if settings.DEBUG:
+    urlpatterns += [
+        path("400/", default_views.bad_request, kwargs={"exception": Exception("Bad Request!")}),
+        path("403/", default_views.permission_denied, kwargs={"exception": Exception("Permission Denied")}),
+        path("404/", default_views.page_not_found, kwargs={"exception": Exception("Page not Found")}),
+        path("500/", default_views.server_error),
+    ]
+    if "debug_toolbar" in settings.INSTALLED_APPS:
+        import debug_toolbar
+        urlpatterns = [path("__debug__/", include(debug_toolbar.urls))] + urlpatterns

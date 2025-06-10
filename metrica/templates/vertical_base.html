@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="shortcut icon" href="/static/images/agrotech solo negro.png">
+    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
+    
+</head>
+<body>
+    <div class="container-fluid">
+        
+        <!-- Topbar -->
+    <div id="topbar-container"></div>
+
+    <div id="left-sidebar"></div>
+
+    <div id="maps/vector"></div>
+
+    <div class="page-wrapper">
+        <div class="page-content-tab">
+            <div id="page-content">
+                <!-- Aquí se inyectará dashboard.html -->
+            </div>
+
+            <!-- Footer -->
+            <div id="footer-container"></div>
+        </div>
+    </div>
+    
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script type="module" src="/static/js/dashboard.js"></script>
+    <script type="module" src="/static/js/dashboarddatos.js"></script>
+    <script type="module" src="/static/js/parcels/dashboard-parcels-summary.js"></script>
+    <script src="/static/js/user-profile.js"></script>
+
+
+    <script>
+        // Utilidad para cargar HTML en un elemento por ID
+        async function loadHTML(id, url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Error al cargar ${url}`);
+                const html = await response.text();
+                document.getElementById(id).innerHTML = html;
+
+                // Ejecutar scripts si el archivo contiene scripts (solo para vendorjs)
+                if (id === "vendorjs") {
+                    document.getElementById(id).querySelectorAll("script").forEach(oldScript => {
+                        const newScript = document.createElement("script");
+                        if (oldScript.src) {
+                            newScript.src = oldScript.src;
+                            newScript.async = false;
+                        } else {
+                            newScript.textContent = oldScript.textContent;
+                        }
+                        document.body.appendChild(newScript);
+                    });
+                }
+            } catch (error) {
+                console.error(`Error al cargar ${url}:`, error);
+            }
+        }
+
+        // Componentes a cargar: id del contenedor y ruta del archivo
+        const components = {
+            "topbar-container": "partials/horizontal-nav.html",
+            "page-content": "dashboard.html",
+            "footer-container": "partials/footer.html",
+            "left-sidebar": "partials/left-sidebar.html",
+            "righsidebar": "partials/right-sidebar.html",
+            "vendorjs": "partials/vendorjs.html"
+        };
+
+        // Cargar todos los componentes
+        for (const [id, url] of Object.entries(components)) {
+            loadHTML(id, url);
+        }
+    </script>
+
+  
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="/static/js/charts.js"></script>
+
+
+
+</body>
+</html>

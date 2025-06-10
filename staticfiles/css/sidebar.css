@@ -1,0 +1,99 @@
+/* 🔹 Estilos generales */
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    display: flex;
+}
+
+/* 🔹 Sidebar */
+.sidebar {
+    width: 180px;
+    height: 100vh;
+    background-color: #2C3E50;
+    color: white;
+    position: fixed;
+    top: 0;
+    left: 0;
+    overflow-y: auto;
+    transition: transform 0.3s ease-in-out;
+}
+
+/* 🌟 Ocultar en móviles por defecto */
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+    }
+}
+
+/* 🌟 Mostrar cuando se active */
+.sidebar.show {
+    transform: translateX(0);
+}
+
+/* 🔹 Contenido principal */
+.content {
+    margin-left: 250px;
+    padding: 20px;
+    width: 100%;
+}
+
+@media (max-width: 768px) {
+    .content {
+        margin-left: 0;
+    }
+}
+
+/* 🔹 Botón ☰ en móviles */
+.menu-btn {
+    display: none;
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    font-size: 22px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+@media (max-width: 768px) {
+    .menu-btn {
+        display: block;
+    }
+}
+
+/* 🔹 Estilos del menú */
+.menu {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+}
+
+.menu li {
+    padding: 15px 20px;
+}
+
+.menu a {
+    text-decoration: none;
+    color: white;
+    display: flex;
+    align-items: center;
+}
+
+.menu a i {
+    margin-right: 10px;
+    font-size: 30px;
+}
+
+/* 🔹 Efecto hover */
+.menu a:hover {
+    background-color: #34495E;
+    transition: 0.3s;
+}
+
+.logo-sm {
+    max-width: 100px; /* Cambia según lo necesites */
+    height: auto; /* Mantiene la proporción */
+}

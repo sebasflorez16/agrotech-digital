@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sidebar Responsivo</title>
+    <link rel="stylesheet" href="/static/css/sidebar.css">
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar">
+        <!-- Logo -->
+        <div class="brand">
+            <a href="#" class="logo">
+                <span>
+                    <img src="/static/images/agrotech solo blanco.png" alt="logo-small" class="logo-sm" style=" margin-left: 20px;">
+                </span>
+            </a>
+        </div>
+
+        <!-- Menú -->
+        <ul class="menu">
+            <li><a href="/templates/vertical_base.html"><i class="ti ti-home"></i> Dashboard</a></li>
+            <li><a href="/templates/employees/RRHH-dashboard.html"><i class="ti ti-user"></i> Recursos Humanos</a></li>
+            <li><a href="inventory.html"><i class="ti ti-box"></i> Inventario</a></li>
+            <li><a href="settings.html"><i class="ti ti-settings"></i> Configuración</a></li>
+            <li><a href="/templates/parcels/parcels-dashboard.html"><i class="ti ti-map"></i> Parcelas</a></li>
+        </ul>
+    </div>
+
+    <div class="content">
+    </div>
+
+    <script src="/static/js/leftsidebar.js"></script>
+</body>
+</html>

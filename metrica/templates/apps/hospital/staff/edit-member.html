@@ -1,0 +1,117 @@
+{% extends 'vertical_base.html' %}
+
+{% load static %}
+
+{% block title %}Edit Member{% endblock %}
+
+{% block page_content %}
+
+<div class="container-fluid">
+    <!-- Page-Title -->
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="page-title-box">
+                <div class="float-end">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="#">Metrica</a></li><!--end nav-item-->
+                        <li class="breadcrumb-item"><a href="#">Hospital</a></li><!--end nav-item-->
+                        <li class="breadcrumb-item active">Edit Member</li>
+                    </ol>
+                </div>
+                <h4 class="page-title">Edit Member</h4>
+            </div><!--end page-title-box-->
+        </div><!--end col-->
+    </div>
+    <!-- end page title end breadcrumb -->
+
+    <div class="row">
+        <div class="col-12 col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-body">
+
+                    <!-- Form -->
+                    <form method="POST" enctype="multipart/form-data" action="{% url 'users:users-edit' pk=user.pk %}">
+                        {% csrf_token %}
+
+                        <div class="form-group mb-3 text-center">
+                            {% if user.image %}
+                                <img src="{{ user.image.url }}" alt="Avatar" class="thumb-lg rounded me-2">
+                            {% else %}
+                                <img src="{% static 'images/users/user-4.jpg' %}" alt="Avatar" class="thumb-lg rounded me-2">
+                            {% endif %}
+                            <label class="btn btn-de-primary btn-sm text-light">
+                                Add Avatar <input type="file" hidden name="image">
+                            </label>
+                        </div>
+
+                        <div class="form-group row">
+                            <div class="col-md-6 mb-3">
+                                <label for="Name" class="form-label">Nombre</label>
+                                <input type="text" placeholder="First Name" value="{{ user.name }}" class="form-control" name="name" id="Name">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="Last_Name" class="form-label">Apellido</label>
+                                <input type="text" placeholder="Last Name" value="{{ user.last_name }}" class="form-control" name="last_name" id="Last_Name">
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <div class="col-md-3 mb-3">
+                                <label for="Join_Date" class="form-label">Registro</label>
+                                <input type="text" placeholder="Join Date" value="{{ user.created_on }}" class="form-control" name="created_on" id="created_on">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="Post" class="form-label">Telefono</label>
+                                <input type="text" placeholder="Telefono" value="{{ user.phone }}" class="form-control" name="phone" id="phone">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="Role" class="form-label">Role</label>
+                                <select class="form-select" name="role" id="Role">
+                                    <option {% if user.role == 'admin' %}selected{% endif %} value="admin">Administrador</option>
+                                    <option {% if user.role == 'manager' %}selected{% endif %} value="manager">Gerente</option>
+                                    <option {% if user.role == 'employee' %}selected{% endif %} value="employee">Empleado</option>
+                                    <option {% if user.role == 'accountant' %}selected{% endif %} value="accountant">Contador</option>
+                                </select>
+                            </div>
+                            
+                            <div class="col-md-3 mb-3">
+                                <label for="Age" class="form-label">Age</label>
+                                <input type="text" placeholder="Age" value="{{ user.age }}" class="form-control" name="age" id="Age">
+                            </div>
+                        </div>
+
+                        <div class="form-group row">
+                            <div class="col-md-6 mb-3">
+                                <label for="Email" class="form-label">Email</label>
+                                <input type="email" placeholder="Email" class="form-control" value="{{ user.email }}" name="email" id="Email">
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label for="Address" class="form-label">Dirección</label>
+                                <input type="text" placeholder="Dirección" class="form-control" value="{{ user.adress }}" name="adress" id="Address">
+                            </div>
+                            <div class="col-md-2 mb-3">
+                                <label for="ID" class="form-label">ID</label>
+                                <input type="text" placeholder="ID" class="form-control" value="{{ user.id }}" name="id" id="ID">
+                            </div>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="About_Me" class="form-label">Descripción</label>
+                            <textarea rows="5" class="form-control" name="about_me" id="About_Me">{{ user.description }}</textarea>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <button type="submit" class="btn btn-de-primary btn-sm text-light px-4 mt-3 mb-0">Save</button>
+                            <a href="{% url 'users:users-all' %}" class="btn btn-de-danger btn-sm text-light px-4 mt-3 mb-0">Cancel</a>
+                        </div>
+                    </form>
+                    <!-- End Form -->
+
+                </div> <!--end card-body-->
+            </div><!--end card-->
+        </div> <!--end col-->
+    </div><!--end row-->
+
+</div><!-- container -->
+
+{% endblock %}
