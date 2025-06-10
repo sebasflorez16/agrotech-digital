@@ -36,15 +36,26 @@ let ndmiEnabled = false;
 let sentinelWMTS = { ndvi: null, ndmi: null };
 
 // Cargar las URLs WMTS seguras desde el backend al iniciar
+function getBackendUrl(path) {
+    // Detecta si estamos en 3000 (dev) y redirige a 8000 (backend)
+    const isDev = window.location.port === "3000";
+    if (isDev) {
+        // Mantiene el subdominio del tenant
+        const host = window.location.hostname.replace('localhost', 'localhost:8000');
+        return window.location.protocol + '//' + host + path;
+    } else {
+        return path; // relativo en producción/backend
+    }
+}
+
 async function fetchSentinelWMTS() {
     try {
-        const resp = await fetch("/parcels/sentinel-wmts-urls/", {
+        const url = getBackendUrl("/parcels/sentinel-wmts-urls/");
+        const resp = await fetch(url, {
             headers: {
                 'Accept': 'application/json',
-                // Si usas JWT, agrega el token aquí
-                // 'Authorization': 'Bearer ' + localStorage.getItem('access_token')
             },
-            credentials: 'include' // Si usas sesión/cookies
+            credentials: 'include'
         });
         if (!resp.ok) throw new Error("No se pudo obtener las URLs WMTS seguras");
         const data = await resp.json();
