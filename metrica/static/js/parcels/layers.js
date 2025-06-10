@@ -1,44 +1,8 @@
-let ndviLayer = null;
-let ndviEnabled = false;
-let ndmiLayer = null;
-let ndmiEnabled = false;
+// Elimina credenciales y lógica de autenticación del frontend
+// Ahora el frontend solo consumirá imágenes NDVI/NDMI a través del backend seguro
 
-// Elimina los import
-// import axios from "axios";
-// import qs from "qs";
-
-const client_id = "98424e68-8d91-4fe4-be6e-b527648e330a";
-const client_secret = "vwLbyJ149nmvHEPGyKoSbUWWjkWRJIWd";
-const instance_id = "204da595-1d83-4f8e-9c9d-cf2a94759e7c";
-const ndmi_instance_id = "e891c30d-753f-4e8b-99ae-1a35d1383897";
-
-window.SENTINEL_NDVI_WMTS = null;
-window.SENTINEL_WATER_STRESS_WMTS = null;
-let tokenPromise = null;
-
-const body = Qs.stringify({
-  client_id,
-  client_secret,
-  grant_type: "client_credentials"
-});
-
-tokenPromise = axios.post("https://services.sentinel-hub.com/auth/realms/main/protocol/openid-connect/token", body, {
-  headers: {
-    'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8'
-  }
-}).then(resp => {
-  const access_token = resp.data.access_token;
-  window.SENTINEL_ACCESS_TOKEN = access_token; // <-- Guardar el token globalmente
-  window.SENTINEL_NDVI_WMTS = `https://services.sentinel-hub.com/ogc/wmts/204da595-1d83-4f8e-9c9d-cf2a94759e7c?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=NDVI&STYLE=default&TILEMATRIXSET=PopularWebMercator512&FORMAT=image/png&token=${access_token}`;
-  window.SENTINEL_WATER_STRESS_WMTS = `https://services.sentinel-hub.com/ogc/wmts/e891c30d-753f-4e8b-99ae-1a35d1383897?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=NDMI&STYLE=default&TILEMATRIXSET=PopularWebMercator512&FORMAT=image/png&token=${access_token}`;
-}).catch(err => {
-  console.error("Error obteniendo token Sentinel Hub:", err);
-});
-
-/**
- * Utilidad: Determina si un punto [lon, lat] está dentro de un polígono (array de [lon, lat])
- * Algoritmo: Ray-casting
- */
+// Utilidad: Determina si un punto [lon, lat] está dentro de un polígono (array de [lon, lat])
+// Algoritmo: Ray-casting
 function pointInPolygon(point, vs) {
     let x = point[0], y = point[1];
     let inside = false;
@@ -64,6 +28,37 @@ function getCurrentPolygonLonLat() {
     });
 }
 
+// Variables globales para las capas
+let ndviLayer = null;
+let ndviEnabled = false;
+let ndmiLayer = null;
+let ndmiEnabled = false;
+let sentinelWMTS = { ndvi: null, ndmi: null };
+
+// Cargar las URLs WMTS seguras desde el backend al iniciar
+async function fetchSentinelWMTS() {
+    try {
+        const resp = await fetch("/parcels/sentinel-wmts-urls/", {
+            headers: {
+                'Accept': 'application/json',
+                // Si usas JWT, agrega el token aquí
+                // 'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+            },
+            credentials: 'include' // Si usas sesión/cookies
+        });
+        if (!resp.ok) throw new Error("No se pudo obtener las URLs WMTS seguras");
+        const data = await resp.json();
+        sentinelWMTS.ndvi = data.ndvi;
+        sentinelWMTS.ndmi = data.ndmi;
+    } catch (err) {
+        console.error("Error obteniendo WMTS seguros:", err);
+        alert("No se pudieron cargar las capas satelitales. Contacta al administrador.");
+    }
+}
+
+// Llama a esta función al cargar la app
+fetchSentinelWMTS();
+
 /**
  * Alterna la capa NDVI y la recorta al polígono dibujado (usando Process API de Sentinel Hub)
  */
@@ -72,8 +67,9 @@ export async function toggleNDVILayer(viewer) {
         console.warn("Viewer no está definido.");
         return;
     }
-    if (tokenPromise) {
-        await tokenPromise;
+    if (!sentinelWMTS.ndvi) {
+        alert("Las capas NDVI aún no están listas. Intenta de nuevo en unos segundos.");
+        return;
     }
     // Si ya está activa, la quitamos
     if (ndviLayer && ndviEnabled) {
@@ -118,18 +114,6 @@ export async function toggleNDVILayer(viewer) {
     // Definir parámetros de la imagen
     const width = 512;
     const height = 512;
-    // Obtener token de acceso
-    const access_token = window.SENTINEL_ACCESS_TOKEN;
-    let token = access_token;
-    if (!token && tokenPromise) {
-        try {
-            const resp = await tokenPromise;
-            token = resp.data.access_token;
-        } catch (e) {
-            alert("No se pudo obtener el token de Sentinel Hub");
-            return;
-        }
-    }
     // Payload para Process API (rango de fechas extendido y comentarios)
     // Evalscript NDVI estándar: rojo (bajo), amarillo, verde claro, verde oscuro (alto), sin azul
     const evalscript = `//VERSION=3
@@ -229,6 +213,10 @@ function evaluatePixel(sample) {
  */
 export async function toggleNDMILayer(viewer) {
     if (!viewer) return;
+    if (!sentinelWMTS.ndmi) {
+        alert("Las capas NDMI aún no están listas. Intenta de nuevo en unos segundos.");
+        return;
+    }
     if (ndmiLayer && ndmiEnabled) {
         viewer.imageryLayers.remove(ndmiLayer, true);
         ndmiLayer = null;

@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
 from .models import Parcel
 from .serializers import ParcelSerializer
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 import requests
 import logging
@@ -243,6 +243,17 @@ class ParcelViewSet(viewsets.ModelViewSet):
             for parcel in qs
         ]
         return Response(parcels_data, status=200)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def sentinel_wmts_urls(request):
+    """
+    Endpoint seguro que retorna las URLs WMTS de NDVI y NDMI para el frontend.
+    """
+    return Response({
+        "ndvi": getattr(settings, "SENTINEL_NDVI_WMTS", None),
+        "ndmi": getattr(settings, "SENTINEL_NDMI_WMTS", None),
+    })
 
 def parcels_dashboard(request):
     """
