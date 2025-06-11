@@ -40,11 +40,17 @@ function getBackendUrl(path) {
     // Detecta si estamos en 3000 (dev) y redirige a 8000 (backend)
     const isDev = window.location.port === "3000";
     if (isDev) {
-        // Mantiene el subdominio del tenant
-        const host = window.location.hostname.replace('localhost', 'localhost:8000');
-        return window.location.protocol + '//' + host + path;
+        // Mantiene el subdominio del tenant y fuerza el puerto 8000
+        const hostParts = window.location.hostname.split('.');
+        // ejemplo: prueba.localhost
+        let backendHost = window.location.hostname;
+        if (hostParts.length > 1 && hostParts[hostParts.length - 1] === 'localhost') {
+            backendHost = hostParts.join('.') + ':8000';
+        }
+        return window.location.protocol + '//' + backendHost + path;
     } else {
-        return path; // relativo en producción/backend
+        // Si ya estamos en 8000 o producción, usa path relativo
+        return path;
     }
 }
 
