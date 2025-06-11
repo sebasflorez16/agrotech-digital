@@ -151,41 +151,16 @@ TENANT_APPS = [
 INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in SHARED_APPS]
 
 
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8000",  # Dominio base
-    "http://localhost:3000",
-
+    "http://prueba.localhost:3000",
+    "http://prueba.localhost:8000",
 ]
-CORS_ALLOW_ALL_ORIGINS = True
-
-CORS_ALLOW_METHODS = [
-    "DELETE",
-    "GET",
-    "OPTIONS",
-    "PATCH",
-    "POST",
-    "PUT",
-]
-
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
-    "authorization",
-    "content-type",
-    "dnt",
-    "origin",
-    "user-agent",
-    "x-csrftoken",
-    "x-requested-with",
-]
-
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    "^http:\/\/.*\.localhost:8000$",  # Permitir subdominios de tenants
-    r"^http:\/\/localhost:3000$",  
-    r"^http:\/\/.*\.localhost(:[0-9]+)?$",  # Permite cualquier subdominio en localhost con puerto opcional
- 
+    r"^http://[a-z0-9\-]+\\.localhost:3000$",
+    r"^http://[a-z0-9\-]+\\.localhost:8000$",
 ]
-
 
 
 LOGIN_REDIRECT_URL = "/authentication/dashboard/"  # Redirige al dashboard después de login
