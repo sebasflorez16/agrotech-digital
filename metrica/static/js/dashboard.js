@@ -63,3 +63,20 @@ function logout() {
     localStorage.removeItem("refreshToken");
     window.location.href = "/authentication/login.html";
 }
+
+// Botón para ir a la gestión de labores
+const btnLabores = document.createElement("button");
+btnLabores.className = "btn btn-success mb-3";
+btnLabores.innerHTML = '<i class="fa fa-tasks"></i> Gestionar Labores';
+btnLabores.onclick = function() {
+    window.location.href = "/templates/labores.html";
+};
+// Insertar el botón en el dashboard (por ejemplo, arriba del resumen de parcelas)
+window.addEventListener("DOMContentLoaded", () => {
+    const resumen = document.querySelector("#resumen-parcelas, .resumen-parcelas");
+    if (resumen) {
+        resumen.parentNode.insertBefore(btnLabores, resumen);
+    } else {
+        document.body.prepend(btnLabores);
+    }
+});

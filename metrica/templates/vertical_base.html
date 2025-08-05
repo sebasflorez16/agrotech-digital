@@ -40,46 +40,19 @@
 
 
     <script>
-        // Utilidad para cargar HTML en un elemento por ID
-        async function loadHTML(id, url) {
-            try {
-                const response = await fetch(url);
-                if (!response.ok) throw new Error(`Error al cargar ${url}`);
-                const html = await response.text();
-                document.getElementById(id).innerHTML = html;
-
-                // Ejecutar scripts si el archivo contiene scripts (solo para vendorjs)
-                if (id === "vendorjs") {
-                    document.getElementById(id).querySelectorAll("script").forEach(oldScript => {
-                        const newScript = document.createElement("script");
-                        if (oldScript.src) {
-                            newScript.src = oldScript.src;
-                            newScript.async = false;
-                        } else {
-                            newScript.textContent = oldScript.textContent;
-                        }
-                        document.body.appendChild(newScript);
-                    });
-                }
-            } catch (error) {
-                console.error(`Error al cargar ${url}:`, error);
-            }
-        }
-
-        // Componentes a cargar: id del contenedor y ruta del archivo
+    </script>
+    <script type="module">
+        import { loadLayoutComponents } from '/static/js/load_components.js';
         const components = {
-            "topbar-container": "partials/horizontal-nav.html",
-            "page-content": "dashboard.html",
-            "footer-container": "partials/footer.html",
-            "left-sidebar": "partials/left-sidebar.html",
-            "righsidebar": "partials/right-sidebar.html",
-            "vendorjs": "partials/vendorjs.html"
+            "topbar-container": "/templates/partials/horizontal-nav.html",
+            "page-content": "/templates/dashboard.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "righsidebar": "/templates/partials/right-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
         };
-
-        // Cargar todos los componentes
-        for (const [id, url] of Object.entries(components)) {
-            loadHTML(id, url);
-        }
+        loadLayoutComponents(components);
+    </script>
     </script>
 
   

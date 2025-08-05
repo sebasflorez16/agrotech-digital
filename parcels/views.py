@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
-from .models import Parcel
+from .models import Parcel, ParcelSceneCache
 from .serializers import ParcelSerializer
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
@@ -11,29 +11,7 @@ from django.shortcuts import render
 
 logger = logging.getLogger(__name__)
 
-class SentinelHubClient:
-    BASE_URL = "https://services.sentinel-hub.com/api/v1"
 
-    def __init__(self, configuration_id):
-        self.configuration_id = configuration_id
-
-    def fetch_layer_data(self, layer_name, bbox, time_range):
-        url = f"{self.BASE_URL}/process"
-        headers = {
-            "Authorization": f"Bearer {self.configuration_id}",
-            "Content-Type": "application/json",
-        }
-        payload = {
-            "input": {
-                "bounds": {"bbox": bbox},
-                "data": [{"type": layer_name}],
-            },
-            "output": {"width": 512, "height": 512},
-            "time": time_range,
-        }
-        response = requests.post(url, json=payload, headers=headers)
-        response.raise_for_status()
-        return response.json()
 
 class ParcelViewSet(viewsets.ModelViewSet):
     # Solo mostrar parcelas no eliminadas por defecto
@@ -45,8 +23,6 @@ class ParcelViewSet(viewsets.ModelViewSet):
         response = super().list(request, *args, **kwargs)
         response.data = {
             "cesium_token": settings.CESIUM_ACCESS_TOKEN,
-            "weather_api_key": settings.WEATHER_API_KEY,
-            "sentinel_ndvi_wmts": settings.SENTINEL_NDVI_WMTS,
             "parcels": response.data
         }
         return response
@@ -112,10 +88,9 @@ class ParcelViewSet(viewsets.ModelViewSet):
     def ndvi_historical(self, request):
         logger.debug(f"Request data: {request.data}")
         """
-        Endpoint para obtener los promedios mensuales de NDVI de una parcela.
+        Endpoint para obtener los promedios mensuales de NDVI de una parcela usando EOSDA.
         Recibe un polígono (GeoJSON) y un rango de fechas (start_date, end_date).
         """
-        # Extraer datos del request
         polygon = request.data.get("polygon")
         start_date = request.data.get("start_date")
         end_date = request.data.get("end_date")
@@ -123,59 +98,35 @@ class ParcelViewSet(viewsets.ModelViewSet):
         if not polygon or not start_date or not end_date:
             return Response({"error": "Faltan parámetros obligatorios (polygon, start_date, end_date)."}, status=400)
 
-        # Configuración de Sentinel Hub
-        sentinel_url = f"https://services.sentinel-hub.com/api/v1/configurations/{settings.SENTINEL_CONFIGURATION_ID}/process"
+        eosda_url = "https://api-connect.eos.com/v1/indices/ndvi"
         headers = {
+            "x-api-key": settings.EOSDA_API_KEY,
             "Content-Type": "application/json"
         }
         payload = {
-            "input": {
-                "bounds": {
-                    "geometry": polygon
-                },
-                "data": [{
-                    "type": "sentinel-2-l1c",
-                    "dataFilter": {
-                        "timeRange": {
-                            "from": start_date,
-                            "to": end_date
-                        }
-                    }
-                }]
-            },
-            "output": {
-                "resx": 10,
-                "resy": 10,
-                "responses": [{
-                    "identifier": "ndvi",
-                    "format": {
-                        "type": "application/json"
-                    }
-                }]
-            }
+            "geometry": polygon,
+            "start_date": start_date,
+            "end_date": end_date
         }
         logger.debug(f"Payload: {payload}")
         logger.debug(f"Headers: {headers}")
 
-        # Realizar la solicitud a Sentinel Hub
         try:
-            response = requests.post(sentinel_url, json=payload, headers=headers)
+            response = requests.post(eosda_url, json=payload, headers=headers)
             response.raise_for_status()
             ndvi_data = response.json()
         except requests.exceptions.RequestException as e:
-            return Response({"error": f"Error al conectar con Sentinel Hub: {str(e)}"}, status=500)
+            return Response({"error": f"Error al conectar con EOSDA: {str(e)}"}, status=500)
 
-        # Procesar y devolver los datos
         return Response(ndvi_data, status=200)
 
     @action(detail=False, methods=["post"], url_path="water-stress-historical")
     def water_stress_historical(self, request):
         logger.debug(f"Request data: {request.data}")
         """
-        Endpoint para obtener los promedios mensuales de estrés hídrico de una parcela.
+        Endpoint para obtener los promedios mensuales de estrés hídrico de una parcela usando EOSDA.
         Recibe un polígono (GeoJSON) y un rango de fechas (start_date, end_date).
         """
-        # Extraer datos del request
         polygon = request.data.get("polygon")
         start_date = request.data.get("start_date")
         end_date = request.data.get("end_date")
@@ -183,50 +134,27 @@ class ParcelViewSet(viewsets.ModelViewSet):
         if not polygon or not start_date or not end_date:
             return Response({"error": "Faltan parámetros obligatorios (polygon, start_date, end_date)."}, status=400)
 
-        # Configuración de Sentinel Hub
-        sentinel_url = f"https://services.sentinel-hub.com/api/v1/configurations/{settings.SENTINEL_CONFIGURATION_ID}/process"
+        eosda_url = "https://api-connect.eos.com/v1/indices/ndmi"  # NDMI para estrés hídrico
         headers = {
+            "x-api-key": settings.EOSDA_API_KEY,
             "Content-Type": "application/json"
         }
         payload = {
-            "input": {
-                "bounds": {
-                    "geometry": polygon
-                },
-                "data": [{
-                    "type": "sentinel-2-l1c",
-                    "dataFilter": {
-                        "timeRange": {
-                            "from": start_date,
-                            "to": end_date
-                        }
-                    }
-                }]
-            },
-            "output": {
-                "resx": 10,
-                "resy": 10,
-                "responses": [{
-                    "identifier": "water-stress",
-                    "format": {
-                        "type": "application/json"
-                    }
-                }]
-            }
+            "geometry": polygon,
+            "start_date": start_date,
+            "end_date": end_date
         }
         logger.debug(f"Payload: {payload}")
         logger.debug(f"Headers: {headers}")
 
-        # Realizar la solicitud a Sentinel Hub
         try:
-            response = requests.post(sentinel_url, json=payload, headers=headers)
+            response = requests.post(eosda_url, json=payload, headers=headers)
             response.raise_for_status()
-            water_stress_data = response.json()
+            ndmi_data = response.json()
         except requests.exceptions.RequestException as e:
-            return Response({"error": f"Error al conectar con Sentinel Hub: {str(e)}"}, status=500)
+            return Response({"error": f"Error al conectar con EOSDA: {str(e)}"}, status=500)
 
-        # Procesar y devolver los datos
-        return Response(water_stress_data, status=200)
+        return Response(ndmi_data, status=200)
 
     @action(detail=False, methods=["get"], url_path="list-parcels")
     def list_parcels(self, request):
@@ -238,22 +166,108 @@ class ParcelViewSet(viewsets.ModelViewSet):
             {
                 "id": parcel.id,
                 "name": parcel.name,
-                "polygon": parcel.geom.geojson
+                "polygon": parcel.geom  # Ahora es un dict (GeoJSON)
             }
             for parcel in qs
         ]
         return Response(parcels_data, status=200)
 
-@api_view(["GET"])
+
+
+# Nuevo endpoint para obtener la URL WMTS NDVI/NDMI de EOSDA usando el ID EOSDA
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
-def sentinel_wmts_urls(request):
+def eosda_wmts_urls(request):
     """
-    Endpoint seguro que retorna las URLs WMTS de NDVI y NDMI para el frontend.
+    Endpoint seguro que retorna la lista de escenas satelitales para un field EOSDA usando la nueva API Connect.
+    Recibe el id EOSDA (eosda_id) y retorna la lista de escenas disponibles (view_id, fecha, etc) para Cesium.
     """
-    return Response({
-        "ndvi": getattr(settings, "SENTINEL_NDVI_WMTS", None),
-        "ndmi": getattr(settings, "SENTINEL_NDMI_WMTS", None),
-    })
+    import logging
+    import requests
+    import time
+    logger = logging.getLogger(__name__)
+    from rest_framework.parsers import JSONParser
+    if request.method == 'POST':
+        data = request.data if hasattr(request, 'data') else JSONParser().parse(request)
+    else:
+        data = request.GET
+    eosda_id = data.get("eosda_id")
+    date_start = data.get("date_start")
+    date_end = data.get("date_end")
+    if not eosda_id:
+        return Response({"error": "Falta el parámetro 'eosda_id'."}, status=400)
+    api_key = settings.EOSDA_API_KEY
+    search_url = f"https://api-connect.eos.com/scene-search/for-field/{eosda_id}"
+    headers = {
+        "x-api-key": api_key,
+        "Content-Type": "application/json"
+    }
+    # Parámetros de búsqueda: fechas y fuente sentinel2 por defecto
+    params = {
+        "date_start": date_start or "2024-01-01",
+        "date_end": date_end or time.strftime("%Y-%m-%d"),
+        "data_source": ["sentinel2"],
+        "params.max_cloud_cover_in_aoi": 50
+    }
+    payload = {"params": params}
+    try:
+        # 1. Lanzar búsqueda de escenas
+        resp = requests.post(search_url, json=payload, headers=headers, timeout=20)
+        if resp.status_code == 403:
+            logger.error(f"Permiso denegado por EOSDA (403 Forbidden): {resp.text}")
+            return Response({
+                "error": "Permiso denegado por EOSDA (403 Forbidden). Verifica que el campo (eosda_id) exista, pertenezca a tu cuenta y que tu API Key tenga acceso a la búsqueda de escenas. Si el problema persiste, revisa tu plan EOSDA o contacta soporte.",
+                "detalle": resp.text
+            }, status=403)
+        if resp.status_code not in (200, 201):
+            logger.error(f"Error lanzando búsqueda de escenas EOSDA: {resp.status_code} {resp.text}")
+            return Response({
+                "error": f"Error lanzando búsqueda de escenas EOSDA: {resp.text}",
+                "codigo": resp.status_code
+            }, status=502)
+        search_data = resp.json()
+        request_id = search_data.get("request_id")
+        # Si no hay request_id pero hay escenas en 'result', devolverlas directamente (caso especial de EOSDA)
+        if not request_id and search_data.get("result"):
+            logger.info("EOSDA devolvió escenas directamente en 'result', sin request_id.")
+            scenes = search_data.get("result", [])
+            scenes_sorted = sorted(scenes, key=lambda s: s.get("date", ""), reverse=True)
+            return Response({"scenes": scenes_sorted, "request_id": None}, status=200)
+        logger.info(f"EOSDA request_id recibido: {request_id}")
+        print(f"EOSDA request_id recibido: {request_id}")
+        if not request_id:
+            logger.error(f"No se recibió request_id de EOSDA: {search_data}")
+            return Response({"error": "No se recibió request_id de EOSDA.", "search_data": search_data}, status=502)
+        # 2. Polling para obtener resultados (máx 5 intentos)
+        result_url = f"https://api-connect.eos.com/scene-search/for-field/{eosda_id}/{request_id}"
+        scenes = []
+        for _ in range(5):
+            try:
+                result_resp = requests.get(result_url, headers=headers, timeout=20)
+            except Exception as e:
+                logger.error(f"Error de conexión con EOSDA (polling): {str(e)}")
+                return Response({"error": f"Error de conexión con EOSDA (polling): {str(e)}"}, status=502)
+            if result_resp.status_code == 403:
+                logger.error(f"Permiso denegado al consultar resultados de escenas EOSDA (403 Forbidden): {result_resp.text}")
+                return Response({
+                    "error": "Permiso denegado al consultar resultados de escenas EOSDA (403 Forbidden). Verifica tu API Key y el ownership del campo.",
+                    "detalle": result_resp.text
+                }, status=403)
+            if result_resp.status_code == 200:
+                result_data = result_resp.json()
+                scenes = result_data.get("scenes", [])
+                if scenes:
+                    break
+            time.sleep(2)
+        if not scenes:
+            logger.warning(f"No se encontraron escenas para el field {eosda_id} en EOSDA.")
+            return Response({"scenes": [], "request_id": request_id}, status=200)
+        # Ordenar por fecha descendente y devolver todas para el modal
+        scenes_sorted = sorted(scenes, key=lambda s: s.get("date", ""), reverse=True)
+        return Response({"scenes": scenes_sorted, "request_id": request_id}, status=200)
+    except Exception as e:
+        logger.error(f"Error de conexión con EOSDA: {str(e)}")
+        return Response({"error": f"Error de conexión con EOSDA: {str(e)}"}, status=502)
 
 def parcels_dashboard(request):
     """
@@ -265,3 +279,76 @@ def parcels_dashboard(request):
         'SENTINEL_NDMI_WMTS': getattr(settings, 'SENTINEL_NDMI_WMTS', None),
     }
     return render(request, 'parcels/parcels-dashboard.html', context)
+
+# Utilidad para obtener/cachar NDVI/NDMI de EOSDA por escena
+
+def fetch_eosda_scene_ndvi(parcel, scene_id, index_type, date, **kwargs):
+    """
+    Función que consulta la API de EOSDA para obtener los datos NDVI/NDMI de una escena específica.
+    Retorna un dict con metadata, image_url, raw_response, date.
+    """
+    import requests
+    from django.conf import settings
+    # Aquí deberías construir la URL y los headers según la documentación de EOSDA para renderizar la escena
+    # Este ejemplo asume que tienes el endpoint y los parámetros correctos
+    api_key = settings.EOSDA_API_KEY
+    # Ejemplo de endpoint (ajusta según tu integración real)
+    render_url = f"https://api-connect.eos.com/v1/scene/{scene_id}/render/{index_type.lower()}"
+    headers = {
+        "x-api-key": api_key,
+        "Content-Type": "application/json"
+    }
+    try:
+        resp = requests.get(render_url, headers=headers, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
+        # Suponiendo que la respuesta tiene 'image_url' y 'metadata'
+        return {
+            'metadata': data.get('metadata'),
+            'image_url': data.get('image_url'),
+            'raw_response': data,
+            'date': date
+        }
+    except Exception as e:
+        # Puedes loggear el error si lo deseas
+        return None
+
+# Ejemplo de uso en una vista:
+# (Puedes adaptar esto a tu endpoint real de renderizado NDVI/NDMI)
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def get_ndvi_scene_cached(request):
+    """
+    Endpoint que retorna los datos NDVI/NDMI de una escena, usando cache si existe.
+    Recibe: parcel_id, scene_id, index_type, date
+    """
+    parcel_id = request.data.get("parcel_id")
+    scene_id = request.data.get("scene_id")
+    index_type = request.data.get("index_type", "NDVI")
+    date = request.data.get("date")
+    if not (parcel_id and scene_id and index_type and date):
+        return Response({"error": "Faltan parámetros obligatorios (parcel_id, scene_id, index_type, date)."}, status=400)
+    try:
+        parcel = Parcel.objects.get(id=parcel_id)
+    except Parcel.DoesNotExist:
+        return Response({"error": "Parcela no encontrada."}, status=404)
+    # Buscar en cache o pedir a EOSDA
+    cache_obj, created = ParcelSceneCache.get_or_create_cache(
+        parcel=parcel,
+        scene_id=scene_id,
+        index_type=index_type,
+        date=date,
+        fetch_func=fetch_eosda_scene_ndvi,
+
+    )
+    if not cache_obj:
+        return Response({"error": "No se pudo obtener la escena de EOSDA."}, status=502)
+    # Devuelve los datos cacheados o recién obtenidos
+    return Response({
+        "metadata": cache_obj.metadata,
+        "image_url": cache_obj.image_url,
+        "date": str(cache_obj.date),
+        "index_type": cache_obj.index_type,
+        "from_cache": not created,
+        "raw_response": cache_obj.raw_response
+    }, status=200)

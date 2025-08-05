@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movimientos de Inventario | Agrotech</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        body { background: #fff; }
+        .table thead th { background: #e9ecef; }
+        #main-content { margin-top: 110px !important; }
+        .movements-section { margin-bottom: 2.5rem; }
+        .movements-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem; }
+        .movements-btn { margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <div id="topbar-container"></div>
+    <div id="left-sidebar"></div>
+    <div id="main-content" class="container mt-5">
+        <h2 class="mb-4"><i class="fa fa-exchange-alt"></i> Movimientos de Inventario</h2>
+        <div class="movements-section">
+            <div class="movements-title">
+                <button class="btn btn-primary btn-sm movements-btn float-end" id="btnNewMovement"><i class="fa fa-plus"></i> Registrar Movimiento</button>
+            </div>
+            <table class="table table-striped" id="movementTable">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Tipo</th>
+                        <th>Activo</th>
+                        <th>Cantidad</th>
+                        <th>Origen</th>
+                        <th>Destino</th>
+                        <th>Usuario</th>
+                        <th>Motivo</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Datos dinámicos -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div id="footer-container"></div>
+    <div id="righsidebar"></div>
+    <div id="vendorjs"></div>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/inventario/movements.js"></script>
+    <script type="module">
+        import { loadLayoutComponents } from '/static/js/load_components.js';
+        const components = {
+            "topbar-container": "/templates/partials/horizontal-nav.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "righsidebar": "/templates/partials/right-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
+        };
+        loadLayoutComponents(components);
+    </script>
+
+    <!-- Modal Movimiento -->
+    <div class="modal fade" id="movementModal" tabindex="-1" aria-labelledby="movementModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <form id="movementForm" class="modal-content" enctype="multipart/form-data">
+          <div class="modal-header">
+            <h5 class="modal-title" id="movementModalLabel">Registrar Movimiento</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="movementId">
+            <div class="mb-2">
+              <label for="movementType" class="form-label">Tipo de movimiento</label>
+              <select id="movementType" name="movement_type" class="form-select" required>
+                <option value="entrada">Entrada</option>
+                <option value="salida">Salida</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="ajuste">Ajuste</option>
+              </select>
+            </div>
+            <div class="mb-2">
+              <label for="movementAssetType" class="form-label">Tipo de activo</label>
+              <select id="movementAssetType" name="content_type" class="form-select" required>
+                <!-- Opciones dinámicas: insumo, maquinaria, herramienta, etc. -->
+              </select>
+            </div>
+            <div class="mb-2">
+              <label for="movementAsset" class="form-label">Activo</label>
+              <select id="movementAsset" name="object_id" class="form-select" required>
+                <!-- Opciones dinámicas según tipo -->
+              </select>
+            </div>
+            <div class="mb-2"><input type="number" id="movementQuantity" name="quantity" class="form-control" placeholder="Cantidad" required min="0.01" step="0.01"></div>
+            <div class="mb-2"><input type="number" id="movementUnitValue" name="unit_value" class="form-control" placeholder="Valor unitario" min="0" step="0.01"></div>
+            <div class="mb-2"><input type="text" id="movementOrigin" name="origin_location" class="form-control" placeholder="Ubicación/Almacén origen"></div>
+            <div class="mb-2"><input type="text" id="movementDestination" name="destination_location" class="form-control" placeholder="Ubicación/Almacén destino"></div>
+            <div class="mb-2"><input type="text" id="movementUser" name="user" class="form-control" placeholder="Usuario responsable"></div>
+            <div class="mb-2"><input type="text" id="movementReason" name="reason" class="form-control" placeholder="Motivo"></div>
+            <div class="mb-2">
+              <label for="movementDocument" class="form-label">Documento adjunto</label>
+              <input type="file" id="movementDocument" name="document" class="form-control" accept="application/pdf,image/*">
+            </div>
+            <div class="mb-2"><textarea id="movementNotes" name="notes" class="form-control" placeholder="Notas"></textarea></div>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+</body>
+</html>

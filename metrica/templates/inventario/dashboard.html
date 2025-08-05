@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Inventario | Agrotech</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        body { background: #f8fafc; }
+        .table thead th { background: #e9ecef; }
+    </style>
+</head>
+<body>
+    <div id="left-sidebar"></div>
+    <div id="topbar-container"></div>
+    <div id="main-content" class="container mt-5" style="margin-top: 90px;">
+        <h2 class="mb-4"><i class="fa fa-warehouse"></i> Dashboard de Inventario</h2>
+        <div class="mb-3 text-end">
+            <button class="btn btn-primary" onclick="window.location.href='/templates/vertical_base.html'">
+                <i class="fa fa-arrow-left"></i> Volver al Dashboard
+            </button>
+            <a href="/inventario/almacenes/" class="btn btn-success"><i class="fa fa-warehouse"></i> Almacenes</a>
+            <a href="/inventario/insumos/" class="btn btn-primary"><i class="fa fa-boxes"></i> Insumos</a>
+            <a href="/inventario/movimientos/" class="btn btn-warning"><i class="fa fa-exchange-alt"></i> Movimientos</a>
+            <a href="/inventario/maquinaria/" class="btn btn-info"><i class="fa fa-tractor"></i> Maquinaria</a>
+        </div>
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card text-bg-success mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Almacenes</h5>
+                        <p class="card-text" id="dashboardWarehouseCount">-</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-bg-primary mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Insumos</h5>
+                        <p class="card-text" id="dashboardSupplyCount">-</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-bg-warning mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Movimientos</h5>
+                        <p class="card-text" id="dashboardMovementCount">-</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card text-bg-info mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title">Maquinaria</h5>
+                        <p class="card-text" id="dashboardMachineryCount">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-4">
+            <div class="col">
+                <h4>Resumen de Stock por Almacén</h4>
+                <div id="dashboardStockTableWrapper">
+                    <table class="table table-striped" id="dashboardStockTable">
+                        <thead>
+                            <tr>
+                                <th>Almacén</th>
+                                <th>Insumo</th>
+                                <th>Cantidad</th>
+                                <th>Unidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Datos dinámicos -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/inventario/dashboard-inventario.js"></script>
+    <script type="module">
+        import { loadLayoutComponents } from '/static/js/load_components.js';
+        const components = {
+            "topbar-container": "/templates/partials/horizontal-nav.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "righsidebar": "/templates/partials/right-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
+        };
+        loadLayoutComponents(components);
+    </script>
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!-- Machinery List - 100% frontend, datos cargados por JS vía DRF -->
+<div class="container mt-4">
+    <h3 class="mb-3"><i class="fa fa-cogs"></i> Maquinaria</h3>
+    <div class="mb-3 text-end">
+        <button class="btn btn-success" id="btnNuevaMaquinaria"><i class="fa fa-plus"></i> Nueva Maquinaria</button>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <table class="table table-hover" id="tablaMaquinaria">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Tipo</th>
+                        <th>Marca</th>
+                        <th>Modelo</th>
+                        <th>Serial</th>
+                        <th>Proveedor</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Maquinaria se carga dinámicamente -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<!-- Modal Maquinaria -->
+<div class="modal fade" id="maquinariaModal" tabindex="-1" aria-labelledby="maquinariaModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="maquinariaModalLabel">Nueva Maquinaria</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <form id="maquinariaForm">
+          <input type="hidden" id="maquinariaId">
+          <div class="mb-3">
+            <label for="nombreMaquinaria" class="form-label">Nombre</label>
+            <input type="text" class="form-control" id="nombreMaquinaria" required>
+          </div>
+          <div class="mb-3">
+            <label for="tipoMaquinaria" class="form-label">Tipo</label>
+            <input type="text" class="form-control" id="tipoMaquinaria" required>
+          </div>
+          <div class="mb-3">
+            <label for="marcaMaquinaria" class="form-label">Marca</label>
+            <input type="text" class="form-control" id="marcaMaquinaria">
+          </div>
+          <div class="mb-3">
+            <label for="modeloMaquinaria" class="form-label">Modelo</label>
+            <input type="text" class="form-control" id="modeloMaquinaria">
+          </div>
+          <div class="mb-3">
+            <label for="serialMaquinaria" class="form-label">Serial/Placa</label>
+            <input type="text" class="form-control" id="serialMaquinaria">
+          </div>
+          <div class="mb-3">
+            <label for="proveedorMaquinaria" class="form-label">Proveedor</label>
+            <select class="form-select" id="proveedorMaquinaria"></select>
+          </div>
+          <div class="text-end">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-success">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/static/js/inventario/maquinaria.js"></script>
+

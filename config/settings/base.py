@@ -1,6 +1,10 @@
 """
 Base settings to build other settings files upon.
 """
+
+import os
+os.environ["GDAL_LIBRARY_PATH"] = "/opt/homebrew/opt/gdal/lib/libgdal.dylib"
+os.environ["GEOS_LIBRARY_PATH"] = "/opt/homebrew/opt/geos/lib/libgeos_c.dylib"
 from pathlib import Path
 import environ
 
@@ -55,8 +59,9 @@ DATABASES = {
     }
 }
 
-# Propia de la documentacion de django-tenants para manejar datos geoespaciales en PostgreSQL 
-ORIGINAL_BACKEND = "django.contrib.gis.db.backends.postgis"
+
+# GIS deshabilitado temporalmente para desarrollo sin dependencias nativas
+# ORIGINAL_BACKEND = "django.contrib.gis.db.backends.postgis"
 
 
 # El ATOMIC_REQUESTS si esta activo ayuda a que dentro de las peticiones si ocurre un error durante la misma, todos los cambios que se hicieron en la base de datos se revertiran.
@@ -77,25 +82,22 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 
 
-# Cesium Token
-import os
-CESIUM_ACCESS_TOKEN = os.getenv('CESIUM_ACCESS_TOKEN', 'TU_CESIUM_ACCESS_TOKEN')
+
+# Cesium Token (usar environ para leer correctamente .env)
+CESIUM_ACCESS_TOKEN = env("CESIUM_ACCESS_TOKEN", default="TU_CESIUM_ACCESS_TOKEN")
 
 
-#OpenWeather API
-WEATHER_API_KEY = os.getenv('WEATHER_API_KEY', 'TU_WEATHER_API_KEY') #es un valor por defecto que se usa solo si no encuentra la variable de entorno. Este valor por defecto es un placeholder — útil para que el proyecto no falle localmente si no hay .env cargado.  
 
-#SENTINEL_NDVI_WMTS
-SENTINEL_NDVI_WMTS = os.getenv('SENTINEL_NDVI_WMTS') #es un valor por defecto que se usa solo si no encuentra la variable de entorno. Este valor por defecto es un placeholder — útil para que el proyecto no falle localmente si no hay .env cargado.
-SENTINEL_NDMI_WMTS = os.getenv('SENTINEL_NDMI_WMTS')
+# Eliminado: OpenWeather API. Ahora los datos climáticos se obtienen de EOSDA.
 
 
-# SENTINEL_API_KEY
-SENTINEL_API_KEY = os.getenv('SENTINEL_API_KEY', 'TU_SENTINEL_API_KEY')
+# EOSDA API KEY
 
+# EOSDA API KEY
+EOSDA_API_KEY = os.getenv('EOSDA_API_KEY', 'TU_EOSDA_API_KEY') # Valor por defecto solo para desarrollo local, reemplaza en .env
 
-# SENTINEL_CONFIGURATION_ID
-SENTINEL_CONFIGURATION_ID = os.getenv('SENTINEL_CONFIGURATION_ID', 'TU_CONFIGURATION_ID')
+# EOSDA DATASET ID (por defecto Sentinel-2 L2A)
+EOSDA_DATASET_ID = os.getenv('EOSDA_DATASET_ID', 'S2L2A')
 
 
 # APPS
@@ -107,8 +109,8 @@ SHARED_APPS = [
     "corsheaders",
     'django.contrib.contenttypes',
     "django.contrib.auth",
-    'django.contrib.gis',
-    'rest_framework_gis',
+    'django.contrib.gis',  # GIS deshabilitado temporalmente
+    'rest_framework_gis', # GIS deshabilitado temporalmente
     "django.contrib.sessions",
     "django.contrib.sites",
     "django.contrib.messages",
@@ -117,8 +119,8 @@ SHARED_APPS = [
     "django.forms",
     "base_agrotech", 
     "RRHH",
-    "fields",
     "parcels",
+    "labores",  # Gestión de labores agrícolas
     
     # Aplicaciones de terceros
     "crispy_forms",
@@ -127,10 +129,12 @@ SHARED_APPS = [
     "allauth.account",
     "allauth.socialaccount",
     "django_browser_reload",
-    "leaflet",
+    # "leaflet",  # Deshabilitado para evitar dependencias GIS
     
     # Tus aplicaciones locales que deben ser accesibles por todos los tenants
     "metrica.users.apps.UsersConfig",  
+    "inventario",  # Registro de la app de inventario
+    "crop",  # Gestión de cultivos
 ]
 
 TENANT_APPS = [
@@ -143,8 +147,10 @@ TENANT_APPS = [
     "simple_history",
     "base_agrotech",
     "RRHH",
-    "fields",
     "parcels",
+    "inventario",
+    "labores",  # Gestión de labores agrícolas
+    "crop",  # Gestión de cultivos
 ]
 
 # Combina las aplicaciones compartidas y específicas de los tenants
@@ -152,15 +158,16 @@ INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in S
 
 
 CORS_ALLOW_ALL_ORIGINS = False
+# Permite el envío de cookies/tokens JWT de sesión entre frontend y backend
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "http://prueba.localhost:3000",
-    "http://prueba.localhost:8000",
-]
+# Permitimos solo orígenes locales seguros (React, Django, etc.) para evitar exposición del API a todo el mundo.
+# Usamos expresiones regulares para aceptar subdominios tipo tenant1.localhost:3000 y acceso directo a localhost:3000/8000
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^http://[a-z0-9\-]+\\.localhost:3000$",
-    r"^http://[a-z0-9\-]+\\.localhost:8000$",
+    r"^https?://[\w\-]+\.localhost:3000$",  # Por ejemplo: tenant1.localhost:3000
+    r"^https?://localhost:3000$",             # También acceso directo
+    r"^https?://[\w\-]+\.localhost:8000$",  # Por si acceden directo al backend
 ]
+# NOTA: No se usa CORS_ALLOW_ALL_ORIGINS=True para evitar riesgos de seguridad y exposición del API key de EOSDA.
 
 
 LOGIN_REDIRECT_URL = "/authentication/dashboard/"  # Redirige al dashboard después de login
@@ -353,16 +360,20 @@ ACCOUNT_ADAPTER = "metrica.users.adapters.AccountAdapter"
 # https://django-allauth.readthedocs.io/en/latest/configuration.html
 SOCIALACCOUNT_ADAPTER = "metrica.users.adapters.SocialAccountAdapter"
 
+# EOSDA API CONFIG
+EOSDA_BASE_URL = env.str("EOSDA_BASE_URL", default="https://api-connect.eos.com/field-management")
+EOSDA_API_KEY = env.str("EOSDA_API_KEY", default="")
+EOSDA_API_URL = EOSDA_BASE_URL  # Para compatibilidad con el modelo
 # Your stuff...
 # ------------------------------------------------------------------------------
 
 
-LEAFLET_CONFIG = {
-    'DEFAULT_CENTER': (4.6097, -74.0817),  # Latitud y longitud inicial (ej: Bogotá, Colombia)
-    'DEFAULT_ZOOM': 12,
-    'MIN_ZOOM': 3,
-    'MAX_ZOOM': 18,
-}
+# LEAFLET_CONFIG = {
+#     'DEFAULT_CENTER': (4.6097, -74.0817),  # Latitud y longitud inicial (ej: Bogotá, Colombia)
+#     'DEFAULT_ZOOM': 12,
+#     'MIN_ZOOM': 3,
+#     'MAX_ZOOM': 18,
+# }
 
 
 from datetime import timedelta

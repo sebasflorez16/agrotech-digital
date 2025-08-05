@@ -1,0 +1,166 @@
+<!-- movements_list.html - Gestión profesional de movimientos de inventario -->
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Movimientos de Inventario</title>
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/static/css/fontawesome.min.css">
+    <style>
+        .modal.show { display: block; background: rgba(0,0,0,0.2); }
+        .modal-dialog { max-width: 600px; }
+        .table th, .table td { vertical-align: middle; }
+    </style>
+</head>
+<body>
+    <!-- Estructura recomendada para visualización consistente -->
+    <div id="topbar-container"></div>
+    <div id="left-sidebar"></div>
+    <button id="mobileToggle" aria-label="Abrir menú lateral" style="position:fixed;top:18px;left:18px;z-index:1100;background:#2C3E50;border:none;border-radius:8px;padding:10px 12px;display:none;box-shadow:0 2px 8px rgba(44,62,80,0.10);color:#fff;">
+        <span style="display:block;width:24px;height:3px;background:#fff;margin:4px 0;border-radius:2px;"></span>
+        <span style="display:block;width:24px;height:3px;background:#fff;margin:4px 0;border-radius:2px;"></span>
+        <span style="display:block;width:24px;height:3px;background:#fff;margin:4px 0;border-radius:2px;"></span>
+    </button>
+    <div id="main-content" class="container mt-5" style="margin-top: 90px;">
+        <h2 class="mb-4"><i class="fa fa-exchange-alt"></i> Movimientos de Inventario</h2>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <button class="dashboard-nav-btn" onclick="window.location.href='/templates/inventario/dashboard_inventario.html'">
+                <i class="fa fa-arrow-left"></i> Volver al Dashboard
+            </button>
+            <button class="btn btn-success d-flex align-items-center gap-2 shadow-sm" id="btnNewMovement">
+                <i class="fa fa-plus-circle"></i> Nuevo movimiento
+            </button>
+        </div>
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover align-middle mb-0" id="movementTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Activo</th>
+                                <th>Cantidad</th>
+                                <th>Origen</th>
+                                <th>Destino</th>
+                                <th>Usuario</th>
+                                <th>Motivo</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para crear/editar movimiento -->
+    <div class="modal fade" id="movementModal" tabindex="-1" aria-labelledby="movementModalLabel" aria-hidden="true" style="display:none;">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="movementModalLabel">Registrar Movimiento</h5>
+            <button type="button" class="btn-close" onclick="closeMovementModal()" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <form id="movementForm">
+              <input type="hidden" id="movementId" name="id">
+              <div class="mb-3">
+                <label for="movementType" class="form-label">Tipo de movimiento</label>
+                <select id="movementType" name="movement_type" class="form-select" required>
+                  <option value="entrada">Entrada</option>
+                  <option value="salida">Salida</option>
+                  <option value="transferencia">Transferencia</option>
+                  <option value="ajuste">Ajuste</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="movementAssetType" class="form-label">Tipo de activo</label>
+                <select id="movementAssetType" class="form-select" required></select>
+              </div>
+              <div class="mb-3">
+                <label for="movementAsset" class="form-label">Activo</label>
+                <select id="movementAsset" name="asset_id" class="form-select" required></select>
+              </div>
+              <div class="mb-3">
+                <label for="movementQuantity" class="form-label">Cantidad</label>
+                <input type="number" step="0.01" id="movementQuantity" name="quantity" class="form-control" required>
+              </div>
+              <div class="mb-3">
+                <label for="movementUnitValue" class="form-label">Valor unitario</label>
+                <input type="number" step="0.01" id="movementUnitValue" name="unit_value" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label for="movementOrigin" class="form-label">Origen</label>
+                <input type="text" id="movementOrigin" name="origin_location" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label for="movementDestination" class="form-label">Destino</label>
+                <input type="text" id="movementDestination" name="destination_location" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label for="movementUser" class="form-label">Usuario</label>
+                <input type="text" id="movementUser" name="user" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label for="movementReason" class="form-label">Motivo</label>
+                <input type="text" id="movementReason" name="reason" class="form-control">
+              </div>
+              <div class="mb-3">
+                <label for="movementNotes" class="form-label">Notas</label>
+                <textarea id="movementNotes" name="notes" class="form-control"></textarea>
+              </div>
+              <div class="mb-3">
+                <label for="movementDocument" class="form-label">Documento adjunto</label>
+                <input type="file" id="movementDocument" name="document" class="form-control">
+              </div>
+              <button type="submit" class="btn btn-success">Guardar</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Modal de detalle profesional -->
+    <div class="modal fade" id="movementDetailModal" tabindex="-1" aria-labelledby="movementDetailModalLabel" aria-hidden="true" style="display:none;">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="movementDetailModalLabel">Detalle de Movimiento</h5>
+            <button type="button" class="btn-close" onclick="closeMovementDetailModal()" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body" id="movementDetailBody">
+            <!-- Aquí se renderiza el detalle -->
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <script src="/static/js/inventario/movements.js"></script>
+    <div id="footer-container"></div>
+    <div id="righsidebar"></div>
+    <div id="vendorjs"></div>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script type="module">
+        import { loadLayoutComponents } from '/static/js/load_components.js';
+        const components = {
+            "topbar-container": "/templates/partials/horizontal-nav.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "righsidebar": "/templates/partials/right-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
+        };
+        loadLayoutComponents(components);
+        // Asegura que el topbar se muestre correctamente
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                const topbar = document.getElementById('topbar-container');
+                if (topbar) topbar.style.display = 'block';
+            }, 400);
+        });
+    </script>
+    
+</body>
+</html>
+

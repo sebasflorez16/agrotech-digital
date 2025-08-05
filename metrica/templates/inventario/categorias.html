@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Categorías y Subcategorías | Inventario</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="/static/css/icons.min.css" rel="stylesheet" />
+    <style>
+        body { background: #fff; }
+        .table thead th { background: #f3f6fa; }
+        .modal-header { background: #f8fafc; }
+        .action-btns .btn { margin-right: 0.3rem; }
+    </style>
+</head>
+<body>
+    <div id="left-sidebar"></div>
+    <div id="topbar-container"></div>
+    <div id="main-content" class="container mt-5" style="margin-top: 90px;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="mb-0"><i class="fa fa-tags"></i> Gestión de Categorías y Subcategorías</h2>
+            <button class="btn btn-outline-secondary d-flex align-items-center gap-2" onclick="window.location.href='/templates/inventario/dashboard_inventario.html'"
+                <i class="fa fa-arrow-left"></i> Volver al Inventario
+            </button>
+        </div>
+        <div class="mb-3 text-end">
+            <button class="btn btn-success" id="btnNuevaCategoria"><i class="fa fa-plus"></i> Nueva Categoría</button>
+            <button class="btn btn-primary" id="btnNuevaSubcategoria"><i class="fa fa-plus"></i> Nueva Subcategoría</button>
+        </div>
+        <div class="row">
+            <div class="col-md-6">
+                <h5>Categorías</h5>
+                <table class="table table-bordered" id="tablaCategorias">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <h5>Subcategorías</h5>
+                <table class="table table-bordered" id="tablaSubcategorias">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Categoría</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Categoría -->
+    <div class="modal fade" id="modalCategoria" tabindex="-1" aria-hidden="true" inert>
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Nueva Categoría</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <form id="formCategoria">
+              <div class="mb-3">
+                <label for="categoriaNombre" class="form-label">Nombre</label>
+                <input type="text" class="form-control" id="categoriaNombre" required>
+              </div>
+              <div class="mb-3">
+                <label for="categoriaDescripcion" class="form-label">Descripción</label>
+                <textarea class="form-control" id="categoriaDescripcion"></textarea>
+              </div>
+              <input type="hidden" id="categoriaId">
+              <button type="submit" class="btn btn-success">Guardar</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Subcategoría -->
+    <div class="modal fade" id="modalSubcategoria" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Nueva Subcategoría</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <form id="formSubcategoria">
+              <div class="mb-3">
+                <label for="subcategoriaNombre" class="form-label">Nombre</label>
+                <input type="text" class="form-control" id="subcategoriaNombre" required>
+              </div>
+              <div class="mb-3">
+                <label for="subcategoriaCategoria" class="form-label">Categoría</label>
+                <select class="form-select" id="subcategoriaCategoria" required></select>
+              </div>
+              <div class="mb-3">
+                <label for="subcategoriaDescripcion" class="form-label">Descripción</label>
+                <textarea class="form-control" id="subcategoriaDescripcion"></textarea>
+              </div>
+              <input type="hidden" id="subcategoriaId">
+              <button type="submit" class="btn btn-primary">Guardar</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="footer-container"></div>
+    <div id="righsidebar"></div>
+    <div id="vendorjs"></div>
+    <script src="/static/js/jquery.min.js"></script>
+
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="/static/js/inventario/categorias.js"></script>
+    <script type="module">
+        import { loadLayoutComponents } from '/static/js/load_components.js';
+        const components = {
+            "topbar-container": "/templates/partials/horizontal-nav.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "righsidebar": "/templates/partials/right-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
+        };
+        loadLayoutComponents(components);
+    </script>
+</body>
+</html>

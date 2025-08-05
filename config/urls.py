@@ -11,8 +11,11 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path("api/authentication/", include("authentication.urls", namespace="authentication")),
 
+
     # 🔹 Administración
     path("admin/", admin.site.urls),
+    # 🔹 API global
+    path("", include("api_urls")),
 
     # 🔹 Gestión de usuarios
     path("users/", include("metrica.users.urls", namespace="users")),
@@ -25,9 +28,14 @@ urlpatterns = [
 
     # 🔹 Módulos principales del sistema
     path("api/RRHH/", include("RRHH.routers")),         # Recursos Humanos para posiciones y departamentos
-    path("fields/", include("fields.urls", namespace="fields")),   # Gestión de campos
+    path("api/parcels/", include("parcels.urls")),  # Endpoints personalizados/proxy EOSDA bajo /api/parcels/ (¡PRIMERO para evitar que el router tape rutas manuales!)
     path("api/parcels/", include("parcels.routers", namespace="parcels")),# Gestión de parcelas
-    path("parcels/", include("parcels.urls", namespace="parcels")),  # Dashboard de parcelas
+    path("parcels/", include("parcels.urls")),  # Dashboard de parcelas
+    path("api/labores/", include("labores.routers", namespace="labores")),  # Gestión de labores agrícolas
+    path("api/inventario/", include("inventario.routers")),  # Gestión de inventario y almacenes
+    # Reporte de inventario por almacén (HTML y PDF)
+    path("inventario/", include("inventario.urls")),
+    path("api/crop/", include("crop.routers", namespace="crop")),  # Gestión de cultivos
 
     # 🔹 Interfaz y páginas
     path("pages/", include("pages.urls", namespace="pages")),      # Páginas estáticas

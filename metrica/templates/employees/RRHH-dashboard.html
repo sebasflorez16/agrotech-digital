@@ -16,8 +16,8 @@
 <body>
     <div id="left-sidebar"></div>
     <div id="topbar-container"></div>
-   
-    <div class="container mt-5">
+
+    <div id="main-content" class="container mt-5" style="margin-top: 90px;">
         <!-- Título principal del dashboard -->
         <h1 class="mb-4">Dashboard - Recursos Humanos</h1>
     
@@ -306,7 +306,17 @@
     </script>
     
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <script src="/static/js/load_components.js"></script>
+    <script type="module">
+        import { loadLayoutComponents } from '/static/js/load_components.js';
+        const components = {
+            "topbar-container": "/templates/partials/horizontal-nav.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "righsidebar": "/templates/partials/right-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
+        };
+        loadLayoutComponents(components);
+    </script>
     <script src="/static/js/employees/list-handler.js"></script>
     <script src="/static/js/employees/payment-handler.js"></script>
     

@@ -1,0 +1,17 @@
+2025-07-26 09:13:10.022 -05 [2158] LOG:  starting PostgreSQL 13.3 on aarch64-apple-darwin20.0.0, compiled by clang version 11.1.0, 64-bit
+2025-07-26 09:13:10.023 -05 [2158] LOG:  listening on IPv6 address "::1", port 5432
+2025-07-26 09:13:10.023 -05 [2158] LOG:  listening on IPv4 address "127.0.0.1", port 5432
+2025-07-26 09:13:10.024 -05 [2158] LOG:  listening on Unix socket "/tmp/.s.PGSQL.5432"
+2025-07-26 09:13:10.025 -05 [2159] LOG:  database system was shut down at 2025-07-26 09:12:11 -05
+2025-07-26 09:13:10.027 -05 [2158] LOG:  database system is ready to accept connections
+2025-07-26 09:13:29.562 -05 [2169] FATAL:  role "postgres" does not exist
+2025-07-26 09:13:29.566 -05 [2170] FATAL:  role "postgres" does not exist
+2025-07-26 09:13:52.140 -05 [2185] FATAL:  role "postgres" does not exist
+2025-07-26 09:14:36.540 -05 [2204] FATAL:  database "agrotech" does not exist
+2025-07-26 09:14:52.150 -05 [2216] ERROR:  role "postgres" already exists
+2025-07-26 09:14:52.150 -05 [2216] STATEMENT:  CREATE ROLE postgres SUPERUSER CREATEDB CREATEROLE INHERIT LOGIN;
+2025-07-26 09:15:00.649 -05 [2221] FATAL:  database "agrotech" does not exist
+2025-07-26 11:17:34.911 -05 [2158] LOG:  received smart shutdown request
+2025-07-26 11:17:34.913 -05 [2158] LOG:  background worker "logical replication launcher" (PID 2165) exited with exit code 1
+2025-07-26 11:17:34.913 -05 [2160] LOG:  shutting down
+2025-07-26 11:17:34.929 -05 [2158] LOG:  database system is shut down

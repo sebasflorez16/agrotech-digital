@@ -11,6 +11,8 @@ async function fetchParcelSummary() {
             return;
         }
 
+        // NOTA: Usamos window.location.hostname para que la URL sea dinámica y soporte multi-tenant.
+        // Así, cada tenant accede a su propio subdominio/API sin hardcodear el host.
         const url = `http://${window.location.hostname}:8000/api/parcels/parcel/summary/`;
         const resp = await fetch(url, {
             headers: {

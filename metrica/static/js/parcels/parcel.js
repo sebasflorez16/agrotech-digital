@@ -36,25 +36,35 @@ function initializeCesium() {
     axiosInstance.get("/parcel/")
         .then(response => {
             const data = response.data;
-
-            // Asignar el token de Cesium
-            const cesiumToken = data.cesium_token || CESIUM_ACCESS_TOKEN;
+            const cesiumToken = data.cesium_token;
+            if (!cesiumToken) {
+                alert("No se recibió el token Cesium del backend. Contacta al administrador.");
+                console.error("Token Cesium faltante en la respuesta del backend.");
+                return;
+            }
             Cesium.Ion.defaultAccessToken = cesiumToken;
 
-            // Asignar el token de OpenWeather
-            const weatherApiKey = data.weather_api_key;
-
-            //Guardar en una variable global
-            window.WEATHER_API_KEY = weatherApiKey;
-
-            window.SENTINEL_NDVI_WMTS = data.sentinel_ndvi_wmts;
-
+            // Las URLs WMTS/TMS de EOSDA ahora deben apuntar al proxy backend para evitar CORS y proteger el token
             // Inicializar el visor de Cesium
+
+            // Inicializar el visor de Cesium ocultando controles nativos innecesarios
             viewer = new Cesium.Viewer('cesiumContainer', {
                 terrainProvider: Cesium.createWorldTerrain(), // Agrega relieve
-                baseLayerPicker: false, // Evita cambiar capas
+                baseLayerPicker: true, // Evita cambiar capas
                 shouldAnimate: true, // Habilita animaciones
-                sceneMode: Cesium.SceneMode.SCENE2D // Mostrar en 2D por defecto
+                sceneMode: Cesium.SceneMode.SCENE2D, // Mostrar en 2D por defecto
+                timeline: false, // Oculta el timeline
+                animation: false, // muestra el widget de animación
+                geocoder: true, // muestra la búsqueda
+                homeButton: false, // Oculta el botón home
+                infoBox: false, // Oculta el infoBox
+                sceneModePicker: true, // Muestra el selector de modo
+                selectionIndicator: false, // Oculta el indicador de selección
+                navigationHelpButton: false, // Oculta el botón de ayuda
+                navigationInstructionsInitiallyVisible: false, // Oculta instrucciones
+                fullscreenButton: false, // Oculta el botón fullscreen
+                vrButton: false, // Oculta el botón VR
+                creditContainer: document.createElement('div') // Oculta el logo de Cesium
             });
 
             // Asegurarse de que los controles de cámara estén habilitados
@@ -64,7 +74,6 @@ function initializeCesium() {
             controller.enableTranslate = true;
             controller.enableTilt = true;
             controller.enableLook = true;
-
 
             // Centrar el mapa en Colombia
             viewer.scene.camera.setView({
@@ -79,7 +88,6 @@ function initializeCesium() {
                     const coordinates = parcel.geometry.coordinates[0].map(coord =>
                         Cesium.Cartesian3.fromDegrees(coord[0], coord[1])
                     );
-
                     // Polígono transparente (solo borde)
                     viewer.entities.add({
                         name: parcel.properties.name || "Parcela sin nombre",
@@ -100,7 +108,6 @@ function initializeCesium() {
                     });
                 });
             }
-
             // 🔹 Agregar controles de dibujo
             setupDrawingTools(viewer);
         })
@@ -215,23 +222,28 @@ function savePolygon() {
         coordinates: [coordinates]
     };
 
-    // Enviar los datos al backend
+    // Enviar los datos al backend (POST crea también en EOSDA y retorna el id)
     axiosInstance.post("/parcel/", {
-        name: name,
-        description: description,
+        name,
+        description,
         field_type: fieldType,
         soil_type: soilType,
-        topography: topography,
+        topography,
         geom: geojson
     })
     .then(response => {
-        alert("Parcela guardada con éxito");
-        closeModal(); // Cerrar el modal
-        location.reload(); // Recargar la página para mostrar la nueva parcela
+        const data = response.data;
+        if (data.eosda_id) {
+            showInfoToast("Parcela guardada y sincronizada con EOSDA (ID: " + data.eosda_id + ")");
+        } else {
+            showErrorToast("Parcela guardada localmente, pero NO sincronizada con EOSDA.");
+        }
+        closeModal();
+        location.reload();
     })
     .catch(error => {
         console.error("Error al guardar la parcela:", error);
-        alert("Hubo un error al guardar la parcela. Revisa la consola para más detalles.");
+        showErrorToast("Hubo un error al guardar la parcela. Revisa la consola para más detalles.");
     });
 }
 
@@ -248,7 +260,7 @@ function loadParcels() {
     axiosInstance.get("/parcel/")
         .then(response => {
             console.log("Respuesta del servidor:", response);
-            const data = response.data.parcels.features || []; // Acceder a "features" dentro de "parcels"
+            const data = response.data.parcels || []; // Acceder directamente al array de parcelas
             console.log("Datos de parcelas:", data);
 
             const tableBody = document.getElementById("parcelTable").querySelector("tbody");
@@ -266,13 +278,15 @@ function loadParcels() {
 
             // Llenar la tabla con las parcelas
             data.forEach(parcel => {
+                // Si el backend envía propiedades directamente en el objeto
+                const props = parcel.properties || parcel; // Soporta ambos formatos
                 const row = document.createElement("tr");
                 row.innerHTML = `
-                    <td>${parcel.properties.name || "Sin nombre"}</td>
-                    <td>${parcel.properties.description || "Sin descripción"}</td>
-                    <td>${parcel.properties.field_type || "N/A"}</td>
-                    <td>${parcel.properties.soil_type || "N/A"}</td>
-                    <td>${parcel.properties.topography || "N/A"}</td>
+                    <td>${props.name || "Sin nombre"}</td>
+                    <td>${props.description || "Sin descripción"}</td>
+                    <td>${props.field_type || "N/A"}</td>
+                    <td>${props.soil_type || "N/A"}</td>
+                    <td>${props.topography || "N/A"}</td>
                     <td>
                         <button class="btn btn-info btn-sm" onclick="flyToParcel(${parcel.id})" title="Ver Parcela">
                             <i class="bi bi-eye"></i> Ver
@@ -297,7 +311,7 @@ function loadParcels() {
         });
 }
 
-import { showNDVIToggleButton, showNDMIToggleButton } from "./layers.js"; // Importar la función para mostrar el botón NDVI
+import { showErrorToast, showInfoToast, showNDVIToggleButton, showNDMIToggleButton } from "./layers.js";
 
 // Calcula el área de un polígono en coordenadas [lon, lat] (GeoJSON) en metros cuadrados
 function polygonAreaHectares(coords) {
@@ -382,7 +396,7 @@ function flyToParcel(parcelId) {
             if (entity.polyline.material && entity.polyline.material.color) {
                 color = entity.polyline.material.color.getValue().toCssColorString();
             }
-            // Amarillo (ancho 4) o verde oscuro (ancho 2 y color #145A32)
+            // Amarillo (ancho 4) o verde oscuro (ancho 2 y color #145A3)
             if (
                 (width === 4 && color === Cesium.Color.YELLOW.toCssColorString()) ||
                 (width === 2 && color === Cesium.Color.fromCssColorString('#145A32').toCssColorString())
@@ -396,46 +410,37 @@ function flyToParcel(parcelId) {
     axiosInstance.get(`/parcel/${parcelId}/`)
         .then(response => {
             const feature = response.data;
-
-            if (!feature.geometry || !feature.geometry.coordinates) {
-                throw new Error("La geometría de la parcela no es válida.");
+            // Soporta ambos formatos: GeoJSON o propiedades directas
+            let coordinates = [];
+            if (feature.geometry && feature.geometry.coordinates) {
+                coordinates = feature.geometry.coordinates[0].map(coord =>
+                    Cesium.Cartesian3.fromDegrees(coord[0], coord[1])
+                );
+            } else if (feature.geom && feature.geom.coordinates) {
+                coordinates = feature.geom.coordinates[0].map(coord =>
+                    Cesium.Cartesian3.fromDegrees(coord[0], coord[1])
+                );
+            } else {
+                console.error("La geometría de la parcela no es válida.");
+                alert("La parcela seleccionada no tiene geometría válida.");
+                return;
             }
 
-            // Obtener las coordenadas del centro de la parcela
-            const center = feature.geometry.coordinates[0][0];
-            const lat = center[1];
-            const lon = center[0];
-
-            const coordinates = feature.geometry.coordinates[0].map(coord =>
-                Cesium.Cartesian3.fromDegrees(coord[0], coord[1])
-            );
-
-            // Validar que las coordenadas sean válidas antes de actualizar window.positions
             if (coordinates.length < 3) {
                 console.error("La parcela seleccionada no tiene suficientes vértices para formar un polígono válido.");
                 alert("La parcela seleccionada no es válida. Por favor, verifica los datos.");
                 return;
             }
 
-            // Validar que las coordenadas estén dentro de un rango razonable (ejemplo: latitudes entre -90 y 90, longitudes entre -180 y 180)
-            const isValidCoordinates = coordinates.every(coord => {
-                const cartographic = Cesium.Cartographic.fromCartesian(coord);
-                const lon = Cesium.Math.toDegrees(cartographic.longitude);
-                const lat = Cesium.Math.toDegrees(cartographic.latitude);
-                return lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90;
-            });
-
-            if (!isValidCoordinates) {
-                console.error("La parcela seleccionada tiene coordenadas fuera de rango.");
-                alert("La parcela seleccionada tiene coordenadas inválidas. Por favor, verifica los datos.");
-                return;
-            }
-
-            // Actualizar window.positions con los vértices de la parcela seleccionada
             window.positions = coordinates;
 
             // Calcular área en hectáreas y mostrar en el cuadro de datos
-            const areaHect = polygonAreaHectares(feature.geometry.coordinates[0]);
+            let areaHect = 0;
+            if (feature.geometry && feature.geometry.coordinates) {
+                areaHect = polygonAreaHectares(feature.geometry.coordinates[0]);
+            } else if (feature.geom && feature.geom.coordinates) {
+                areaHect = polygonAreaHectares(feature.geom.coordinates[0]);
+            }
             const areaCell = document.getElementById("parcelAreaCell");
             if (areaCell) {
                 areaCell.textContent = `${areaHect.toLocaleString(undefined, {maximumFractionDigits: 2})} ha`;
@@ -486,9 +491,6 @@ function flyToParcel(parcelId) {
                 }
             });
 
-            // Obtener datos meteorológicos promedio
-            fetchWeatherData(lat, lon);
-
             // Resaltar en amarillo temporalmente (borde amarillo grueso)
             const highlighted = viewer.entities.add({
                 polyline: {
@@ -509,11 +511,130 @@ function flyToParcel(parcelId) {
                     }
                 });
             }, 3000);
-            
-            // Mostrar el botón NDVI
-            showNDVIToggleButton(viewer);
-            showWaterStressToggleButton(viewer);
-            showNDMIToggleButton(viewer); // Mostrar botón NDMI
+
+            // --- NUEVO: Solo cachear la lista de escenas, NO mostrar modal ---
+            if (!window.PARCEL_SCENES_CACHE) window.PARCEL_SCENES_CACHE = {};
+            window.SELECTED_PARCEL_ID = feature.id; // Guardar la parcela seleccionada globalmente
+            window.SELECTED_PARCEL_EOSDA_ID = feature.eosda_id || null; // Guardar el eosda_id globalmente
+            // Usar eosda_id como clave de cache si existe, si no usar id local
+            const cacheKey = feature.eosda_id || feature.id;
+            if (feature.eosda_id) {
+                if (!window.PARCEL_SCENES_CACHE[cacheKey]) {
+                    axiosInstance.post("/eosda-wmts-urls/", { eosda_id: feature.eosda_id })
+                        .then(resp => {
+                            if (resp.data && Array.isArray(resp.data.scenes) && resp.data.scenes.length > 0) {
+                                // Filtrar solo escenas con id y date válidos
+                                window.PARCEL_SCENES_CACHE[cacheKey] = resp.data.scenes.filter(s => s.id && s.date);
+                                if (window.PARCEL_SCENES_CACHE[cacheKey].length === 0) {
+                                    showErrorToast("No hay escenas satelitales válidas (con id y fecha) para esta parcela en EOSDA.");
+                                }
+                            } else {
+                                window.PARCEL_SCENES_CACHE[cacheKey] = [];
+                                showErrorToast("No hay escenas satelitales disponibles para esta parcela en EOSDA.");
+                            }
+                            setupNDVIToggleButton(viewer);
+                            showWaterStressToggleButton(viewer);
+                            showNDMIToggleButton(viewer);
+                        })
+                        .catch(err => {
+                            window.PARCEL_SCENES_CACHE[cacheKey] = [];
+                            showErrorToast("No se pudo obtener las escenas satelitales de EOSDA para esta parcela. Revisa la consola o la configuración del backend.");
+                            setupNDVIToggleButton(viewer);
+                            showWaterStressToggleButton(viewer);
+                            showNDMIToggleButton(viewer);
+                        });
+                } else {
+                    setupNDVIToggleButton(viewer);
+                    showWaterStressToggleButton(viewer);
+                    showNDMIToggleButton(viewer);
+                }
+            } else {
+                setupNDVIToggleButton(viewer);
+                showWaterStressToggleButton(viewer);
+                showNDMIToggleButton(viewer);
+            }
+// --- Lógica para mostrar el modal de escenas solo al presionar el botón NDVI ---
+function setupNDVIToggleButton(viewer) {
+    let btn = document.getElementById("ndviToggle");
+    if (!btn) {
+        btn = document.createElement("button");
+        btn.id = "ndviToggle";
+        btn.innerText = "Mostrar NDVI";
+        btn.className = "btn btn-success";
+        const ndviContainer = document.getElementById("ndviBtnContainer");
+        if (ndviContainer) ndviContainer.appendChild(btn);
+    }
+    btn.onclick = () => {
+        // Usar eosda_id como clave de cache si existe
+        const cacheKey = window.SELECTED_PARCEL_EOSDA_ID || window.SELECTED_PARCEL_ID;
+        if (!cacheKey) {
+            showErrorToast("Selecciona primero una parcela.");
+            return;
+        }
+        const scenes = window.PARCEL_SCENES_CACHE && window.PARCEL_SCENES_CACHE[cacheKey];
+        // UX mejorado: mensaje claro si la parcela no está sincronizada con EOSDA
+        if (window.SELECTED_PARCEL_EOSDA_ID === null || typeof window.SELECTED_PARCEL_EOSDA_ID === 'undefined') {
+            showErrorToast("Esta parcela no está sincronizada con EOSDA. No es posible mostrar NDVI.");
+            return;
+        }
+        if (!scenes || scenes.length === 0) {
+            showErrorToast("No hay escenas satelitales disponibles para esta parcela.");
+            return;
+        }
+        import('./layers.js').then(module => {
+            module.showSceneSelectionModal(
+                scenes,
+                null,
+                'NDVI',
+                viewer
+            );
+        });
+    };
+    // El botón "Mostrar escenas" solo aparece si hay escenas disponibles
+    setupSceneListButton(viewer);
+}
+
+function setupSceneListButton(viewer) {
+    let btn = document.getElementById("showSceneListBtn");
+    const cacheKey = window.SELECTED_PARCEL_EOSDA_ID || window.SELECTED_PARCEL_ID;
+    const scenes = window.PARCEL_SCENES_CACHE && window.PARCEL_SCENES_CACHE[cacheKey];
+    if (!btn) {
+        btn = document.createElement("button");
+        btn.id = "showSceneListBtn";
+        btn.innerText = "Mostrar escenas";
+        btn.className = "btn btn-outline-primary";
+        btn.style.marginLeft = "10px";
+        btn.onclick = () => {
+            const cacheKey = window.SELECTED_PARCEL_EOSDA_ID || window.SELECTED_PARCEL_ID;
+            const scenes = window.PARCEL_SCENES_CACHE && window.PARCEL_SCENES_CACHE[cacheKey];
+            if (window.SELECTED_PARCEL_EOSDA_ID === null || typeof window.SELECTED_PARCEL_EOSDA_ID === 'undefined') {
+                showErrorToast("Esta parcela no está sincronizada con EOSDA. No es posible mostrar escenas.");
+                return;
+            }
+            if (!scenes || scenes.length === 0) {
+                showErrorToast("No hay escenas satelitales disponibles para esta parcela.");
+                return;
+            }
+            import('./layers.js').then(module => {
+                module.showSceneSelectionModal(
+                    scenes,
+                    null,
+                    'NDVI',
+                    viewer
+                );
+            });
+        };
+        // Insertar junto al botón NDVI
+        const ndviContainer = document.getElementById("ndviBtnContainer");
+        if (ndviContainer) ndviContainer.appendChild(btn);
+    }
+    // Solo mostrar el botón si hay escenas disponibles
+    if (scenes && scenes.length > 0) {
+        btn.style.display = "inline-block";
+    } else {
+        btn.style.display = "none";
+    }
+}
         })
         .catch(error => {
             console.error("Error al centrar en la parcela:", error);
@@ -571,96 +692,8 @@ function deleteParcel(parcelId) {
     }
 }
 
-let weatherChart; // Variable global para mantener la instancia Chart.js
 
-function fetchWeatherData(lat, lon) {
-    const apiKey = window.WEATHER_API_KEY; // Clave de API desde el backend
-    if (!apiKey) {
-        console.error("La clave de API meteorológica no está definida.");
-        return;
-    }
-
-    const url = `https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&units=metric&lang=es&appid=${apiKey}`;
-
-    console.log("URL de la solicitud:", url);
-
-    axios.get(url)
-        .then(response => {
-            const data = response.data;
-
-            if (!data || !data.hourly) {
-                console.error("La respuesta de la API no contiene datos válidos.");
-                return;
-            }
-
-            // Mostrar ubicación
-            document.getElementById("weatherLocation").textContent = `Predicción para las próximas horas`;
-
-            // Preparar datos para el gráfico
-            const labels = [];
-            const temps = [];
-            const humidity = [];
-
-            // Obtener predicciones por hora (hasta 12 horas)
-            data.hourly.slice(0, 12).forEach(hour => {
-                const date = new Date(hour.dt * 1000);
-                const hourLabel = `${date.getHours()}:00`;
-                labels.push(hourLabel);
-                temps.push(hour.temp);
-                humidity.push(hour.humidity);
-            });
-
-            // Actualizar el gráfico
-            updateWeatherChart(labels, temps, humidity);
-
-            // Mostrar el dashboard
-            document.getElementById("weatherDashboard").style.display = "block";
-        })
-        .catch(error => {
-            console.error("Error al obtener datos meteorológicos:", error);
-            document.getElementById("weatherDashboard").style.display = "none";
-        });
-}
-
-
-function updateWeatherChart(labels, temps, humidity) {
-    if (window.weatherChartInstance) {
-        window.weatherChartInstance.destroy(); // Destruir el gráfico anterior si existe
-    }
-
-    const ctx = document.getElementById("weatherChart").getContext("2d");
-    window.weatherChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [
-                {
-                    label: "Temperatura (°C)",
-                    data: temps,
-                    borderColor: "rgba(255,99,132,1)",
-                    backgroundColor: "rgba(255,99,132,0.2)",
-                    fill: true,
-                    tension: 0.4
-                },
-                {
-                    label: "Humedad (%)",
-                    data: humidity,
-                    borderColor: "rgba(54,162,235,1)",
-                    backgroundColor: "rgba(54,162,235,0.2)",
-                    fill: true,
-                    tension: 0.4
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { position: "bottom" },
-                title: { display: true, text: "Predicción Meteorológica por Hora" }
-            }
-        }
-    });
-}
+// Eliminar funciones y dashboard meteorológico
 
 window.flyToParcel = flyToParcel;
 window.savePolygon = savePolygon;
@@ -671,12 +704,110 @@ window.deleteParcel = deleteParcel;
 document.addEventListener("DOMContentLoaded", () => {
     // Inicializar Cesium
     initializeCesium();
-
-    // Coordenadas promedio (Colombia)
-    const lat = 4.6097;
-    const lon = -74.0817;
-
-    // Obtener datos meteorológicos promedio
-    fetchWeatherData(lat, lon);
-
 });
+
+// Las URLs WMTS/TMS de EOSDA ahora deben apuntar al proxy backend para evitar CORS y proteger el token.
+// Función profesional para buscar escenas y construir URLs WMTS usando el nuevo endpoint de búsqueda
+async function fetchEosdaWmtsUrls(polygonGeoJson) {
+    // Buscar la fecha más reciente disponible (por ejemplo, hace 10 días)
+    const today = new Date();
+    const daysAgo = 10;
+    const fechaNDVI = new Date(today.getFullYear(), today.getMonth(), today.getDate() - daysAgo)
+        .toISOString().split('T')[0];
+    // Siempre usar prueba.localhost para el proxy WMTS
+    const baseProxy = `http://prueba.localhost:8000/api/parcels/eosda-wmts-tile/`;
+    // const ndviUrl = ...; const ndmiUrl = ...; Eliminado. Usar Render API.
+    return { ndvi: ndviUrl, ndmi: ndmiUrl };
+}
+
+// Tabla/modal profesional para que el usuario elija la escena satelital a visualizar
+async function showSceneSelectionTable(scenes) {
+    return new Promise((resolve) => {
+        // Si ya existe el modal, elimínalo
+        let oldModal = document.getElementById("sceneSelectionModal");
+        if (oldModal) oldModal.remove();
+
+        // Crear modal
+        const modal = document.createElement("div");
+        modal.id = "sceneSelectionModal";
+        modal.style.position = "fixed";
+        modal.style.top = "0";
+        modal.style.left = "0";
+        modal.style.width = "100vw";
+        modal.style.height = "100vh";
+        modal.style.background = "rgba(0,0,0,0.4)";
+        modal.style.zIndex = "9999";
+        modal.style.display = "flex";
+        modal.style.alignItems = "center";
+        modal.style.justifyContent = "center";
+
+        // Contenido del modal
+        const content = document.createElement("div");
+        content.style.background = "#fff";
+        content.style.padding = "32px";
+        content.style.borderRadius = "12px";
+        content.style.boxShadow = "0 2px 16px rgba(0,0,0,0.2)";
+        content.style.maxWidth = "600px";
+        content.style.width = "100%";
+
+        // Título
+        const title = document.createElement("h3");
+        title.textContent = "Selecciona la escena satelital a visualizar";
+        title.style.marginBottom = "18px";
+        content.appendChild(title);
+
+        // Tabla
+        const table = document.createElement("table");
+        table.style.width = "100%";
+        table.style.borderCollapse = "collapse";
+        table.innerHTML = `
+            <thead>
+                <tr style="background:#f5f5f5">
+                    <th style="padding:8px;border-bottom:1px solid #ccc">Fecha</th>
+                    <th style="padding:8px;border-bottom:1px solid #ccc">Cobertura de nubes (%)</th>
+                    <th style="padding:8px;border-bottom:1px solid #ccc">Acción</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${scenes.map((scene, idx) => `
+                    <tr>
+                        <td style="padding:8px;border-bottom:1px solid #eee">${scene.date ? scene.date.split('T')[0] : '-'}</td>
+                        <td style="padding:8px;border-bottom:1px solid #eee">${scene.cloudCoverage != null ? scene.cloudCoverage : '-'}</td>
+                        <td style="padding:8px;border-bottom:1px solid #eee">
+                            <button class="btn btn-sm btn-success" data-idx="${idx}">Visualizar</button>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        `;
+        content.appendChild(table);
+
+        // Botón cerrar
+        const closeBtn = document.createElement("button");
+        closeBtn.textContent = "Cerrar";
+        closeBtn.className = "btn btn-secondary";
+        closeBtn.style.marginTop = "18px";
+        closeBtn.onclick = () => {
+            modal.remove();
+            resolve({ ndvi: null, ndmi: null });
+        };
+        content.appendChild(closeBtn);
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        // Manejar click en visualizar
+        table.querySelectorAll('button[data-idx]').forEach(btn => {
+            btn.onclick = () => {
+                const idx = btn.getAttribute('data-idx');
+                const scene = scenes[idx];
+                // Construir la URL absoluta al backend real para evitar problemas de host
+                // Siempre usar prueba.localhost para el proxy WMTS
+                const baseProxy = `http://prueba.localhost:8000/api/parcels/eosda-wmts-tile/`;
+                // const ndviUrl = ...; const ndmiUrl = ...; Eliminado. Usar Render API.
+                modal.remove();
+                resolve({ ndvi: ndviUrl, ndmi: ndmiUrl });
+            };
+        });
+    });
+}

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Directorio | Agrotech</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        body { background: #fff; }
+        .table thead th { background: #e9ecef; }
+        #main-content { margin-top: 110px !important; }
+        .directory-section { margin-bottom: 2.5rem; }
+        .directory-title { font-size: 1.5rem; font-weight: 600; margin-bottom: 1rem; }
+        .directory-btn { margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <div id="topbar-container"></div>
+    <div id="left-sidebar"></div>
+    <div id="main-content" class="container mt-5">
+        <h2 class="mb-4"><i class="fa fa-address-book"></i> Directorio</h2>
+        <div class="directory-section">
+            <div class="directory-title"><i class="fa fa-building"></i> Empresas
+                <button class="btn btn-primary btn-sm directory-btn float-end" id="btnNewCompany"><i class="fa fa-plus"></i> Nueva Empresa</button>
+            </div>
+            <table class="table table-striped" id="companyTable">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>RUT</th>
+                        <th>Dirección</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Datos dinámicos -->
+                </tbody>
+            </table>
+        </div>
+        <div class="directory-section">
+            <div class="directory-title"><i class="fa fa-user-tie"></i> Proveedores
+                <button class="btn btn-success btn-sm directory-btn float-end" id="btnNewSupplier"><i class="fa fa-plus"></i> Nuevo Proveedor</button>
+            </div>
+            <table class="table table-striped" id="supplierTable">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Contacto</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Empresa</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Datos dinámicos -->
+                </tbody>
+            </table>
+        </div>
+        <div class="directory-section">
+            <div class="directory-title"><i class="fa fa-user"></i> Personas
+                <button class="btn btn-info btn-sm directory-btn float-end" id="btnNewPerson"><i class="fa fa-plus"></i> Nueva Persona</button>
+            </div>
+            <table class="table table-striped" id="personTable">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Teléfono</th>
+                        <th>Email</th>
+                        <th>Notas</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Datos dinámicos -->
+                </tbody>
+            </table>
+        </div>
+        <!-- QUITAR TABLA DE MAQUINARIA DEL DIRECTORIO -->
+        <!-- <div class="directory-section">
+            <div class="directory-title"><i class="fa fa-cogs"></i> Maquinaria / Herramienta
+                <button class="btn btn-warning btn-sm directory-btn float-end" id="btnNewMachinery"><i class="fa fa-plus"></i> Nueva Maquinaria</button>
+            </div>
+            <table class="table table-striped" id="machineryTable">
+                <thead>
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Marca</th>
+                        <th>Modelo</th>
+                        <th>Estado</th>
+                        <th>Ubicación</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Datos dinámicos -->
+                </tbody>
+            </table>
+        </div> -->
+    </div>
+    <div id="footer-container"></div>
+    <div id="righsidebar"></div>
+    <div id="vendorjs"></div>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/inventario/directory.js"></script>
+    <script type="module">
+        import { loadLayoutComponents } from '/static/js/load_components.js';
+        const components = {
+            "topbar-container": "/templates/partials/horizontal-nav.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "righsidebar": "/templates/partials/right-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
+        };
+        loadLayoutComponents(components);
+    </script>
+
+    <!-- Modal Empresa -->
+    <div class="modal fade" id="companyModal" tabindex="-1" aria-labelledby="companyModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <form id="companyForm" class="modal-content" enctype="multipart/form-data">
+          <div class="modal-header">
+            <h5 class="modal-title" id="companyModalLabel">Nueva Empresa</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="companyId">
+            <div class="mb-2"><input type="text" id="companyName" name="name" class="form-control" placeholder="Nombre" required></div>
+            <div class="mb-2"><input type="text" id="companyRut" name="rut" class="form-control" placeholder="RUT"></div>
+            <div class="mb-2"><input type="text" id="companyAddress" name="address" class="form-control" placeholder="Dirección"></div>
+            <div class="mb-2"><input type="text" id="companyPhone" name="phone" class="form-control" placeholder="Teléfono"></div>
+            <div class="mb-2"><input type="email" id="companyEmail" name="email" class="form-control" placeholder="Email"></div>
+            <div class="mb-2"><input type="text" id="companyWebsite" name="website" class="form-control" placeholder="Sitio web"></div>
+            <div class="mb-2"><input type="text" id="companyContactPerson" name="contact_person" class="form-control" placeholder="Contacto"></div>
+            <div class="mb-2"><input type="text" id="companyContactPhone" name="contact_phone" class="form-control" placeholder="Teléfono contacto"></div>
+            <div class="mb-2"><input type="email" id="companyContactEmail" name="contact_email" class="form-control" placeholder="Email contacto"></div>
+            <div class="mb-2">
+              <label for="companyImage" class="form-label">Logo/Imagen</label>
+              <input type="file" id="companyImage" name="image" class="form-control" accept="image/*">
+              <img id="companyImagePreview" src="#" alt="Previsualización" style="max-width:100px;display:none;margin-top:8px;" />
+            </div>
+            <div class="mb-2"><textarea id="companyNotes" name="notes" class="form-control" placeholder="Notas"></textarea></div>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- Modal Proveedor -->
+    <div class="modal fade" id="supplierModal" tabindex="-1" aria-labelledby="supplierModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <form id="supplierForm" class="modal-content" enctype="multipart/form-data">
+          <div class="modal-header">
+            <h5 class="modal-title" id="supplierModalLabel">Nuevo Proveedor</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="supplierId">
+            <div class="mb-2"><input type="text" id="supplierName" name="name" class="form-control" placeholder="Nombre" required></div>
+            <div class="mb-2"><input type="text" id="supplierContact" name="contact" class="form-control" placeholder="Contacto"></div>
+            <div class="mb-2"><input type="text" id="supplierPhone" name="phone" class="form-control" placeholder="Teléfono"></div>
+            <div class="mb-2"><input type="email" id="supplierEmail" name="email" class="form-control" placeholder="Email"></div>
+            <div class="mb-2">
+              <select id="supplierCompany" name="company" class="form-select">
+                <option value="">Selecciona empresa</option>
+              </select>
+            </div>
+            <div class="mb-2"><input type="text" id="supplierAddress" name="address" class="form-control" placeholder="Dirección"></div>
+            <div class="mb-2"><input type="text" id="supplierWebsite" name="website" class="form-control" placeholder="Sitio web"></div>
+            <div class="mb-2"><input type="text" id="supplierTaxId" name="tax_id" class="form-control" placeholder="NIT/RUT"></div>
+            <div class="mb-2">
+              <select id="supplierIsActive" name="is_active" class="form-select">
+                <option value="true">Activo</option>
+                <option value="false">Inactivo</option>
+              </select>
+            </div>
+            <div class="mb-2">
+              <label for="supplierImage" class="form-label">Foto/Imagen</label>
+              <input type="file" id="supplierImage" name="image" class="form-control" accept="image/*">
+              <img id="supplierImagePreview" src="#" alt="Previsualización" style="max-width:100px;display:none;margin-top:8px;" />
+            </div>
+            <div class="mb-2"><textarea id="supplierNotes" name="notes" class="form-control" placeholder="Notas"></textarea></div>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <!-- Modal Persona -->
+    <div class="modal fade" id="personModal" tabindex="-1" aria-labelledby="personModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <form id="personForm" class="modal-content" enctype="multipart/form-data">
+          <div class="modal-header">
+            <h5 class="modal-title" id="personModalLabel">Nueva Persona</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="personId">
+            <div class="mb-2"><input type="text" id="personName" name="name" class="form-control" placeholder="Nombre" required></div>
+            <div class="mb-2"><input type="text" id="personPhone" name="phone" class="form-control" placeholder="Teléfono"></div>
+            <div class="mb-2"><input type="email" id="personEmail" name="email" class="form-control" placeholder="Email"></div>
+            <div class="mb-2">
+              <label for="personImage" class="form-label">Foto</label>
+              <input type="file" id="personImage" name="image" class="form-control" accept="image/*">
+              <img id="personImagePreview" src="#" alt="Previsualización" style="max-width:100px;display:none;margin-top:8px;" />
+            </div>
+            <div class="mb-2"><textarea id="personNotes" name="notes" class="form-control" placeholder="Notas"></textarea></div>
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-primary">Guardar</button>
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+</body>
+</html>

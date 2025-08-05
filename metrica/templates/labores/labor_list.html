@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container-fluid py-3">
+  <h2 class="mb-3">Labores agrícolas del cultivo: <span id="labor-crop-name"></span></h2>
+  <div class="mb-3">
+    <button class="btn btn-success" id="btn-new-labor"><i class="fa fa-plus"></i> Nueva labor</button>
+  </div>
+  <div class="card shadow-sm mb-4">
+    <div class="card-body p-0">
+      <table class="table table-hover align-middle mb-0" id="labor-summary-table">
+        <thead class="table-light">
+          <tr>
+            <th>Tipo</th>
+            <th>Nombre</th>
+            <th>Fecha</th>
+            <th>Estado</th>
+            <th>Responsables</th>
+            <th>Parcelas</th>
+            <th>Insumos</th>
+            <th>Costo total</th>
+            <th>Fotos</th>
+            <th class="text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Labor (crear/editar) -->
+<div class="modal fade" id="laborModal" tabindex="-1" aria-labelledby="laborModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <form id="labor-form">
+        <div class="modal-header">
+          <h5 class="modal-title" id="laborModalLabel">Nueva labor</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <div id="labor-form-alert"></div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Tipo de labor</label>
+              <select class="form-select" id="labor-type" name="tipo" required></select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Nombre</label>
+              <input type="text" class="form-control" name="nombre" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Fecha programada</label>
+              <input type="date" class="form-control" name="fecha_programada" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Estado</label>
+              <select class="form-select" name="estado" id="labor-status">
+                <option value="pendiente">Pendiente</option>
+                <option value="en_progreso">En progreso</option>
+                <option value="completada">Completada</option>
+                <option value="cancelada">Cancelada</option>
+              </select>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Responsables</label>
+              <select class="form-select" id="labor-responsables" name="responsables" multiple required></select>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Parcelas</label>
+              <select class="form-select" id="labor-parcelas" name="parcelas" multiple></select>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Descripción</label>
+              <textarea class="form-control" name="descripcion" rows="2"></textarea>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Observaciones</label>
+              <textarea class="form-control" name="observaciones" rows="2"></textarea>
+            </div>
+          </div>
+          <hr>
+          <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label">Insumos aplicados</label>
+              <div id="labor-insumos-list"></div>
+              <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btn-add-labor-input"><i class="fa fa-plus"></i> Agregar insumo</button>
+            </div>
+          </div>
+          <hr>
+          <div class="row g-3">
+            <div class="col-md-12">
+              <label class="form-label">Fotos de la labor (máx. 3)</label>
+              <div id="labor-photos-list" class="d-flex gap-2 flex-wrap"></div>
+              <input type="file" class="form-control mt-2" id="labor-photo-upload" accept="image/*" multiple max="3">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar labor</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Detalle Labor -->
+<div class="modal fade" id="laborDetailModal" tabindex="-1" aria-labelledby="laborDetailModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="laborDetailModalLabel">Detalle de labor</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body" id="labor-detail-body"></div>
+    </div>
+  </div>
+</div>
+
+<div id="main-toast" class="toast align-items-center text-bg-info position-fixed bottom-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true" style="z-index: 9999; min-width: 200px;"></div>
+{% endblock %}

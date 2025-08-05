@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Maquinaria | Agrotech</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        body { background: #fff; }
+        .table thead th { background: #e9ecef; }
+        #main-content { margin-top: 110px !important; }
+    </style>
+</head>
+<body>
+    <div id="topbar-container"></div>
+    <div id="left-sidebar"></div>
+    <div id="main-content" class="container mt-5" style="margin-top: 90px;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="mb-0"><i class="fa fa-tractor"></i> Gestión de Maquinaria</h2>
+            <button class="btn btn-outline-secondary d-flex align-items-center gap-2" onclick="window.location.href='/templates/inventario/dashboard_inventario.html'">
+                <i class="fa fa-arrow-left"></i> Volver al Inventario
+            </button>
+        </div>
+        <div class="d-flex justify-content-end mb-3">
+            <button class="btn btn-primary d-flex align-items-center gap-2 shadow-sm" id="btnNuevaMaquinaria" data-bs-toggle="modal" data-bs-target="#maquinariaModal">
+                <i class="fa fa-plus"></i> Nueva Maquinaria
+            </button>
+        </div>
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="tablaMaquinaria">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Marca</th>
+                                <th>Modelo</th>
+                                <th>Serial</th>
+                                <th>Año</th>
+                                <th>Almacén</th>
+                                <th>Categoría</th>
+                                <th>Subcategoría</th>
+                                <th>Descripción</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Maquinaria se carga dinámicamente por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal Maquinaria -->
+    <div class="modal fade" id="maquinariaModal" tabindex="-1" aria-labelledby="maquinariaModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-light border-0">
+            <h5 class="modal-title fw-bold" id="maquinariaModalLabel"><i class="fa fa-tractor"></i> <span id="modalTitleMaquinaria">Nueva Maquinaria</span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body py-4">
+            <form id="maquinariaForm">
+              <input type="hidden" id="maquinariaId">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="maquinariaNombre" class="form-label">Nombre</label>
+                  <input type="text" class="form-control" id="maquinariaNombre" required>
+                </div>
+                <div class="col-md-6">
+                  <label for="maquinariaMarca" class="form-label">Marca</label>
+                  <input type="text" class="form-control" id="maquinariaMarca">
+                </div>
+                <div class="col-md-6">
+                  <label for="maquinariaModelo" class="form-label">Modelo</label>
+                  <input type="text" class="form-control" id="maquinariaModelo">
+                </div>
+                <div class="col-md-6">
+                  <label for="maquinariaSerial" class="form-label">Serial</label>
+                  <input type="text" class="form-control" id="maquinariaSerial">
+                </div>
+                <div class="col-md-6">
+                  <label for="maquinariaAnio" class="form-label">Año</label>
+                  <input type="number" class="form-control" id="maquinariaAnio">
+                </div>
+                <div class="col-md-6">
+                  <label for="maquinariaAlmacen" class="form-label">Almacén</label>
+                  <select class="form-select" id="maquinariaAlmacen"></select>
+                </div>
+                <div class="col-md-6">
+                  <label for="maquinariaCategoria" class="form-label">Categoría</label>
+                  <select class="form-select" id="maquinariaCategoria"></select>
+                </div>
+                <div class="col-md-6">
+                  <label for="maquinariaSubcategoria" class="form-label">Subcategoría</label>
+                  <select class="form-select" id="maquinariaSubcategoria"></select>
+                </div>
+                <div class="col-md-12">
+                  <label for="maquinariaDescripcion" class="form-label">Descripción</label>
+                  <input type="text" class="form-control" id="maquinariaDescripcion">
+                </div>
+              </div>
+              <div class="text-end mt-4">
+                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success">Guardar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/inventario/maquinaria.js"></script>
+    <script type="module">
+        import { loadLayoutComponents } from '/static/js/load_components.js';
+        const components = {
+            "topbar-container": "/templates/partials/horizontal-nav.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "righsidebar": "/templates/partials/right-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
+        };
+        loadLayoutComponents(components);
+    </script>
+</body>
+</html>
