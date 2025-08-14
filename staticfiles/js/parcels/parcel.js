@@ -419,8 +419,17 @@ function flyToParcel(parcelId) {
                 });
             }, 3000);
             
-            // Mostrar el botón NDVI
+            // Mostrar el botón NDVI y conectar el flujo EOSDA
             showNDVIToggleButton(viewer);
+            // Reemplazar el evento del botón NDVI para abrir el modal EOSDA
+            setTimeout(() => {
+                const ndviBtn = document.getElementById("ndviToggle");
+                if (ndviBtn) {
+                    ndviBtn.onclick = function() {
+                        window.showEOSDAScenesModal(parcelId);
+                    };
+                }
+            }, 150);
         })
         .catch(error => {
             console.error("Error al centrar en la parcela:", error);
@@ -570,21 +579,161 @@ function updateWeatherChart(labels, temps, humidity) {
     });
 }
 
-window.flyToParcel = flyToParcel;
-window.savePolygon = savePolygon;
-window.saveEditedParcel = saveEditedParcel;
-window.deleteParcel = deleteParcel; 
+// Función para obtener el request_id de EOSDA usando el eosda_id de la parcela
+async function getEOSDARequestId(eosda_id) {
+    try {
+        const token = localStorage.getItem("accessToken");
+        const response = await axios.post(
+            `${BASE_URL}/eosda-request-id/`,
+            { eosda_id },
+            { headers: { "Authorization": `Bearer ${token}` } }
+        );
+        console.log("Request_id obtenido:", response.data.request_id);
+        return response.data.request_id;
+    } catch (error) {
+        console.error("Error obteniendo request_id de EOSDA:", error);
+        return null;
+    }
+}
 
-// Ejecutar al cargar la página
-document.addEventListener("DOMContentLoaded", () => {
-    // Inicializar Cesium
-    initializeCesium();
+// Función para obtener la imagen NDVI usando eosda_id y view_id
+async function getEOSDANDVIImage(eosda_id, view_id) {
+    try {
+        const token = localStorage.getItem("accessToken");
+        const response = await axios.post(
+            `${BASE_URL}/eosda-ndvi-image/`,
+            { eosda_id, view_id },
+            { headers: { "Authorization": `Bearer ${token}` } }
+        );
+        console.log("URL imagen NDVI:", response.data.image_url);
+        return response.data.image_url;
+    } catch (error) {
+        console.error("Error obteniendo imagen NDVI de EOSDA:", error);
+        return null;
+    }
+}
 
-    // Coordenadas promedio (Colombia)
-    const lat = 4.6097;
-    const lon = -74.0817;
+// Función para obtener las escenas disponibles usando field_id y request_id
+async function getEOSDAScenesWithRequest(field_id, request_id) {
+    try {
+        const token = localStorage.getItem("accessToken");
+        const response = await axios.post(
+            `${BASE_URL}/eosda-scenes-with-request/`,
+            { field_id, request_id },
+            { headers: { "Authorization": `Bearer ${token}` } }
+        );
+        console.log("Escenas disponibles:", response.data.scenes);
+        return response.data.scenes;
+    } catch (error) {
+        console.error("Error obteniendo escenas de EOSDA:", error);
+        return [];
+    }
+}
 
-    // Obtener datos meteorológicos promedio
-    fetchWeatherData(lat, lon);
+// Ejemplo de flujo completo para mostrar fechas y obtener NDVI
+import { showSceneSelectionModal } from "../../metrica/static/js/parcels/layers.js";
 
-});
+window.showEOSDAScenesModal = async function(parcelId) {
+    console.log('[NDVI] showEOSDAScenesModal INICIO', { parcelId });
+    // 1. Obtener la parcela y su eosda_id
+    const parcelResp = await axiosInstance.get(`/parcel/${parcelId}/`);
+    const eosda_id = parcelResp.data.eosda_id;
+    console.log('[NDVI] eosda_id obtenido:', eosda_id);
+    if (!eosda_id) {
+        // Mostrar error profesional en toast y en consola
+        showErrorToast("No se pudo determinar eosda_id para la petición NDVI. Verifica que la parcela tenga configurado el campo EOSDA.");
+        console.error('[NDVI] Error: eosda_id no encontrado. parcel:', parcelResp.data);
+        return;
+    }
+    // 2. Consultar las escenas disponibles
+    const scenesResp = await axios.post(
+        `${BASE_URL}/eosda-scenes-with-request/`,
+        { field_id: eosda_id },
+        { headers: { "Authorization": `Bearer ${localStorage.getItem("accessToken")}` } }
+    );
+    const scenes = scenesResp.data.scenes || [];
+    console.log('[NDVI] escenas obtenidas:', scenes);
+    if (!scenes.length) {
+        showErrorToast("No hay escenas satelitales disponibles para este campo.");
+        return;
+    }
+    // Guardar el eosda_id globalmente para que layers.js lo use correctamente
+    window.SELECTED_EOSDA_ID = eosda_id; // <-- Ajuste para integración NDVI
+    // 3. Mostrar el modal profesional para selección de escena
+    showSceneSelectionModal(scenes, async (scene) => {
+        console.log('[NDVI] callback selección escena ejecutado', scene);
+        // Al seleccionar una escena, obtener la imagen NDVI y mostrarla
+        const view_id = scene.view_id || scene.id;
+        // Validar ambos parámetros antes de enviar
+        if (!view_id) {
+            showErrorToast("No se pudo obtener el view_id de la escena seleccionada.");
+            console.error('[NDVI] view_id inválido:', scene);
+            return;
+        }
+        if (!eosda_id) {
+            showErrorToast("No se pudo obtener el eosda_id de la parcela.");
+            console.error('[NDVI] eosda_id inválido:', eosda_id);
+            return;
+        }
+        // Enviar ambos parámetros correctamente en el body
+        let image_url = null;
+        let isPng = false;
+        try {
+            const token = localStorage.getItem("accessToken");
+            const resp = await fetch(
+                `${BASE_URL}/eosda-ndvi-image/`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${token}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ eosda_id, view_id })
+                }
+            );
+            const contentType = resp.headers.get("Content-Type") || "";
+            if (contentType.includes("image/png")) {
+                // Recibimos la imagen binaria
+                const blob = await resp.blob();
+                image_url = URL.createObjectURL(blob);
+                isPng = true;
+            } else {
+                // Recibimos JSON
+                const data = await resp.json();
+                image_url = data.image_url;
+            }
+            console.log('[NDVI] Respuesta image_url:', image_url);
+        } catch (err) {
+            showErrorToast("No se pudo obtener la imagen NDVI de EOSDA. Verifica la escena seleccionada y los parámetros enviados.");
+            console.error('[NDVI] Error al obtener imagen NDVI:', { eosda_id, view_id, error: err });
+            return;
+        }
+        if (!image_url) {
+            showErrorToast("No se pudo obtener la imagen NDVI de EOSDA. La respuesta no contiene una URL válida.");
+            console.error('[NDVI] Error al obtener imagen NDVI:', { eosda_id, view_id });
+            return;
+        }
+        // Mostrar la imagen NDVI en un modal profesional
+        const ndviModal = document.createElement("div");
+        ndviModal.style.position = "fixed";
+        ndviModal.style.top = "0";
+        ndviModal.style.left = "0";
+        ndviModal.style.width = "100vw";
+        ndviModal.style.height = "100vh";
+        ndviModal.style.background = "rgba(0,0,0,0.7)";
+        ndviModal.style.zIndex = "10000";
+        ndviModal.style.display = "flex";
+        ndviModal.style.alignItems = "center";
+        ndviModal.style.justifyContent = "center";
+        ndviModal.innerHTML = `
+            <div style="background:#fff;padding:32px 24px;border-radius:16px;max-width:650px;box-shadow:0 8px 32px rgba(0,0,0,0.22);text-align:center;position:relative;">
+                <button style="position:absolute;top:16px;right:16px;font-size:22px;background:none;border:none;color:#145A32;cursor:pointer;" onclick="this.closest('div').parentNode.remove()">&times;</button>
+                <h3 style="color:#145A32;margin-bottom:18px;">Imagen NDVI</h3>
+                <img src="${image_url}" alt="NDVI" style="max-width:100%;border-radius:10px;box-shadow:0 2px 12px rgba(0,0,0,0.14);margin-bottom:18px;" onerror="showErrorToast('Error al cargar la imagen NDVI. Puede que la URL esté vacía o el formato no sea válido.');this.style.display='none';" />
+                <div style="margin-top:10px;font-size:15px;color:#555;">Esta imagen NDVI fue generada por EOSDA para la escena seleccionada.</div>
+                ${isPng ? '<div style="margin-top:8px;font-size:13px;color:#888;">Imagen recibida directamente como PNG</div>' : ''}
+            </div>
+        `;
+        document.body.appendChild(ndviModal);
+    }, 'NDVI', viewer);
+}

@@ -1,3 +1,5 @@
+// Importar función buscarEscenas dinámicamente para evitar ciclos
+// Eliminado: función buscarEscenas y toda lógica de escenas EOSDA
 // Elimina credenciales y lógica de autenticación del frontend
 // Ahora el frontend solo consumirá imágenes NDVI/NDMI a través del backend seguro
 
@@ -9,7 +11,7 @@
 function pointInPolygon(point, vs) {
     let x = point[0], y = point[1];
     let inside = false;
-    for (let i = 0, j = vs.length - 1; i < vs.length; j = i++) {
+    for (let i = 0, j = vs.length - 1; i < vs.length, j = i++;) {
         let xi = vs[i][0], yi = vs[i][1];
         let xj = vs[j][0], yj = vs[j][1];
         let intersect = ((yi > y) !== (yj > y)) &&
@@ -64,67 +66,9 @@ export async function toggleNDVILayer(viewer) {
         showErrorToast("Error: El visor 3D no está disponible. Recarga la página o contacta soporte.");
         return;
     }
-    // Validar que los parámetros necesarios estén presentes
-    const params = window.EOSDA_RENDER_PARAMS;
-    if (!params.scene_id || !params.time) {
-        showErrorToast("Selecciona una parcela y una fecha válida para visualizar NDVI.");
-        return;
-    }
-    // Si ya está activa, la quitamos
-    if (ndviLayer && ndviEnabled) {
-        try {
-            viewer.imageryLayers.remove(ndviLayer, true);
-            ndviLayer = null;
-            ndviEnabled = false;
-            viewer.scene.screenSpaceCameraController.enableZoom = true;
-            updateNDVIButtonText(false);
-            // Volver a mostrar los bordes de las parcelas
-            viewer.entities.values.forEach(entity => {
-                if (entity.polyline && entity.polyline.material && entity.polyline.material.color && entity.polyline.material.color.getValue().toCssColorString() === '#145a32') {
-                    entity.show = true;
-                }
-            });
-            showInfoToast("Capa NDVI desactivada.");
-            console.log("Capa NDVI desactivada. Zoom habilitado.");
-        } catch (err) {
-            showErrorToast("Error al desactivar la capa NDVI.");
-            console.error(err);
-        }
-        return;
-    }
-    try {
-        viewer.entities.values.forEach(entity => {
-            if (entity.polyline && entity.polyline.material && entity.polyline.material.color && entity.polyline.material.color.getValue().toCssColorString() === '#145a32') {
-                entity.show = false;
-            }
-        });
-        // Agregar la capa NDVI usando el proxy Render API
-        ndviLayer = viewer.imageryLayers.addImageryProvider(
-            new Cesium.UrlTemplateImageryProvider({
-                url: buildEosdaRenderUrl({
-                    view_id: params.view_id,
-                    scene_id: params.scene_id,
-                    layer: 'NDVI',
-                    z: '{z}',
-                    x: '{x}',
-                    y: '{y}',
-                    time: params.time
-                }),
-                tilingScheme: new Cesium.WebMercatorTilingScheme(),
-                maximumLevel: 18,
-                tileWidth: 256,
-                tileHeight: 256,
-            })
-        );
-        ndviEnabled = true;
-        viewer.scene.screenSpaceCameraController.enableZoom = false;
-        updateNDVIButtonText(true);
-        showInfoToast("Capa NDVI activada correctamente.");
-        console.log("NDVI Render API agregado correctamente.");
-    } catch (err) {
-        showErrorToast("No se pudo cargar la capa NDVI. Verifica la conexión o los parámetros.");
-        console.error(err);
-    }
+    // Eliminado: toda la lógica de escenas y Render API para NDVI. Esta función queda vacía.
+    // Si necesitas mostrar NDVI, implementa el flujo directo según la documentación EOSDA.
+    return;
 }
 
 /**
@@ -229,23 +173,18 @@ function showToast(msg, type = 'info') {
 
 /**
  * Muestra el botón para alternar la capa NDVI.
- * Si ya existe, solo actualiza el evento.
+ * Modular, sincronizado con EOSDA_STATE.
  */
 export function showNDVIToggleButton(viewer) {
     let btn = document.getElementById("ndviToggle");
-    if (!btn) {
-        btn = document.createElement("button");
-        btn.id = "ndviToggle";
-        btn.innerText = "Mostrar NDVI";
-        btn.className = "btn btn-success";
-        // Puedes agregar estilos extra aquí si quieres profesionalizar el botón
-    }
-    btn.onclick = () => toggleNDVILayer(viewer);
-    updateNDVIButtonText(ndviEnabled);
+    if (!btn) return;
+    btn.innerText = "NDVI (deshabilitado)";
+    btn.className = "btn btn-secondary";
+    btn.onclick = null;
 }
 
 /**
- * Cambia el texto del botón según el estado de la capa NDVI.
+ * Cambia el texto del botón NDVI según el estado.
  */
 function updateNDVIButtonText(enabled) {
     const btn = document.getElementById("ndviToggle");
@@ -258,18 +197,14 @@ function updateNDVIButtonText(enabled) {
 
 /**
  * Muestra el botón para alternar la capa NDMI.
- * Si ya existe, solo actualiza el evento.
+ * Modular, sincronizado con EOSDA_STATE.
  */
 export function showNDMIToggleButton(viewer) {
     let btn = document.getElementById("ndmiToggle");
-    if (!btn) {
-        btn = document.createElement("button");
-        btn.id = "ndmiToggle";
-        btn.innerText = "Mostrar NDMI";
-        btn.className = "btn btn-info";
-    }
+    if (!btn) return;
+    btn.innerText = !window.EOSDA_STATE.ndmiActive ? "Mostrar NDMI" : "Ocultar NDMI";
+    btn.className = !window.EOSDA_STATE.ndmiActive ? "btn btn-info" : "btn btn-secondary";
     btn.onclick = () => toggleNDMILayer(viewer);
-    updateNDMIButtonText(ndmiEnabled);
 }
 
 function updateNDMIButtonText(enabled) {
@@ -278,6 +213,64 @@ function updateNDMIButtonText(enabled) {
         btn.innerText = enabled ? "Ocultar NDMI" : "Mostrar NDMI";
         btn.classList.remove("btn-info", "btn-secondary");
         btn.classList.add(enabled ? "btn-secondary" : "btn-info");
+    }
+    if (window.EOSDA_STATE) window.EOSDA_STATE.ndmiActive = !!enabled;
+}
+// --- NDMI: Buscar escenas y selección ---
+// Eliminado: función buscarEscenasNDMI y toda lógica de escenas NDMI/EOSDA
+
+// MODAL PROFESIONAL PARA SELECCIÓN DE ESCENA SATELITAL NDMI
+// Eliminado: showSceneSelectionModalNDMI y toda lógica de selección de escenas NDMI/EOSDA
+
+// Lógica para obtener la escena cacheada y renderizarla en Cesium para NDMI
+async function handleSceneSelectionNDMI(scene, viewer = null) {
+    if (!scene || !(scene.view_id || scene.id)) {
+        showErrorToast("Error: escena NDMI inválida. Faltan datos esenciales (view_id o id).");
+        return;
+    }
+    const eosda_id = window.SELECTED_EOSDA_ID || scene.eosda_id || null;
+    const view_id = scene.view_id || scene.id;
+    if (!eosda_id) {
+        showErrorToast("No se pudo determinar eosda_id para la petición NDMI. Verifica que window.SELECTED_EOSDA_ID esté asignado antes de abrir el modal.");
+        console.error('[NDMI] Error: eosda_id no encontrado. scene:', scene);
+        return;
+    }
+    if (!view_id) {
+        showErrorToast("No se pudo determinar view_id para la petición NDMI.");
+        console.error('[NDMI] Error: view_id no encontrado. scene:', scene);
+        return;
+    }
+    try {
+        const token = localStorage.getItem("accessToken");
+        const resp = await fetch(`/api/parcels/eosda-ndmi-image/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ eosda_id, view_id })
+        });
+        if (!resp.ok) {
+            showErrorToast("No se pudo obtener la imagen NDMI (" + resp.status + ").");
+            return;
+        }
+        const data = await resp.json();
+        if (!data || !data.image_url) {
+            showErrorToast("Respuesta inválida del backend NDMI.");
+            return;
+        }
+        // Actualizar los parámetros globales para renderizar NDMI
+        window.EOSDA_RENDER_PARAMS.scene_id = scene.id;
+        window.EOSDA_RENDER_PARAMS.time = scene.date ? scene.date.split('T')[0] : '';
+        window.EOSDA_RENDER_PARAMS.view_id = view_id;
+        // Actualizar el estado global NDMI
+        window.EOSDA_STATE.selectedSceneNDMI = scene;
+        window.EOSDA_STATE.ndmiActive = true;
+        // Renderizar la capa NDMI
+        if (viewer) toggleNDMILayer(viewer);
+        showInfoToast("Imagen NDMI consultada en EOSDA.");
+    } catch (err) {
+        showErrorToast("Error al obtener la imagen NDMI: " + err.message);
     }
 }
 
@@ -380,55 +373,56 @@ export async function showSceneSelectionModal(scenes, onSelect, type = 'NDVI', v
 
 // Lógica para obtener la escena cacheada y renderizarla en Cesium
 async function handleSceneSelection(scene, type = 'NDVI', viewer = null) {
-    // Validar que la escena tenga id y fecha (date)
-    if (!scene || !scene.id || !scene.date) {
-        showErrorToast("Error: escena inválida. Faltan datos esenciales (id o fecha).");
+    // Validar que la escena tenga los datos necesarios
+    if (!scene || !(scene.view_id || scene.id)) {
+        showErrorToast("Error: escena inválida. Faltan datos esenciales (view_id o id).");
         return;
     }
-    // Puedes obtener el id de la parcela desde window o como parámetro global
-    const parcelId = window.SELECTED_PARCEL_ID || scene.parcel_id || null;
-    if (!parcelId) {
-        showErrorToast("No se pudo determinar la parcela seleccionada.");
+    // Obtener el eosda_id desde window o la escena
+    // Si no existe, mostrar error y loguear el objeto para depuración
+    const eosda_id = window.SELECTED_EOSDA_ID || scene.eosda_id || null;
+    const view_id = scene.view_id || scene.id;
+    if (!eosda_id) {
+        showErrorToast("No se pudo determinar eosda_id para la petición NDVI. Verifica que window.SELECTED_EOSDA_ID esté asignado antes de abrir el modal.");
+        console.error('[NDVI] Error: eosda_id no encontrado. scene:', scene);
+        return;
+    }
+    if (!view_id) {
+        showErrorToast("No se pudo determinar view_id para la petición NDVI.");
+        console.error('[NDVI] Error: view_id no encontrado. scene:', scene);
         return;
     }
     try {
-        // Petición al endpoint de cache, ahora SIEMPRE enviar la fecha
-        const resp = await fetch(`/api/parcels/get_ndvi_scene_cached/`, {
+        const token = localStorage.getItem("accessToken");
+        const resp = await fetch(`/api/parcels/eosda-ndvi-image/`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                parcel_id: parcelId,
-                scene_id: scene.id,
-                index_type: type,
-                date: scene.date // Asegura que la fecha se envía
-            })
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ eosda_id, view_id })
         });
         if (!resp.ok) {
-            showErrorToast("No se pudo obtener la escena satelital (" + resp.status + ").");
+            showErrorToast("No se pudo obtener la imagen NDVI (" + resp.status + ").");
             return;
         }
         const data = await resp.json();
-        if (!data || !data.image_url || !data.date || !data.index_type) {
-            showErrorToast("Respuesta inválida del backend.");
+        if (!data || !data.image_url) {
+            showErrorToast("Respuesta inválida del backend NDVI.");
             return;
         }
         // Actualizar los parámetros globales para renderizar
         window.EOSDA_RENDER_PARAMS.scene_id = scene.id;
-        window.EOSDA_RENDER_PARAMS.time = scene.date.split('T')[0];
-        window.EOSDA_RENDER_PARAMS.view_id = data.view_id || 'S2';
+        window.EOSDA_RENDER_PARAMS.time = scene.date ? scene.date.split('T')[0] : '';
+        window.EOSDA_RENDER_PARAMS.view_id = view_id;
         // Renderizar la capa correspondiente
         if (type === 'NDVI') {
             if (viewer) toggleNDVILayer(viewer);
         } else if (type === 'NDMI') {
             if (viewer) toggleNDMILayer(viewer);
         }
-        // Mostrar si vino de cache
-        if (data.from_cache) {
-            showInfoToast("Escena cargada desde caché local.");
-        } else {
-            showInfoToast("Escena consultada en EOSDA y cacheada.");
-        }
+        showInfoToast("Imagen NDVI consultada en EOSDA.");
     } catch (err) {
-        showErrorToast("Error al obtener la escena: " + err.message);
+        showErrorToast("Error al obtener la imagen NDVI: " + err.message);
     }
 }

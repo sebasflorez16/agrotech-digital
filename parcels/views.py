@@ -5,9 +5,11 @@ from .models import Parcel, ParcelSceneCache
 from .serializers import ParcelSerializer
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework import status
 import requests
 import logging
 from django.shortcuts import render
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -174,181 +176,191 @@ class ParcelViewSet(viewsets.ModelViewSet):
 
 
 
-# Nuevo endpoint para obtener la URL WMTS NDVI/NDMI de EOSDA usando el ID EOSDA
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def eosda_wmts_urls(request):
-    """
-    Endpoint seguro que retorna la lista de escenas satelitales para un field EOSDA usando la nueva API Connect.
-    Recibe el id EOSDA (eosda_id) y retorna la lista de escenas disponibles (view_id, fecha, etc) para Cesium.
-    """
-    import logging
-    import requests
-    import time
-    logger = logging.getLogger(__name__)
-    from rest_framework.parsers import JSONParser
-    if request.method == 'POST':
-        data = request.data if hasattr(request, 'data') else JSONParser().parse(request)
-    else:
-        data = request.GET
-    eosda_id = data.get("eosda_id")
-    date_start = data.get("date_start")
-    date_end = data.get("date_end")
-    if not eosda_id:
-        return Response({"error": "Falta el parámetro 'eosda_id'."}, status=400)
-    api_key = settings.EOSDA_API_KEY
-    search_url = f"https://api-connect.eos.com/scene-search/for-field/{eosda_id}"
-    headers = {
-        "x-api-key": api_key,
-        "Content-Type": "application/json"
-    }
-    # Parámetros de búsqueda: fechas y fuente sentinel2 por defecto
-    params = {
-        "date_start": date_start or "2024-01-01",
-        "date_end": date_end or time.strftime("%Y-%m-%d"),
-        "data_source": ["sentinel2"],
-        "params.max_cloud_cover_in_aoi": 50
-    }
-    payload = {"params": params}
-    try:
-        # 1. Lanzar búsqueda de escenas
-        resp = requests.post(search_url, json=payload, headers=headers, timeout=20)
-        if resp.status_code == 403:
-            logger.error(f"Permiso denegado por EOSDA (403 Forbidden): {resp.text}")
-            return Response({
-                "error": "Permiso denegado por EOSDA (403 Forbidden). Verifica que el campo (eosda_id) exista, pertenezca a tu cuenta y que tu API Key tenga acceso a la búsqueda de escenas. Si el problema persiste, revisa tu plan EOSDA o contacta soporte.",
-                "detalle": resp.text
-            }, status=403)
-        if resp.status_code not in (200, 201):
-            logger.error(f"Error lanzando búsqueda de escenas EOSDA: {resp.status_code} {resp.text}")
-            return Response({
-                "error": f"Error lanzando búsqueda de escenas EOSDA: {resp.text}",
-                "codigo": resp.status_code
-            }, status=502)
-        search_data = resp.json()
-        request_id = search_data.get("request_id")
-        # Si no hay request_id pero hay escenas en 'result', devolverlas directamente (caso especial de EOSDA)
-        if not request_id and search_data.get("result"):
-            logger.info("EOSDA devolvió escenas directamente en 'result', sin request_id.")
-            scenes = search_data.get("result", [])
-            scenes_sorted = sorted(scenes, key=lambda s: s.get("date", ""), reverse=True)
-            return Response({"scenes": scenes_sorted, "request_id": None}, status=200)
-        logger.info(f"EOSDA request_id recibido: {request_id}")
-        print(f"EOSDA request_id recibido: {request_id}")
-        if not request_id:
-            logger.error(f"No se recibió request_id de EOSDA: {search_data}")
-            return Response({"error": "No se recibió request_id de EOSDA.", "search_data": search_data}, status=502)
-        # 2. Polling para obtener resultados (máx 5 intentos)
-        result_url = f"https://api-connect.eos.com/scene-search/for-field/{eosda_id}/{request_id}"
-        scenes = []
-        for _ in range(5):
-            try:
-                result_resp = requests.get(result_url, headers=headers, timeout=20)
-            except Exception as e:
-                logger.error(f"Error de conexión con EOSDA (polling): {str(e)}")
-                return Response({"error": f"Error de conexión con EOSDA (polling): {str(e)}"}, status=502)
-            if result_resp.status_code == 403:
-                logger.error(f"Permiso denegado al consultar resultados de escenas EOSDA (403 Forbidden): {result_resp.text}")
-                return Response({
-                    "error": "Permiso denegado al consultar resultados de escenas EOSDA (403 Forbidden). Verifica tu API Key y el ownership del campo.",
-                    "detalle": result_resp.text
-                }, status=403)
-            if result_resp.status_code == 200:
-                result_data = result_resp.json()
-                scenes = result_data.get("scenes", [])
-                if scenes:
-                    break
-            time.sleep(2)
-        if not scenes:
-            logger.warning(f"No se encontraron escenas para el field {eosda_id} en EOSDA.")
-            return Response({"scenes": [], "request_id": request_id}, status=200)
-        # Ordenar por fecha descendente y devolver todas para el modal
-        scenes_sorted = sorted(scenes, key=lambda s: s.get("date", ""), reverse=True)
-        return Response({"scenes": scenes_sorted, "request_id": request_id}, status=200)
-    except Exception as e:
-        logger.error(f"Error de conexión con EOSDA: {str(e)}")
-        return Response({"error": f"Error de conexión con EOSDA: {str(e)}"}, status=502)
 
-def parcels_dashboard(request):
-    """
-    Renderiza el dashboard de parcelas y expone las URLs WMTS de Sentinel Hub (NDVI y NDMI) de forma segura.
-    """
-    from django.conf import settings
-    context = {
-        'SENTINEL_NDVI_WMTS': getattr(settings, 'SENTINEL_NDVI_WMTS', None),
-        'SENTINEL_NDMI_WMTS': getattr(settings, 'SENTINEL_NDMI_WMTS', None),
-    }
-    return render(request, 'parcels/parcels-dashboard.html', context)
+# ENDPOINTS ALINEADOS CON EL FLUJO EOSDA Y EL FRONTEND
 
-# Utilidad para obtener/cachar NDVI/NDMI de EOSDA por escena
+# --- EOSDA Scenes & Image API ---
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from django.conf import settings
+import requests
+import json
 
-def fetch_eosda_scene_ndvi(parcel, scene_id, index_type, date, **kwargs):
-    """
-    Función que consulta la API de EOSDA para obtener los datos NDVI/NDMI de una escena específica.
-    Retorna un dict con metadata, image_url, raw_response, date.
-    """
-    import requests
-    from django.conf import settings
-    # Aquí deberías construir la URL y los headers según la documentación de EOSDA para renderizar la escena
-    # Este ejemplo asume que tienes el endpoint y los parámetros correctos
-    api_key = settings.EOSDA_API_KEY
-    # Ejemplo de endpoint (ajusta según tu integración real)
-    render_url = f"https://api-connect.eos.com/v1/scene/{scene_id}/render/{index_type.lower()}"
-    headers = {
-        "x-api-key": api_key,
-        "Content-Type": "application/json"
-    }
-    try:
-        resp = requests.get(render_url, headers=headers, timeout=20)
-        resp.raise_for_status()
-        data = resp.json()
-        # Suponiendo que la respuesta tiene 'image_url' y 'metadata'
-        return {
-            'metadata': data.get('metadata'),
-            'image_url': data.get('image_url'),
-            'raw_response': data,
-            'date': date
+class EosdaScenesView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        POST /api/parcels/eosda-scenes/
+        Recibe: { "field_id": "..." }
+        Retorna: { "request_id": "...", "scenes": [...] }
+        """
+        field_id = request.data.get("field_id")
+        if not field_id:
+            return Response({"error": "Falta el parámetro field_id."}, status=400)
+        # Restaurar el envío de fechas y mostrar el request_id en la terminal
+        from datetime import datetime, timedelta
+        today = datetime.utcnow().date()
+        date_end = today.isoformat()
+        date_start = (today - timedelta(days=90)).isoformat()
+        request_url = f"https://api-connect.eos.com/scene-search/for-field/{field_id}"
+        headers = {
+            "x-api-key": settings.EOSDA_API_KEY,
+            "Content-Type": "text/plain"
         }
-    except Exception as e:
-        # Puedes loggear el error si lo deseas
-        return None
+        payload = {
+            "params": {
+                "date_start": date_start,
+                "date_end": date_end,
+                "data_source": ["sentinel2"]
+            }
+        }
+        try:
+            req_response = requests.post(request_url, data=json.dumps(payload), headers=headers)
+            logger.info(f"EOSDA request POST url: {request_url}")
+            logger.info(f"EOSDA request POST payload: {payload}")
+            logger.info(f"EOSDA request POST status: {req_response.status_code}")
+            logger.info(f"EOSDA request POST response: {req_response.text}")
+            req_response.raise_for_status()
+            req_data = req_response.json()
+            request_id = req_data.get('request_id')
+            # Si hay request_id, hacer GET para obtener escenas
+            if request_id:
+                print(f"request_id recibido de EOSDA: {request_id}")
+                logger.info(f"request_id recibido de EOSDA: {request_id}")
+                scenes_url = f"https://api-connect.eos.com/scene-search/for-field/{field_id}/{request_id}"
+                scenes_headers = {
+                    "x-api-key": settings.EOSDA_API_KEY
+                }
+                scenes_response = requests.get(scenes_url, headers=scenes_headers)
+                logger.info(f"EOSDA scenes GET url: {scenes_url}")
+                logger.info(f"EOSDA scenes GET status: {scenes_response.status_code}")
+                logger.info(f"EOSDA scenes GET response: {scenes_response.text}")
+                scenes_response.raise_for_status()
+                scenes_data = scenes_response.json()
+                scenes = scenes_data.get('result', [])
+                print(f"Escenas recibidas de EOSDA (GET): {scenes}")
+                logger.info(f"Escenas recibidas de EOSDA (GET): {scenes}")
+                return Response({"request_id": request_id, "scenes": scenes}, status=200)
+            else:
+                # Si no hay request_id, usar las escenas del POST
+                scenes = req_data.get('result', [])
+                print(f"Escenas recibidas de EOSDA (POST directo): {scenes}")
+                logger.info(f"Escenas recibidas de EOSDA (POST directo): {scenes}")
+                return Response({"request_id": None, "scenes": scenes}, status=200)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error en la petición a EOSDA: {str(e)}")
+            return Response({"error": str(e)}, status=500)
 
-# Ejemplo de uso en una vista:
-# (Puedes adaptar esto a tu endpoint real de renderizado NDVI/NDMI)
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def get_ndvi_scene_cached(request):
-    """
-    Endpoint que retorna los datos NDVI/NDMI de una escena, usando cache si existe.
-    Recibe: parcel_id, scene_id, index_type, date
-    """
-    parcel_id = request.data.get("parcel_id")
-    scene_id = request.data.get("scene_id")
-    index_type = request.data.get("index_type", "NDVI")
-    date = request.data.get("date")
-    if not (parcel_id and scene_id and index_type and date):
-        return Response({"error": "Faltan parámetros obligatorios (parcel_id, scene_id, index_type, date)."}, status=400)
-    try:
-        parcel = Parcel.objects.get(id=parcel_id)
-    except Parcel.DoesNotExist:
-        return Response({"error": "Parcela no encontrada."}, status=404)
-    # Buscar en cache o pedir a EOSDA
-    cache_obj, created = ParcelSceneCache.get_or_create_cache(
-        parcel=parcel,
-        scene_id=scene_id,
-        index_type=index_type,
-        date=date,
-        fetch_func=fetch_eosda_scene_ndvi,
+class EosdaImageView(APIView):
+    permission_classes = [IsAuthenticated]
 
-    )
-    if not cache_obj:
-        return Response({"error": "No se pudo obtener la escena de EOSDA."}, status=502)
-    # Devuelve los datos cacheados o recién obtenidos
-    return Response({
-        "metadata": cache_obj.metadata,
-        "image_url": cache_obj.image_url,
-        "date": str(cache_obj.date),
-        "index_type": cache_obj.index_type,
-        "from_cache": not created,
-        "raw_response": cache_obj.raw_response
-    }, status=200)
+    def post(self, request):
+        """
+        POST /api/parcels/eosda-image/
+        Recibe: { "field_id": "...", "view_id": "...", "type": "ndvi" | "ndmi" | "evi", "format": "png" }
+        Retorna: { "request_id": "..." }
+        """
+        field_id = request.data.get("field_id")
+        view_id = request.data.get("view_id")
+        index_type = request.data.get("type")
+        img_format = request.data.get("format", "png")
+        logger.info(f"[EOSDA_IMAGE] Payload recibido: field_id={field_id}, view_id={view_id}, type={index_type}, format={img_format}")
+        # Validación de parámetros
+        if not field_id or not view_id or index_type not in ["ndvi", "ndmi", "evi"]:
+            logger.error(f"[EOSDA_IMAGE] Parámetros inválidos: field_id={field_id}, view_id={view_id}, type={index_type}")
+            return Response({"error": "Parámetros inválidos."}, status=400)
+        eosda_url = f"https://api-connect.eos.com/field-imagery/indicies/{field_id}"
+        headers = {
+            "x-api-key": settings.EOSDA_API_KEY,
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "params": {
+                "view_id": view_id,
+                "index": index_type.upper(),
+                "format": img_format
+            }
+        }
+        logger.info(f"[EOSDA_IMAGE] URL: {eosda_url}")
+        logger.info(f"[EOSDA_IMAGE] Headers: {headers}")
+        logger.info(f"[EOSDA_IMAGE] Payload enviado: {payload}")
+        try:
+            response = requests.post(eosda_url, json=payload, headers=headers)
+            logger.info(f"[EOSDA_IMAGE] Status: {response.status_code}")
+            logger.info(f"[EOSDA_IMAGE] Response: {response.text}")
+            response.raise_for_status()
+            data = response.json()
+            request_id = data.get("request_id")
+            if not request_id:
+                logger.error(f"[EOSDA_IMAGE] No se encontró el request_id en la respuesta: {data}")
+                return Response({"error": "No se encontró el request_id."}, status=404)
+            logger.info(f"[EOSDA_IMAGE] request_id recibido: {request_id}")
+            return Response({"request_id": request_id}, status=200)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"[EOSDA_IMAGE] Error en la petición a EOSDA: {str(e)}")
+            return Response({"error": str(e)}, status=500)
+
+class EosdaImageResultView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        GET /api/parcels/eosda-image-result/?field_id=...&request_id=...
+        Retorna: { "image_base64": "..." }
+        """
+        import base64
+        field_id = request.query_params.get("field_id")
+        request_id = request.query_params.get("request_id")
+        logger.info(f"[EOSDA_IMAGE_RESULT] Params recibidos: field_id={field_id}, request_id={request_id}")
+        if not field_id or not request_id:
+            logger.error(f"[EOSDA_IMAGE_RESULT] Parámetros inválidos: field_id={field_id}, request_id={request_id}")
+            return Response({"error": "Parámetros inválidos."}, status=400)
+        eosda_url = f"https://api-connect.eos.com/field-imagery/{field_id}/{request_id}"
+        headers = {
+            "x-api-key": settings.EOSDA_API_KEY
+        }
+        logger.info(f"[EOSDA_IMAGE_RESULT] URL: {eosda_url}")
+        logger.info(f"[EOSDA_IMAGE_RESULT] Headers: {headers}")
+        try:
+            response = requests.get(eosda_url, headers=headers)
+            logger.info(f"[EOSDA_IMAGE_RESULT] Status: {response.status_code}")
+            content_type = response.headers.get('Content-Type', '')
+            # Si la respuesta es imagen, convertir a base64 y retornar
+            if content_type.startswith('image/'):
+                try:
+                    image_base64 = base64.b64encode(response.content).decode('utf-8')
+                    logger.info(f"[EOSDA_IMAGE_RESULT] Imagen recibida y convertida a base64.")
+                    return Response({"image_base64": image_base64}, status=200)
+                except Exception as e:
+                    logger.error(f"[EOSDA_IMAGE_RESULT] Error al convertir imagen a base64: {e}")
+                    return Response({"error": "Error al procesar la imagen recibida."}, status=500)
+            # Si la respuesta es JSON, analizar el estado
+            elif content_type.startswith('application/json') or content_type.startswith('text/json'):
+                try:
+                    data = response.json()
+                    logger.error(f"[EOSDA_IMAGE_RESULT] Respuesta no es imagen: {data}")
+                    if data.get("status") == "created":
+                        return Response({"error": "La imagen aún está en proceso. Intenta nuevamente en unos minutos."}, status=202)
+                    return Response({"error": "No se recibió una imagen.", "details": data}, status=400)
+                except Exception as e:
+                    logger.error(f"[EOSDA_IMAGE_RESULT] Error al parsear JSON: {e}")
+                    return Response({"error": "Respuesta inesperada de EOSDA."}, status=500)
+            # Si la respuesta es binaria pero no tiene content-type correcto, intentar detectar PNG/JPG
+            elif response.content[:8] == b'\x89PNG\r\n\x1a\n' or response.content[:2] == b'\xff\xd8':
+                try:
+                    image_base64 = base64.b64encode(response.content).decode('utf-8')
+                    logger.info(f"[EOSDA_IMAGE_RESULT] Imagen binaria detectada y convertida a base64.")
+                    return Response({"image_base64": image_base64}, status=200)
+                except Exception as e:
+                    logger.error(f"[EOSDA_IMAGE_RESULT] Error al convertir binario a base64: {e}")
+                    return Response({"error": "Error al procesar la imagen binaria recibida."}, status=500)
+            # Si no es imagen ni JSON, devolver texto plano para depuración
+            else:
+                text = response.text
+                logger.error(f"[EOSDA_IMAGE_RESULT] Respuesta inesperada, no es imagen ni JSON. Texto: {text}")
+                return Response({"error": text}, status=500)
+        except requests.exceptions.RequestException as e:
+            logger.error(f"[EOSDA_IMAGE_RESULT] Error en la petición a EOSDA: {str(e)}")
+            return Response({"error": str(e)}, status=500)

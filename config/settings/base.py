@@ -396,3 +396,36 @@ SIMPLE_JWT = {
 MIDDLEWARE.insert(1, "django.middleware.common.CommonMiddleware")
 
 
+# LOGGING para mostrar todos los logs en consola
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        '': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+    },
+}
+from .logging_eosda import LOGGING as LOGGING_EOSDA
+LOGGING['handlers']['file'] = LOGGING_EOSDA['handlers']['file']
+LOGGING['loggers']['eosda'] = LOGGING_EOSDA['loggers']['eosda']
+LOGGING['loggers']['eosda']['level'] = 'DEBUG'
+LOGGING['loggers']['eosda']['handlers'] = ['console', 'file']
+LOGGING['loggers']['eosda']['propagate'] = False
+
+
