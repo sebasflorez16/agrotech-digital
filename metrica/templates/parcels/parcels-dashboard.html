@@ -244,81 +244,58 @@
                 </table>
             </div>
 
-            <!-- Panel profesional de datos, tabs, tarjetas de cultivo y actividad -->
+            <!-- Panel profesional de datos con análisis satelital -->
             <div id="dashboardFlexRow" style="width:95%;max-width:1200px;margin:24px auto 0 auto;padding:24px 16px 16px 16px;background:#fff;border-radius:18px;box-shadow:0 4px 16px rgba(0,0,0,0.10);font-size:16px;display:flex;align-items:flex-start;gap:32px;flex-wrap:wrap;z-index:1;">
-                <!-- Info Parcela, tarjetas de cultivo y actividad -->
+                <!-- Columna izquierda: Tarjeta de Análisis Satelital e Info Parcela -->
                 <div style="flex:2;min-width:320px;">
-                    <h5 style="font-weight:bold;color:#145A32;margin-bottom:16px;">Info Parcela</h5>
-                    <table class="table table-borderless mb-0" style="background:transparent;">
-                        <tbody id="parcelDataTable">
-                            <tr><td style="color:#888;">Nombre:</td><td id="parcelNameCell">Selecciona una parcela</td></tr>
-                            <tr><td style="color:#888;">Área:</td><td id="parcelAreaCell">-</td></tr>
-                            <tr><td style="color:#888;">Fecha última escena:</td><td id="parcelDateCell">-</td></tr>
-                        </tbody>
-                    </table>
-                    <!-- Botones de NDVI y Estrés Hídrico -->
-                    <div id="ndviBtnContainer" style="display:flex;align-items:center;margin-top:12px;gap:10px;">
-                        <button id="ndviToggle" class="btn btn-success">Buscar escenas</button>
-                        <button id="waterStressToggle" class="btn btn-primary">Mostrar Estrés Hídrico</button>
+                    <!-- Análisis de Imagen Satelital -->
+                    <div style="background:#f8f9fa;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:24px;">
+                        <h5 style="font-weight:bold;color:#145A32;margin-bottom:15px;">� Análisis de Imagen Satelital</h5>
+                        
+                        <div class="mb-2">
+                            <label for="fechaInicioInput" class="form-label">Fecha Inicio:</label>
+                            <input type="date" id="fechaInicioInput" class="form-control" placeholder="dd/mm/aaaa">
+                        </div>
+                        <div class="mb-2">
+                            <label for="fechaFinInput" class="form-label">Fecha Fin:</label>
+                            <input type="date" id="fechaFinInput" class="form-control" placeholder="dd/mm/aaaa">
+                        </div>
+                        <button id="escenasSatelitalesBtn" class="btn btn-warning w-100" style="font-weight:500;">Buscar escenas satelitales</button>
                     </div>
-                    <!-- Tarjetas de Añadir Cultivo y Actividad -->
-                    <div style="display:flex;gap:18px;margin-top:24px;flex-wrap:wrap;">
-                        <div style="flex:1;min-width:220px;background:#f8f9fa;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                            <div style="font-weight:600;color:#145A32;font-size:16px;margin-bottom:10px;">Rotación de cultivos</div>
-                            <button class="btn btn-outline-success" style="font-weight:500;font-size:15px;">+ Añadir cultivo</button>
-                            <div style="font-size:13px;color:#888;margin-top:10px;">No hay cultivos registrados</div>
-                        </div>
-                        <div style="flex:1;min-width:220px;background:#f8f9fa;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                            <div style="font-weight:600;color:#145A32;font-size:16px;margin-bottom:10px;">Actividades</div>
-                            <button class="btn btn-outline-primary" style="font-weight:500;font-size:15px;">+ Añadir actividad</button>
-                            <div style="font-size:13px;color:#888;margin-top:10px;">No hay actividades registradas</div>
-                        </div>
+                    
+                    <!-- Info Parcela -->
+                    <div>
+                        <h5 style="font-weight:bold;color:#145A32;margin-bottom:16px;">Info Parcela</h5>
+                        <table class="table table-borderless mb-0" style="background:transparent;">
+                            <tbody id="parcelDataTable">
+                                <tr><td style="color:#888;">Nombre:</td><td id="parcelNameCell">Selecciona una parcela</td></tr>
+                                <tr><td style="color:#888;">Área:</td><td id="parcelAreaCell">-</td></tr>
+                                <tr><td style="color:#888;">Fecha última escena:</td><td id="parcelDateCell">-</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
-                <!-- Leyenda NDVI profesional -->
-                <div id="ndviLegendBox" style="flex:1;min-width:220px;background:#f8f9fa;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);position:relative;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                        <h6 style="font-weight:bold;color:#145A32;margin:0;">División de valores NDVI</h6>
-                        <button class="btn btn-outline-secondary btn-sm" style="font-size:13px;opacity:0.7;cursor:not-allowed;pointer-events:none;" disabled>
-                            <i class="bi bi-bar-chart"></i> Gráfico <span style="font-size:12px;color:#888;">(Próximamente)</span>
-                        </button>
+                
+                <!-- Columna derecha: Tabla de análisis -->
+                <div style="flex:1;min-width:320px;">
+                    <!-- Espacio para futuras funcionalidades -->
+                    <div style="background:#f8f9fa;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                        <div style="font-weight:600;color:#145A32;font-size:16px;margin-bottom:10px;text-align:center;">Funcionalidades adicionales</div>
+                        <div style="font-size:13px;color:#888;text-align:center;">Próximamente: herramientas de análisis avanzado y gestión de cultivos</div>
                     </div>
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                        <span style="display:inline-block;width:22px;height:22px;background:#2ecc40;border-radius:4px;"></span>
-                        <span style="color:#333;">Vegetación densa</span>
-                        <span id="ndviDensePct" style="margin-left:auto;color:#145A32;font-weight:bold;">0%</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                        <span style="display:inline-block;width:22px;height:22px;background:#f1c40f;border-radius:4px;"></span>
-                        <span style="color:#333;">Vegetación moderada</span>
-                        <span id="ndviModeratePct" style="margin-left:auto;color:#b7950b;font-weight:bold;">0%</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                        <span style="display:inline-block;width:22px;height:22px;background:#e67e22;border-radius:4px;"></span>
-                        <span style="color:#333;">Vegetación escasa</span>
-                        <span id="ndviLowPct" style="margin-left:auto;color:#e67e22;font-weight:bold;">0%</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-                        <span style="display:inline-block;width:22px;height:22px;background:#b2bec3;border-radius:4px;"></span>
-                        <span style="color:#333;">Suelo abierto/Nubes</span>
-                        <span id="ndviBarePct" style="margin-left:auto;color:#636e72;font-weight:bold;">0%</span>
-                    </div>
-                    <div style="font-size:13px;color:#888;margin-top:8px;">Fecha: <span id="ndviLegendDate">-</span></div>
-                </div>
-                <!-- Filtro de rango de fechas -->
-                <div id="ndviFilterContainer" style="min-width:240px;max-width:320px;background:#f8f9fa;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-                    <h6 style="font-weight:bold;color:#145A32;margin-bottom:10px;">Filtrar NDVI por Rango de Fechas</h6>
-                    <form id="ndviFilterForm" style="display: flex; flex-direction: column; gap: 10px;">
-                        <div>
-                            <label for="startDate" style="font-weight: bold;">Fecha Inicio:</label>
-                            <input type="date" id="startDate" name="startDate" class="form-control" required>
+                    
+                    <!-- Análisis automático de imagen satelital -->
+                    <div id="analysisTableCard" style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);padding:18px 20px;">
+                        <h5 style="font-weight: bold; color: #333; margin-bottom: 15px;">📡 Análisis de Imagen Satelital</h5>
+                        <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
+                            <!-- Imagen satelital -->
+                            <div id="satelliteImageContainer" style="flex:1;min-width:300px;max-width:400px;">
+                                <div id="ndviLegendBox" style="text-align: center;">
+                                    <!-- La imagen se insertará aquí dinámicamente -->
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <label for="endDate" style="font-weight: bold;">Fecha Fin:</label>
-                            <input type="date" id="endDate" name="endDate" class="form-control" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary" style="align-self: flex-end;">Filtrar</button>
-                    </form>
+                    </div>
                 </div>
             </div>
         </div>
@@ -376,32 +353,12 @@
         </div>
 
 
-        <!-- Gráfico y tabla de valores NDVI juntos -->
+        <!-- Gráfico de evolución NDVI -->
         <div id="ndviTableContainer" style="margin: 30px auto; max-width: 90%; overflow-x: auto; display: none;">
-            <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;">
-                <!-- Placeholder para el gráfico NDVI/NDMI -->
-                <div id="ndviChartBox" style="flex:1;min-width:320px;max-width:600px;background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);padding:18px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                    <h5 style="font-weight:bold;color:#145A32;margin-bottom:10px;">Gráfico de evolución NDVI</h5>
-                    <canvas id="ndviChart" width="400" height="200" style="max-width:100%;"></canvas>
-                    <div style="font-size:13px;color:#888;margin-top:8px;">(Próximamente: gráfico interactivo de NDVI/NDMI)</div>
-                </div>
-                <!-- Tabla de valores NDVI -->
-                <div style="flex:1;min-width:320px;max-width:600px;background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);padding:18px 20px;">
-                    <h5 style="font-weight: bold; color: #333;">Evolución de NDVI</h5>
-                    <table id="ndviTable" class="table table-striped table-bordered" style="min-width: 300px;">
-                        <thead class="thead-dark">
-                            <tr>
-                                <th>Fecha</th>
-                                <th>NDVI</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr id="no-ndvi-data-row">
-                                <td colspan="2" class="text-center">No hay datos de NDVI disponibles.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);padding:18px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <h5 style="font-weight:bold;color:#145A32;margin-bottom:10px;">Gráfico de evolución NDVI</h5>
+                <canvas id="ndviChart" width="400" height="200" style="max-width:100%;"></canvas>
+                <div style="font-size:13px;color:#888;margin-top:8px;">(Próximamente: gráfico interactivo de NDVI/NDMI)</div>
             </div>
         </div>
       
@@ -421,6 +378,7 @@
     <script src="/static/js/app.js"></script>
     <script type="module" src="/static/js/parcels/parcel.js"></script>
     <script type="module" src="/static/js/parcels/layers.js"></script>
+    <script src="/static/js/parcels/analytics-cientifico.js"></script>
 
     <script>
         // Mostrar el filtro de rango de fechas solo cuando se activa la capa NDVI
@@ -496,23 +454,30 @@
             parcelTable.addEventListener('click', (event) => {
                 const selectedParcel = event.target.closest('tr');
                 if (selectedParcel && selectedParcel.id !== 'no-parcels-row') {
-                    ndviBtnContainer.style.display = 'flex';
+                    if (ndviBtnContainer) {
+                        ndviBtnContainer.style.display = 'flex';
+                    }
                 }
             });
 
             // Lógica para el botón de NDVI
-            ndviToggleButton.addEventListener('click', () => {
-                // Aquí iría la lógica para mostrar NDVI
-                console.log('Mostrar NDVI para la parcela seleccionada');
-            });
+            if (ndviToggleButton) {
+                ndviToggleButton.addEventListener('click', () => {
+                    // Aquí iría la lógica para mostrar NDVI
+                    console.log('Mostrar NDVI para la parcela seleccionada');
+                });
+            }
 
             // Lógica para el botón de Estrés Hídrico
-            waterStressToggleButton.addEventListener('click', () => {
-                // Aquí iría la lógica para mostrar Estrés Hídrico
-                console.log('Mostrar Estrés Hídrico para la parcela seleccionada');
-            });
+            if (waterStressToggleButton) {
+                waterStressToggleButton.addEventListener('click', () => {
+                    // Aquí iría la lógica para mostrar Estrés Hídrico
+                    console.log('Mostrar Estrés Hídrico para la parcela seleccionada');
+                });
+            }
         });
     </script>
 
 </body>
 </html>
+
