@@ -103,7 +103,60 @@ window.mostrarModalEscenasEOSDA = async function(parcelId) {
 
 // Función helper para renderizar tabla de escenas
 function renderScenesTable(scenes) {
-    let html = `<table class="table table-striped table-bordered">
+    if (!scenes || scenes.length === 0) {
+        document.getElementById('eosdaScenesTableContainer').innerHTML = '<p>No hay escenas disponibles.</p>';
+        return;
+    }
+
+    // Filtrar escenas duplicadas: mantener solo la mejor calidad por fecha
+    const uniqueScenes = [];
+    const seenDates = new Set();
+    
+    // Ordenar por fecha desc y luego por calidad (menor nubosidad = mejor)
+    const sortedScenes = [...scenes].sort((a, b) => {
+        const dateCompare = new Date(b.date) - new Date(a.date);
+        if (dateCompare !== 0) return dateCompare;
+        
+        // Si misma fecha, ordenar por nubosidad (menor es mejor)
+        const cloudA = a.cloudCoverage ?? a.cloud ?? a.nubosidad ?? 100;
+        const cloudB = b.cloudCoverage ?? b.cloud ?? b.nubosidad ?? 100;
+        return cloudA - cloudB;
+    });
+
+    // Mantener solo la mejor escena por fecha
+    for (const scene of sortedScenes) {
+        const dateKey = scene.date ? scene.date.split('T')[0] : 'no-date';
+        if (!seenDates.has(dateKey)) {
+            seenDates.add(dateKey);
+            uniqueScenes.push(scene);
+        }
+    }
+
+    // Filtrar escenas con alta cobertura de nubes (>70%)
+    const CLOUD_THRESHOLD = 70;
+    const lowCloudScenes = uniqueScenes.filter(scene => {
+        const cloud = scene.cloudCoverage ?? scene.cloud ?? scene.nubosidad ?? 0;
+        return cloud <= CLOUD_THRESHOLD;
+    });
+    
+    const filteredCount = uniqueScenes.length - lowCloudScenes.length;
+    const finalScenes = lowCloudScenes.length > 0 ? lowCloudScenes : uniqueScenes.slice(0, 5); // Fallback: mostrar las 5 mejores
+
+    // Mensaje informativo sobre filtrado
+    let filterMessage = '';
+    if (filteredCount > 0) {
+        if (lowCloudScenes.length > 0) {
+            filterMessage = `<div class="alert alert-info mb-3">
+                <i class="fas fa-info-circle"></i> Se filtraron ${filteredCount} escena(s) con alta cobertura de nubes (>${CLOUD_THRESHOLD}%) para mejorar la calidad del análisis.
+            </div>`;
+        } else {
+            filterMessage = `<div class="alert alert-warning mb-3">
+                <i class="fas fa-exclamation-triangle"></i> Todas las escenas tienen alta cobertura de nubes. Mostrando las 5 mejores disponibles. Los resultados pueden ser menos precisos.
+            </div>`;
+        }
+    }
+
+    let html = `${filterMessage}<table class="table table-striped table-bordered">
         <thead>
             <tr>
                 <th>Fecha</th>
@@ -115,17 +168,24 @@ function renderScenesTable(scenes) {
             </tr>
         </thead>
         <tbody>
-            ${scenes.map(scene => {
+            ${finalScenes.map(scene => {
                 // cloudCoverage, cloud o nubosidad
                 let cloud = scene.cloudCoverage ?? scene.cloud ?? scene.nubosidad;
                 let cloudText = (typeof cloud === 'number') ? cloud.toFixed(2) : (cloud || 'N/A');
+                
+                // Añadir indicador visual para alta nubosidad
+                let cloudBadge = '';
+                if (typeof cloud === 'number' && cloud > CLOUD_THRESHOLD) {
+                    cloudBadge = ' <span class="badge badge-warning">Alta</span>';
+                }
+                
                 return `
                     <tr>
                         <td>${scene.date || '-'}</td>
                         <td>${scene.view_id || '-'}</td>
-                        <td>${cloudText}</td>
-                        <td><button class="btn btn-success btn-sm" onclick="verImagenEscenaEOSDA('${scene.view_id}', 'ndvi')">Ver NDVI</button></td>
-                        <td><button class="btn btn-info btn-sm" onclick="verImagenEscenaEOSDA('${scene.view_id}', 'ndmi')">Ver NDMI</button></td>
+                        <td>${cloudText}${cloudBadge}</td>
+                        <td><button class="btn btn-success btn-sm" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndvi', this)">Ver NDVI</button></td>
+                        <td><button class="btn btn-info btn-sm" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndmi', this)">Ver NDMI</button></td>
                         <td>
                             <button class="btn btn-warning btn-sm" onclick="obtenerAnalyticsEscena('${scene.view_id}', '${scene.date}')">📊 Stats</button>
                         </td>
@@ -244,40 +304,100 @@ function initializeCesium() {
             // Las URLs WMTS/TMS de EOSDA ahora deben apuntar al proxy backend para evitar CORS y proteger el token
             // Inicializar el visor de Cesium
 
-            // Inicializar el visor de Cesium ocultando controles nativos innecesarios
+            // Inicializar el visor de Cesium con configuración optimizada para agricultura
             viewer = new Cesium.Viewer('cesiumContainer', {
-                terrainProvider: Cesium.createWorldTerrain(), // Agrega relieve
-                baseLayerPicker: true, // Evita cambiar capas
-                shouldAnimate: true, // Habilita animaciones
-                sceneMode: Cesium.SceneMode.SCENE2D, // Mostrar en 2D por defecto
-                timeline: false, // Oculta el timeline
-                animation: false, // muestra el widget de animación
-                geocoder: true, // muestra la búsqueda
-                homeButton: false, // Oculta el botón home
-                infoBox: false, // Oculta el infoBox
-                sceneModePicker: true, // Muestra el selector de modo
-                selectionIndicator: false, // Oculta el indicador de selección
-                navigationHelpButton: false, // Oculta el botón de ayuda
-                navigationInstructionsInitiallyVisible: false, // Oculta instrucciones
-                fullscreenButton: false, // Oculta el botón fullscreen
-                vrButton: false, // Oculta el botón VR
-                creditContainer: document.createElement('div') // Oculta el logo de Cesium
+                // Usar el mejor mapa base disponible para agricultura (Cesium Ion incluye opciones gratuitas excelentes)
+                // El BaseLayerPicker nativo incluye: Bing Maps Aerial, Esri World Imagery, OpenStreetMap, etc.
+                
+                // Configuración de interfaz optimizada para agricultura
+                baseLayerPicker: true, // Habilitar selector de capas nativo de Cesium (incluye las mejores opciones gratuitas)
+                shouldAnimate: true, // Habilita animaciones suaves
+                sceneMode: Cesium.SceneMode.SCENE3D, // Modo 3D por defecto para mejor visualización satelital
+                timeline: false, // Oculta el timeline (no necesario para agricultura)
+                animation: false, // Oculta controles de animación
+                geocoder: true, // Mantener búsqueda geográfica
+                homeButton: true, // Mantener botón home para navegación rápida
+                infoBox: true, // Habilitar infoBox para información de parcelas
+                sceneModePicker: true, // Permitir cambio entre 2D/3D/Columbus
+                selectionIndicator: true, // Mostrar indicador de selección
+                navigationHelpButton: true, // Mantener ayuda de navegación
+                navigationInstructionsInitiallyVisible: false, // No mostrar instrucciones inicialmente
+                fullscreenButton: true, // Habilitar pantalla completa
+                vrButton: false, // Deshabilitar VR (no relevante para agricultura)
+                creditContainer: document.createElement('div') // Ocultar créditos para UI más limpia
             });
 
-            // Asegurarse de que los controles de cámara estén habilitados
+            // Configurar terreno de alta calidad después de la inicialización
+            Cesium.createWorldTerrainAsync({
+                requestWaterMask: true, // Incluir máscara de agua para mejor contexto agrícola
+                requestVertexNormals: true // Mejor iluminación del terreno
+            }).then(terrainProvider => {
+                viewer.terrainProvider = terrainProvider;
+                console.log("Terreno de alta calidad habilitado para visualización agrícola.");
+            }).catch(error => {
+                console.warn("No se pudo cargar terreno de alta calidad, usando terreno básico:", error);
+                // Mantener terreno básico si hay problemas
+            });
+
+            // Configurar manejo de errores para tiles fallidos
+            viewer.scene.globe.tileCacheSize = 100; // Reducir cache para mejor rendimiento
+            viewer.scene.globe.enableLighting = false; // Deshabilitar iluminación para mejor rendimiento
+
+            // Suprimir errores de tiles para mejorar UX
+            viewer.cesiumWidget.creditContainer.style.display = "none";
+            
+            // Configurar manejo de errores silencioso
+            const originalLogError = console.error;
+            console.error = function(...args) {
+                const errorStr = args.join(' ');
+                // Suprimir errores conocidos de tiles
+                if (errorStr.includes('Failed to obtain image tile') || 
+                    errorStr.includes('virtualearth.net') ||
+                    errorStr.includes('CORS policy') ||
+                    errorStr.includes('503 (Service Unavailable)')) {
+                    // Log silencioso para debugging si es necesario
+                    console.debug('[SUPPRESSED TILE ERROR]', ...args);
+                    return;
+                }
+                // Mantener otros errores
+                originalLogError.apply(console, args);
+            };
+
+            // Configurar controles de cámara optimizados
             const controller = viewer.scene.screenSpaceCameraController;
             controller.enableZoom = true;
             controller.enableRotate = true;
             controller.enableTranslate = true;
             controller.enableTilt = true;
             controller.enableLook = true;
+            
+            // Configurar límites de zoom para mejor rendimiento y calidad
+            controller.minimumZoomDistance = 1000; // Mínimo 1km de altitud
+            controller.maximumZoomDistance = 50000000; // Máximo ~50,000km de altitud
+            
+            // Configurar calidad de renderizado
+            viewer.scene.globe.maximumScreenSpaceError = 2; // Reducir para mejor calidad (default: 2)
+            viewer.scene.globe.tileCacheSize = 200; // Aumentar cache para mejor rendimiento
+            
+            // Configurar resolución de texturas
+            viewer.resolutionScale = 1.0; // Usar resolución completa
+            
+            // Deshabilitar efectos que pueden afectar el rendimiento
+            viewer.scene.globe.enableLighting = false;
+            viewer.scene.globe.dynamicAtmosphereLighting = false;
+            viewer.scene.globe.showGroundAtmosphere = false;
 
-            // Centrar el mapa en Colombia
+            // Centrar el mapa en Colombia con vista optimizada
             viewer.scene.camera.setView({
-                destination: Cesium.Cartesian3.fromDegrees(-74.0817, 4.6097, 1000000)
+                destination: Cesium.Cartesian3.fromDegrees(-74.0817, 4.6097, 2000000), // Aumentar altura inicial
+                orientation: {
+                    heading: 0.0,
+                    pitch: -Cesium.Math.PI_OVER_TWO, // Vista directa hacia abajo
+                    roll: 0.0
+                }
             });
 
-            console.log("Cesium cargado correctamente. Esperando datos...");
+            console.log("Cesium cargado correctamente con configuración optimizada.");
 
             // 🔹 Dibujar parcelas guardadas
             if (data.features) {
@@ -620,12 +740,32 @@ function flyToParcel(parcelId) {
             if (areaCell) {
                 areaCell.textContent = `${areaHect.toLocaleString(undefined, {maximumFractionDigits: 2})} ha`;
             }
-            // Centrar el mapa en la parcela
+            // Centrar el mapa en la parcela con vista optimizada
             const boundingSphere = Cesium.BoundingSphere.fromPoints(coordinates);
-            viewer.camera.flyToBoundingSphere(boundingSphere, {
-                duration: 2,
+            
+            // Calcular una altura óptima basada en el tamaño de la parcela
+            const radius = boundingSphere.radius;
+            const optimalHeight = Math.max(radius * 3, 5000); // Mínimo 5km de altura
+            
+            // Obtener el centro de la parcela
+            const center = boundingSphere.center;
+            const centerCartographic = Cesium.Cartographic.fromCartesian(center);
+            
+            viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromRadians(
+                    centerCartographic.longitude,
+                    centerCartographic.latitude,
+                    optimalHeight
+                ),
+                orientation: {
+                    heading: 0.0,
+                    pitch: -Cesium.Math.PI_OVER_TWO, // Vista directa hacia abajo
+                    roll: 0.0
+                },
+                duration: 2.5,
                 complete: () => {
                     viewer.scene.screenSpaceCameraController.enableInputs = true;
+                    console.log(`[FLY_TO_PARCEL] Vista centrada en parcela ${parcelId} a ${optimalHeight}m de altura`);
                 }
             });
             // Resaltar en amarillo temporalmente
@@ -653,6 +793,17 @@ function flyToParcel(parcelId) {
             window.EOSDA_STATE.selectedScene = null;
             window.EOSDA_STATE.ndviActive = false;
             window.EOSDA_STATE.requestIds = {};
+
+            // Establecer parcela seleccionada para gráfico histórico
+            if (typeof window.setSelectedParcelForChart === 'function') {
+                window.setSelectedParcelForChart(parcelId);
+            }
+
+            // Actualizar datos de la parcela en el panel
+            const parcelNameCell = document.getElementById("parcelNameCell");
+            if (parcelNameCell) {
+                parcelNameCell.textContent = feature.name || `Parcela ${parcelId}`;
+            }
 
             // Actualizar el botón NDVI
             import('./layers.js').then(mod => {
@@ -889,6 +1040,47 @@ async function showSceneSelectionTable(scenes) {
         let oldModal = document.getElementById("sceneSelectionModal");
         if (oldModal) oldModal.remove();
 
+        // Aplicar el mismo filtro de nubes que en la tabla principal
+        if (!scenes || scenes.length === 0) {
+            alert('No hay escenas disponibles');
+            resolve({ ndvi: null, ndmi: null });
+            return;
+        }
+
+        // Filtrar escenas duplicadas: mantener solo la mejor calidad por fecha
+        const uniqueScenes = [];
+        const seenDates = new Set();
+        
+        // Ordenar por fecha desc y luego por calidad (menor nubosidad = mejor)
+        const sortedScenes = [...scenes].sort((a, b) => {
+            const dateCompare = new Date(b.date) - new Date(a.date);
+            if (dateCompare !== 0) return dateCompare;
+            
+            // Si misma fecha, ordenar por nubosidad (menor es mejor)
+            const cloudA = a.cloudCoverage ?? a.cloud ?? a.nubosidad ?? 100;
+            const cloudB = b.cloudCoverage ?? b.cloud ?? b.nubosidad ?? 100;
+            return cloudA - cloudB;
+        });
+
+        // Mantener solo la mejor escena por fecha
+        for (const scene of sortedScenes) {
+            const dateKey = scene.date ? scene.date.split('T')[0] : 'no-date';
+            if (!seenDates.has(dateKey)) {
+                seenDates.add(dateKey);
+                uniqueScenes.push(scene);
+            }
+        }
+
+        // Filtrar escenas con alta cobertura de nubes (>70%)
+        const CLOUD_THRESHOLD = 70;
+        const lowCloudScenes = uniqueScenes.filter(scene => {
+            const cloud = scene.cloudCoverage ?? scene.cloud ?? scene.nubosidad ?? 0;
+            return cloud <= CLOUD_THRESHOLD;
+        });
+        
+        const filteredCount = uniqueScenes.length - lowCloudScenes.length;
+        const finalScenes = lowCloudScenes.length > 0 ? lowCloudScenes : uniqueScenes.slice(0, 5); // Fallback: mostrar las 5 mejores
+
         // Crear modal
         const modal = document.createElement("div");
         modal.id = "sceneSelectionModal";
@@ -918,6 +1110,25 @@ async function showSceneSelectionTable(scenes) {
         title.style.marginBottom = "18px";
         content.appendChild(title);
 
+        // Mensaje informativo sobre filtrado (igual que en la tabla principal)
+        if (filteredCount > 0) {
+            const filterMessage = document.createElement("div");
+            filterMessage.style.marginBottom = "15px";
+            filterMessage.style.padding = "10px";
+            filterMessage.style.borderRadius = "4px";
+            
+            if (lowCloudScenes.length > 0) {
+                filterMessage.style.backgroundColor = "#d1ecf1";
+                filterMessage.style.color = "#0c5460";
+                filterMessage.innerHTML = `<i class="fas fa-info-circle"></i> Se filtraron ${filteredCount} escena(s) con alta cobertura de nubes (>${CLOUD_THRESHOLD}%) para mejorar la calidad del análisis.`;
+            } else {
+                filterMessage.style.backgroundColor = "#fff3cd";
+                filterMessage.style.color = "#856404";
+                filterMessage.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Todas las escenas tienen alta cobertura de nubes. Mostrando las 5 mejores disponibles. Los resultados pueden ser menos precisos.`;
+            }
+            content.appendChild(filterMessage);
+        }
+
         // Tabla con botones NDVI y NDMI y porcentaje de nubosidad
         const table = document.createElement("table");
         table.style.width = "100%";
@@ -933,14 +1144,21 @@ async function showSceneSelectionTable(scenes) {
                 </tr>
             </thead>
             <tbody>
-                ${scenes.map((scene, idx) => {
+                ${finalScenes.map((scene, idx) => {
                     let cloud = scene.cloudCoverage ?? scene.cloud ?? scene.nubosidad;
                     let cloudText = (typeof cloud === 'number') ? cloud.toFixed(2) + ' %' : (cloud ? cloud + ' %' : '-');
+                    
+                    // Añadir indicador visual para alta nubosidad
+                    let cloudBadge = '';
+                    if (typeof cloud === 'number' && cloud > CLOUD_THRESHOLD) {
+                        cloudBadge = ' <span class="badge badge-warning" style="background:#ffc107;color:#000;padding:2px 6px;border-radius:10px;font-size:10px;">Alta</span>';
+                    }
+                    
                     console.log('[SCENE_ROW]', { scene, viewId: scene.view_id, date: scene.date, idx });
                     return `
                         <tr>
                             <td style="padding:8px;border-bottom:1px solid #eee">${scene.date ? scene.date.split('T')[0] : '-'}</td>
-                            <td style="padding:8px;border-bottom:1px solid #eee">${cloudText}</td>
+                            <td style="padding:8px;border-bottom:1px solid #eee">${cloudText}${cloudBadge}</td>
                             <td style="padding:8px;border-bottom:1px solid #eee">
                                 <button class="btn btn-sm btn-success" data-ndvi-idx="${idx}">Ver NDVI</button>
                             </td>
@@ -971,28 +1189,67 @@ async function showSceneSelectionTable(scenes) {
         modal.appendChild(content);
         document.body.appendChild(modal);
 
-        // Manejar click en NDVI
+        // Manejar click en NDVI (usar finalScenes en lugar de scenes)
         table.querySelectorAll('button[data-ndvi-idx]').forEach(btn => {
             btn.onclick = async () => {
                 const idx = btn.getAttribute('data-ndvi-idx');
-                const scene = scenes[idx];
-                // Usar la lógica probada del flujo anterior, pero no cerrar el modal hasta que haya imagen
-                const result = await window.verImagenEscenaEOSDA(scene.view_id || scene.id, 'ndvi');
-                if (result && result.success) {
-                    modal.remove();
-                    resolve({ ndvi: true, ndmi: false });
+                const scene = finalScenes[idx]; // Usar finalScenes filtradas
+                
+                // Deshabilitar todos los botones del modal durante procesamiento
+                const modalButtons = modal.querySelectorAll('button');
+                modalButtons.forEach(b => b.disabled = true);
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                
+                try {
+                    const result = await window.verImagenEscenaEOSDA(scene.view_id || scene.id, 'ndvi', scene.date);
+                    if (result && result.success) {
+                        modal.remove();
+                        resolve({ ndvi: true, ndmi: false });
+                    }
+                } finally {
+                    // Rehabilitar botones si aún existe el modal
+                    if (document.body.contains(modal)) {
+                        modalButtons.forEach(b => {
+                            b.disabled = false;
+                            if (b.getAttribute('data-ndvi-idx')) {
+                                b.innerHTML = 'Ver NDVI';
+                            } else if (b.getAttribute('data-ndmi-idx')) {
+                                b.innerHTML = 'Ver NDMI';
+                            }
+                        });
+                    }
                 }
             };
         });
-        // Manejar click en NDMI
+        // Manejar click en NDMI (usar finalScenes en lugar de scenes)
         table.querySelectorAll('button[data-ndmi-idx]').forEach(btn => {
             btn.onclick = async () => {
                 const idx = btn.getAttribute('data-ndmi-idx');
-                const scene = scenes[idx];
-                const result = await window.verImagenEscenaEOSDA(scene.view_id || scene.id, 'ndmi');
-                if (result && result.success) {
-                    modal.remove();
-                    resolve({ ndvi: false, ndmi: true });
+                const scene = finalScenes[idx]; // Usar finalScenes filtradas
+                
+                // Deshabilitar todos los botones del modal durante procesamiento
+                const modalButtons = modal.querySelectorAll('button');
+                modalButtons.forEach(b => b.disabled = true);
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                
+                try {
+                    const result = await window.verImagenEscenaEOSDA(scene.view_id || scene.id, 'ndmi', scene.date);
+                    if (result && result.success) {
+                        modal.remove();
+                        resolve({ ndvi: false, ndmi: true });
+                    }
+                } finally {
+                    // Rehabilitar botones si aún existe el modal
+                    if (document.body.contains(modal)) {
+                        modalButtons.forEach(b => {
+                            b.disabled = false;
+                            if (b.getAttribute('data-ndvi-idx')) {
+                                b.innerHTML = 'Ver NDVI';
+                            } else if (b.getAttribute('data-ndmi-idx')) {
+                                b.innerHTML = 'Ver NDMI';
+                            }
+                        });
+                    }
                 }
             };
         });
@@ -1147,14 +1404,44 @@ function hideSpinner() {
     }
 }
 
-// Modificar el flujo para mostrar la imagen en el mapa y cerrar el modal
-window.verImagenEscenaEOSDA = async function(viewId, tipo) {
+// Función wrapper para manejar botones durante procesamiento de imágenes
+window.procesarImagenEOSDA = async function(viewId, tipo, buttonElement = null) {
+    // Deshabilitar el botón específico y todos los botones de imágenes para evitar clics múltiples
+    const allImageButtons = document.querySelectorAll('button[onclick*="verImagenEscenaEOSDA"], button[onclick*="procesarImagenEOSDA"]');
+    const originalTexts = new Map();
+    
+    allImageButtons.forEach(btn => {
+        originalTexts.set(btn, btn.innerHTML);
+        btn.disabled = true;
+        if (btn.innerHTML.includes('Ver NDVI')) {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+        } else if (btn.innerHTML.includes('Ver NDMI')) {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+        }
+    });
+    
+    try {
+        // Llamar a la función principal
+        const result = await window.verImagenEscenaEOSDA(viewId, tipo);
+        return result;
+    } finally {
+        // Rehabilitar botones y restaurar textos originales
+        allImageButtons.forEach(btn => {
+            btn.disabled = false;
+            btn.innerHTML = originalTexts.get(btn);
+        });
+    }
+};
+
+// --- IMAGEN EOSDA: Procesamiento principal ---
+window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
     const token = localStorage.getItem("accessToken");
     const fieldId = window.EOSDA_STATE.selectedEosdaId;
     const parcelId = window.EOSDA_STATE.selectedParcelId;
+    
     if (!fieldId) {
         alert("No se encontró el field_id de EOSDA para la parcela seleccionada.");
-        return;
+        return { success: false };
     }
     
     // OPTIMIZACIÓN: Verificar cache de imagen primero
@@ -1182,7 +1469,7 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo) {
         // NUEVO: Realizar análisis de colores automáticamente desde cache
         try {
             const imageBase64Src = `data:image/png;base64,${window.EOSDA_IMAGE_CACHE[cacheKey]}`;
-            await window.mostrarImagenNDVIConAnalisis(imageBase64Src, tipo);
+            await window.mostrarImagenNDVIConAnalisis(imageBase64Src, tipo, sceneDate);
         } catch (analysisError) {
             console.warn('[IMAGE_ANALYSIS] Error en análisis desde cache:', analysisError);
         }
@@ -1191,13 +1478,18 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo) {
         return { success: true };
     }
     
-    // OPTIMIZACIÓN: Verificar cache de request_id primero
-    const requestIdCacheKey = `request_${fieldId}_${viewId}_${tipo}`;
-    let requestId = window.EOSDA_STATE.requestIds[requestIdCacheKey];
+    // Mostrar spinner inmediatamente antes de cualquier operación
+    showSpinner(`Preparando imagen ${tipo.toUpperCase()}...`);
     
-    if (!requestId) {
-        try {
+    try {
+        // OPTIMIZACIÓN: Verificar cache de request_id primero
+        const requestIdCacheKey = `request_${fieldId}_${viewId}_${tipo}`;
+        let requestId = window.EOSDA_STATE.requestIds[requestIdCacheKey];
+        
+        if (!requestId) {
             // Paso 1: Solicitar el request_id para la imagen
+            showSpinner(`Solicitando procesamiento de imagen ${tipo.toUpperCase()}...`);
+            
             const resp = await fetch(`${BASE_URL}/eosda-image/`, {
                 method: "POST",
                 headers: {
@@ -1206,95 +1498,138 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo) {
                 },
                 body: JSON.stringify({ field_id: fieldId, view_id: viewId, type: tipo, format: "png" })
             });
+            
             const data = await resp.json();
+            
             if (!data.request_id) {
-                alert(`No se pudo obtener el request_id para la imagen ${tipo.toUpperCase()}.`);
+                hideSpinner();
+                if (data.error) {
+                    showErrorToast(`Error: ${data.error}`);
+                } else {
+                    showErrorToast(`No se pudo obtener el request_id para la imagen ${tipo.toUpperCase()}.`);
+                }
                 return { success: false };
             }
+            
             requestId = data.request_id;
             // Guardar request_id en cache
             window.EOSDA_STATE.requestIds[requestIdCacheKey] = requestId;
             console.log('[CACHE SET] request_id guardado en cache frontend:', requestId);
-        } catch (err) {
-            showErrorToast(`Error al solicitar la imagen ${tipo.toUpperCase()}: ` + (err.message || err));
-            return { success: false };
+        } else {
+            console.log('[CACHE HIT] request_id encontrado en cache frontend:', requestId);
         }
-    } else {
-        console.log('[CACHE HIT] request_id encontrado en cache frontend:', requestId);
-    }
-    
-    // Paso 2: Polling para obtener la imagen con validación de duplicados
-    let attempts = 0;
-    const maxAttempts = 8; // Reducir intentos de 10 a 8
-    const interval = 4000; // Aumentar intervalo de 3s a 4s
-    showSpinner(`Procesando imagen ${tipo.toUpperCase()}...`);
-    
-    while (attempts < maxAttempts) {
-        try {
-            const imgResp = await fetch(`${BASE_URL}/eosda-image-result/?field_id=${fieldId}&request_id=${requestId}`, {
-                method: "GET",
-                headers: {
-                    "Authorization": `Bearer ${token}`
-                }
-            });
-            const imgData = await imgResp.json();
-            if (imgData.image_base64) {
-                hideSpinner();
-                // Obtener el polígono de la parcela seleccionada
-                const parcelResp = await axiosInstance.get(`/parcel/${parcelId}/`);
-                let coords = [];
-                if (parcelResp.data.geometry && parcelResp.data.geometry.coordinates) {
-                    coords = parcelResp.data.geometry.coordinates[0];
-                } else if (parcelResp.data.geom && parcelResp.data.geom.coordinates) {
-                    coords = parcelResp.data.geom.coordinates[0];
-                }
-                const bounds = getPolygonBounds(coords);
-                // --- CACHE DE IMÁGENES NDVI/NDMI ---
-                window.EOSDA_IMAGE_CACHE[cacheKey] = imgData.image_base64;
-                console.log('[CACHE SET] Imagen guardada en cache frontend');
-                showNDVIImageOnCesium(imgData.image_base64, bounds, viewer);
+        
+        // Paso 2: Polling automático para obtener la imagen (SIN mensajes al usuario)
+        const maxAttempts = 10; // Aumentar intentos para mejor experiencia
+        const baseInterval = 3000; // Intervalo base de 3s
+        let attempts = 0;
+        
+        showSpinner(`Procesando imagen ${tipo.toUpperCase()}... (puede tomar 1-2 minutos)`);
+        
+        while (attempts < maxAttempts) {
+            try {
+                const imgResp = await fetch(`${BASE_URL}/eosda-image-result/?field_id=${fieldId}&request_id=${requestId}`, {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${token}`
+                    }
+                });
                 
-                // Cerrar el modal para mostrar el mapa completo
-                const modal = document.getElementById('eosdaScenesModal');
-                if (modal) {
-                    const bsModal = bootstrap.Modal.getInstance(modal);
-                    if (bsModal) bsModal.hide();
+                const imgData = await imgResp.json();
+                
+                if (imgData.image_base64) {
+                    // ¡ÉXITO! La imagen está lista
+                    hideSpinner();
+                    
+                    // Obtener el polígono de la parcela seleccionada
+                    const parcelResp = await axiosInstance.get(`/parcel/${parcelId}/`);
+                    let coords = [];
+                    if (parcelResp.data.geometry && parcelResp.data.geometry.coordinates) {
+                        coords = parcelResp.data.geometry.coordinates[0];
+                    } else if (parcelResp.data.geom && parcelResp.data.geom.coordinates) {
+                        coords = parcelResp.data.geom.coordinates[0];
+                    }
+                    const bounds = getPolygonBounds(coords);
+                    
+                    // Guardar imagen en cache
+                    window.EOSDA_IMAGE_CACHE[cacheKey] = imgData.image_base64;
+                    console.log('[CACHE SET] Imagen guardada en cache frontend');
+                    
+                    // Mostrar imagen en Cesium
+                    showNDVIImageOnCesium(imgData.image_base64, bounds, viewer);
+                    
+                    // Cerrar el modal para mostrar el mapa completo
+                    const modal = document.getElementById('eosdaScenesModal');
+                    if (modal) {
+                        const bsModal = bootstrap.Modal.getInstance(modal);
+                        if (bsModal) bsModal.hide();
+                    }
+                    
+                    // Mostrar botón flotante para mostrar/ocultar imagen cacheada
+                    showFloatingImageToggleButton(cacheKey, bounds, viewer);
+                    
+                    // Realizar análisis de colores automáticamente
+                    try {
+                        const imageBase64Src = `data:image/png;base64,${imgData.image_base64}`;
+                        await window.mostrarImagenNDVIConAnalisis(imageBase64Src, tipo, sceneDate);
+                    } catch (analysisError) {
+                        console.warn('[IMAGE_ANALYSIS] Error en análisis automático:', analysisError);
+                        // No interrumpir el flujo principal si falla el análisis
+                    }
+                    
+                    showInfoToast(`✅ Imagen ${tipo.toUpperCase()} lista y superpuesta en el mapa con análisis.`);
+                    return { success: true };
+                    
+                } else if (imgData.error) {
+                    // Error específico del backend
+                    hideSpinner();
+                    showErrorToast(`❌ Error procesando imagen: ${imgData.error}`);
+                    return { success: false };
                 }
                 
-                // Mostrar botón flotante para mostrar/ocultar imagen cacheada
-                showFloatingImageToggleButton(cacheKey, bounds, viewer);
+                // La imagen aún se está procesando - continuar polling SIN molestar al usuario
+                console.log(`[POLLING] Intento ${attempts + 1}/${maxAttempts} - Imagen aún procesándose...`);
                 
-                // NUEVO: Realizar análisis de colores automáticamente
-                try {
-                    const imageBase64Src = `data:image/png;base64,${imgData.image_base64}`;
-                    await window.mostrarImagenNDVIConAnalisis(imageBase64Src, tipo);
-                } catch (analysisError) {
-                    console.warn('[IMAGE_ANALYSIS] Error en análisis automático:', analysisError);
-                    // No interrumpir el flujo principal si falla el análisis
-                }
-                
-                showInfoToast(`Imagen ${tipo.toUpperCase()} superpuesta en el mapa con análisis de colores.`);
-                return { success: true };
-            } else if (imgData.error) {
-                hideSpinner();
-                showErrorToast(imgData.error);
-                return { success: false };
+            } catch (err) {
+                console.error(`[POLLING] Error en intento ${attempts + 1}:`, err);
+                // Continuar con el siguiente intento
             }
-        } catch (err) {
-            console.error("Error durante el polling de la imagen EOSDA:", err);
+            
+            attempts++;
+            
+            if (attempts < maxAttempts) {
+                // Actualizar mensaje del spinner para mostrar progreso
+                const progress = Math.round((attempts / maxAttempts) * 100);
+                showSpinner(`Procesando imagen ${tipo.toUpperCase()}... ${progress}% (${attempts}/${maxAttempts})`);
+                
+                // Intervalo progresivo: empezar rápido, luego más lento
+                const currentInterval = attempts <= 3 ? baseInterval : baseInterval + (attempts * 1000);
+                await new Promise(resolve => setTimeout(resolve, currentInterval));
+            }
         }
-        attempts++;
-        if (attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, interval));
-        }
+        
+        // Si llegamos aquí, se agotaron los intentos
+        hideSpinner();
+        showErrorToast(
+            `⏰ La imagen ${tipo.toUpperCase()} está tomando más tiempo del esperado.\n` +
+            `Esto puede deberse a:\n` +
+            `• Alta demanda en el servidor EOSDA\n` +
+            `• Imagen de alta resolución\n` +
+            `• Problemas temporales de conectividad\n\n` +
+            `💡 Sugerencia: Intenta nuevamente en unos minutos.`
+        );
+        return { success: false };
+        
+    } catch (error) {
+        hideSpinner();
+        console.error('[EOSDA_IMAGE_ERROR] Error general:', error);
+        showErrorToast(`❌ Error inesperado al procesar imagen ${tipo.toUpperCase()}: ${error.message || error}`);
+        return { success: false };
     }
-    hideSpinner();
-    showErrorToast(`No se pudo obtener la imagen ${tipo.toUpperCase()} después de varios intentos. La imagen puede tardar más tiempo en procesarse.`);
-    return { success: false };
 };
 
 // --- NDVI/NDMI: Visualización y análisis de porcentajes ---
-window.mostrarImagenNDVIConAnalisis = async function(imageSrc, tipo = 'ndvi') {
+window.mostrarImagenNDVIConAnalisis = async function(imageSrc, tipo = 'ndvi', sceneDate = null) {
     try {
         // Importar análisis dinámicamente
         const { analyzeImageByColor, analyzeImageByColorAdvanced, NDVI_COLOR_DEFINITIONS, NDMI_COLOR_DEFINITIONS, updateColorLegendInDOM } = await import('./analysis.js');
@@ -1364,264 +1699,281 @@ window.mostrarImagenNDVIConAnalisis = async function(imageSrc, tipo = 'ndvi') {
                         '🔍 Análisis dinámico (colores detectados automáticamente)' : 
                         '📋 Análisis predefinido';
                     
-                    const legendHTML = `
-                        <div class="color-analysis-legend">
-                            <h6 class="mb-3">${title}</h6>
-                            <small class="text-muted d-block mb-2">${analysisTypeText}</small>
-                            ${resultsWithColors.map(result => `
-                                <div class="d-flex align-items-center mb-2">
-                                    <div style="width: 20px; height: 20px; background-color: rgb(${result.color.join(',')}); margin-right: 8px; border: 1px solid #ccc; border-radius: 3px;"></div>
-                                    <span class="legend-label">${result.name}: <strong>${result.percent}%</strong></span>
-                                </div>
-                            `).join('')}
-                            <small class="text-muted">Total pixels analizados: ${analysisResult.totalPixels?.toLocaleString() || 'N/A'}</small>
-                            ${analysisResult.metadata?.matchPercentage ? `<br><small class="text-muted">Coincidencia con colores estándar: ${analysisResult.metadata.matchPercentage.toFixed(1)}%</small>` : ''}
-                        </div>
-                    `;
+                    // Formatear fecha de escena si está disponible
+                    const sceneDateInfo = sceneDate ? 
+                        `<br><small class="text-muted"><strong>Fecha de escena:</strong> ${new Date(sceneDate).toLocaleDateString()}</small>` : '';
                     
-                    legendContainer.innerHTML = legendHTML;
-                    console.log(`[IMAGE_ANALYSIS] Leyenda actualizada con HTML:`, legendHTML);
+                    // Limpiar leyenda existente
+                    legendContainer.innerHTML = '';
+                    
+                    // Título de análisis
+                    const titleElem = document.createElement('div');
+                    titleElem.style.fontSize = '1.2rem';
+                    titleElem.style.fontWeight = 'bold';
+                    titleElem.style.marginBottom = '8px';
+                    titleElem.innerHTML = `${title} ${sceneDateInfo}`;
+                    legendContainer.appendChild(titleElem);
+                    
+                    // Contenedor de resultados
+                    const resultsContainer = document.createElement('div');
+                    resultsContainer.id = 'imageAnalysisResults';
+                    resultsContainer.style.display = 'grid';
+                    resultsContainer.style.gridTemplateColumns = 'repeat(auto-fill, minmax(120px, 1fr))';
+                    resultsContainer.style.gap = '8px';
+                    legendContainer.appendChild(resultsContainer);
+                    
+                    // Añadir tarjetas de resultados
+                    resultsWithColors.forEach((result, index) => {
+                        const card = document.createElement('div');
+                        card.style.background = 'rgba(255, 255, 255, 0.8)';
+                        card.style.borderRadius = '8px';
+                        card.style.padding = '12px';
+                        card.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                        card.style.position = 'relative';
+                        card.style.overflow = 'hidden';
+                        
+                        // Color de fondo según el resultado
+                        card.style.backgroundColor = `rgb(${result.color.join(',')})`;
+                        
+                        // Texto del resultado
+                        const text = document.createElement('div');
+                        text.style.fontSize = '1rem';
+                        text.style.fontWeight = 'bold';
+                        text.style.color = '#fff';
+                        text.style.textAlign = 'center';
+                        text.style.marginBottom = '4px';
+                        text.textContent = result.label;
+                        card.appendChild(text);
+                        
+                        // Porcentaje (si aplica)
+                        if (result.percentage != null) {
+                            const percentage = document.createElement('div');
+                            percentage.style.fontSize = '0.9rem';
+                            percentage.style.color = '#fff';
+                            percentage.style.textAlign = 'center';
+                            percentage.textContent = `${result.percentage.toFixed(1)}%`;
+                            card.appendChild(percentage);
+                        }
+                        
+                        // Indicador de análisis dinámico (si aplica)
+                        if (analysisResult.analysisType === 'dynamic') {
+                            const dynamicIndicator = document.createElement('div');
+                            dynamicIndicator.style.position = 'absolute';
+                            dynamicIndicator.style.top = '8px';
+                            dynamicIndicator.style.right = '8px';
+                            dynamicIndicator.style.background = 'rgba(255, 255, 255, 0.9)';
+                            dynamicIndicator.style.color = '#333';
+                            dynamicIndicator.style.fontSize = '0.8rem';
+                            dynamicIndicator.style.padding = '4px 8px';
+                            dynamicIndicator.style.borderRadius = '12px';
+                            dynamicIndicator.textContent = 'Análisis dinámico';
+                            card.appendChild(dynamicIndicator);
+                        }
+                        
+                        resultsContainer.appendChild(card);
+                    });
                 }
                 
-                // También actualizar la tabla analytics si está visible
-                updateAnalyticsTableWithImageData(tipo, analysisResult);
-                
-                console.log(`[IMAGE_ANALYSIS] Análisis ${tipo.toUpperCase()} completado exitosamente`);
-                const analysisTypeMsg = analysisResult.analysisType === 'dynamic' ? 
-                    'Colores detectados automáticamente' : 
-                    'Usando colores estándar NDVI/NDMI';
-                showInfoToast(`Análisis ${tipo.toUpperCase()} completado. ${analysisTypeMsg}. Pixels: ${analysisResult.totalPixels?.toLocaleString()}`);
-                
-                return analysisResult;
-                
-            } else {
-                const errorMsg = analysisResult?.error || 'Error desconocido en análisis de imagen';
-                console.error(`[IMAGE_ANALYSIS] Análisis falló:`, errorMsg);
-                throw new Error(errorMsg);
+                return;
             }
-            
-        } catch (analysisErr) {
-            console.error(`[IMAGE_ANALYSIS] Error en análisis:`, analysisErr);
-            
-            // Mostrar error en la leyenda también
-            if (dashboardBox) {
-                const errorHTML = `
-                    <div class="alert alert-warning">
-                        <h6>❌ Error en análisis ${tipo.toUpperCase()}</h6>
-                        <p>${analysisErr.message}</p>
-                        <small>Verifica que la imagen se haya cargado correctamente.</small>
-                    </div>
-                `;
-                
-                let legendContainer = dashboardBox.querySelector('.color-analysis-legend');
-                if (!legendContainer) {
-                    legendContainer = document.createElement('div');
-                    legendContainer.className = 'color-analysis-legend mt-3';
-                    dashboardBox.appendChild(legendContainer);
-                }
-                legendContainer.innerHTML = errorHTML;
-            }
-            
-            showErrorToast(`Error en análisis ${tipo.toUpperCase()}: ${analysisErr.message}`);
-            return null;
+        } catch (error) {
+            console.error('[IMAGE_ANALYSIS] Error en el análisis de imagen:', error);
         }
         
-    } catch (err) {
-        console.error(`Error en el análisis ${tipo.toUpperCase()}:`, err);
-        showErrorToast(`Error en análisis ${tipo.toUpperCase()}: ${err.message}`);
+        // Si el análisis automático falla, usar el análisis básico
+        try {
+            const basicAnalysisResult = await analyzeImageByColor(imageSrc, colorDefinitions);
+            console.log(`[IMAGE_ANALYSIS] Resultado del análisis básico:`, basicAnalysisResult);
+            
+            if (basicAnalysisResult && basicAnalysisResult.success) {
+                // Mostrar resultados básicos en la leyenda
+                updateColorLegendInDOM(basicAnalysisResult.results, tipo);
+                
+                // Mensaje de éxito
+                showInfoToast(`✅ Imagen ${tipo.toUpperCase()} lista con análisis básico.`);
+            }
+        } catch (error) {
+            console.error('[IMAGE_ANALYSIS] Error en el análisis básico:', error);
+            showErrorToast(`❌ Error en el análisis de imagen: ${error.message}`);
+        }
+    } catch (error) {
+        console.error('[IMAGE_ANALYSIS] Error inesperado:', error);
+        showErrorToast(`❌ Error inesperado: ${error.message}`);
+    }
+};
+
+// --- FUNCIONES DE CONTROL DE MAPA BASE ---
+
+/**
+ * Cambiar el proveedor de mapa base de Cesium
+ * @param {string} provider - Tipo de proveedor: 'osm', 'esri', 'cartodb'
+ */
+window.changeMapProvider = function(provider) {
+    if (!viewer || !viewerReady) {
+        console.warn('[MAP_PROVIDER] Cesium viewer no está listo');
+        showErrorToast('El visor no está listo. Intenta en unos segundos.');
+        return;
+    }
+    
+    try {
+        console.log(`[MAP_PROVIDER] Cambiando a proveedor: ${provider}`);
+        
+        let imageryProvider;
+        let providerName;
+        
+        switch (provider) {
+            case 'osm':
+                imageryProvider = new Cesium.OpenStreetMapImageryProvider({
+                    url: 'https://a.tile.openstreetmap.org/',
+                    credit: 'OpenStreetMap'
+                });
+                providerName = 'OpenStreetMap';
+                break;
+                
+            case 'esri':
+                imageryProvider = new Cesium.ArcGisMapServerImageryProvider({
+                    url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+                    credit: 'Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community'
+                });
+                providerName = 'Esri World Imagery';
+                break;
+                
+            case 'cartodb':
+                imageryProvider = new Cesium.UrlTemplateImageryProvider({
+                    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+                    subdomains: ['a', 'b', 'c', 'd'],
+                    credit: 'CartoDB'
+                });
+                providerName = 'CartoDB Positron';
+                break;
+                
+            default:
+                console.warn(`[MAP_PROVIDER] Proveedor desconocido: ${provider}`);
+                showErrorToast(`Proveedor de mapa desconocido: ${provider}`);
+                return;
+        }
+        
+        // Remover la capa base actual (primera capa)
+        if (viewer.imageryLayers.length > 0) {
+            const currentBaseLayer = viewer.imageryLayers.get(0);
+            viewer.imageryLayers.remove(currentBaseLayer);
+        }
+        
+        // Agregar nueva capa base al inicio (índice 0)
+        const newBaseLayer = viewer.imageryLayers.addImageryProvider(imageryProvider, 0);
+        
+        console.log(`[MAP_PROVIDER] Mapa base cambiado a: ${providerName}`);
+        showInfoToast(`✅ Mapa base cambiado a: ${providerName}`);
+        
+    } catch (error) {
+        console.error('[MAP_PROVIDER] Error al cambiar proveedor de mapa:', error);
+        showErrorToast(`Error al cambiar el mapa base: ${error.message}`);
+    }
+};
+
+/**
+ * Función alternativa para cambio de mapa (switchMapProvider)
+ * Similar a changeMapProvider pero con manejo de errores mejorado
+ * @param {string} providerId - ID del proveedor
+ */
+window.switchMapProvider = function(providerId) {
+    if (!viewer || !viewerReady) {
+        console.warn('[SWITCH_MAP] Cesium viewer no está listo');
+        return false;
+    }
+    
+    try {
+        // Mapear IDs a nombres estándar
+        const providerMap = {
+            'openstreetmap': 'osm',
+            'esri-imagery': 'esri',
+            'cartodb-light': 'cartodb'
+        };
+        
+        const normalizedProvider = providerMap[providerId] || providerId;
+        
+        // Llamar a la función principal
+        changeMapProvider(normalizedProvider);
+        return true;
+        
+    } catch (error) {
+        console.error('[SWITCH_MAP] Error en switchMapProvider:', error);
+        return false;
+    }
+};
+
+/**
+ * Reinicializar Cesium si hay problemas de visualización
+ */
+window.reinitializeCesium = function() {
+    console.log('[CESIUM_REINIT] Reinicializando Cesium...');
+    
+    try {
+        if (viewer) {
+            viewer.destroy();
+            viewer = null;
+        }
+        
+        // Limpiar el contenedor
+        const cesiumContainer = document.getElementById('cesiumContainer');
+        if (cesiumContainer) {
+            cesiumContainer.innerHTML = '';
+        }
+        
+        // Mostrar mensaje de carga
+        showSpinner('Reinicializando mapa...');
+        
+        // Reinicializar después de un pequeño delay
+        setTimeout(() => {
+            try {
+                initializeCesium();
+                hideSpinner();
+                showInfoToast('✅ Mapa reinicializado correctamente');
+            } catch (error) {
+                hideSpinner();
+                console.error('[CESIUM_REINIT] Error al reinicializar:', error);
+                showErrorToast('Error al reinicializar el mapa');
+            }
+        }, 1000);
+        
+    } catch (error) {
+        hideSpinner();
+        console.error('[CESIUM_REINIT] Error durante reinicialización:', error);
+        showErrorToast('Error durante la reinicialización del mapa');
+    }
+};
+
+/**
+ * Obtener información del proveedor de mapa actual
+ */
+window.getCurrentMapProvider = function() {
+    if (!viewer || !viewerReady || viewer.imageryLayers.length === 0) {
+        return null;
+    }
+    
+    try {
+        const baseLayer = viewer.imageryLayers.get(0);
+        const provider = baseLayer.imageryProvider;
+        
+        // Identificar el proveedor basado en la URL o constructor
+        if (provider.url && provider.url.includes('openstreetmap')) {
+            return { id: 'osm', name: 'OpenStreetMap' };
+        } else if (provider.url && provider.url.includes('arcgis')) {
+            return { id: 'esri', name: 'Esri World Imagery' };
+        } else if (provider.url && provider.url.includes('cartocdn')) {
+            return { id: 'cartodb', name: 'CartoDB Positron' };
+        } else {
+            return { id: 'unknown', name: 'Proveedor desconocido' };
+        }
+        
+    } catch (error) {
+        console.error('[GET_MAP_PROVIDER] Error al obtener proveedor:', error);
         return null;
     }
 };
 
-/**
- * Obtiene la capa activa de analytics (NDVI o NDMI)
- * @returns {string} 'ndvi' o 'ndmi'
- */
-function getActiveAnalyticsLayer() {
-    const ndviRadio = document.getElementById('ndviAnalytics');
-    const ndmiRadio = document.getElementById('ndmiAnalytics');
-    
-    if (ndmiRadio && ndmiRadio.checked) {
-        window.EOSDA_STATE.activeAnalyticsLayer = 'ndmi';
-        return 'ndmi';
-    }
-    window.EOSDA_STATE.activeAnalyticsLayer = 'ndvi';
-    return 'ndvi'; // Por defecto NDVI
-}
-
-/**
- * Actualiza la tabla de analytics con datos de análisis de imagen
- * @param {string} tipo - Tipo de análisis ('ndvi' o 'ndmi')
- * @param {Object} analysisResult - Resultado del análisis de imagen
- */
-function updateAnalyticsTableWithImageData(tipo, analysisResult) {
-    // Verificar si la tabla está visible y si coincide con el tipo activo
-    const activeLayer = getActiveAnalyticsLayer();
-    if (activeLayer !== tipo) return; // Solo actualizar si coincide con la capa activa
-    
-    const tableContainer = document.getElementById('ndviTableContainer');
-    if (!tableContainer || tableContainer.style.display === 'none') return;
-    
-    // Crear una fila temporal con datos de imagen
-    const tabla = document.getElementById('ndviTable');
-    const tbody = tabla?.querySelector('tbody');
-    if (!tbody) return;
-    
-    // Buscar o crear fila de análisis de imagen
-    let imageAnalysisRow = tbody.querySelector('tr[data-image-analysis="true"]');
-    if (!imageAnalysisRow) {
-        imageAnalysisRow = document.createElement('tr');
-        imageAnalysisRow.dataset.imageAnalysis = 'true';
-        imageAnalysisRow.style.backgroundColor = '#f8f9fa';
-        imageAnalysisRow.style.fontStyle = 'italic';
-        tbody.insertBefore(imageAnalysisRow, tbody.firstChild);
-    }
-    
-    showInfoToast(`Análisis de imagen ${tipo.toUpperCase()} completado: ${analysisResult.results.length} categorías detectadas`);
-}
-
-// --- SISTEMA DE TOOLTIPS NDVI/NDMI ---
-
-/**
- * Crea tooltips informativos para los valores NDVI/NDMI
- * @param {HTMLElement} element - Elemento al que añadir el tooltip
- * @param {string} value - Valor NDVI/NDMI
- * @param {string} type - Tipo de índice ('ndvi' o 'ndmi')
- */
-function addValueTooltip(element, value, type) {
-    if (!element || !value) return;
-    
-    const numValue = parseFloat(value.toString().replace('%', '')) / 100;
-    let tooltipText = '';
-    
-    if (type === 'ndvi') {
-        if (numValue >= 0.7) {
-            tooltipText = '🌲 Vegetación muy densa - Excelente salud vegetal';
-        } else if (numValue >= 0.5) {
-            tooltipText = '🌿 Vegetación densa - Buena salud vegetal';
-        } else if (numValue >= 0.3) {
-            tooltipText = '🌱 Vegetación moderada - Crecimiento estándar';
-        } else if (numValue >= 0.1) {
-            tooltipText = '🌾 Vegetación escasa - Atención requerida';
-        } else {
-            tooltipText = '🏜️ Poca o nula vegetación - Revisar cultivo';
-        }
-    } else if (type === 'ndmi') {
-        if (numValue >= 0.4) {
-            tooltipText = '💧 Muy húmedo - Excelente contenido de agua';
-        } else if (numValue >= 0.2) {
-            tooltipText = '💦 Húmedo - Buen contenido de agua';
-        } else if (numValue >= 0.0) {
-            tooltipText = '🌊 Normal - Contenido de agua adecuado';
-        } else if (numValue >= -0.2) {
-            tooltipText = '🌵 Seco - Considerar riego';
-        } else {
-            tooltipText = '🏜️ Muy seco - Riego urgente necesario';
-        }
-    }
-    
-    // Añadir atributos de tooltip Bootstrap
-    element.setAttribute('data-bs-toggle', 'tooltip');
-    element.setAttribute('data-bs-placement', 'top');
-    element.setAttribute('title', tooltipText);
-    element.style.cursor = 'help';
-    element.style.borderBottom = '1px dotted #999';
-    
-    // Inicializar tooltip si Bootstrap está disponible
-    if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
-        new bootstrap.Tooltip(element);
-    }
-}
-
-/**
- * Añade tooltips a todos los valores de la tabla
- */
-function initializeTableTooltips() {
-    const tabla = document.getElementById('ndviTable');
-    if (!tabla) return;
-    
-    const activeLayer = getActiveAnalyticsLayer();
-    
-    // Buscar celdas con valores numéricos
-    const cells = tabla.querySelectorAll('tbody td');
-    cells.forEach(cell => {
-        const text = cell.textContent.trim();
-        
-        // Detectar si es un valor porcentual de NDVI/NDMI
-        if (text.includes('%') && !text.includes('N/A')) {
-            addValueTooltip(cell, text, activeLayer);
-        }
-    });
-}
-
-/**
- * Actualiza la función añadirATablaHistorica para incluir tooltips
- */
-const originalAñadirATablaHistorica = window.añadirATablaHistorica;
-window.añadirATablaHistorica = function(viewId, date, analytics) {
-    // Llamar función original
-    originalAñadirATablaHistorica.call(this, viewId, date, analytics);
-    
-    // Añadir tooltips a la nueva fila
-    setTimeout(() => {
-        initializeTableTooltips();
-    }, 100);
-};
-
-// Inicializar tooltips cuando cambie la capa activa
-document.addEventListener('DOMContentLoaded', function() {
-    const ndviRadio = document.getElementById('ndviAnalytics');
-    const ndmiRadio = document.getElementById('ndmiAnalytics');
-    
-    if (ndviRadio) {
-        ndviRadio.addEventListener('change', function() {
-            if (this.checked) {
-                setTimeout(initializeTableTooltips, 100);
-            }
-        });
-    }
-    
-    if (ndmiRadio) {
-        ndmiRadio.addEventListener('change', function() {
-            if (this.checked) {
-                setTimeout(initializeTableTooltips, 100);
-            }
-        });
-    }
-});
-
-// --- MEJORAS DE ACCESIBILIDAD ---
-
-/**
- * Mejora la accesibilidad del dashboard
- */
-function enhanceAccessibility() {
-    // Añadir roles ARIA apropiados
-    const tabla = document.getElementById('ndviTable');
-    if (tabla) {
-        tabla.setAttribute('role', 'table');
-        tabla.setAttribute('aria-label', 'Tabla de análisis de índices satelitales');
-    }
-    
-    // Mejorar navegación por teclado en radio buttons
-    const radioButtons = document.querySelectorAll('input[name="analyticsLayer"]');
-    radioButtons.forEach(radio => {
-        radio.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' || e.key === ' ') {
-                this.click();
-                e.preventDefault();
-            }
-        });
-    });
-    
-    // Añadir indicadores de carga accesibles
-    const modals = document.querySelectorAll('.modal');
-    modals.forEach(modal => {
-        modal.setAttribute('aria-hidden', 'true');
-    });
-}
-
-// Ejecutar mejoras de accesibilidad al cargar
-document.addEventListener('DOMContentLoaded', enhanceAccessibility);
-
-// --- FIN DE FUNCIONALIDADES AVANZADAS ---
+// Exponer funciones globalmente para compatibilidad
+window.changeMapProvider = changeMapProvider;
+window.switchMapProvider = switchMapProvider;
+window.reinitializeCesium = reinitializeCesium;
+window.getCurrentMapProvider = getCurrentMapProvider;

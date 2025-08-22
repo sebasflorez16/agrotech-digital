@@ -179,23 +179,53 @@ export function generateColorLegendHTML(results, title = 'Análisis de Colores')
         return '<div class="alert alert-warning">No hay resultados de análisis disponibles</div>';
     }
     
-    const legendItems = results.map(result => {
+    // Ordenar resultados por porcentaje (mayor a menor)
+    const sortedResults = [...results].sort((a, b) => parseFloat(b.percent) - parseFloat(a.percent));
+    
+    const legendItems = sortedResults.map(result => {
         // Buscar el color correspondiente en las definiciones
-        const color = result.color || [128, 128, 128]; // Color por defecto
+        const color = result.color || result.rgb || [128, 128, 128]; // Color por defecto
         const colorStyle = `background-color: rgb(${color.join(',')})`;
+        const percentage = parseFloat(result.percent || 0);
+        
+        // Agregar barra de progreso visual
+        const progressBar = `
+            <div style="width: 100%; background: #f0f0f0; border-radius: 10px; height: 4px; margin-top: 4px;">
+                <div style="width: ${Math.min(percentage, 100)}%; background: rgb(${color.join(',')}); height: 100%; border-radius: 10px;"></div>
+            </div>
+        `;
+        
         return `
-            <div class="d-flex align-items-center mb-2">
-                <div class="legend-color-box" style="${colorStyle}; width: 20px; height: 20px; margin-right: 8px; border: 1px solid #ccc; border-radius: 3px;"></div>
-                <span class="legend-label">${result.name}: <strong>${result.percent}%</strong></span>
+            <div class="d-flex align-items-start mb-3" style="padding: 8px; border: 1px solid #e9ecef; border-radius: 6px; background: #fafafa;">
+                <div class="legend-color-box" style="${colorStyle}; width: 24px; height: 24px; margin-right: 12px; border: 2px solid #fff; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);"></div>
+                <div style="flex: 1;">
+                    <div class="legend-label" style="font-weight: 600; font-size: 0.9rem; color: #333;">
+                        ${result.name}: <span style="color: #2c5aa0;">${result.percent}%</span>
+                    </div>
+                    <small style="color: #666; font-size: 0.8rem;">${parseInt(result.count || 0).toLocaleString()} píxeles</small>
+                    ${progressBar}
+                </div>
             </div>
         `;
     }).join('');
     
+    const totalPixels = results.reduce((sum, r) => sum + parseInt(r.count || 0), 0);
+    const analysisType = results.length > 5 ? 'automático' : 'predefinido';
+    
     return `
-        <div class="color-analysis-legend">
-            <h6 class="mb-3">${title}</h6>
+        <div class="color-analysis-legend" style="background: white; border: 1px solid #dee2e6; border-radius: 8px; padding: 16px;">
+            <h6 class="mb-3" style="color: #2c5aa0; border-bottom: 2px solid #e9ecef; padding-bottom: 8px;">
+                📊 ${title}
+            </h6>
             ${legendItems}
-            <small class="text-muted">Total pixels analizados: ${results.reduce((sum, r) => sum + parseInt(r.count || 0), 0).toLocaleString()}</small>
+            <div style="margin-top: 16px; padding: 8px; background: #f8f9fa; border-radius: 4px; border-left: 3px solid #2c5aa0;">
+                <small class="text-muted" style="display: block; margin-bottom: 4px;">
+                    <strong>Total píxeles analizados:</strong> ${totalPixels.toLocaleString()}
+                </small>
+                <small class="text-muted">
+                    <strong>Tipo de análisis:</strong> ${analysisType} • <strong>Precisión:</strong> ${results.length > 5 ? 'Adaptativa' : 'Estándar'}
+                </small>
+            </div>
         </div>
     `;
 }
@@ -222,7 +252,7 @@ export function updateColorLegendInDOM(containerId, results, title) {
  * @param {number} clusters - Número de clusters de color a detectar
  * @returns {Array} Array de colores predominantes con porcentajes
  */
-function dynamicColorAnalysis(imageData, clusters = 5) {
+function dynamicColorAnalysis(imageData, clusters = 8) {
     const data = imageData.data;
     const colorMap = new Map();
     
@@ -233,41 +263,107 @@ function dynamicColorAnalysis(imageData, clusters = 5) {
         // Ignorar pixels transparentes
         if (a < 128) continue;
         
-        // Reducir resolución de color para agrupar similares
-        const reducedR = Math.floor(r / 20) * 20;
-        const reducedG = Math.floor(g / 20) * 20;
-        const reducedB = Math.floor(b / 20) * 20;
+        // Reducir resolución de color para agrupar similares (más granular)
+        const reducedR = Math.floor(r / 15) * 15;
+        const reducedG = Math.floor(g / 15) * 15;
+        const reducedB = Math.floor(b / 15) * 15;
         
         const colorKey = `${reducedR},${reducedG},${reducedB}`;
         colorMap.set(colorKey, (colorMap.get(colorKey) || 0) + 1);
     }
     
-    // Ordenar colores por frecuencia
+    // Ordenar colores por frecuencia y filtrar los muy pequeños
     const sortedColors = Array.from(colorMap.entries())
         .sort((a, b) => b[1] - a[1])
+        .filter(([colorKey, count]) => {
+            const totalPixels = Array.from(colorMap.values()).reduce((sum, c) => sum + c, 0);
+            return (count / totalPixels) >= 0.01; // Al menos 1% para aparecer
+        })
         .slice(0, clusters);
     
-    const totalPixels = Array.from(colorMap.values()).reduce((sum, count) => sum + count, 0);
+    const totalPixels = sortedColors.reduce((sum, [, count]) => sum + count, 0);
+    const usedNames = [];
     
     return sortedColors.map(([colorKey, count], index) => {
         const [r, g, b] = colorKey.split(',').map(Number);
         const percent = ((count / totalPixels) * 100).toFixed(1);
         
-        // Asignar nombres basados en tonalidad
-        let name = `Color ${index + 1}`;
-        if (r > g && r > b) name = r > 200 ? 'Rojizo' : 'Marrón/Seco';
-        else if (g > r && g > b) name = g > 150 ? 'Verde/Vegetación' : 'Verde oscuro';
-        else if (b > r && b > g) name = 'Azul/Agua';
-        else if (r + g + b < 300) name = 'Oscuro/Sombra';
-        else name = 'Claro/Suelo';
+        // Obtener nombre único
+        const name = getAgriculturalColorName(r, g, b, index, usedNames);
         
         return {
-            name: `${name}`,
+            name: name,
             rgb: [r, g, b],
+            color: [r, g, b], // Compatibilidad con leyenda
             count: count,
             percent: percent
         };
     });
+}
+
+/**
+ * Obtiene nombres descriptivos agrícolas para colores evitando duplicados
+ * @param {number} r - Componente rojo
+ * @param {number} g - Componente verde  
+ * @param {number} b - Componente azul
+ * @param {number} index - Índice del color en la lista
+ * @param {Array} usedNames - Nombres ya utilizados
+ * @returns {string} Nombre descriptivo único
+ */
+function getAgriculturalColorName(r, g, b, index, usedNames = []) {
+    // Calcular brillo general y relaciones
+    const brightness = (r + g + b) / 3;
+    const total = r + g + b;
+    
+    // Calcular ratios de color
+    const redRatio = total > 0 ? r / total : 0;
+    const greenRatio = total > 0 ? g / total : 0;
+    const blueRatio = total > 0 ? b / total : 0;
+    
+    let candidateNames = [];
+    
+    // Nombres basados en características vegetativas y de humedad para NDVI/NDMI
+    if (greenRatio > 0.4) {
+        if (g > 180) candidateNames.push('Vegetación Muy Densa');
+        else if (g > 140) candidateNames.push('Vegetación Densa');
+        else if (g > 100) candidateNames.push('Vegetación Moderada');
+        else candidateNames.push('Vegetación Escasa');
+    } else if (redRatio > 0.4) {
+        if (r > 200 && g < 100) candidateNames.push('Muy Seco');
+        else if (r > 170 && g < 120) candidateNames.push('Seco');
+        else if (r > 140) candidateNames.push('Suelo Seco');
+        else candidateNames.push('Suelo Expuesto');
+    } else if (blueRatio > 0.35) {
+        if (b > 150) candidateNames.push('Agua/Muy Húmedo');
+        else if (b > 120) candidateNames.push('Húmedo');
+        else candidateNames.push('Sombra Húmeda');
+    } else {
+        // Colores neutros o mixtos
+        if (brightness > 210) candidateNames.push('Suelo Claro');
+        else if (brightness < 80) candidateNames.push('Sombra/Oscuro');
+        else if (r > 120 && g > 80 && b < 100) candidateNames.push('Suelo Marrón');
+        else if (Math.abs(r - g) < 30 && Math.abs(g - b) < 30) candidateNames.push('Gris/Neutro');
+        else candidateNames.push('Mixto');
+    }
+    
+    // Evitar duplicados
+    for (let name of candidateNames) {
+        if (!usedNames.includes(name)) {
+            usedNames.push(name);
+            return name;
+        }
+    }
+    
+    // Si todos los nombres están usados, agregar índice
+    const baseName = candidateNames[0] || 'Área';
+    let uniqueName = `${baseName} ${index + 1}`;
+    let counter = 2;
+    while (usedNames.includes(uniqueName)) {
+        uniqueName = `${baseName} ${counter}`;
+        counter++;
+    }
+    usedNames.push(uniqueName);
+    return uniqueName;
 }
 
 /**
@@ -330,11 +426,11 @@ export function analyzeImageByColorAdvanced(imageSrc, colorRanges) {
                     }
                 }
                 
-                // Si menos del 20% de pixels coinciden, usar análisis dinámico
+                // Si menos del 30% de pixels coinciden, usar análisis dinámico
                 const matchPercentage = (matchedPixels / analyzedPixels) * 100;
                 console.log('[ANALYSIS] Porcentaje de coincidencia con colores predefinidos:', matchPercentage.toFixed(1) + '%');
                 
-                if (matchPercentage < 20) {
+                if (matchPercentage < 30) {
                     console.log('[ANALYSIS] Bajo porcentaje de coincidencia, activando análisis dinámico...');
                     const dynamicResults = dynamicColorAnalysis(imageData);
                     

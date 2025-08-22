@@ -22,4 +22,6 @@ urlpatterns = [
     path('eosda-analytics/', EOSDAAnalyticsAPIView.as_view(), name='eosda_analytics'),
     # Endpoint para escenas satelitales filtradas por parcela y rango de fechas
     path('parcel/<int:parcel_id>/scenes/', views.ParcelScenesByDateView.as_view(), name='parcel_scenes_by_date'),
+    # Endpoint para datos históricos de índices (gráfico histórico)
+    path('parcel/<int:parcel_id>/historical-indices/', views.ParcelHistoricalIndicesView.as_view(), name='parcel_historical_indices'),
 ]
