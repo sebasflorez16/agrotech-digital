@@ -24,4 +24,6 @@ urlpatterns = [
     path('parcel/<int:parcel_id>/scenes/', views.ParcelScenesByDateView.as_view(), name='parcel_scenes_by_date'),
     # Endpoint para datos históricos de índices (gráfico histórico)
     path('parcel/<int:parcel_id>/historical-indices/', views.ParcelHistoricalIndicesView.as_view(), name='parcel_historical_indices'),
+    # Nuevo endpoint para análisis comparativo NDVI + Meteorología
+    path('parcel/<int:parcel_id>/ndvi-weather-comparison/', views.ParcelNdviWeatherComparisonView.as_view(), name='parcel_ndvi_weather_comparison'),
 ]

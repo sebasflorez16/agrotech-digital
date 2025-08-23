@@ -26,7 +26,7 @@ window.obtenerAnalyticsCientifico = async function(viewId, sceneDate) {
         
         // Mostrar indicador de carga
         if (typeof showToast === 'function') {
-            showToast('🔬 Obteniendo análisis científico satelital...', 'info');
+            showToast('Obteniendo análisis científico satelital...', 'info');
         }
         
         // Verificar que axiosInstance esté disponible
