@@ -10,6 +10,8 @@
     <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
     <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
     <link href="/static/css/employees.css" rel="stylesheet" type="text/css" />
+    <!-- Font Awesome for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
@@ -366,75 +368,115 @@
 
         <!-- Modal para Gráfico Histórico -->
         <div class="modal fade" id="historicalChartModal" tabindex="-1" aria-labelledby="historicalChartModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-xl modal-dialog-centered">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="historicalChartModalLabel">📈 Gráfico Histórico de Índices - <span id="parcelNameChart">Parcela</span></h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-dialog modal-fullscreen-xl-down modal-dialog-centered" style="max-width: 95vw;">
+                <div class="modal-content" style="border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
+                    <div class="modal-header" style="background: linear-gradient(135deg, #2E7D32 0%, #388E3C 100%); color: white; border-radius: 12px 12px 0 0;">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-chart-line me-2" style="font-size: 1.2em;"></i>
+                            <h5 class="modal-title mb-0" id="historicalChartModalLabel">
+                                Análisis Histórico de Índices Satelitales - <span id="parcelNameChart" style="font-weight: 600;">Parcela</span>
+                            </h5>
+                        </div>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body">
-                        <div id="historicalChartLoading" class="text-center py-4">
-                            <div class="spinner-border text-primary" role="status">
+                    <div class="modal-body" style="padding: 24px; background-color: #f8f9fa;">
+                        <div id="historicalChartLoading" class="text-center py-5">
+                            <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
                                 <span class="visually-hidden">Cargando datos históricos...</span>
                             </div>
-                            <p class="mt-2">Obteniendo datos históricos de EOSDA...</p>
+                            <p class="mt-3 text-muted" style="font-size: 1.1em;">Procesando datos satelitales de EOSDA...</p>
                         </div>
                         
                         <div id="historicalChartContainer" style="display: none;">
-                            <!-- Controles del gráfico -->
-                            <div class="mb-3 d-flex flex-wrap align-items-center gap-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="showNDVI" checked>
-                                    <label class="form-check-label" for="showNDVI">
-                                        <span style="color: #2E7D32; font-weight: bold;">● NDVI</span>
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="showNDMI" checked>
-                                    <label class="form-check-label" for="showNDMI">
-                                        <span style="color: #1565C0; font-weight: bold;">● NDMI</span>
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" id="showEVI" checked>
-                                    <label class="form-check-label" for="showEVI">
-                                        <span style="color: #E65100; font-weight: bold;">● EVI</span>
-                                    </label>
-                                </div>
-                                <button class="btn btn-sm btn-outline-secondary" onclick="resetChartZoom()">🔍 Reset Zoom</button>
-                                <button class="btn btn-sm btn-outline-primary" onclick="exportChartData()">📊 Exportar CSV</button>
-                            </div>
-                            
-                            <!-- Canvas del gráfico -->
-                            <div style="position: relative; height: 400px;">
-                                <canvas id="historicalChart"></canvas>
-                            </div>
-                            
-                            <!-- Información estadística -->
-                            <div class="mt-4">
-                                <h6>📊 Estadísticas del Período</h6>
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <div class="card">
-                                            <div class="card-body text-center">
-                                                <h6 class="card-title" style="color: #2E7D32;">NDVI</h6>
-                                                <p class="card-text" id="ndviStats">-</p>
+                            <!-- Panel de Controles Mejorado -->
+                            <div class="card mb-4" style="border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-radius: 10px;">
+                                <div class="card-body" style="padding: 20px;">
+                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                        <div class="d-flex flex-wrap align-items-center gap-4">
+                                            <h6 class="mb-0 text-muted" style="font-weight: 600;">Visualizar Índices:</h6>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="showNDVI" checked style="transform: scale(1.2);">
+                                                <label class="form-check-label fw-bold" for="showNDVI">
+                                                    <span style="color: #2E7D32; font-size: 1.1em;">● NDVI</span>
+                                                    <small class="text-muted d-block">Vegetación</small>
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="showNDMI" checked style="transform: scale(1.2);">
+                                                <label class="form-check-label fw-bold" for="showNDMI">
+                                                    <span style="color: #1565C0; font-size: 1.1em;">● NDMI</span>
+                                                    <small class="text-muted d-block">Humedad</small>
+                                                </label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="showEVI" checked style="transform: scale(1.2);">
+                                                <label class="form-check-label fw-bold" for="showEVI">
+                                                    <span style="color: #E65100; font-size: 1.1em;">● EVI</span>
+                                                    <small class="text-muted d-block">Realzado</small>
+                                                </label>
                                             </div>
                                         </div>
-                                    </div>
-                                    <div class="col-md-4">
-                                        <div class="card">
-                                            <div class="card-body text-center">
-                                                <h6 class="card-title" style="color: #1565C0;">NDMI</h6>
-                                                <p class="card-text" id="ndmiStats">-</p>
-                                            </div>
+                                        <div class="d-flex gap-2">
+                                            <button class="btn btn-outline-secondary btn-sm px-3" onclick="resetChartZoom()" style="border-radius: 8px;">
+                                                <i class="fas fa-search-minus me-1"></i> Restablecer Zoom
+                                            </button>
+                                            <button class="btn btn-success btn-sm px-3" onclick="exportChartData()" style="border-radius: 8px;">
+                                                <i class="fas fa-download me-1"></i> Exportar CSV
+                                            </button>
                                         </div>
                                     </div>
-                                    <div class="col-md-4">
-                                        <div class="card">
-                                            <div class="card-body text-center">
-                                                <h6 class="card-title" style="color: #E65100;">EVI</h6>
-                                                <p class="card-text" id="eviStats">-</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Gráfico Principal -->
+                            <div class="card mb-4" style="border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 10px;">
+                                <div class="card-body" style="padding: 24px;">
+                                    <div style="position: relative; height: 500px;">
+                                        <canvas id="historicalChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Panel de Estadísticas Mejorado -->
+                            <div class="card" style="border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-radius: 10px;">
+                                <div class="card-header" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 10px 10px 0 0; border: none;">
+                                    <h6 class="mb-0" style="color: #495057; font-weight: 600;">
+                                        <i class="fas fa-chart-bar me-2"></i>Estadísticas del Período Analizado
+                                    </h6>
+                                </div>
+                                <div class="card-body" style="padding: 24px;">
+                                    <div class="row g-3">
+                                        <div class="col-md-4">
+                                            <div class="card h-100" style="border: 2px solid #2E7D32; border-radius: 10px; background: linear-gradient(135deg, #E8F5E8 0%, #F1F8E9 100%);">
+                                                <div class="card-body text-center py-4">
+                                                    <div class="mb-2">
+                                                        <i class="fas fa-leaf" style="font-size: 2em; color: #2E7D32;"></i>
+                                                    </div>
+                                                    <h6 class="card-title fw-bold" style="color: #2E7D32; font-size: 1.2em;">NDVI</h6>
+                                                    <p class="card-text" id="ndviStats" style="color: #1B5E20; font-size: 0.95em; line-height: 1.4;">-</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card h-100" style="border: 2px solid #1565C0; border-radius: 10px; background: linear-gradient(135deg, #E3F2FD 0%, #E8F4FD 100%);">
+                                                <div class="card-body text-center py-4">
+                                                    <div class="mb-2">
+                                                        <i class="fas fa-tint" style="font-size: 2em; color: #1565C0;"></i>
+                                                    </div>
+                                                    <h6 class="card-title fw-bold" style="color: #1565C0; font-size: 1.2em;">NDMI</h6>
+                                                    <p class="card-text" id="ndmiStats" style="color: #0D47A1; font-size: 0.95em; line-height: 1.4;">-</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="card h-100" style="border: 2px solid #E65100; border-radius: 10px; background: linear-gradient(135deg, #FFF3E0 0%, #FFF8F0 100%);">
+                                                <div class="card-body text-center py-4">
+                                                    <div class="mb-2">
+                                                        <i class="fas fa-eye" style="font-size: 2em; color: #E65100;"></i>
+                                                    </div>
+                                                    <h6 class="card-title fw-bold" style="color: #E65100; font-size: 1.2em;">EVI</h6>
+                                                    <p class="card-text" id="eviStats" style="color: #BF360C; font-size: 0.95em; line-height: 1.4;">-</p>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -442,8 +484,14 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="background-color: #f8f9fa; border-radius: 0 0 12px 12px; border-top: 1px solid #dee2e6;">
+                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal" style="border-radius: 8px;">
+                            <i class="fas fa-times me-2"></i>Cerrar
+                        </button>
                     </div>
                 </div>
             </div>

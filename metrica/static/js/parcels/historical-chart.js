@@ -68,7 +68,7 @@ async function mostrarGraficoHistorico() {
         document.getElementById('historicalChartContainer').style.display = 'block';
         
         if (typeof showToast === 'function') {
-            showToast('✅ Gráfico histórico generado exitosamente', 'success');
+            showToast('Gráfico histórico generado exitosamente', 'success');
         }
         
     } catch (error) {
@@ -231,18 +231,18 @@ function createHistoricalChart(data) {
                     callbacks: {
                         title: function(context) {
                             const date = new Date(context[0].parsed.x);
-                            return `📅 ${date.toLocaleDateString('es-ES', { 
+                            return date.toLocaleDateString('es-ES', { 
                                 year: 'numeric', 
                                 month: 'long', 
                                 day: 'numeric' 
-                            })}`;
+                            });
                         },
                         label: function(context) {
                             const point = context.raw;
                             return [
                                 `${context.dataset.label}: ${point.y.toFixed(3)}`,
-                                `📊 Min: ${point.min?.toFixed(3) || 'N/A'} | Max: ${point.max?.toFixed(3) || 'N/A'}`,
-                                `📐 Mediana: ${point.median?.toFixed(3) || 'N/A'} | Std: ${point.std?.toFixed(3) || 'N/A'}`
+                                `Rango: ${point.min?.toFixed(3) || 'N/A'} - ${point.max?.toFixed(3) || 'N/A'}`,
+                                `Mediana: ${point.median?.toFixed(3) || 'N/A'} | Desv. Est: ${point.std?.toFixed(3) || 'N/A'}`
                             ];
                         }
                     }
@@ -439,7 +439,7 @@ function exportChartData() {
     }
     
     if (typeof showToast === 'function') {
-        showToast('📊 Datos históricos exportados a CSV', 'success');
+        showToast('Datos históricos exportados a CSV', 'success');
     }
 }
 
