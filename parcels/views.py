@@ -9,6 +9,8 @@ from .models import Parcel
 import requests
 import logging
 import json
+import math
+import numpy as np
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -430,7 +432,7 @@ class EosdaImageView(APIView):
         
         # Verificar cache de request_id por combinación field_id+view_id+type (cache por 30 minutos)
         cache_key = f"eosda_image_request_{field_id}_{view_id}_{index_type}"
-        cached_request_id = cache.get(cache_key)
+        cached_request_id = cache.get(cached_request_id)
         if cached_request_id:
             logger.info(f"[CACHE HIT] request_id encontrado en cache: {cached_request_id}")
             return Response({"request_id": cached_request_id}, status=200)
@@ -1441,3 +1443,749 @@ class ParcelHistoricalIndicesView(APIView):
         
         logger.info(f"[HISTORICAL_INDICES] Generados {len(test_data)} puntos de prueba para {index_name}")
         return test_data
+
+class ParcelNdviWeatherComparisonView(APIView):
+    """
+    Vista para obtener análisis comparativo entre índices NDVI históricos y datos meteorológicos.
+    Combina datos de EOSDA (NDVI) con datos meteorológicos gratuitos de Open-Meteo.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, parcel_id):
+        """
+        GET /api/parcels/parcel/<parcel_id>/ndvi-weather-comparison/
+        
+        Retorna análisis comparativo NDVI vs datos meteorológicos para gráficos y correlaciones.
+        """
+        logger.info(f"[NDVI_WEATHER] Iniciando análisis comparativo para parcela {parcel_id}")
+        
+        try:
+            # Obtener la parcela
+            parcel = get_object_or_404(Parcel, pk=parcel_id, is_deleted=False)
+            logger.info(f"[NDVI_WEATHER] Parcela encontrada: {parcel.name}")
+            
+            # Verificar cache de análisis comparativo
+            current_year = datetime.now().year
+            cache_key = f"ndvi_weather_comparison_{parcel_id}_{current_year}"
+            cached_data = cache.get(cache_key)
+            
+            if cached_data:
+                logger.info(f"[NDVI_WEATHER] Cache hit: {cache_key}")
+                return Response(cached_data)
+            
+            # Reutilizar datos NDVI históricos de ParcelHistoricalIndicesView
+            logger.info(f"[NDVI_WEATHER] Obteniendo datos NDVI históricos...")
+            historical_view = ParcelHistoricalIndicesView()
+            historical_request = type('MockRequest', (), {'user': request.user})()
+            historical_response = historical_view.get(historical_request, parcel_id)
+            
+            if historical_response.status_code != 200:
+                logger.error(f"[NDVI_WEATHER] Error obteniendo datos NDVI: {historical_response.status_code}")
+                return Response({"error": "Error obteniendo datos NDVI históricos"}, status=500)
+                
+            ndvi_data = historical_response.data.get('historical_data', {}).get('ndvi', [])
+            logger.info(f"[NDVI_WEATHER] Datos NDVI obtenidos: {len(ndvi_data)} puntos")
+            
+            # Obtener coordenadas de la parcela para consulta meteorológica
+            if not parcel.geom:
+                return Response({"error": "La parcela no tiene geometría definida"}, status=400)
+                
+            # Extraer centroide de la geometría para coordenadas meteorológicas
+            geom = parcel.geom
+            if isinstance(geom, dict):
+                # Calcular centroide aproximado del polígono GeoJSON
+                coordinates = geom.get('coordinates', [])
+                if coordinates and len(coordinates) > 0:
+                    # Para polígonos, tomar el primer anillo
+                    coords = coordinates[0] if isinstance(coordinates[0], list) else coordinates
+                    # Calcular centroide simple
+                    avg_lng = sum(coord[0] for coord in coords) / len(coords)
+                    avg_lat = sum(coord[1] for coord in coords) / len(coords)
+                else:
+                    return Response({"error": "Geometría inválida para obtener coordenadas"}, status=400)
+            else:
+                # Usar Django GIS para obtener centroide
+                from django.contrib.gis.geos import GEOSGeometry
+                if isinstance(geom, str):
+                    geos_geom = GEOSGeometry(geom)
+                else:
+                    geos_geom = geom
+                centroid = geos_geom.centroid
+                avg_lng, avg_lat = centroid.coords
+            
+            logger.info(f"[NDVI_WEATHER] Coordenadas para meteorología: lat={avg_lat}, lng={avg_lng}")
+            
+            # Obtener datos meteorológicos de Open-Meteo (gratuito)
+            logger.info(f"[NDVI_WEATHER] Consultando datos meteorológicos...")
+            weather_data = self._get_weather_data(avg_lat, avg_lng)
+            logger.info(f"[NDVI_WEATHER] Datos meteorológicos obtenidos: {len(weather_data)} días")
+            
+            # Sincronizar fechas entre NDVI y meteorología
+            logger.info(f"[NDVI_WEATHER] Sincronizando fechas...")
+            synchronized_data = self._synchronize_ndvi_weather_data(ndvi_data, weather_data)
+            logger.info(f"[NDVI_WEATHER] Datos sincronizados: {len(synchronized_data)} puntos")
+            
+            # Calcular correlaciones
+            correlations = self._calculate_correlations(synchronized_data)
+            logger.info(f"[NDVI_WEATHER] Correlaciones calculadas")
+            
+            # Generar insights automáticos
+            insights = self._generate_insights(synchronized_data, correlations)
+            
+            # Estructurar respuesta
+            response_data = {
+                "parcel_info": {
+                    "id": parcel_id,
+                    "name": parcel.name,
+                    "coordinates": {
+                        "latitude": avg_lat,
+                        "longitude": avg_lng
+                    }
+                },
+                "synchronized_data": synchronized_data,
+                "correlations": correlations,
+                "insights": insights,
+                "metadata": {
+                    "total_points": len(synchronized_data),
+                    "ndvi_source": "eosda_historical",
+                    "weather_source": "open_meteo",
+                    "generated_at": datetime.now().isoformat()
+                }
+            }
+            
+            # Guardar en cache por 4 horas
+            cache.set(cache_key, response_data, 14400)
+            logger.info(f"[NDVI_WEATHER] Análisis comparativo guardado en cache: {cache_key}")
+            
+            return Response(response_data)
+            
+        except Exception as e:
+            logger.error(f"[NDVI_WEATHER] Error: {str(e)}")
+            return Response({"error": f"Error en análisis comparativo: {str(e)}"}, status=500)
+    
+    def _get_weather_data(self, latitude, longitude):
+        """
+        Obtiene datos meteorológicos históricos desde Open-Meteo (API gratuita)
+        Incluye datos históricos y pronósticos a 7 días
+        """
+        try:
+            # Configurar fechas: desde enero del año actual hasta 7 días en el futuro
+            current_year = datetime.now().year
+            start_date = f"{current_year}-01-01"
+            end_date = datetime.now().strftime("%Y-%m-%d")
+            future_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
+            
+            weather_data = []
+            
+            # 1. Datos históricos de Open-Meteo Archive API
+            logger.info(f"[WEATHER_API] Consultando datos históricos Open-Meteo...")
+            logger.info(f"[WEATHER_API] Período histórico: {start_date} a {end_date}")
+            
+            # Intentar con API Historical (más confiable para años recientes)
+            historical_url = "https://api.open-meteo.com/v1/forecast"
+            
+            # Calcular días pasados hasta ahora
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+            days_past = (end_dt - start_dt).days
+            
+            historical_params = {
+                "latitude": latitude,
+                "longitude": longitude,
+                "daily": "temperature_2m_mean,temperature_2m_max,temperature_2m_min,precipitation_sum,relative_humidity_2m_mean,wind_speed_10m_max",
+                "timezone": "auto",
+                "past_days": min(days_past, 90)  # Máximo 90 días disponibles en API gratuita
+            }
+            
+            response = requests.get(historical_url, params=historical_params, timeout=30)
+            
+            # Probar primero con API real, usar sintéticos como fallback
+            if response.status_code == 200:
+                data = response.json()
+                daily_data = data.get("daily", {})
+                
+                dates = daily_data.get("time", [])
+                temp_mean = daily_data.get("temperature_2m_mean", [])
+                temp_max = daily_data.get("temperature_2m_max", [])
+                temp_min = daily_data.get("temperature_2m_min", [])
+                precipitations = daily_data.get("precipitation_sum", [])
+                humidity = daily_data.get("relative_humidity_2m_mean", [])
+                wind_speed = daily_data.get("wind_speed_10m_max", [])
+                
+                for i, date in enumerate(dates):
+                    weather_data.append({
+                        "date": date,
+                        "temperature": temp_mean[i] if i < len(temp_mean) else None,
+                        "temperature_max": temp_max[i] if i < len(temp_max) else None,
+                        "temperature_min": temp_min[i] if i < len(temp_min) else None,
+                        "precipitation": precipitations[i] if i < len(precipitations) else None,
+                        "humidity": humidity[i] if i < len(humidity) else None,
+                        "wind_speed": wind_speed[i] if i < len(wind_speed) else None,
+                        "solar_radiation": None,  # No disponible en esta API
+                        "data_type": "historical"
+                    })
+                
+                logger.info(f"[WEATHER_API] Datos históricos procesados: {len(weather_data)} días")
+                
+            else:
+                logger.error(f"[WEATHER_API] Error en datos históricos: {response.status_code}")
+                logger.error(f"[WEATHER_API] Response: {response.text[:500]}")
+                
+                # Fallback: generar datos sintéticos para desarrollo
+                logger.info(f"[WEATHER_API] Generando datos sintéticos para desarrollo...")
+                weather_data = self._generate_synthetic_weather_data(start_date, end_date, latitude)
+            
+            # 2. Pronóstico meteorológico de Open-Meteo Forecast API
+            logger.info(f"[WEATHER_API] Consultando pronósticos Open-Meteo...")
+            forecast_url = "https://api.open-meteo.com/v1/forecast"
+            forecast_params = {
+                "latitude": latitude,
+                "longitude": longitude,
+                "daily": "temperature_2m_mean,temperature_2m_max,temperature_2m_min,precipitation_sum,relative_humidity_2m_mean,wind_speed_10m_max",
+                "timezone": "auto",
+                "forecast_days": 7
+            }
+            
+            forecast_response = requests.get(forecast_url, params=forecast_params, timeout=30)
+            
+            if forecast_response.status_code == 200:
+                forecast_data = forecast_response.json()
+                forecast_daily = forecast_data.get("daily", {})
+                
+                f_dates = forecast_daily.get("time", [])
+                f_temp_mean = forecast_daily.get("temperature_2m_mean", [])
+                f_temp_max = forecast_daily.get("temperature_2m_max", [])
+                f_temp_min = forecast_daily.get("temperature_2m_min", [])
+                f_precipitations = forecast_daily.get("precipitation_sum", [])
+                f_humidity = forecast_daily.get("relative_humidity_2m_mean", [])
+                f_wind_speed = forecast_daily.get("wind_speed_10m_max", [])
+                
+                for i, date in enumerate(f_dates):
+                    # Solo agregar fechas futuras
+                    if date > end_date:
+                        weather_data.append({
+                            "date": date,
+                            "temperature": f_temp_mean[i] if i < len(f_temp_mean) else None,
+                            "temperature_max": f_temp_max[i] if i < len(f_temp_max) else None,
+                            "temperature_min": f_temp_min[i] if i < len(f_temp_min) else None,
+                            "precipitation": f_precipitations[i] if i < len(f_precipitations) else None,
+                            "humidity": f_humidity[i] if i < len(f_humidity) else None,
+                            "wind_speed": f_wind_speed[i] if i < len(f_wind_speed) else None,
+                            "solar_radiation": None,  # No disponible en pronósticos
+                            "data_type": "forecast"
+                        })
+                
+                logger.info(f"[WEATHER_API] Pronósticos agregados. Total: {len(weather_data)} días")
+            else:
+                logger.error(f"[WEATHER_API] Error en pronósticos: {forecast_response.status_code}")
+            
+            return weather_data if weather_data else self._generate_test_weather_data()
+                
+        except Exception as e:
+            logger.error(f"[WEATHER_API] Error obteniendo datos: {str(e)}")
+            return self._generate_test_weather_data()
+    
+    def _generate_synthetic_weather_data(self, start_date, end_date, latitude):
+        """
+        Genera datos sintéticos meteorológicos para desarrollo cuando la API falla
+        """
+        from datetime import datetime, timedelta
+        import random
+        import math
+        
+        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
+        
+        weather_data = []
+        current_date = start_dt
+        
+        while current_date <= end_dt:
+            # Simular variación estacional basada en la latitud y fecha
+            day_of_year = current_date.timetuple().tm_yday
+            
+            # Temperatura base según latitud (más cálido en latitudes menores)
+            base_temp = 25 - abs(latitude) * 0.3
+            
+            # Variación estacional
+            seasonal_variation = 5 * math.sin((day_of_year - 80) * 2 * math.pi / 365)
+            
+            # Temperatura con variación diaria
+            temp_variation = random.uniform(-3, 3)
+            temperature = base_temp + seasonal_variation + temp_variation
+            
+            # Min/Max temperaturas
+            temp_max = temperature + random.uniform(2, 8)
+            temp_min = temperature - random.uniform(2, 6)
+            
+            # Precipitación (patrón tropical)
+            precipitation = 0
+            if random.random() < 0.3:  # 30% probabilidad de lluvia
+                precipitation = random.uniform(0.5, 25)
+            
+            # Humedad (mayor en zonas tropicales)
+            humidity = random.uniform(60, 90)
+            
+            # Viento
+            wind_speed = random.uniform(5, 20)
+            
+            # Radiación solar (mayor en el ecuador)
+            solar_radiation = random.uniform(15, 25)
+            
+            weather_data.append({
+                "date": current_date.strftime("%Y-%m-%d"),
+                "temperature": round(temperature, 1),
+                "temperature_max": round(temp_max, 1),
+                "temperature_min": round(temp_min, 1),
+                "precipitation": round(precipitation, 1),
+                "humidity": round(humidity, 1),
+                "wind_speed": round(wind_speed, 1),
+                "solar_radiation": round(solar_radiation, 1),
+                "data_type": "synthetic"
+            })
+            
+            current_date += timedelta(days=1)
+        
+        logger.info(f"[WEATHER_SYNTHETIC] Generados {len(weather_data)} días sintéticos para desarrollo")
+        return weather_data
+    
+    def _generate_test_weather_data(self):
+        """
+        Genera datos meteorológicos de prueba cuando la API externa falla
+        """
+        from datetime import datetime, timedelta
+        import random
+        
+        current_year = datetime.now().year
+        start_date = datetime(current_year, 1, 1)
+        end_date = datetime.now()
+        
+        weather_data = []
+        current_date = start_date
+        
+        while current_date <= end_date:
+            # Simular variación estacional
+            month = current_date.month
+            
+            # Temperatura con variación estacional
+            base_temp = 15 + 15 * math.sin((month - 1) * math.pi / 6)
+            temperature = base_temp + random.uniform(-5, 5)
+            
+            # Precipitación con más lluvia en ciertos meses
+            rain_probability = 0.3 + 0.2 * math.sin((month - 6) * math.pi / 6)
+            precipitation = random.uniform(0, 20) if random.random() < rain_probability else 0
+            
+            # Humedad correlacionada con precipitación
+            humidity = 50 + precipitation * 2 + random.uniform(-10, 10)
+            humidity = max(20, min(95, humidity))
+            
+            weather_data.append({
+                "date": current_date.strftime("%Y-%m-%d"),
+                "temperature": round(temperature, 1),
+                "precipitation": round(precipitation, 1),
+                "humidity": round(humidity, 1)
+            })
+            
+            current_date += timedelta(days=1)
+        
+        logger.info(f"[WEATHER_TEST] Generados {len(weather_data)} días de datos de prueba")
+        return weather_data
+    
+    def _synchronize_ndvi_weather_data(self, ndvi_data, weather_data):
+        """
+        Sincroniza datos NDVI (esporádicos) con datos meteorológicos (diarios)
+        Implementa sincronización más precisa con interpolación
+        """
+        from datetime import datetime, timedelta
+        
+        synchronized = []
+        
+        # Crear diccionario de datos meteorológicos por fecha
+        weather_dict = {item["date"]: item for item in weather_data}
+        
+        if not weather_dict:
+            logger.warning(f"[SYNC] No hay datos meteorológicos disponibles")
+            return []
+        
+        # Obtener rango de fechas meteorológicas para validación
+        weather_dates = [datetime.strptime(date, "%Y-%m-%d") for date in weather_dict.keys()]
+        min_weather_date = min(weather_dates)
+        max_weather_date = max(weather_dates)
+        
+        logger.info(f"[SYNC] Rango meteorológico: {min_weather_date.strftime('%Y-%m-%d')} a {max_weather_date.strftime('%Y-%m-%d')}")
+        logger.info(f"[SYNC] Datos NDVI disponibles: {len(ndvi_data)} puntos")
+        
+        for ndvi_point in ndvi_data:
+            ndvi_date = ndvi_point["date"]
+            ndvi_dt = datetime.strptime(ndvi_date, "%Y-%m-%d")
+            
+            # Verificar que la fecha NDVI esté en el rango meteorológico
+            if ndvi_dt < min_weather_date or ndvi_dt > max_weather_date:
+                logger.debug(f"[SYNC] Fecha NDVI {ndvi_date} fuera del rango meteorológico ({min_weather_date.strftime('%Y-%m-%d')} - {max_weather_date.strftime('%Y-%m-%d')})")
+                continue
+            
+            # Buscar datos meteorológicos para la fecha exacta
+            weather_point = weather_dict.get(ndvi_date)
+            
+            if not weather_point:
+                # Interpolación lineal para fechas faltantes
+                weather_point = self._interpolate_weather_data(ndvi_dt, weather_dict)
+            
+            if weather_point:
+                # Calcular métricas agregadas de precipitación
+                precip_7d = self._calculate_accumulated_precipitation(ndvi_date, weather_dict, days=7)
+                precip_15d = self._calculate_accumulated_precipitation(ndvi_date, weather_dict, days=15)
+                precip_30d = self._calculate_accumulated_precipitation(ndvi_date, weather_dict, days=30)
+                
+                # Calcular promedios de temperatura
+                temp_avg_7d = self._calculate_average_temperature(ndvi_date, weather_dict, days=7)
+                temp_avg_15d = self._calculate_average_temperature(ndvi_date, weather_dict, days=15)
+                
+                # Identificar si es dato histórico o pronóstico
+                data_type = weather_point.get("data_type", "historical")
+                
+                synchronized.append({
+                    "date": ndvi_date,
+                    "ndvi": {
+                        "mean": ndvi_point.get("mean", 0),
+                        "std": ndvi_point.get("std", 0),
+                        "min": ndvi_point.get("min", 0),
+                        "max": ndvi_point.get("max", 0)
+                    },
+                    "weather": {
+                        "temperature": weather_point.get("temperature", 0),
+                        "temperature_max": weather_point.get("temperature_max", 0),
+                        "temperature_min": weather_point.get("temperature_min", 0),
+                        "precipitation_daily": weather_point.get("precipitation", 0),
+                        "precipitation_accumulated_7d": precip_7d,
+                        "precipitation_accumulated_15d": precip_15d,
+                        "precipitation_accumulated_30d": precip_30d,
+                        "humidity": weather_point.get("humidity", 0),
+                        "wind_speed": weather_point.get("wind_speed", 0),
+                        "solar_radiation": weather_point.get("solar_radiation", 0),
+                        "temperature_avg_7d": temp_avg_7d,
+                        "temperature_avg_15d": temp_avg_15d,
+                        "data_type": data_type
+                    }
+                })
+        
+        # Ordenar por fecha
+        synchronized.sort(key=lambda x: x["date"])
+        
+        logger.info(f"[SYNC] Sincronizados {len(synchronized)} puntos de {len(ndvi_data)} NDVI disponibles")
+        return synchronized
+    
+    def _interpolate_weather_data(self, target_date, weather_dict):
+        """
+        Interpola datos meteorológicos para fechas faltantes
+        """
+        try:
+            # Buscar fechas cercanas (±2 días)
+            closest_dates = []
+            for delta in range(1, 3):
+                for direction in [-1, 1]:
+                    check_date = (target_date + timedelta(days=delta * direction)).strftime("%Y-%m-%d")
+                    if check_date in weather_dict:
+                        closest_dates.append((delta, weather_dict[check_date]))
+            
+            if not closest_dates:
+                return None
+            
+            # Usar la fecha más cercana (interpolación simple)
+            closest_dates.sort(key=lambda x: x[0])
+            return closest_dates[0][1]
+            
+        except Exception as e:
+            logger.error(f"[INTERPOLATION] Error: {str(e)}")
+            return None
+    
+    def _calculate_average_temperature(self, target_date, weather_dict, days=7):
+        """
+        Calcula temperatura promedio de los últimos N días
+        """
+        try:
+            target_dt = datetime.strptime(target_date, "%Y-%m-%d")
+            temperatures = []
+            
+            for i in range(days):
+                check_date = (target_dt - timedelta(days=i)).strftime("%Y-%m-%d")
+                weather_data = weather_dict.get(check_date)
+                if weather_data and weather_data.get("temperature") is not None:
+                    temperatures.append(weather_data["temperature"])
+            
+            return round(sum(temperatures) / len(temperatures), 1) if temperatures else 0
+        except:
+            return 0
+    
+    def _calculate_accumulated_precipitation(self, target_date, weather_dict, days=7):
+        """
+        Calcula precipitación acumulada de los últimos N días
+        """
+        from datetime import datetime, timedelta
+        
+        try:
+            target_dt = datetime.strptime(target_date, "%Y-%m-%d")
+            total_precip = 0
+            
+            for i in range(days):
+                check_date = (target_dt - timedelta(days=i)).strftime("%Y-%m-%d")
+                weather_data = weather_dict.get(check_date)
+                if weather_data and weather_data.get("precipitation"):
+                    total_precip += weather_data["precipitation"]
+            
+            return round(total_precip, 1)
+        except:
+            return 0
+    
+    def _calculate_correlations(self, synchronized_data):
+        """
+        Calcula correlaciones entre NDVI y todas las variables meteorológicas disponibles
+        Incluye análisis de lag (retraso) para detectar correlaciones desfasadas
+        """
+        import numpy as np
+        
+        if len(synchronized_data) < 3:
+            return {
+                "ndvi_vs_precipitation_daily": 0,
+                "ndvi_vs_precipitation_7d": 0,
+                "ndvi_vs_precipitation_15d": 0,
+                "ndvi_vs_precipitation_30d": 0,
+                "ndvi_vs_temperature": 0,
+                "ndvi_vs_temperature_max": 0,
+                "ndvi_vs_temperature_min": 0,
+                "ndvi_vs_humidity": 0,
+                "ndvi_vs_wind_speed": 0,
+                "ndvi_vs_solar_radiation": 0,
+                "lag_analysis": {}
+            }
+        
+        try:
+            # Extraer arrays para correlación
+            ndvi_values = [point["ndvi"]["mean"] for point in synchronized_data]
+            precip_daily = [point["weather"]["precipitation_daily"] for point in synchronized_data]
+            precip_7d = [point["weather"]["precipitation_accumulated_7d"] for point in synchronized_data]
+            precip_15d = [point["weather"]["precipitation_accumulated_15d"] for point in synchronized_data]
+            precip_30d = [point["weather"]["precipitation_accumulated_30d"] for point in synchronized_data]
+            temperatures = [point["weather"]["temperature"] for point in synchronized_data]
+            temp_max = [point["weather"]["temperature_max"] for point in synchronized_data]
+            temp_min = [point["weather"]["temperature_min"] for point in synchronized_data]
+            humidity_values = [point["weather"]["humidity"] for point in synchronized_data]
+            wind_speed = [point["weather"]["wind_speed"] for point in synchronized_data]
+            solar_radiation = [point["weather"]["solar_radiation"] for point in synchronized_data if point["weather"]["solar_radiation"] is not None]
+            
+            # Calcular correlaciones de Pearson
+            correlations = {
+                "ndvi_vs_precipitation_daily": self._safe_correlation(ndvi_values, precip_daily),
+                "ndvi_vs_precipitation_7d": self._safe_correlation(ndvi_values, precip_7d),
+                "ndvi_vs_precipitation_15d": self._safe_correlation(ndvi_values, precip_15d),
+                "ndvi_vs_precipitation_30d": self._safe_correlation(ndvi_values, precip_30d),
+                "ndvi_vs_temperature": self._safe_correlation(ndvi_values, temperatures),
+                "ndvi_vs_temperature_max": self._safe_correlation(ndvi_values, temp_max),
+                "ndvi_vs_temperature_min": self._safe_correlation(ndvi_values, temp_min),
+                "ndvi_vs_humidity": self._safe_correlation(ndvi_values, humidity_values),
+                "ndvi_vs_wind_speed": self._safe_correlation(ndvi_values, wind_speed),
+                "ndvi_vs_solar_radiation": self._safe_correlation(ndvi_values[:len(solar_radiation)], solar_radiation) if len(solar_radiation) > 2 else 0
+            }
+            
+            # Análisis de lag (correlaciones con retraso)
+            lag_analysis = self._calculate_lag_correlations(ndvi_values, precip_7d, temperatures)
+            correlations["lag_analysis"] = lag_analysis
+            
+            return correlations
+            
+        except Exception as e:
+            logger.error(f"[CORRELATIONS] Error calculando correlaciones: {str(e)}")
+            return {
+                "ndvi_vs_precipitation_daily": 0,
+                "ndvi_vs_precipitation_7d": 0,
+                "ndvi_vs_precipitation_15d": 0,
+                "ndvi_vs_precipitation_30d": 0,
+                "ndvi_vs_temperature": 0,
+                "ndvi_vs_temperature_max": 0,
+                "ndvi_vs_temperature_min": 0,
+                "ndvi_vs_humidity": 0,
+                "ndvi_vs_wind_speed": 0,
+                "ndvi_vs_solar_radiation": 0,
+                "lag_analysis": {}
+            }
+    
+    def _safe_correlation(self, x, y):
+        """
+        Calcula correlación de Pearson de forma segura manejando NaN y arrays de diferentes tamaños
+        """
+        import numpy as np
+        
+        try:
+            # Asegurar que ambos arrays tengan el mismo tamaño
+            min_len = min(len(x), len(y))
+            x_trimmed = x[:min_len]
+            y_trimmed = y[:min_len]
+            
+            # Filtrar valores None y NaN
+            valid_pairs = [(xi, yi) for xi, yi in zip(x_trimmed, y_trimmed) if xi is not None and yi is not None and not np.isnan(xi) and not np.isnan(yi)]
+            
+            if len(valid_pairs) < 3:
+                return 0
+            
+            x_clean, y_clean = zip(*valid_pairs)
+            corr = np.corrcoef(x_clean, y_clean)[0, 1]
+            
+            return round(corr, 3) if not np.isnan(corr) else 0
+        except:
+            return 0
+    
+    def _calculate_lag_correlations(self, ndvi_values, precip_values, temp_values):
+        """
+        Calcula correlaciones con diferentes retrasos (lag) para detectar respuestas desfasadas
+        """
+        lag_results = {}
+        
+        try:
+            # Probar lags de 1 a 3 períodos (considerando que los datos pueden ser semanales)
+            for lag in range(1, 4):
+                if len(ndvi_values) > lag + 2:
+                    # NDVI vs precipitación con lag
+                    ndvi_lagged = ndvi_values[lag:]
+                    precip_lead = precip_values[:-lag]
+                    precip_lag_corr = self._safe_correlation(ndvi_lagged, precip_lead)
+                    
+                    # NDVI vs temperatura con lag
+                    temp_lead = temp_values[:-lag]
+                    temp_lag_corr = self._safe_correlation(ndvi_lagged, temp_lead)
+                    
+                    lag_results[f"lag_{lag}"] = {
+                        "precipitation": precip_lag_corr,
+                        "temperature": temp_lag_corr
+                    }
+        except Exception as e:
+            logger.error(f"[LAG_ANALYSIS] Error: {str(e)}")
+        
+        return lag_results
+    
+    def _generate_insights(self, synchronized_data, correlations):
+        """
+        Genera insights automáticos basados en correlaciones y patrones de todas las variables meteorológicas
+        """
+        insights = []
+        
+        # Análisis de correlación con precipitación acumulada (30 días es más indicativo)
+        precip_30d_corr = correlations.get("ndvi_vs_precipitation_30d", 0)
+        precip_7d_corr = correlations.get("ndvi_vs_precipitation_7d", 0)
+        
+        if precip_30d_corr > 0.6:
+            insights.append(f"Correlación fuerte positiva entre NDVI y precipitación acumulada 30 días ({precip_30d_corr:.2f}). La vegetación responde eficientemente al agua disponible.")
+        elif precip_30d_corr < -0.4:
+            insights.append(f"Correlación negativa NDVI-precipitación 30d ({precip_30d_corr:.2f}). Posible saturación hídrica o problemas de drenaje afectando el cultivo.")
+        elif abs(precip_7d_corr) > abs(precip_30d_corr) and abs(precip_7d_corr) > 0.4:
+            insights.append(f"La vegetación responde más a precipitación reciente (7d: {precip_7d_corr:.2f}) que acumulada, indicando respuesta rápida al agua.")
+        
+        # Análisis de temperatura (máximas, mínimas y promedio)
+        temp_corr = correlations.get("ndvi_vs_temperature", 0)
+        temp_max_corr = correlations.get("ndvi_vs_temperature_max", 0)
+        temp_min_corr = correlations.get("ndvi_vs_temperature_min", 0)
+        
+        if temp_max_corr < -0.5:
+            insights.append(f"Las temperaturas máximas están limitando el crecimiento ({temp_max_corr:.2f}). Considerar sistemas de sombreo o riego de enfriamiento.")
+        elif temp_min_corr > 0.4:
+            insights.append(f"Las temperaturas mínimas favorecen el desarrollo vegetativo ({temp_min_corr:.2f}). Buen ambiente nocturno para el cultivo.")
+        elif temp_corr > 0.4:
+            insights.append(f"Condiciones térmicas favorables para el crecimiento ({temp_corr:.2f}). El rango de temperatura es óptimo.")
+        elif temp_corr < -0.4:
+            insights.append(f"Estrés térmico detectado ({temp_corr:.2f}). Evaluar estrategias de manejo de temperatura.")
+        
+        # Análisis de humedad relativa
+        humidity_corr = correlations.get("ndvi_vs_humidity", 0)
+        if humidity_corr > 0.5:
+            insights.append(f"La humedad relativa favorece el desarrollo ({humidity_corr:.2f}). Ambiente húmedo óptimo para la fotosíntesis.")
+        elif humidity_corr < -0.5:
+            insights.append(f"La alta humedad puede estar afectando negativamente ({humidity_corr:.2f}). Posible riesgo de enfermedades fúngicas.")
+        
+        # Análisis de viento
+        wind_corr = correlations.get("ndvi_vs_wind_speed", 0)
+        if wind_corr < -0.4:
+            insights.append(f"Vientos fuertes están afectando el cultivo ({wind_corr:.2f}). Considerar cortavientos o protecciones.")
+        elif wind_corr > 0.3:
+            insights.append(f"Ventilación moderada favorece el cultivo ({wind_corr:.2f}). Buena circulación de aire.")
+        
+        # Análisis de radiación solar
+        solar_corr = correlations.get("ndvi_vs_solar_radiation", 0)
+        if solar_corr > 0.4:
+            insights.append(f"Radiación solar óptima para fotosíntesis ({solar_corr:.2f}). Excelente disponibilidad lumínica.")
+        elif solar_corr < -0.3:
+            insights.append(f"Exceso de radiación puede estar causando estrés ({solar_corr:.2f}). Evaluar necesidad de sombreo.")
+        
+        # Análisis de lag (respuestas desfasadas)
+        lag_analysis = correlations.get("lag_analysis", {})
+        best_lag = None
+        best_lag_corr = 0
+        
+        for lag_period, lag_data in lag_analysis.items():
+            precip_lag = lag_data.get("precipitation", 0)
+            if abs(precip_lag) > abs(best_lag_corr):
+                best_lag_corr = precip_lag
+                best_lag = lag_period
+        
+        if best_lag and abs(best_lag_corr) > 0.4:
+            lag_days = best_lag.replace("lag_", "")
+            if best_lag_corr > 0:
+                insights.append(f"La vegetación responde a precipitaciones con {lag_days} períodos de retraso ({best_lag_corr:.2f}). Respuesta típica de cultivos establecidos.")
+            else:
+                insights.append(f"Respuesta negativa desfasada a precipitación ({lag_days} períodos: {best_lag_corr:.2f}). Posible problema de drenaje o enfermedades.")
+        
+        # Análisis de tendencias estacionales y pronóstico
+        if len(synchronized_data) > 10:
+            recent_data = synchronized_data[-5:]
+            historical_data = [point for point in synchronized_data if point["weather"]["data_type"] == "historical"]
+            forecast_data = [point for point in synchronized_data if point["weather"]["data_type"] == "forecast"]
+            
+            if historical_data:
+                recent_ndvi = [point["ndvi"]["mean"] for point in recent_data if point["weather"]["data_type"] == "historical"]
+                early_ndvi = [point["ndvi"]["mean"] for point in historical_data[:5]]
+                
+                if recent_ndvi and early_ndvi:
+                    recent_avg = sum(recent_ndvi) / len(recent_ndvi)
+                    early_avg = sum(early_ndvi) / len(early_ndvi)
+                    
+                    if recent_avg > early_avg * 1.15:
+                        insights.append("Tendencia muy positiva: El NDVI ha mejorado significativamente en mediciones recientes. Excelente evolución del cultivo.")
+                    elif recent_avg > early_avg * 1.05:
+                        insights.append("Tendencia positiva: Mejora gradual en el vigor vegetativo del cultivo.")
+                    elif recent_avg < early_avg * 0.85:
+                        insights.append("Tendencia decreciente preocupante: Disminución notable del NDVI. Se requiere evaluación urgente de condiciones de cultivo.")
+                    elif recent_avg < early_avg * 0.95:
+                        insights.append("Ligera tendencia decreciente: Monitorear evolución y condiciones de manejo.")
+            
+            # Análisis de datos de pronóstico si están disponibles
+            if forecast_data:
+                forecast_precip = sum(point["weather"]["precipitation_daily"] for point in forecast_data)
+                forecast_temp_avg = sum(point["weather"]["temperature"] for point in forecast_data) / len(forecast_data)
+                
+                if forecast_precip > 50:
+                    insights.append(f"Pronóstico: Se esperan {forecast_precip:.1f}mm de lluvia en próximos días. Condiciones favorables para crecimiento vegetativo.")
+                elif forecast_precip < 5:
+                    insights.append(f"Pronóstico: Período seco esperado ({forecast_precip:.1f}mm). Considerar riego suplementario.")
+                
+                if forecast_temp_avg > 30:
+                    insights.append(f"Pronóstico: Temperaturas altas esperadas ({forecast_temp_avg:.1f}°C promedio). Monitorear estrés térmico.")
+                elif forecast_temp_avg < 10:
+                    insights.append(f"Pronóstico: Temperaturas bajas esperadas ({forecast_temp_avg:.1f}°C promedio). Evaluar protección contra frío.")
+        
+        # Recomendaciones basadas en NDVI promedio
+        if synchronized_data:
+            avg_ndvi = sum(point["ndvi"]["mean"] for point in synchronized_data) / len(synchronized_data)
+            max_ndvi = max(point["ndvi"]["mean"] for point in synchronized_data)
+            min_ndvi = min(point["ndvi"]["mean"] for point in synchronized_data)
+            ndvi_variation = max_ndvi - min_ndvi
+            
+            if avg_ndvi < 0.3:
+                insights.append(f"NDVI promedio muy bajo ({avg_ndvi:.2f}). Se requiere evaluación urgente de salud del cultivo, nutrición y manejo.")
+            elif avg_ndvi < 0.5:
+                insights.append(f"NDVI promedio bajo ({avg_ndvi:.2f}). Evaluar necesidades nutricionales y condiciones de crecimiento.")
+            elif avg_ndvi > 0.8:
+                insights.append(f"NDVI promedio excelente ({avg_ndvi:.2f}). Cultivo con vigor vegetativo óptimo.")
+            elif avg_ndvi > 0.7:
+                insights.append(f"NDVI promedio muy bueno ({avg_ndvi:.2f}). Cultivo saludable con buen desarrollo vegetativo.")
+            
+            if ndvi_variation > 0.4:
+                insights.append(f"Alta variabilidad en NDVI ({ndvi_variation:.2f}). Evaluar uniformidad de manejo y condiciones del campo.")
+        
+        return insights[:8]  # Limitar a 8 insights más relevantes

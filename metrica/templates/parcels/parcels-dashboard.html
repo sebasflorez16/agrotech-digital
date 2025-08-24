@@ -265,7 +265,8 @@
                             <input type="date" id="fechaFinInput" class="form-control" placeholder="dd/mm/aaaa">
                         </div>
                         <button id="escenasSatelitalesBtn" class="btn btn-warning w-100 mb-2" style="font-weight:500;">Buscar escenas satelitales</button>
-                        <button id="graficoHistoricoBtn" class="btn btn-success w-100" style="font-weight:500;">📈 Ver Gráfico Histórico</button>
+                        <button id="graficoHistoricoBtn" class="btn btn-success w-100 mb-2" style="font-weight:500;">Ver Gráfico Histórico</button>
+                        <button id="analisisMeteorologicoBtn" class="btn btn-info w-100" style="font-weight:500;">Análisis NDVI + Meteorología</button>
                     </div>
                     
                     <!-- Info Parcela -->
@@ -497,6 +498,101 @@
             </div>
         </div>
 
+        <!-- Sección de Análisis NDVI + Meteorología (estática, no modal) -->
+        <div id="meteorologicalAnalysisSection" style="display: none; margin-top: 30px;">
+            <div class="card">
+                <div class="card-header" style="background: linear-gradient(135deg, #2E7D32, #1565C0); color: white;">
+                    <h5 class="mb-0">Análisis Comparativo NDVI + Meteorología</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Loading del análisis -->
+                    <div id="meteorologicalAnalysisLoading" style="display: none; text-align: center; padding: 40px;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-3">Analizando datos NDVI y meteorológicos...</p>
+                    </div>
+
+                    <!-- Contenedor del análisis -->
+                    <div id="meteorologicalAnalysisContainer" style="display: none;">
+                        <!-- Controles -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="weatherVariable" class="form-label">Variable Meteorológica:</label>
+                                <select id="weatherVariable" class="form-select">
+                                    <optgroup label="Precipitación">
+                                        <option value="precipitation_daily">Precipitación Diaria</option>
+                                        <option value="precipitation_7d" selected>Precipitación Acumulada 7d</option>
+                                        <option value="precipitation_15d">Precipitación Acumulada 15d</option>
+                                        <option value="precipitation_30d">Precipitación Acumulada 30d</option>
+                                    </optgroup>
+                                    <optgroup label="Temperatura">
+                                        <option value="temperature">Temperatura Media</option>
+                                        <option value="temperature_max">Temperatura Máxima</option>
+                                        <option value="temperature_min">Temperatura Mínima</option>
+                                    </optgroup>
+                                    <optgroup label="Otras Variables">
+                                        <option value="humidity">Humedad Relativa</option>
+                                        <option value="wind_speed">Velocidad del Viento</option>
+                                        <option value="solar_radiation">Radiación Solar</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <div class="col-md-6 d-flex align-items-end">
+                                <button class="btn btn-outline-primary me-2" onclick="exportMeteorologicalData()">Exportar CSV</button>
+                                <button class="btn btn-outline-secondary" onclick="refreshMeteorologicalAnalysis()">Actualizar</button>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico comparativo -->
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div style="position: relative; height: 400px; background: #f8f9fa; border-radius: 8px; padding: 15px;">
+                                    <canvas id="meteorologicalChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <!-- Correlaciones -->
+                                <div class="card mb-3">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Correlaciones</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-2">
+                                            <small>NDVI vs Precipitación:</small>
+                                            <div class="d-flex justify-content-between">
+                                                <span id="correlationPrecipitation" style="font-weight: bold; color: #2E7D32;">-</span>
+                                                <span id="correlationStrengthPrecip" class="badge bg-secondary">-</span>
+                                            </div>
+                                        </div>
+                                        <div class="mb-2">
+                                            <small>NDVI vs Temperatura:</small>
+                                            <div class="d-flex justify-content-between">
+                                                <span id="correlationTemperature" style="font-weight: bold; color: #1565C0;">-</span>
+                                                <span id="correlationStrengthTemp" class="badge bg-secondary">-</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Insights -->
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h6 class="mb-0">Insights y Recomendaciones</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <ul id="insightsList" class="list-unstyled mb-0">
+                                            <li>Analizando datos...</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         </div>
     </div>
 
@@ -510,11 +606,14 @@
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.102/Build/Cesium/Cesium.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qs/dist/qs.js"></script>
+    <script src="/static/js/utils/api-utils.js"></script>
+    <script src="/static/js/auth/dev-auth-helper.js"></script>
     <script src="/static/js/app.js"></script>
     <script type="module" src="/static/js/parcels/parcel.js"></script>
     <script type="module" src="/static/js/parcels/layers.js"></script>
     <script src="/static/js/parcels/analytics-cientifico.js"></script>
     <script src="/static/js/parcels/historical-chart.js"></script>
+    <script src="/static/js/parcels/meteorological-analysis.js"></script>
 
     <script>
         // Mostrar el filtro de rango de fechas solo cuando se activa la capa NDVI
@@ -609,6 +708,307 @@
                 waterStressToggleButton.addEventListener('click', () => {
                     // Aquí iría la lógica para mostrar Estrés Hídrico
                     console.log('Mostrar Estrés Hídrico para la parcela seleccionada');
+                });
+            }
+        });
+    </script>
+
+    <!-- Script para análisis meteorológico -->
+    <script>
+        function showMeteorologicalAnalysis() {
+            const section = document.getElementById('meteorologicalAnalysisSection');
+            if (section) {
+                section.style.display = 'block';
+            }
+        }
+
+        function hideMeteorologicalAnalysis() {
+            const section = document.getElementById('meteorologicalAnalysisSection');
+            if (section) {
+                section.style.display = 'none';
+            }
+        }
+
+        // Simulación de datos para el análisis meteorológico
+        const meteorologicalData = {
+            precipitation: [5, 10, 15, 20, 25],
+            ndvi: [0.1, 0.2, 0.3, 0.4, 0.5],
+            temperature: [20, 21, 22, 23, 24]
+        };
+
+        // Función para renderizar el gráfico meteorológico
+        function renderMeteorologicalChart(data) {
+            const ctx = document.getElementById('meteorologicalChart').getContext('2d');
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May'],
+                    datasets: [
+                        {
+                            label: 'Precipitación Acumulada',
+                            data: data.precipitation,
+                            borderColor: '#36A2EB',
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            fill: true,
+                        },
+                        {
+                            label: 'NDVI',
+                            data: data.ndvi,
+                            borderColor: '#4BC0C0',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            fill: true,
+                        },
+                        {
+                            label: 'Precipitación Diaria',
+                            data: data.precipitation,
+                            borderColor: 'rgba(54, 162, 235, 0.6)',
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            fill: true,
+                            type: 'bar',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                        }
+                    },
+                    interaction: {
+                        mode: 'index',
+                        intersect: false
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                        },
+                        y: {
+                            stacked: false,
+                            beginAtZero: true,
+                        }
+                    }
+                }
+            });
+        }
+
+        // Función para mostrar la sección de análisis meteorológico
+        function showMeteorologicalAnalysis() {
+            const section = document.getElementById('meteorologicalAnalysisSection');
+            section.style.display = 'block';
+            
+            // Scroll suave hacia la sección
+            section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Función para analizar datos meteorológicos (conectar con API real)
+        function analyzeMeteorologicalData() {
+            const loading = document.getElementById('meteorologicalAnalysisLoading');
+            const container = document.getElementById('meteorologicalAnalysisContainer');
+
+            // Mostrar loading
+            loading.style.display = 'flex';
+            container.style.display = 'none';
+
+            // Simular análisis mientras se implementa la API real
+            setTimeout(() => {
+                // Ocultar loading
+                loading.style.display = 'none';
+                container.style.display = 'block';
+
+                // TODO: Conectar con API real - por ahora usar datos de prueba
+                const meteorologicalData = generateTestMeteorologicalData();
+                renderMeteorologicalChart(meteorologicalData);
+
+                // Actualizar análisis de correlación (simulación)
+                document.getElementById('correlationPrecipitation').innerText = '0.85';
+                document.getElementById('correlationTemperature').innerText = '0.75';
+                document.getElementById('correlationStrengthPrecip').innerText = 'Fuerte';
+                document.getElementById('correlationStrengthTemp').innerText = 'Moderada';
+
+                // Actualizar insights (simulación)
+                const insights = [
+                    'El NDVI muestra una correlación fuerte con la precipitación acumulada.',
+                    'Se observa una tendencia positiva entre días de lluvia y salud vegetativa.',
+                    'Las temperaturas elevadas coinciden con descensos en el índice NDVI.',
+                    'Se recomienda ajustar el riego basado en pronósticos meteorológicos.'
+                ];
+                const insightsList = document.getElementById('insightsList');
+                insightsList.innerHTML = '';
+                insights.forEach(insight => {
+                    const li = document.createElement('li');
+                    li.className = 'mb-2';
+                    li.innerHTML = `<i class="fas fa-lightbulb text-warning me-2"></i>${insight}`;
+                    insightsList.appendChild(li);
+                });
+            }, 2000);
+        }
+
+        // Función para generar datos meteorológicos de prueba
+        function generateTestMeteorologicalData() {
+            const data = [];
+            const startDate = new Date('2024-01-01');
+            const endDate = new Date();
+            
+            let currentDate = new Date(startDate);
+            while (currentDate <= endDate) {
+                // Simular NDVI con variación estacional
+                const month = currentDate.getMonth();
+                const seasonalFactor = 0.5 + 0.4 * Math.sin((month - 3) * Math.PI / 6);
+                const ndvi = seasonalFactor + (Math.random() - 0.5) * 0.2;
+                
+                // Simular precipitación y temperatura
+                const precipitation = Math.random() * 15;
+                const temp = 15 + 15 * Math.sin((month - 1) * Math.PI / 6) + (Math.random() - 0.5) * 5;
+                
+                data.push({
+                    date: currentDate.toISOString().split('T')[0],
+                    ndvi: Math.max(0, Math.min(1, ndvi)),
+                    precipitation: Math.max(0, precipitation),
+                    temperature: temp
+                });
+                
+                // Avanzar 7-14 días
+                currentDate.setDate(currentDate.getDate() + Math.floor(Math.random() * 8) + 7);
+            }
+            
+            return data;
+        }
+
+        // Función para renderizar el gráfico meteorológico
+        function renderMeteorologicalChart(data) {
+            const ctx = document.getElementById('meteorologicalChart').getContext('2d');
+            
+            // Destruir gráfico existente si existe
+            if (window.meteorologicalChartInstance) {
+                window.meteorologicalChartInstance.destroy();
+            }
+            
+            const dates = data.map(d => d.date);
+            const ndviData = data.map(d => d.ndvi);
+            const precipitationData = data.map(d => d.precipitation);
+            const temperatureData = data.map(d => d.temperature);
+            
+            window.meteorologicalChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'NDVI',
+                            data: ndviData,
+                            borderColor: '#2E7D32',
+                            backgroundColor: 'rgba(46, 125, 50, 0.1)',
+                            yAxisID: 'y',
+                            tension: 0.4
+                        },
+                        {
+                            label: 'Precipitación (mm)',
+                            data: precipitationData,
+                            borderColor: '#1565C0',
+                            backgroundColor: 'rgba(21, 101, 192, 0.1)',
+                            yAxisID: 'y1',
+                            type: 'bar',
+                            order: 2
+                        },
+                        {
+                            label: 'Temperatura (°C)',
+                            data: temperatureData,
+                            borderColor: '#E65100',
+                            backgroundColor: 'rgba(230, 81, 0, 0.1)',
+                            yAxisID: 'y2',
+                            tension: 0.4,
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'month'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'NDVI'
+                            },
+                            min: 0,
+                            max: 1
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Precipitación (mm)'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                        },
+                        y2: {
+                            type: 'linear',
+                            display: false,
+                            position: 'right',
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Análisis Comparativo NDVI vs Datos Meteorológicos'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Función para exportar datos meteorológicos
+        function exportMeteorologicalData() {
+            // TODO: Implementar exportación real
+            alert('Funcionalidad de exportación en desarrollo');
+        }
+
+        // Función para actualizar análisis meteorológico
+        function refreshMeteorologicalAnalysis() {
+            analyzeMeteorologicalData();
+        }
+
+        // Evento para el botón de análisis meteorológico
+        document.addEventListener('DOMContentLoaded', function() {
+            const analisisBtn = document.getElementById('analisisMeteorologicoBtn');
+            if (analisisBtn) {
+                analisisBtn.addEventListener('click', () => {
+                    showMeteorologicalAnalysis();
+                    analyzeMeteorologicalData();
+                });
+            }
+
+            // Evento para cambio de variable meteorológica
+            const weatherVariableSelect = document.getElementById('weatherVariable');
+            if (weatherVariableSelect) {
+                weatherVariableSelect.addEventListener('change', () => {
+                    // TODO: Actualizar gráfico según variable seleccionada
+                    console.log('Variable seleccionada:', weatherVariableSelect.value);
                 });
             }
         });

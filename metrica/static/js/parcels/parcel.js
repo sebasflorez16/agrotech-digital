@@ -252,7 +252,7 @@ window.clearEOSDACache = function() {
     console.log('[CACHE CLEARED] Cache de EOSDA limpiado');
 };
 
-const BASE_URL = `http://${window.location.hostname}:8000/api/parcels`;
+const BASE_URL = window.ApiUrls ? window.ApiUrls.parcels() : `${window.location.protocol}//${window.location.hostname}:8000/api/parcels`;
 
 // Inicializar el mapa de Cesium
 // Variables globales
@@ -799,6 +799,17 @@ function flyToParcel(parcelId) {
                 window.setSelectedParcelForChart(parcelId);
             }
 
+            // Actualizar parcela seleccionada para análisis meteorológico
+            if (typeof window.loadMeteorologicalAnalysis === 'function') {
+                // Actualizar la variable global del módulo meteorológico
+                window.currentParcelId = parcelId;
+            }
+            
+            // Establecer parcela seleccionada para análisis meteorológico
+            if (typeof window.setSelectedParcelForMeteoAnalysis === 'function') {
+                window.setSelectedParcelForMeteoAnalysis(parcelId);
+            }
+
             // Actualizar datos de la parcela en el panel
             const parcelNameCell = document.getElementById("parcelNameCell");
             if (parcelNameCell) {
@@ -934,6 +945,39 @@ function setupImageFilterUX() {
             await buscarEscenasPorRango(parcelId, startDate, endDate);
         };
     }
+
+    // Configurar evento para botón de análisis meteorológico
+    const btnAnalisisMeteorologico = document.getElementById("analisisMeteorologicoBtn");
+    if (btnAnalisisMeteorologico) {
+        btnAnalisisMeteorologico.onclick = function() {
+            const parcelaSeleccionada = !!window.EOSDA_STATE.selectedParcelId;
+            
+            if (!parcelaSeleccionada) {
+                showErrorToast("Selecciona primero una parcela para ver el análisis meteorológico.");
+                return;
+            }
+            
+            const parcelId = window.EOSDA_STATE.selectedParcelId;
+            
+            // Mostrar sección de análisis meteorológico
+            const section = document.getElementById('meteorologicalAnalysisSection');
+            if (section) {
+                section.style.display = 'block';
+                
+                // Scroll suave hacia la sección
+                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                
+                // Cargar análisis meteorológico
+                if (typeof window.loadMeteorologicalAnalysis === 'function') {
+                    window.loadMeteorologicalAnalysis(parcelId);
+                } else {
+                    console.warn('[PARCEL] Función loadMeteorologicalAnalysis no disponible');
+                }
+            } else {
+                console.error('[PARCEL] Sección meteorológicalAnalysisSection no encontrada');
+            }
+        };
+    }
 }
 
 // Lógica para buscar escenas por rango de fechas y mostrar el modal
@@ -1026,8 +1070,9 @@ async function fetchEosdaWmtsUrls(polygonGeoJson) {
     const daysAgo = 10;
     const fechaNDVI = new Date(today.getFullYear(), today.getMonth(), today.getDate() - daysAgo)
         .toISOString().split('T')[0];
-    // Siempre usar prueba.localhost para el proxy WMTS
-    const baseProxy = `http://prueba.localhost:8000/api/parcels/eosda-wmts-tile/`;
+    // Usar hostname dinámico para el proxy WMTS
+    const baseProxy = window.ApiUrls ? window.ApiUrls.eosdaWmts() + '/' : 
+                     `${window.location.protocol}//${window.location.hostname}:8000/api/parcels/eosda-wmts-tile/`;
     // const ndviUrl = ...; const ndmiUrl = ...; Eliminado. Usar Render API.
     return { ndvi: ndviUrl, ndmi: ndmiUrl };
 }
