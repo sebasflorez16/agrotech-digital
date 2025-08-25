@@ -13,6 +13,7 @@
     <!-- Font Awesome for Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
     <!-- Bootstrap JS Bundle (incluye Popper) -->
@@ -292,7 +293,7 @@
                     
                     <!-- Análisis automático de imagen satelital -->
                     <div id="analysisTableCard" style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);padding:18px 20px;">
-                        <h5 style="font-weight: bold; color: #333; margin-bottom: 15px;">📡 Análisis de Imagen Satelital</h5>
+                        <h5 style="font-weight: bold; color: #333; margin-bottom: 15px;">Análisis de Imagen Satelital</h5>
                         <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
                             <!-- Imagen satelital -->
                             <div id="satelliteImageContainer" style="flex:1;min-width:300px;max-width:400px;">
@@ -501,8 +502,8 @@
         <!-- Sección de Análisis NDVI + Meteorología (estática, no modal) -->
         <div id="meteorologicalAnalysisSection" style="display: none; margin-top: 30px;">
             <div class="card">
-                <div class="card-header" style="background: linear-gradient(135deg, #2E7D32, #1565C0); color: white;">
-                    <h5 class="mb-0">Análisis Comparativo NDVI + Meteorología</h5>
+                <div class="card-header" style="background: linear-gradient(135deg, #4CAF50, #FF9800); color: white;">
+                    <h5 class="mb-0" style="color: white;">Análisis Comparativo NDVI + Meteorología</h5>
                 </div>
                 <div class="card-body">
                     <!-- Loading del análisis -->
@@ -517,28 +518,7 @@
                     <div id="meteorologicalAnalysisContainer" style="display: none;">
                         <!-- Controles -->
                         <div class="row mb-4">
-                            <div class="col-md-6">
-                                <label for="weatherVariable" class="form-label">Variable Meteorológica:</label>
-                                <select id="weatherVariable" class="form-select">
-                                    <optgroup label="Precipitación">
-                                        <option value="precipitation_daily">Precipitación Diaria</option>
-                                        <option value="precipitation_7d" selected>Precipitación Acumulada 7d</option>
-                                        <option value="precipitation_15d">Precipitación Acumulada 15d</option>
-                                        <option value="precipitation_30d">Precipitación Acumulada 30d</option>
-                                    </optgroup>
-                                    <optgroup label="Temperatura">
-                                        <option value="temperature">Temperatura Media</option>
-                                        <option value="temperature_max">Temperatura Máxima</option>
-                                        <option value="temperature_min">Temperatura Mínima</option>
-                                    </optgroup>
-                                    <optgroup label="Otras Variables">
-                                        <option value="humidity">Humedad Relativa</option>
-                                        <option value="wind_speed">Velocidad del Viento</option>
-                                        <option value="solar_radiation">Radiación Solar</option>
-                                    </optgroup>
-                                </select>
-                            </div>
-                            <div class="col-md-6 d-flex align-items-end">
+                            <div class="col-md-12 d-flex justify-content-end">
                                 <button class="btn btn-outline-primary me-2" onclick="exportMeteorologicalData()">Exportar CSV</button>
                                 <button class="btn btn-outline-secondary" onclick="refreshMeteorologicalAnalysis()">Actualizar</button>
                             </div>
@@ -563,7 +543,7 @@
                                     <div class="card-body">
                                         <div class="mb-3">
                                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                                <small class="fw-bold">NDVI vs Precipitación:</small>
+                                                <small class="fw-bold">Temperatura Máxima Promedio:</small>
                                                 <span id="correlationStrengthPrecip" class="badge bg-secondary">-</span>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center">
@@ -576,7 +556,7 @@
                                         </div>
                                         <div class="mb-2">
                                             <div class="d-flex justify-content-between align-items-center mb-1">
-                                                <small class="fw-bold">NDVI vs Temperatura:</small>
+                                                <small class="fw-bold">Precipitación Total del Período:</small>
                                                 <span id="correlationStrengthTemp" class="badge bg-secondary">-</span>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center">
@@ -655,8 +635,8 @@
     <script type="module" src="/static/js/parcels/parcel.js"></script>
     <script type="module" src="/static/js/parcels/layers.js"></script>
     <script src="/static/js/parcels/analytics-cientifico.js"></script>
-    <script src="/static/js/parcels/historical-chart.js"></script>
-    <script src="/static/js/parcels/meteorological-analysis.js?v=2025082406"></script>
+    <script src="/static/js/parcels/historical-chart.js?v=2025082412"></script>
+    <script src="/static/js/parcels/meteorological-analysis.js?v=2025082417"></script>
 
     <script>
         // Mostrar el filtro de rango de fechas solo cuando se activa la capa NDVI

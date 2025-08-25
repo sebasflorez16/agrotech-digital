@@ -313,7 +313,7 @@ function toggleChartLine(event) {
 }
 
 /**
- * Reset zoom del gráfico
+ * Reset zoom del gráficox
  */
 function resetChartZoom() {
     if (historicalChart && historicalChart.resetZoom) {
@@ -449,6 +449,9 @@ function exportChartData() {
 function setSelectedParcelForChart(parcelId) {
     selectedParcelId = parcelId;
     console.log('[GRAFICO_HISTORICO] Parcela seleccionada:', parcelId);
+    
+    // El análisis meteorológico se carga manualmente con el botón correspondiente
+    console.log('[GRAFICO_HISTORICO] Análisis meteorológico disponible para carga manual');
 }
 
 // Inicializar cuando el DOM esté listo

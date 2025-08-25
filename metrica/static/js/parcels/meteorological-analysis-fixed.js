@@ -4,21 +4,8 @@
  * Incluye avisos de actualización y datos únicamente meteorológicos
  */
 
-// Registrar plugin de zoom de Chart.js cuando esté disponible
-document.addEventListener('DOMContentLoaded', function() {
-    if (typeof Chart !== 'undefined') {
-        // Intentar registrar el plugin de zoom si está disponible
-        if (typeof window.ChartZoom !== 'undefined') {
-            Chart.register(window.ChartZoom);
-            console.log('[METEOROLOGICAL] Plugin de zoom registrado correctamente');
-        } else if (typeof zoomPlugin !== 'undefined') {
-            Chart.register(zoomPlugin);
-            console.log('[METEOROLOGICAL] Plugin de zoom registrado correctamente');
-        } else {
-            console.warn('[METEOROLOGICAL] Plugin de zoom no encontrado, zoom no estará disponible');
-        }
-    }
-});
+// Registrar plugin de zoom de Chart.js
+Chart.register(ChartZoom);
 
 let meteorologicalChartInstance = null;
 let currentParcelId = null;
@@ -390,45 +377,39 @@ function renderMeteorologicalChart(data) {
                 intersect: false,
             },
             onDoubleClick: function(event, elements) {
-                // Resetear zoom y pan con doble clic si el plugin está disponible
-                if (this.resetZoom && typeof this.resetZoom === 'function') {
-                    this.resetZoom();
-                    if (typeof showToast === 'function') {
-                        showToast('🔄 Vista restablecida', 'info');
-                    }
-                } else {
-                    console.log('[METEOROLOGICAL] Zoom plugin no disponible para resetear');
+                // Resetear zoom y pan con doble clic
+                this.resetZoom();
+                if (typeof showToast === 'function') {
+                    showToast('🔄 Vista restablecida', 'info');
                 }
             },
             plugins: {
-                ...(typeof window.ChartZoom !== 'undefined' || typeof zoomPlugin !== 'undefined' ? {
+                zoom: {
                     zoom: {
-                        zoom: {
-                            wheel: {
-                                enabled: true,
-                            },
-                            pinch: {
-                                enabled: true
-                            },
-                            mode: 'x',
-                            onZoomComplete: function({chart}) {
-                                if (typeof showToast === 'function') {
-                                    showToast('🔍 Zoom aplicado. Doble clic para resetear', 'info');
-                                }
-                            }
-                        },
-                        pan: {
+                        wheel: {
                             enabled: true,
-                            mode: 'x',
-                            threshold: 10,
-                            onPanComplete: function({chart}) {
-                                if (typeof showToast === 'function') {
-                                    showToast('↔️ Vista desplazada. Doble clic para resetear', 'info');
-                                }
+                        },
+                        pinch: {
+                            enabled: true
+                        },
+                        mode: 'x',
+                        onZoomComplete: function({chart}) {
+                            if (typeof showToast === 'function') {
+                                showToast('🔍 Zoom aplicado. Doble clic para resetear', 'info');
+                            }
+                        }
+                    },
+                    pan: {
+                        enabled: true,
+                        mode: 'x',
+                        threshold: 10,
+                        onPanComplete: function({chart}) {
+                            if (typeof showToast === 'function') {
+                                showToast('↔️ Vista desplazada. Doble clic para resetear', 'info');
                             }
                         }
                     }
-                } : {}),
+                },
                 legend: {
                     position: 'top',
                     labels: {
@@ -486,12 +467,7 @@ function renderMeteorologicalChart(data) {
                             return label;
                         },
                         afterBody: function(context) {
-                            const zoomAvailable = typeof window.ChartZoom !== 'undefined' || typeof zoomPlugin !== 'undefined';
-                            if (zoomAvailable) {
-                                return ['', '💡 Usa la rueda del mouse para hacer zoom', '↔️ Arrastra para desplazarte', '🔄 Doble clic para resetear vista'];
-                            } else {
-                                return ['', '💡 Gráfico interactivo con datos EOSDA reales'];
-                            }
+                            return ['', '💡 Usa la rueda del mouse para hacer zoom', '↔️ Arrastra para desplazarte', '🔄 Doble clic para resetear vista'];
                         }
                     }
                 }
@@ -508,7 +484,7 @@ function renderMeteorologicalChart(data) {
                     },
                     title: {
                         display: true,
-                        text: `Período de Análisis (Año 2025)${typeof window.ChartZoom !== 'undefined' || typeof zoomPlugin !== 'undefined' ? ' - 🔍 Zoom disponible' : ''}`,
+                        text: 'Período de Análisis (Año 2025) - 🔍 Zoom disponible',
                         font: {
                             size: 12,
                             weight: 'bold'
@@ -545,13 +521,8 @@ function renderMeteorologicalChart(data) {
     
     // Mostrar aviso de funcionalidades disponibles
     if (typeof showToast === 'function') {
-        const zoomAvailable = typeof window.ChartZoom !== 'undefined' || typeof zoomPlugin !== 'undefined';
         setTimeout(() => {
-            if (zoomAvailable) {
-                showToast('🔍 Gráfico cargado: Zoom con rueda del mouse, arrastra para desplazar, doble clic para resetear', 'info');
-            } else {
-                showToast('📊 Gráfico de datos EOSDA reales cargado exitosamente', 'success');
-            }
+            showToast('🔍 Gráfico cargado: Zoom con rueda del mouse, arrastra para desplazar, doble clic para resetear', 'info');
         }, 1000);
     }
 }

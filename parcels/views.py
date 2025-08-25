@@ -1473,18 +1473,8 @@ class ParcelNdviWeatherComparisonView(APIView):
                 logger.info(f"[NDVI_WEATHER] Cache hit: {cache_key}")
                 return Response(cached_data)
             
-            # Reutilizar datos NDVI históricos de ParcelHistoricalIndicesView
-            logger.info(f"[NDVI_WEATHER] Obteniendo datos NDVI históricos...")
-            historical_view = ParcelHistoricalIndicesView()
-            historical_request = type('MockRequest', (), {'user': request.user})()
-            historical_response = historical_view.get(historical_request, parcel_id)
-            
-            if historical_response.status_code != 200:
-                logger.error(f"[NDVI_WEATHER] Error obteniendo datos NDVI: {historical_response.status_code}")
-                return Response({"error": "Error obteniendo datos NDVI históricos"}, status=500)
-                
-            ndvi_data = historical_response.data.get('historical_data', {}).get('ndvi', [])
-            logger.info(f"[NDVI_WEATHER] Datos NDVI obtenidos: {len(ndvi_data)} puntos")
+            # Solo obtener datos meteorológicos (sin NDVI históricos para reducir requests)
+            logger.info(f"[NDVI_WEATHER] Obteniendo solo datos meteorológicos...")
             
             # Obtener coordenadas de la parcela para consulta meteorológica
             if not parcel.geom:
@@ -1515,24 +1505,22 @@ class ParcelNdviWeatherComparisonView(APIView):
             
             logger.info(f"[NDVI_WEATHER] Coordenadas para meteorología: lat={avg_lat}, lng={avg_lng}")
             
-            # Obtener datos meteorológicos de Open-Meteo (gratuito)
+            # Obtener datos meteorológicos de EOSDA Weather API
             logger.info(f"[NDVI_WEATHER] Consultando datos meteorológicos...")
             weather_data = self._get_weather_data(avg_lat, avg_lng)
             logger.info(f"[NDVI_WEATHER] Datos meteorológicos obtenidos: {len(weather_data)} días")
             
-            # Sincronizar fechas entre NDVI y meteorología
-            logger.info(f"[NDVI_WEATHER] Sincronizando fechas...")
-            synchronized_data = self._synchronize_ndvi_weather_data(ndvi_data, weather_data)
-            logger.info(f"[NDVI_WEATHER] Datos sincronizados: {len(synchronized_data)} puntos")
+            # Para este endpoint solo retornamos datos meteorológicos puros (sin NDVI)
+            logger.info(f"[NDVI_WEATHER] Procesando datos meteorológicos puros...")
             
-            # Calcular correlaciones
-            correlations = self._calculate_correlations(synchronized_data)
-            logger.info(f"[NDVI_WEATHER] Correlaciones calculadas")
+            # Calcular métricas meteorológicas
+            meteorological_metrics = self._calculate_meteorological_metrics(weather_data)
+            logger.info(f"[NDVI_WEATHER] Métricas meteorológicas calculadas")
             
-            # Generar insights automáticos
-            insights = self._generate_insights(synchronized_data, correlations)
+            # Generar insights meteorológicos
+            insights = self._generate_meteorological_insights(weather_data, meteorological_metrics)
             
-            # Estructurar respuesta
+            # Estructurar respuesta solo con datos meteorológicos
             response_data = {
                 "parcel_info": {
                     "id": parcel_id,
@@ -1542,13 +1530,13 @@ class ParcelNdviWeatherComparisonView(APIView):
                         "longitude": avg_lng
                     }
                 },
-                "synchronized_data": synchronized_data,
-                "correlations": correlations,
+                "synchronized_data": weather_data,  # Solo datos meteorológicos
+                "correlations": meteorological_metrics,
                 "insights": insights,
                 "metadata": {
-                    "total_points": len(synchronized_data),
+                    "total_points": len(weather_data),
                     "ndvi_source": "eosda_historical",
-                    "weather_source": "open_meteo",
+                    "weather_source": "eosda_weather_api",
                     "generated_at": datetime.now().isoformat()
                 }
             }
@@ -1565,79 +1553,96 @@ class ParcelNdviWeatherComparisonView(APIView):
     
     def _get_weather_data(self, latitude, longitude):
         """
-        Obtiene datos meteorológicos históricos desde Open-Meteo (API gratuita)
-        Incluye datos históricos y pronósticos a 7 días
+        Obtiene datos meteorológicos históricos desde EOSDA Weather API
+        Un solo request para todo el año según la documentación
         """
         try:
-            # Configurar fechas: desde enero del año actual hasta 7 días en el futuro
+            # Configurar fechas: desde enero del año actual hasta hoy
             current_year = datetime.now().year
             start_date = f"{current_year}-01-01"
             end_date = datetime.now().strftime("%Y-%m-%d")
-            future_date = (datetime.now() + timedelta(days=7)).strftime("%Y-%m-%d")
             
             weather_data = []
             
-            # 1. Datos históricos de Open-Meteo Archive API
-            logger.info(f"[WEATHER_API] Consultando datos históricos Open-Meteo...")
-            logger.info(f"[WEATHER_API] Período histórico: {start_date} a {end_date}")
+            # Consultar EOSDA Weather API - Un solo request para todo el año
+            logger.info(f"[EOSDA_WEATHER] Consultando datos meteorológicos EOSDA...")
+            logger.info(f"[EOSDA_WEATHER] Período: {start_date} a {end_date}")
+            logger.info(f"[EOSDA_WEATHER] Coordenadas: lat={latitude}, lon={longitude}")
             
-            # Intentar con API Historical (más confiable para años recientes)
-            historical_url = "https://api.open-meteo.com/v1/forecast"
-            
-            # Calcular días pasados hasta ahora
-            start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-            end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-            days_past = (end_dt - start_dt).days
-            
-            historical_params = {
-                "latitude": latitude,
-                "longitude": longitude,
-                "daily": "temperature_2m_mean,temperature_2m_max,temperature_2m_min,precipitation_sum,relative_humidity_2m_mean,wind_speed_10m_max",
-                "timezone": "auto",
-                "past_days": min(days_past, 90)  # Máximo 90 días disponibles en API gratuita
+            weather_url = "https://api.eosda.com/v1/weather/normalized"
+            headers = {
+                "x-api-key": settings.EOSDA_API_KEY,
+                "Content-Type": "application/json"
             }
             
-            response = requests.get(historical_url, params=historical_params, timeout=30)
+            params = {
+                "lat": latitude,
+                "lon": longitude,
+                "start_date": start_date,
+                "end_date": end_date,
+                "units": "metric"
+            }
             
-            # Probar primero con API real, usar sintéticos como fallback
+            logger.info(f"[EOSDA_WEATHER] Request URL: {weather_url}")
+            logger.info(f"[EOSDA_WEATHER] Params: {params}")
+            
+            response = requests.get(weather_url, headers=headers, params=params, timeout=60)
+            
             if response.status_code == 200:
                 data = response.json()
-                daily_data = data.get("daily", {})
+                logger.info(f"[EOSDA_WEATHER] Respuesta exitosa: {len(data)} días de datos")
                 
-                dates = daily_data.get("time", [])
-                temp_mean = daily_data.get("temperature_2m_mean", [])
-                temp_max = daily_data.get("temperature_2m_max", [])
-                temp_min = daily_data.get("temperature_2m_min", [])
-                precipitations = daily_data.get("precipitation_sum", [])
-                humidity = daily_data.get("relative_humidity_2m_mean", [])
-                wind_speed = daily_data.get("wind_speed_10m_max", [])
-                
-                for i, date in enumerate(dates):
+                # Procesar datos según estructura de EOSDA Weather API
+                for day_data in data:
+                    # Extraer fecha
+                    date = day_data.get("dt")
+                    if isinstance(date, int):
+                        # Convertir timestamp Unix a fecha
+                        date = datetime.fromtimestamp(date).strftime("%Y-%m-%d")
+                    
+                    # Extraer variables meteorológicas según documentación EOSDA
                     weather_data.append({
                         "date": date,
-                        "temperature": temp_mean[i] if i < len(temp_mean) else None,
-                        "temperature_max": temp_max[i] if i < len(temp_max) else None,
-                        "temperature_min": temp_min[i] if i < len(temp_min) else None,
-                        "precipitation": precipitations[i] if i < len(precipitations) else None,
-                        "humidity": humidity[i] if i < len(humidity) else None,
-                        "wind_speed": wind_speed[i] if i < len(wind_speed) else None,
-                        "solar_radiation": None,  # No disponible en esta API
-                        "data_type": "historical"
+                        "temperature": day_data.get("temp", {}).get("mean"),
+                        "temperature_max": day_data.get("temp", {}).get("max"),
+                        "temperature_min": day_data.get("temp", {}).get("min"),
+                        "precipitation": day_data.get("precipitation"),
+                        "humidity": day_data.get("humidity"),
+                        "wind_speed": day_data.get("wind_speed"),
+                        "solar_radiation": day_data.get("solar_radiation"),
+                        "pressure": day_data.get("pressure"),
+                        "data_type": "eosda_historical"
                     })
                 
-                logger.info(f"[WEATHER_API] Datos históricos procesados: {len(weather_data)} días")
+                logger.info(f"[EOSDA_WEATHER] Datos procesados: {len(weather_data)} días")
+                return weather_data
+                
+            elif response.status_code == 402:
+                logger.error(f"[EOSDA_WEATHER] Límite de API excedido: {response.status_code}")
+                error_data = response.json() if response.content else {}
+                logger.error(f"[EOSDA_WEATHER] Error data: {error_data}")
+                return []
+                
+            elif response.status_code == 404:
+                logger.error(f"[EOSDA_WEATHER] Coordenadas no encontradas: {response.status_code}")
+                logger.error(f"[EOSDA_WEATHER] Response: {response.text[:500]}")
+                return []
                 
             else:
-                logger.error(f"[WEATHER_API] Error en datos históricos: {response.status_code}")
-                logger.error(f"[WEATHER_API] Response: {response.text[:500]}")
+                logger.error(f"[EOSDA_WEATHER] Error en API: {response.status_code}")
+                logger.error(f"[EOSDA_WEATHER] Response: {response.text[:500]}")
                 
                 # Fallback: generar datos sintéticos para desarrollo
-                logger.info(f"[WEATHER_API] Generando datos sintéticos para desarrollo...")
-                weather_data = self._generate_synthetic_weather_data(start_date, end_date, latitude)
+                logger.info(f"[EOSDA_WEATHER] Generando datos sintéticos como fallback...")
+                return self._generate_synthetic_weather_data(start_date, end_date, latitude)
+                
+        except requests.exceptions.Timeout:
+            logger.error(f"[EOSDA_WEATHER] Timeout en request de 60 segundos")
+            return self._generate_synthetic_weather_data(start_date, end_date, latitude)
             
-            # 2. Pronóstico meteorológico de Open-Meteo Forecast API
-            logger.info(f"[WEATHER_API] Consultando pronósticos Open-Meteo...")
-            forecast_url = "https://api.open-meteo.com/v1/forecast"
+        except Exception as e:
+            logger.error(f"[EOSDA_WEATHER] Error inesperado: {str(e)}")
+            return self._generate_synthetic_weather_data(start_date, end_date, latitude)
             forecast_params = {
                 "latitude": latitude,
                 "longitude": longitude,
@@ -2189,3 +2194,47 @@ class ParcelNdviWeatherComparisonView(APIView):
                 insights.append(f"Alta variabilidad en NDVI ({ndvi_variation:.2f}). Evaluar uniformidad de manejo y condiciones del campo.")
         
         return insights[:8]  # Limitar a 8 insights más relevantes
+
+    def _calculate_meteorological_metrics(self, weather_data):
+        """
+        Calcula métricas meteorológicas útiles para la agricultura
+        """
+        if not weather_data:
+            return {}
+        
+        # Promedios del período
+        temps = [d.get('temperature', 0) for d in weather_data if d.get('temperature')]
+        temp_max = [d.get('temperature_max', 0) for d in weather_data if d.get('temperature_max')]
+        precipitation = [d.get('precipitation', 0) for d in weather_data if d.get('precipitation')]
+        humidity = [d.get('humidity', 0) for d in weather_data if d.get('humidity')]
+        
+        return {
+            "avg_temperature": sum(temps) / len(temps) if temps else 0,
+            "avg_temp_max": sum(temp_max) / len(temp_max) if temp_max else 0,
+            "total_precipitation": sum(precipitation),
+            "avg_humidity": sum(humidity) / len(humidity) if humidity else 0,
+            "days_with_rain": len([p for p in precipitation if p > 0.1]),
+            "heat_stress_days": len([t for t in temp_max if t > 35]),
+        }
+
+    def _generate_meteorological_insights(self, weather_data, metrics):
+        """
+        Genera insights basados en datos meteorológicos reales
+        """
+        insights = []
+        
+        if metrics.get('avg_temp_max', 0) > 35:
+            insights.append('Temperaturas máximas altas detectadas. Considerar sistemas de sombra o riego de enfriamiento.')
+        
+        if metrics.get('total_precipitation', 0) < 100:
+            insights.append('Precipitación total baja en el período. Evaluar necesidades de riego suplementario.')
+        elif metrics.get('total_precipitation', 0) > 1000:
+            insights.append('Precipitación abundante. Monitorear drenaje y posibles problemas de encharcamiento.')
+        
+        if metrics.get('days_with_rain', 0) < 10:
+            insights.append('Pocos días con lluvia. Programar riego regular para mantener humedad del suelo.')
+        
+        if metrics.get('heat_stress_days', 0) > 5:
+            insights.append(f'{metrics.get("heat_stress_days")} días con temperaturas extremas (>35°C). Implementar medidas de protección.')
+        
+        return insights
