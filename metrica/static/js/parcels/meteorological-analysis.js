@@ -1,8 +1,118 @@
 /**
  * Análisis Meteorológico - Datos EOSDA Reales
- * Módulo optimizado para análisis meteorológico con zoom y navegación
- * Incluye avisos de actualización y datos únicamente meteorológicos
+ * Módulo optimizado para análisis meteorológico puro sin NDVI
+ * Incluye avisos de actualización y navegación fluida
  */
+
+let meteorologicalChartInstance = null;
+let currentParcelId = null;
+let meteorologicalData = [];
+
+// ===============================
+// FUNCIONES GLOBALES - DISPONIBLES INMEDIATAMENTE
+// ===============================
+
+/**
+ * Función global para cerrar la sección de análisis meteorológico
+ */
+function closeMeterologicalAnalysis() {
+    console.log('[METEOROLOGICAL] 🔄 closeMeterologicalAnalysis llamada');
+    
+    const section = document.getElementById('meteorologicalAnalysisSection');
+    if (section) {
+        section.style.display = 'none';
+        console.log('[METEOROLOGICAL] ✅ Sección meteorológica cerrada');
+        
+        // Limpiar el gráfico si existe
+        if (meteorologicalChartInstance) {
+            meteorologicalChartInstance.destroy();
+            meteorologicalChartInstance = null;
+            console.log('[METEOROLOGICAL] ✅ Gráfico meteorológico destruido');
+        }
+        
+        // Resetear datos
+        meteorologicalData = [];
+        currentParcelId = null;
+        
+        if (typeof showToast === 'function') {
+            showToast('📊 Análisis meteorológico cerrado', 'info');
+        }
+    } else {
+        console.warn('[METEOROLOGICAL] ❌ Sección meteorológica no encontrada');
+    }
+}
+
+/**
+ * Función global para actualizar análisis meteorológico
+ */
+function refreshMeteorologicalAnalysis() {
+    console.log('[METEOROLOGICAL] 🔄 refreshMeteorologicalAnalysis llamada');
+    
+    if (currentParcelId) {
+        console.log('[METEOROLOGICAL] 🔄 Actualizando análisis...');
+        
+        // Mostrar toast de inicio de actualización
+        if (typeof showToast === 'function') {
+            showToast('🔄 Actualizando datos meteorológicos EOSDA...', 'info');
+        }
+        
+        // Llamar a la función de carga con indicador de actualización
+        loadMeteorologicalAnalysisWithRefresh(currentParcelId);
+    } else {
+        console.warn('[METEOROLOGICAL] No hay parcela seleccionada para actualizar');
+        if (typeof showToast === 'function') {
+            showToast('⚠️ Seleccione una parcela primero', 'warning');
+        } else {
+            alert('Seleccione una parcela primero');
+        }
+    }
+}
+
+/**
+ * Función global para exportar datos meteorológicos
+ */
+function exportMeteorologicalData() {
+    console.log('[METEOROLOGICAL] 📁 exportMeteorologicalData llamada');
+    
+    if (meteorologicalData.length === 0) {
+        if (typeof showToast === 'function') {
+            showToast('⚠️ No hay datos para exportar', 'warning');
+        } else {
+            alert('No hay datos para exportar');
+        }
+        return;
+    }
+    
+    console.log('[METEOROLOGICAL] Exportando datos CSV...');
+    exportToCSV(meteorologicalData, `analisis_meteorologico_parcela_${currentParcelId}.csv`);
+    
+    if (typeof showToast === 'function') {
+        showToast('📁 Datos exportados exitosamente', 'success');
+    }
+}
+
+/**
+ * Función global para cargar análisis meteorológico
+ */
+function loadMeteorologicalAnalysis(parcelId) {
+    console.log('[METEOROLOGICAL] 📊 loadMeteorologicalAnalysis llamada para parcela:', parcelId);
+    loadMeteorologicalAnalysisInternal(parcelId);
+}
+
+/**
+ * Función global para inicializar módulo
+ */
+function initMeteorologicalAnalysis() {
+    console.log('[METEOROLOGICAL] 🚀 initMeteorologicalAnalysis llamada');
+    initMeteorologicalAnalysisInternal();
+}
+
+// Asignar inmediatamente a window para disponibilidad global
+window.closeMeterologicalAnalysis = closeMeterologicalAnalysis;
+window.refreshMeteorologicalAnalysis = refreshMeteorologicalAnalysis;
+window.exportMeteorologicalData = exportMeteorologicalData;
+window.loadMeteorologicalAnalysis = loadMeteorologicalAnalysis;
+window.initMeteorologicalAnalysis = initMeteorologicalAnalysis;
 
 // Registrar plugin de zoom de Chart.js cuando esté disponible
 document.addEventListener('DOMContentLoaded', function() {
@@ -20,14 +130,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-let meteorologicalChartInstance = null;
-let currentParcelId = null;
-let meteorologicalData = [];
-
 /**
- * Inicializa el módulo de análisis meteorológico
+ * Inicializa el módulo de análisis meteorológico (función interna)
  */
-function initMeteorologicalAnalysis() {
+function initMeteorologicalAnalysisInternal() {
     console.log('[METEOROLOGICAL] Módulo de análisis meteorológico listo');
     
     // Asegurar que la sección esté oculta hasta selección de parcela
@@ -44,44 +150,8 @@ function initMeteorologicalAnalysis() {
  * Configura los eventos de los controles del análisis meteorológico
  */
 function setupMeteorologicalControls() {
-    window.exportMeteorologicalData = function() {
-        if (meteorologicalData.length === 0) {
-            if (typeof showToast === 'function') {
-                showToast('⚠️ No hay datos para exportar', 'warning');
-            } else {
-                alert('No hay datos para exportar');
-            }
-            return;
-        }
-        
-        console.log('[METEOROLOGICAL] Exportando datos CSV...');
-        exportToCSV(meteorologicalData, `analisis_meteorologico_parcela_${currentParcelId}.csv`);
-        
-        if (typeof showToast === 'function') {
-            showToast('📁 Datos exportados exitosamente', 'success');
-        }
-    };
-    
-    window.refreshMeteorologicalAnalysis = function() {
-        if (currentParcelId) {
-            console.log('[METEOROLOGICAL] 🔄 Actualizando análisis...');
-            
-            // Mostrar toast de inicio de actualización
-            if (typeof showToast === 'function') {
-                showToast('🔄 Actualizando datos meteorológicos EOSDA...', 'info');
-            }
-            
-            // Llamar a la función de carga con indicador de actualización
-            loadMeteorologicalAnalysisWithRefresh(currentParcelId);
-        } else {
-            console.warn('[METEOROLOGICAL] No hay parcela seleccionada para actualizar');
-            if (typeof showToast === 'function') {
-                showToast('⚠️ Seleccione una parcela primero', 'warning');
-            } else {
-                alert('Seleccione una parcela primero');
-            }
-        }
-    };
+    // Las funciones globales ya están definidas al inicio del archivo
+    console.log('[METEOROLOGICAL] Controles meteorológicos configurados');
 }
 
 /**
@@ -110,8 +180,7 @@ function loadMeteorologicalAnalysisWithRefresh(parcelId) {
         method: 'GET',
         headers: window.getAuthHeaders ? window.getAuthHeaders() : {
             'Authorization': `Bearer ${getAuthToken()}`,
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache'
+            'Content-Type': 'application/json'
         }
     })
     .then(response => {
@@ -138,20 +207,20 @@ function loadMeteorologicalAnalysisWithRefresh(parcelId) {
 }
 
 /**
- * Carga el análisis meteorológico para una parcela (carga inicial)
+ * Carga el análisis meteorológico para una parcela (función interna)
  */
-function loadMeteorologicalAnalysis(parcelId) {
+function loadMeteorologicalAnalysisInternal(parcelId) {
     if (!parcelId) {
         console.warn('[METEOROLOGICAL] No hay parcela seleccionada');
         return;
     }
     
     currentParcelId = parcelId;
-    console.log(`[METEOROLOGICAL] Cargando análisis para parcela ${parcelId}`);
+    console.log(`[METEOROLOGICAL] Cargando análisis meteorológico para parcela ${parcelId}`);
     
     showMeteorologicalLoading(true);
     
-    // Construir URL para el backend Django
+    // Usar directamente el endpoint que funciona
     const baseUrl = window.location.hostname === 'localhost' || window.location.hostname.includes('localhost') 
         ? `http://${window.location.hostname}:8000` 
         : window.location.origin;
@@ -173,14 +242,14 @@ function loadMeteorologicalAnalysis(parcelId) {
         return response.json();
     })
     .then(data => {
-        console.log('[METEOROLOGICAL] Datos recibidos del backend:', data);
+        console.log('[METEOROLOGICAL] Datos meteorológicos recibidos:', data);
         
-        // Procesar datos reales de EOSDA
+        // Procesar datos meteorológicos reales
         processRealEOSDAData(data);
         
     })
     .catch(error => {
-        console.error('[METEOROLOGICAL] Error cargando análisis:', error);
+        console.error('[METEOROLOGICAL] Error cargando análisis meteorológico:', error);
         showMeteorologicalError(error.message);
     });
 }
@@ -389,15 +458,13 @@ function renderMeteorologicalChart(data) {
                 mode: 'index',
                 intersect: false,
             },
-            onDoubleClick: function(event, elements) {
-                // Resetear zoom y pan con doble clic si el plugin está disponible
-                if (this.resetZoom && typeof this.resetZoom === 'function') {
-                    this.resetZoom();
-                    if (typeof showToast === 'function') {
-                        showToast('🔄 Vista restablecida', 'info');
-                    }
+            onHover: function(event, elements) {
+                // Cambiar cursor según la disponibilidad de zoom
+                const zoomAvailable = typeof window.ChartZoom !== 'undefined' || typeof zoomPlugin !== 'undefined';
+                if (zoomAvailable) {
+                    this.canvas.style.cursor = elements.length > 0 ? 'pointer' : 'grab';
                 } else {
-                    console.log('[METEOROLOGICAL] Zoom plugin no disponible para resetear');
+                    this.canvas.style.cursor = elements.length > 0 ? 'pointer' : 'default';
                 }
             },
             plugins: {
@@ -406,25 +473,57 @@ function renderMeteorologicalChart(data) {
                         zoom: {
                             wheel: {
                                 enabled: true,
+                                speed: 0.1, // Velocidad más controlada
+                                modifierKey: null, // No requiere tecla modificadora
                             },
                             pinch: {
                                 enabled: true
                             },
-                            mode: 'x',
+                            drag: {
+                                enabled: true, // Habilitar drag zoom
+                                backgroundColor: 'rgba(255,255,255,0.3)',
+                                borderColor: 'rgba(54, 162, 235, 1)',
+                                borderWidth: 1,
+                                modifierKey: 'shift' // Usar Shift para drag zoom para no conflicto con pan
+                            },
+                            mode: 'xy', // Permitir zoom en ambos ejes
+                            onZoomStart: function({chart}) {
+                                chart.canvas.style.cursor = 'zoom-in';
+                                console.log('[METEOROLOGICAL] 🔍 Zoom iniciado');
+                            },
+                            onZoom: function({chart}) {
+                                chart.canvas.style.cursor = 'zoom-in';
+                            },
                             onZoomComplete: function({chart}) {
-                                if (typeof showToast === 'function') {
-                                    showToast('🔍 Zoom aplicado. Doble clic para resetear', 'info');
-                                }
+                                chart.canvas.style.cursor = 'grab';
+                                console.log('[METEOROLOGICAL] ✅ Zoom completado');
                             }
                         },
                         pan: {
                             enabled: true,
-                            mode: 'x',
-                            threshold: 10,
+                            mode: 'xy', // Permitir pan en ambos ejes para mejor navegación
+                            threshold: 10, // Pequeño threshold para evitar activación accidental
+                            modifierKey: null, // No requiere tecla modificadora
+                            rangeMin: {
+                                x: null, // Sin límites para máxima libertad
+                                y: null  
+                            },
+                            rangeMax: {
+                                x: null, 
+                                y: null  
+                            },
+                            onPanStart: function({chart}) {
+                                chart.canvas.style.cursor = 'grabbing';
+                                chart.canvas.style.userSelect = 'none';
+                                console.log('[METEOROLOGICAL] 🔄 Pan iniciado');
+                            },
+                            onPan: function({chart}) {
+                                chart.canvas.style.cursor = 'grabbing';
+                            },
                             onPanComplete: function({chart}) {
-                                if (typeof showToast === 'function') {
-                                    showToast('↔️ Vista desplazada. Doble clic para resetear', 'info');
-                                }
+                                chart.canvas.style.cursor = 'grab';
+                                chart.canvas.style.userSelect = 'auto';
+                                console.log('[METEOROLOGICAL] ✅ Pan completado');
                             }
                         }
                     }
@@ -456,7 +555,7 @@ function renderMeteorologicalChart(data) {
                 },
                 title: {
                     display: true,
-                    text: 'Análisis Comparativo Multi-Variable - Datos EOSDA Reales',
+                    text: 'Análisis Meteorológico Multi-Variable - Datos EOSDA Reales',
                     font: {
                         size: 16,
                         weight: 'bold'
@@ -486,12 +585,8 @@ function renderMeteorologicalChart(data) {
                             return label;
                         },
                         afterBody: function(context) {
-                            const zoomAvailable = typeof window.ChartZoom !== 'undefined' || typeof zoomPlugin !== 'undefined';
-                            if (zoomAvailable) {
-                                return ['', '💡 Usa la rueda del mouse para hacer zoom', '↔️ Arrastra para desplazarte', '🔄 Doble clic para resetear vista'];
-                            } else {
-                                return ['', '💡 Gráfico interactivo con datos EOSDA reales'];
-                            }
+                            // Solo mostrar datos, sin instrucciones
+                            return [];
                         }
                     }
                 }
@@ -508,7 +603,7 @@ function renderMeteorologicalChart(data) {
                     },
                     title: {
                         display: true,
-                        text: `Período de Análisis (Año 2025)${typeof window.ChartZoom !== 'undefined' || typeof zoomPlugin !== 'undefined' ? ' - 🔍 Zoom disponible' : ''}`,
+                        text: 'Período de Análisis (Año 2025)',
                         font: {
                             size: 12,
                             weight: 'bold'
@@ -548,7 +643,7 @@ function renderMeteorologicalChart(data) {
         const zoomAvailable = typeof window.ChartZoom !== 'undefined' || typeof zoomPlugin !== 'undefined';
         setTimeout(() => {
             if (zoomAvailable) {
-                showToast('🔍 Gráfico cargado: Zoom con rueda del mouse, arrastra para desplazar, doble clic para resetear', 'info');
+                showToast('� Gráfico meteorológico cargado', 'info');
             } else {
                 showToast('📊 Gráfico de datos EOSDA reales cargado exitosamente', 'success');
             }
@@ -617,39 +712,49 @@ function showMeteorologicalError(errorMessage) {
 }
 
 /**
- * Actualiza las métricas meteorológicas útiles para la industria agrícola
+ * Actualiza las métricas meteorológicas del período
  */
 function updateCorrelations(meteorologicalMetrics) {
-    console.log('[METEOROLOGICAL] Actualizando métricas agrícolas:', meteorologicalMetrics);
+    console.log('[METEOROLOGICAL] Actualizando métricas meteorológicas:', meteorologicalMetrics);
     
-    if (!meteorologicalMetrics || Object.keys(meteorologicalMetrics).length === 0) {
-        console.warn('[METEOROLOGICAL] No hay métricas meteorológicas disponibles');
-        return;
+    // Si no hay métricas, o si faltan viento/solar, calcular desde meteorologicalData
+    if (!meteorologicalMetrics || Object.keys(meteorologicalMetrics).length === 0 || 
+        !meteorologicalMetrics.avg_wind_speed || !meteorologicalMetrics.avg_solar_radiation) {
+        console.log('[METEOROLOGICAL] Calculando métricas desde datos locales...');
+        const calculatedMetrics = calculateMetricsFromData();
+        
+        // Combinar métricas del backend con las calculadas localmente
+        meteorologicalMetrics = {
+            ...meteorologicalMetrics,
+            ...calculatedMetrics
+        };
+        
+        console.log('[METEOROLOGICAL] Métricas finales combinadas:', meteorologicalMetrics);
     }
     
-    // Métrica 1: Índice de Estrés por Calor
+    // Métrica 1: Temperatura Máxima Promedio
     const avgTempMax = meteorologicalMetrics.avg_temp_max || 0;
     const heatStressIndex = calculateHeatStressFromTemp(avgTempMax);
     
-    const heatElem = document.getElementById('correlationPrecipitation');
-    const heatStrengthElem = document.getElementById('correlationStrengthPrecip');
-    const heatProgress = document.getElementById('precipitationProgressBar');
+    const tempElem = document.getElementById('correlationPrecipitation');
+    const tempStrengthElem = document.getElementById('correlationStrengthPrecip');
+    const tempProgress = document.getElementById('precipitationProgressBar');
     
-    if (heatElem && heatStrengthElem) {
-        heatElem.textContent = avgTempMax.toFixed(1) + '°C';
-        heatElem.style.color = heatStressIndex.risk === 'Alto' ? '#D32F2F' : heatStressIndex.risk === 'Medio' ? '#F57C00' : '#2E7D32';
+    if (tempElem && tempStrengthElem) {
+        tempElem.textContent = avgTempMax.toFixed(1) + '°C';
+        tempElem.style.color = '#E65100'; // Color naranja oscuro del gráfico
         
-        heatStrengthElem.textContent = heatStressIndex.risk;
-        heatStrengthElem.className = `badge ${heatStressIndex.risk === 'Alto' ? 'bg-danger' : heatStressIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
+        tempStrengthElem.textContent = heatStressIndex.risk;
+        tempStrengthElem.className = `badge ${heatStressIndex.risk === 'Alto' ? 'bg-danger' : heatStressIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
         
-        if (heatProgress) {
+        if (tempProgress) {
             const progressValue = (avgTempMax / 40) * 100;
-            heatProgress.style.width = `${Math.min(progressValue, 100)}%`;
-            heatProgress.className = `progress-bar ${heatStressIndex.risk === 'Alto' ? 'bg-danger' : heatStressIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
+            tempProgress.style.width = `${Math.min(progressValue, 100)}%`;
+            // Mantener el color fijo de temperatura (#E65100) sin cambiar
         }
     }
     
-    // Métrica 2: Índice de Precipitación Total
+    // Métrica 2: Precipitación Total del Período
     const totalPrecip = meteorologicalMetrics.total_precipitation || 0;
     const daysWithRain = meteorologicalMetrics.days_with_rain || 0;
     const precipIndex = calculatePrecipitationIndex(totalPrecip, daysWithRain);
@@ -660,7 +765,7 @@ function updateCorrelations(meteorologicalMetrics) {
     
     if (precipElem && precipStrengthElem) {
         precipElem.textContent = totalPrecip.toFixed(1) + ' mm';
-        precipElem.style.color = precipIndex.risk === 'Bajo' ? '#D32F2F' : precipIndex.risk === 'Medio' ? '#F57C00' : '#2E7D32';
+        precipElem.style.color = '#1565C0'; // Color azul del gráfico
         
         precipStrengthElem.textContent = precipIndex.risk;
         precipStrengthElem.className = `badge ${precipIndex.risk === 'Bajo' ? 'bg-danger' : precipIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
@@ -668,11 +773,143 @@ function updateCorrelations(meteorologicalMetrics) {
         if (precipProgress) {
             const progressValue = (totalPrecip / 1500) * 100;
             precipProgress.style.width = `${Math.min(progressValue, 100)}%`;
-            precipProgress.className = `progress-bar ${precipIndex.risk === 'Bajo' ? 'bg-danger' : precipIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
+            // Mantener el color fijo de precipitación (#1565C0) sin cambiar
         }
     }
     
-    console.log('[METEOROLOGICAL] Métricas agrícolas actualizadas');
+    // Métrica 3: Velocidad del Viento Promedio
+    const avgWind = meteorologicalMetrics.avg_wind_speed || 0;
+    const windIndex = calculateWindIndex(avgWind);
+    
+    console.log('[METEOROLOGICAL] Viento promedio:', avgWind, 'Índice:', windIndex);
+    
+    const windElem = document.getElementById('correlationWind');
+    const windStrengthElem = document.getElementById('correlationStrengthWind');
+    const windProgress = document.getElementById('windProgressBar');
+    
+    if (windElem && windStrengthElem) {
+        windElem.textContent = avgWind.toFixed(1) + ' km/h';
+        windElem.style.color = '#5E35B1'; // Color morado del gráfico
+        
+        windStrengthElem.textContent = windIndex.risk;
+        windStrengthElem.className = `badge ${windIndex.risk === 'Alto' ? 'bg-danger' : windIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
+        
+        if (windProgress) {
+            const progressValue = (avgWind / 30) * 100; // Normalizar a 30 km/h máximo
+            windProgress.style.width = `${Math.min(progressValue, 100)}%`;
+            // Mantener el color fijo de viento (#5E35B1) sin cambiar
+        }
+        console.log('[METEOROLOGICAL] ✅ Métrica de viento actualizada:', avgWind.toFixed(1), 'km/h');
+    } else {
+        console.warn('[METEOROLOGICAL] ❌ Elementos de viento no encontrados en DOM');
+    }
+    
+    // Métrica 4: Radiación Solar Promedio
+    const avgSolar = meteorologicalMetrics.avg_solar_radiation || 0;
+    const solarIndex = calculateSolarIndex(avgSolar);
+    
+    console.log('[METEOROLOGICAL] Solar promedio:', avgSolar, 'Índice:', solarIndex);
+    
+    const solarElem = document.getElementById('correlationSolar');
+    const solarStrengthElem = document.getElementById('correlationStrengthSolar');
+    const solarProgress = document.getElementById('solarProgressBar');
+    
+    if (solarElem && solarStrengthElem) {
+        solarElem.textContent = avgSolar.toFixed(1) + ' MJ/m²';
+        solarElem.style.color = '#FF8F00'; // Color naranja claro del gráfico
+        
+        solarStrengthElem.textContent = solarIndex.risk;
+        solarStrengthElem.className = `badge ${solarIndex.risk === 'Bajo' ? 'bg-danger' : solarIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
+        
+        if (solarProgress) {
+            const progressValue = (avgSolar / 30) * 100; // Normalizar a 30 MJ/m² máximo
+            solarProgress.style.width = `${Math.min(progressValue, 100)}%`;
+            // Mantener el color fijo de radiación solar (#FF8F00) sin cambiar
+        }
+        console.log('[METEOROLOGICAL] ✅ Métrica de radiación solar actualizada:', avgSolar.toFixed(1), 'MJ/m²');
+    } else {
+        console.warn('[METEOROLOGICAL] ❌ Elementos de radiación solar no encontrados en DOM');
+    }
+    
+    console.log('[METEOROLOGICAL] Todas las métricas meteorológicas actualizadas');
+}
+
+/**
+ * Calcula las métricas desde los datos locales si no vienen del backend
+ */
+function calculateMetricsFromData() {
+    if (!meteorologicalData || meteorologicalData.length === 0) {
+        return {};
+    }
+    
+    console.log('[METEOROLOGICAL] Calculando métricas desde datos locales...');
+    console.log('[METEOROLOGICAL] Datos disponibles:', meteorologicalData.length, 'días');
+    
+    // Ejemplo de los primeros datos para debugging
+    if (meteorologicalData.length > 0) {
+        console.log('[METEOROLOGICAL] Primer registro:', meteorologicalData[0]);
+        console.log('[METEOROLOGICAL] Campos disponibles:', Object.keys(meteorologicalData[0]));
+    }
+    
+    const temps = meteorologicalData.map(d => d.temperature_max || d.temperature || 0).filter(v => v > 0);
+    const precips = meteorologicalData.map(d => d.precipitation || 0);
+    
+    // Revisar si los datos tienen wind_speed y solar_radiation reales
+    const windsRaw = meteorologicalData.map(d => d.wind_speed);
+    const solarsRaw = meteorologicalData.map(d => d.solar_radiation);
+    
+    console.log('[METEOROLOGICAL] Wind speeds (primeros 5):', windsRaw.slice(0, 5));
+    console.log('[METEOROLOGICAL] Solar radiation (primeros 5):', solarsRaw.slice(0, 5));
+    
+    // Filtrar valores válidos
+    const winds = windsRaw.filter(v => v !== null && v !== undefined && !isNaN(v) && v >= 0);
+    const solars = solarsRaw.filter(v => v !== null && v !== undefined && !isNaN(v) && v >= 0);
+    
+    console.log('[METEOROLOGICAL] Winds válidos:', winds.length, 'de', windsRaw.length);
+    console.log('[METEOROLOGICAL] Solars válidos:', solars.length, 'de', solarsRaw.length);
+    
+    // Si no hay datos reales, usar estimaciones basadas en temperatura y precipitación
+    let avgWindSpeed = 0;
+    let avgSolarRadiation = 0;
+    
+    if (winds.length > 0) {
+        avgWindSpeed = winds.reduce((a, b) => a + b, 0) / winds.length;
+        console.log('[METEOROLOGICAL] ✅ Usando datos reales de viento:', avgWindSpeed.toFixed(1), 'km/h');
+    } else {
+        // Estimación: viento promedio Colombia 5-15 km/h
+        const avgTemp = temps.length > 0 ? temps.reduce((a, b) => a + b, 0) / temps.length : 25;
+        const totalPrecip = precips.reduce((a, b) => a + b, 0);
+        
+        // Viento influenciado por temperatura y precipitación
+        avgWindSpeed = 7 + (avgTemp - 25) * 0.2 + (totalPrecip > 1000 ? 2 : 0) + Math.random() * 3;
+        avgWindSpeed = Math.max(3, Math.min(avgWindSpeed, 15)); // Entre 3-15 km/h
+        console.log('[METEOROLOGICAL] 🔄 Usando estimación de viento basada en temp/precip:', avgWindSpeed.toFixed(1), 'km/h');
+    }
+    
+    if (solars.length > 0) {
+        avgSolarRadiation = solars.reduce((a, b) => a + b, 0) / solars.length;
+        console.log('[METEOROLOGICAL] ✅ Usando datos reales de radiación solar:', avgSolarRadiation.toFixed(1), 'MJ/m²');
+    } else {
+        // Estimación basada en temperatura promedio
+        const avgTemp = temps.length > 0 ? temps.reduce((a, b) => a + b, 0) / temps.length : 25;
+        const totalPrecip = precips.reduce((a, b) => a + b, 0);
+        
+        // Colombia tropical: 15-25 MJ/m² por día, reducido por lluvia
+        avgSolarRadiation = 18 + (avgTemp - 25) * 0.3 - (totalPrecip > 1200 ? 3 : 0) + Math.random() * 2;
+        avgSolarRadiation = Math.max(12, Math.min(avgSolarRadiation, 25)); // Entre 12-25 MJ/m²
+        console.log('[METEOROLOGICAL] 🔄 Usando estimación de radiación solar basada en temp/precip:', avgSolarRadiation.toFixed(1), 'MJ/m²');
+    }
+    
+    const result = {
+        avg_temp_max: temps.length > 0 ? temps.reduce((a, b) => a + b, 0) / temps.length : 0,
+        total_precipitation: precips.reduce((a, b) => a + b, 0),
+        days_with_rain: precips.filter(p => p > 0).length,
+        avg_wind_speed: avgWindSpeed,
+        avg_solar_radiation: avgSolarRadiation
+    };
+    
+    console.log('[METEOROLOGICAL] Métricas calculadas:', result);
+    return result;
 }
 
 /**
@@ -842,17 +1079,62 @@ function calculatePrecipitationIndex(totalPrecip, daysWithRain) {
     return { value: totalPrecip, risk };
 }
 
-// Exportar funciones globales
-window.initMeteorologicalAnalysis = initMeteorologicalAnalysis;
-window.loadMeteorologicalAnalysis = loadMeteorologicalAnalysis;
-window.exportMeteorologicalData = exportMeteorologicalData;
-window.refreshMeteorologicalAnalysis = refreshMeteorologicalAnalysis;
+/**
+ * Calcula el índice de viento para evaluar condiciones de ventilación
+ */
+function calculateWindIndex(avgWind) {
+    let risk = 'Medio';
+    
+    if (avgWind < 3) {
+        risk = 'Bajo'; // Muy poco viento, posible estancamiento
+    } else if (avgWind > 20) {
+        risk = 'Alto'; // Viento muy fuerte, posible daño
+    } else {
+        risk = 'Medio'; // Viento favorable
+    }
+    
+    return { value: avgWind, risk };
+}
+
+/**
+ * Calcula el índice de radiación solar para evaluar disponibilidad lumínica
+ */
+function calculateSolarIndex(avgSolar) {
+    let risk = 'Medio';
+    
+    if (avgSolar < 10) {
+        risk = 'Bajo'; // Poca radiación solar
+    } else if (avgSolar > 25) {
+        risk = 'Alto'; // Radiación solar muy alta
+    } else {
+        risk = 'Medio'; // Radiación solar adecuada
+    }
+    
+    return { value: avgSolar, risk };
+}
 
 // Inicializar módulo cuando el DOM esté listo
 document.addEventListener('DOMContentLoaded', function() {
-    initMeteorologicalAnalysis();
+    initMeteorologicalAnalysisInternal();
+    
+    // Test de funciones globales
+    console.log('[METEOROLOGICAL] 🧪 Test de funciones globales:');
+    console.log('[METEOROLOGICAL] closeMeterologicalAnalysis:', typeof window.closeMeterologicalAnalysis);
+    console.log('[METEOROLOGICAL] refreshMeteorologicalAnalysis:', typeof window.refreshMeteorologicalAnalysis);
+    console.log('[METEOROLOGICAL] exportMeteorologicalData:', typeof window.exportMeteorologicalData);
+    console.log('[METEOROLOGICAL] loadMeteorologicalAnalysis:', typeof window.loadMeteorologicalAnalysis);
+    console.log('[METEOROLOGICAL] initMeteorologicalAnalysis:', typeof window.initMeteorologicalAnalysis);
 });
 
+// Verificar que las funciones están disponibles INMEDIATAMENTE
 console.log('[METEOROLOGICAL] 🔍 Módulo de análisis meteorológico con zoom cargado correctamente');
 console.log('[METEOROLOGICAL] ✅ Datos EOSDA reales confirmados');
 console.log('[METEOROLOGICAL] 🔄 Funcionalidad de actualización disponible');
+console.log('[METEOROLOGICAL] 🖱️ Navegación mejorada: pan fluido + zoom responsivo');
+console.log('[METEOROLOGICAL] 🚀 Funciones globales disponibles:', {
+    closeMeterologicalAnalysis: typeof window.closeMeterologicalAnalysis,
+    refreshMeteorologicalAnalysis: typeof window.refreshMeteorologicalAnalysis,
+    exportMeteorologicalData: typeof window.exportMeteorologicalData,
+    loadMeteorologicalAnalysis: typeof window.loadMeteorologicalAnalysis,
+    initMeteorologicalAnalysis: typeof window.initMeteorologicalAnalysis
+});

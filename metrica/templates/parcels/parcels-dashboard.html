@@ -490,11 +490,6 @@
                             </div>
                         </div>
                     </div>
-                    <div class="modal-footer" style="background-color: #f8f9fa; border-radius: 0 0 12px 12px; border-top: 1px solid #dee2e6;">
-                        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal" style="border-radius: 8px;">
-                            <i class="fas fa-times me-2"></i>Cerrar
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -502,8 +497,9 @@
         <!-- Sección de Análisis NDVI + Meteorología (estática, no modal) -->
         <div id="meteorologicalAnalysisSection" style="display: none; margin-top: 30px;">
             <div class="card">
-                <div class="card-header" style="background: linear-gradient(135deg, #4CAF50, #FF9800); color: white;">
-                    <h5 class="mb-0" style="color: white;">Análisis Comparativo NDVI + Meteorología</h5>
+                <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #4CAF50, #FF9800); color: white;">
+                    <h5 class="mb-0" style="color: white;">Análisis Comparativo Meteorológico</h5>
+                    <button type="button" class="btn-close btn-close-white" aria-label="Cerrar" onclick="closeMeterologicalAnalysis()" style="filter: brightness(0) invert(1);"></button>
                 </div>
                 <div class="card-body">
                     <!-- Loading del análisis -->
@@ -511,7 +507,7 @@
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Cargando...</span>
                         </div>
-                        <p class="mt-3">Analizando datos NDVI y meteorológicos...</p>
+                        <p class="mt-3">Analizando meteorológicos...</p>
                     </div>
 
                     <!-- Contenedor del análisis -->
@@ -536,9 +532,9 @@
                                 <div class="card mb-3">
                                     <div class="card-header bg-light">
                                         <h6 class="mb-0">
-                                            <i class="fas fa-chart-line me-2"></i>Correlaciones Estadísticas
+                                            <i class="fas fa-chart-line me-2"></i>Métricas Meteorológicas
                                         </h6>
-                                        <small class="text-muted">Relación entre NDVI y factores climáticos</small>
+                                        <small class="text-muted">Promedios del período seleccionado</small>
                                     </div>
                                     <div class="card-body">
                                         <div class="mb-3">
@@ -547,11 +543,11 @@
                                                 <span id="correlationStrengthPrecip" class="badge bg-secondary">-</span>
                                             </div>
                                             <div class="d-flex justify-content-between align-items-center">
-                                                <span id="correlationPrecipitation" style="font-weight: bold; color: #2E7D32; font-size: 1.1em;">-</span>
+                                                <span id="correlationPrecipitation" style="font-weight: bold; color: #E65100; font-size: 1.1em;">-</span>
                                                 <small class="text-muted">Promedio del período</small>
                                             </div>
                                             <div class="progress mt-1" style="height: 6px;">
-                                                <div id="precipitationProgressBar" class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                                                <div id="precipitationProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: #E65100;"></div>
                                             </div>
                                         </div>
                                         <div class="mb-2">
@@ -564,17 +560,36 @@
                                                 <small class="text-muted">Promedio del período</small>
                                             </div>
                                             <div class="progress mt-1" style="height: 6px;">
-                                                <div id="temperatureProgressBar" class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
+                                                <div id="temperatureProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: #1565C0;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <small class="fw-bold">Velocidad del Viento Promedio:</small>
+                                                <span id="correlationStrengthWind" class="badge bg-secondary">-</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span id="correlationWind" style="font-weight: bold; color: #5E35B1; font-size: 1.1em;">-</span>
+                                                <small class="text-muted">Promedio del período</small>
+                                            </div>
+                                            <div class="progress mt-1" style="height: 6px;">
+                                                <div id="windProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: #5E35B1;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <small class="fw-bold">Radiación Solar Promedio:</small>
+                                                <span id="correlationStrengthSolar" class="badge bg-secondary">-</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span id="correlationSolar" style="font-weight: bold; color: #FF8F00; font-size: 1.1em;">-</span>
+                                                <small class="text-muted">Promedio del período</small>
+                                            </div>
+                                            <div class="progress mt-1" style="height: 6px;">
+                                                <div id="solarProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: #FF8F00;"></div>
                                             </div>
                                         </div>
                                         <hr>
-                                        <div class="text-center">
-                                            <small class="text-muted">
-                                                <strong>Interpretación:</strong><br>
-                                                0.7+ = Muy fuerte | 0.5-0.7 = Fuerte<br>
-                                                0.3-0.5 = Moderada | 0-0.3 = Débil
-                                            </small>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -636,7 +651,7 @@
     <script type="module" src="/static/js/parcels/layers.js"></script>
     <script src="/static/js/parcels/analytics-cientifico.js"></script>
     <script src="/static/js/parcels/historical-chart.js?v=2025082412"></script>
-    <script src="/static/js/parcels/meteorological-analysis.js?v=2025082417"></script>
+    <script src="/static/js/parcels/meteorological-analysis.js?v=2025082425"></script>
 
     <script>
         // Mostrar el filtro de rango de fechas solo cuando se activa la capa NDVI
@@ -734,6 +749,8 @@
                 });
             }
         });
+        
+
     </script>
 
     

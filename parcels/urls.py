@@ -1,8 +1,19 @@
 from django.urls import path
 from . import views
 from .analytics_views import EOSDAAnalyticsAPIView
+from .simple_analytics import SimpleAnalyticsView
+from django.http import JsonResponse
+
 app_name = "parcels"
 
+# Vista simple para debug
+def test_analytics_endpoint(request):
+    return JsonResponse({
+        "message": "Endpoint funciona!",
+        "path": request.path,
+        "method": request.method,
+        "params": dict(request.GET)
+    })
 
 from .proxy import eosda_wmts_proxy
 
@@ -18,6 +29,9 @@ urlpatterns = [
     # Nuevo: Advanced Statistics API (mt_stats)
     path('eosda-advanced-statistics/', views.EosdaAdvancedStatisticsView.as_view(), name='eosda_advanced_statistics'),
     path('eosda-statistics-task/<str:task_id>/', views.EosdaStatisticsTaskStatusView.as_view(), name='eosda_statistics_task_status'),
+    # 🧪 DEBUG: Endpoints de prueba
+    path('eosda-analytics-test/', test_analytics_endpoint, name='eosda_analytics_test'),
+    path('eosda-analytics-simple/', SimpleAnalyticsView.as_view(), name='eosda_analytics_simple'),
     # Nuevo: Analytics API científico independiente
     path('eosda-analytics/', EOSDAAnalyticsAPIView.as_view(), name='eosda_analytics'),
     # Endpoint para escenas satelitales filtradas por parcela y rango de fechas

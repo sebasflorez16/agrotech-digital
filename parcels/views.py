@@ -419,40 +419,41 @@ class EosdaImageView(APIView):
         
         OPTIMIZACIÓN: Cache de request_id por combinación field_id+view_id+type para evitar requests duplicados
         """
-        field_id = request.data.get("field_id")
-        view_id = request.data.get("view_id")
-        index_type = request.data.get("type")
-        img_format = request.data.get("format", "png")
-        logger.info(f"[EOSDA_IMAGE] Payload recibido: field_id={field_id}, view_id={view_id}, type={index_type}, format={img_format}")
-        
-        # Validación de parámetros
-        if not field_id or not view_id or index_type not in ["ndvi", "ndmi", "evi"]:
-            logger.error(f"[EOSDA_IMAGE] Parámetros inválidos: field_id={field_id}, view_id={view_id}, type={index_type}")
-            return Response({"error": "Parámetros inválidos."}, status=400)
-        
-        # Verificar cache de request_id por combinación field_id+view_id+type (cache por 30 minutos)
-        cache_key = f"eosda_image_request_{field_id}_{view_id}_{index_type}"
-        cached_request_id = cache.get(cached_request_id)
-        if cached_request_id:
-            logger.info(f"[CACHE HIT] request_id encontrado en cache: {cached_request_id}")
-            return Response({"request_id": cached_request_id}, status=200)
-        
-        eosda_url = f"https://api-connect.eos.com/field-imagery/indicies/{field_id}"
-        headers = {
-            "x-api-key": settings.EOSDA_API_KEY,
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "params": {
-                "view_id": view_id,
-                "index": index_type.upper(),
-                "format": img_format
-            }
-        }
-        logger.info(f"[EOSDA_IMAGE] URL: {eosda_url}")
-        logger.info(f"[EOSDA_IMAGE] Headers: {headers}")
-        logger.info(f"[EOSDA_IMAGE] Payload enviado: {payload}")
         try:
+            field_id = request.data.get("field_id")
+            view_id = request.data.get("view_id")
+            index_type = request.data.get("type")
+            img_format = request.data.get("format", "png")
+            logger.info(f"[EOSDA_IMAGE] Payload recibido: field_id={field_id}, view_id={view_id}, type={index_type}, format={img_format}")
+            
+            # Validación de parámetros
+            if not field_id or not view_id or index_type not in ["ndvi", "ndmi", "evi"]:
+                logger.error(f"[EOSDA_IMAGE] Parámetros inválidos: field_id={field_id}, view_id={view_id}, type={index_type}")
+                return Response({"error": "Parámetros inválidos."}, status=400)
+            
+            # Verificar cache de request_id por combinación field_id+view_id+type (cache por 30 minutos)
+            cache_key = f"eosda_image_request_{field_id}_{view_id}_{index_type}"
+            cached_request_id = cache.get(cache_key)
+            if cached_request_id:
+                logger.info(f"[CACHE HIT] request_id encontrado en cache: {cached_request_id}")
+                return Response({"request_id": cached_request_id}, status=200)
+            
+            eosda_url = f"https://api-connect.eos.com/field-imagery/indicies/{field_id}"
+            headers = {
+                "x-api-key": settings.EOSDA_API_KEY,
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "params": {
+                    "view_id": view_id,
+                    "index": index_type.upper(),
+                    "format": img_format
+                }
+            }
+            logger.info(f"[EOSDA_IMAGE] URL: {eosda_url}")
+            logger.info(f"[EOSDA_IMAGE] Headers: {headers}")
+            logger.info(f"[EOSDA_IMAGE] Payload enviado: {payload}")
+            
             response = requests.post(eosda_url, json=payload, headers=headers)
             logger.info(f"[EOSDA_IMAGE] Status: {response.status_code}")
             logger.info(f"[EOSDA_IMAGE] Response: {response.text}")
@@ -468,9 +469,16 @@ class EosdaImageView(APIView):
             logger.info(f"[CACHE SET] request_id guardado en cache: {request_id}")
             logger.info(f"[EOSDA_IMAGE] request_id recibido: {request_id}")
             return Response({"request_id": request_id}, status=200)
+            
         except requests.exceptions.RequestException as e:
             logger.error(f"[EOSDA_IMAGE] Error en la petición a EOSDA: {str(e)}")
-            return Response({"error": str(e)}, status=500)
+            return Response({"error": f"Error de conexión con EOSDA: {str(e)}"}, status=500)
+        except Exception as e:
+            logger.error(f"[EOSDA_IMAGE] Error inesperado: {str(e)}")
+            logger.error(f"[EOSDA_IMAGE] Tipo de error: {type(e).__name__}")
+            import traceback
+            logger.error(f"[EOSDA_IMAGE] Traceback: {traceback.format_exc()}")
+            return Response({"error": f"Error interno del servidor: {str(e)}"}, status=500)
 
 class EosdaImageResultView(APIView):
     permission_classes = [IsAuthenticated]

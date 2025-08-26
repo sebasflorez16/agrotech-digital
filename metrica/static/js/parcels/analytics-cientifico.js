@@ -129,7 +129,7 @@ function generateScientificModalHTML(analyticsData, sceneDate, viewId) {
                 <div class="modal-content">
                     <div class="modal-header bg-primary text-white">
                         <h5 class="modal-title" id="scientificModalLabel">
-                            🔬 Análisis Científico Satelital
+                            Análisis Científico Satelital
                         </h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
@@ -138,10 +138,10 @@ function generateScientificModalHTML(analyticsData, sceneDate, viewId) {
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-success" onclick="exportarAnalyticsCientificoData('${viewId}', '${sceneDate}')">
-                            📥 Exportar Datos CSV
+                            Exportar Datos CSV
                         </button>
                         <button type="button" class="btn btn-info" onclick="imprimirAnalyticsCientifico('${viewId}', '${sceneDate}')">
-                            🖨️ Imprimir Reporte
+                            Imprimir Reporte
                         </button>
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
                     </div>
@@ -295,7 +295,7 @@ function generateScientificAnalysisHTML(analyticsData, sceneDate, viewId) {
 
             <!-- Explicación simplificada de índices -->
             <div class="analysis-section" style="background: linear-gradient(145deg, #f8f9fa, #e9ecef); padding: 20px;">
-                <h6 class="section-title" style="color: #2c5aa0;">📚 Análisis Satelital Explicado</h6>
+                <h6 class="section-title" style="color: #2c5aa0;">Análisis Satelital Explicado</h6>
                 <div class="explanation-highlight">
                     <p style="margin: 0; font-size: 0.95rem; color: #495057;">
                         <strong>¿Qué estamos analizando?</strong> Utilizamos imágenes satelitales para medir la salud y el agua en sus cultivos. 
@@ -309,10 +309,10 @@ function generateScientificAnalysisHTML(analyticsData, sceneDate, viewId) {
                             <div class="index-header" style="color: #28a745;">
                                 🌱 <span>NDVI - Salud Vegetal</span>
                             </div>
-                            <p style="font-size: 0.9rem; margin-bottom: 8px;">Mide qué tan verde y vigoroso está su cultivo.</p>
+                            <p style="font-size: 0.9rem; margin-bottom: 8px;">Mide la vitalidad y vigor del cultivo mediante reflectancia infrarroja.</p>
                             <div class="index-range range-excellent">Excelente: 0.7 - 1.0</div>
                             <div class="index-range range-good">Bueno: 0.3 - 0.7</div>
-                            <div class="index-range range-poor">Problema: < 0.3</div>
+                            <div class="index-range range-poor">Deficiente: < 0.3</div>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -320,21 +320,21 @@ function generateScientificAnalysisHTML(analyticsData, sceneDate, viewId) {
                             <div class="index-header" style="color: #007bff;">
                                 💧 <span>NDMI - Contenido de Agua</span>
                             </div>
-                            <p style="font-size: 0.9rem; margin-bottom: 8px;">Detecta si las plantas tienen suficiente humedad.</p>
-                            <div class="index-range range-excellent">Óptimo: 0.4 - 1.0</div>
-                            <div class="index-range range-good">Moderado: 0.0 - 0.4</div>
-                            <div class="index-range range-poor">Estrés: < 0.0</div>
+                            <p style="font-size: 0.9rem; margin-bottom: 8px;">Evalúa el estado hídrico y contenido de humedad en la vegetación.</p>
+                            <div class="index-range range-excellent">Excelente: 0.4 - 1.0</div>
+                            <div class="index-range range-good">Bueno: 0.0 - 0.4</div>
+                            <div class="index-range range-poor">Deficiente: < 0.0</div>
                         </div>
                     </div>
                     <div class="col-md-4">
                         <div class="index-card">
                             <div class="index-header" style="color: #ff6b35;">
-                                🌿 <span>EVI - Precisión Mejorada</span>
+                                🌿 <span>EVI - Índice Vegetación Mejorado</span>
                             </div>
-                            <p style="font-size: 0.9rem; margin-bottom: 8px;">Análisis más preciso para cultivos densos.</p>
+                            <p style="font-size: 0.9rem; margin-bottom: 8px;">Análisis optimizado que reduce interferencia atmosférica y del suelo.</p>
                             <div class="index-range range-excellent">Excelente: 0.5 - 1.0</div>
                             <div class="index-range range-good">Bueno: 0.2 - 0.5</div>
-                            <div class="index-range range-poor">Bajo: < 0.2</div>
+                            <div class="index-range range-poor">Deficiente: < 0.2</div>
                         </div>
                     </div>
                 </div>
@@ -342,7 +342,7 @@ function generateScientificAnalysisHTML(analyticsData, sceneDate, viewId) {
 
             <!-- Explicación de estadísticas -->
             <div class="analysis-section" style="background: #fff3cd; padding: 15px;">
-                <h6 class="section-title" style="color: #856404;">� Entendiendo las Estadísticas</h6>
+                <h6 class="section-title" style="color: #856404;">Entendiendo las Estadísticas</h6>
                 <div class="stats-grid">
                     <div class="stat-item">
                         <div class="stat-value">Promedio</div>
@@ -375,7 +375,7 @@ function generateScientificAnalysisHTML(analyticsData, sceneDate, viewId) {
             
             <!-- Información general -->
             <div class="analysis-section mb-4" style="padding: 15px;">
-                <h6 class="section-title">ℹ️ Detalles del Análisis</h6>
+                <h6 class="section-title">Detalles del Análisis</h6>
                 <div class="row">
                     <div class="col-md-3">
                         <div class="info-item">
@@ -450,7 +450,7 @@ function generateNDVIMetricsHTML(ndviData, interpretation) {
     
     return `
         <div class="analysis-section">
-            <h6 class="section-title">🌱 Análisis NDVI - Salud de la Vegetación</h6>
+            <h6 class="section-title">🌱 NDVI - Salud de la Vegetación</h6>
             <div class="row">
                 <div class="col-md-8">
                     <div class="metrics-grid">
@@ -526,7 +526,7 @@ function generateNDMIMetricsHTML(ndmiData, interpretation) {
     
     return `
         <div class="analysis-section">
-            <h6 class="section-title">💧 Análisis NDMI - Contenido de Humedad</h6>
+            <h6 class="section-title">💧 NDMI - Contenido de Humedad</h6>
             <div class="row">
                 <div class="col-md-8">
                     <div class="metrics-grid">
