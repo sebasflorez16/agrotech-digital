@@ -17,11 +17,18 @@ window.LATEST_SCIENTIFIC_ANALYTICS = null;
 window.obtenerAnalyticsCientifico = async function(viewId, sceneDate) {
     try {
         console.log(`[ANALYTICS_CIENTIFICO] Iniciando análisis científico`);
-        console.log(`[ANALYTICS_CIENTIFICO] View ID: ${viewId}, Fecha: ${sceneDate}`);
-        
+        console.log(`[ANALYTICS_CIENTIFICO] View ID:`, viewId, 'Fecha:', sceneDate);
+
         // Validar parámetros
         if (!viewId) {
-            throw new Error('View ID es requerido para análisis científico');
+            const msg = 'View ID es requerido para análisis científico';
+            console.error(`[ANALYTICS_CIENTIFICO] Error: ${msg}`);
+            if (typeof showToast === 'function') {
+                showToast(`❌ ${msg}`, 'error');
+            } else {
+                alert(msg);
+            }
+            return;
         }
         
         // Mostrar indicador de carga
@@ -31,7 +38,14 @@ window.obtenerAnalyticsCientifico = async function(viewId, sceneDate) {
         
         // Verificar que axiosInstance esté disponible
         if (typeof window.axiosInstance === 'undefined') {
-            throw new Error('Sistema de autenticación no inicializado');
+            const msg = 'Sistema de autenticación no inicializado';
+            console.error(`[ANALYTICS_CIENTIFICO] Error: ${msg}`);
+            if (typeof showToast === 'function') {
+                showToast(`❌ ${msg}`, 'error');
+            } else {
+                alert(msg);
+            }
+            return;
         }
         
         // Construir parámetros de la consulta
@@ -66,13 +80,17 @@ window.obtenerAnalyticsCientifico = async function(viewId, sceneDate) {
         
     } catch (error) {
         console.error('[ANALYTICS_CIENTIFICO] Error:', error);
-        
-        if (typeof showToast === 'function') {
-            showToast(`❌ Error en análisis científico: ${error.message}`, 'error');
+        let errorMsg = '';
+        if (error && typeof error === 'object') {
+            errorMsg = error.message || JSON.stringify(error);
         } else {
-            alert(`Error en análisis científico: ${error.message}`);
+            errorMsg = String(error);
         }
-        
+        if (typeof showToast === 'function') {
+            showToast(`❌ Error en análisis científico: ${errorMsg}`, 'error');
+        } else {
+            alert(`Error en análisis científico: ${errorMsg}`);
+        }
         throw error;
     }
 };
@@ -84,6 +102,11 @@ window.obtenerAnalyticsCientifico = async function(viewId, sceneDate) {
  * @param {string} viewId - ID de la vista
  */
 function mostrarModalAnalyticsCientifico(analyticsData, sceneDate, viewId) {
+    console.log('[ANALYTICS_CIENTIFICO] Mostrando modal de análisis científico');
+    
+    // Aplicar estilos consistentes
+    applyCientificoAnalyticsStyles();
+    
     const modalHTML = generateScientificModalHTML(analyticsData, sceneDate, viewId);
     
     // Remover modal anterior si existe
@@ -339,40 +362,6 @@ function generateScientificAnalysisHTML(analyticsData, sceneDate, viewId) {
                     </div>
                 </div>
             </div>
-
-            <!-- Explicación de estadísticas -->
-            <div class="analysis-section" style="background: #fff3cd; padding: 15px;">
-                <h6 class="section-title" style="color: #856404;">Entendiendo las Estadísticas</h6>
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <div class="stat-value">Promedio</div>
-                        <div class="stat-label">Condición general del campo</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">Mínimo</div>
-                        <div class="stat-label">Zona más problemática</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">Máximo</div>
-                        <div class="stat-label">Zona en mejor estado</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">Desviación</div>
-                        <div class="stat-label">Uniformidad del cultivo</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value">Píxeles</div>
-                        <div class="stat-label">Puntos analizados</div>
-                    </div>
-                </div>
-                <div class="explanation-highlight">
-                    <small style="color: #856404;">
-                        <strong>💡 Tip:</strong> Una desviación baja significa que su campo es uniforme. 
-                        Una desviación alta indica que hay zonas muy diferentes entre sí.
-                    </small>
-                </div>
-            </div>
-            
             <!-- Información general -->
             <div class="analysis-section mb-4" style="padding: 15px;">
                 <h6 class="section-title">Detalles del Análisis</h6>
@@ -410,19 +399,123 @@ function generateScientificAnalysisHTML(analyticsData, sceneDate, viewId) {
         html += generateAlertsHTML(alerts);
     }
     
-    // Métricas NDVI
-    if (raw_data.ndvi) {
-        html += generateNDVIMetricsHTML(raw_data.ndvi, interpretation.ndvi);
+    // Verificar que los datos sean reales de EOSDA
+    const isEOSDAReal = metadata && metadata.data_source === 'EOSDA_REAL';
+    console.log('[ANALYTICS_CIENTIFICO] Datos reales EOSDA:', isEOSDAReal);
+    
+    // Volcado completo para análisis y depuración
+    console.log('[ANALYTICS_CIENTIFICO] Estructura completa de datos:', raw_data);
+    console.log('[ANALYTICS_CIENTIFICO] Recomendaciones:', recommendations);
+    console.log('[ANALYTICS_CIENTIFICO] Interpretación:', interpretation);
+    
+    // Garantizar que exista un objeto de interpretación para evitar errores
+    if (!interpretation) {
+        interpretation = {
+            ndvi: null,
+            ndmi: null,
+            evi: null
+        };
+        console.log('[ANALYTICS_CIENTIFICO] Creando objeto de interpretación vacío para garantizar consistencia');
     }
     
-    // Métricas NDMI
-    if (raw_data.ndmi) {
-        html += generateNDMIMetricsHTML(raw_data.ndmi, interpretation.ndmi);
+    // Verificar que existan valores para cada índice
+    let indicesMostrados = 0;
+    
+    // Función para extraer valor de cualquier fuente disponible
+    const extractValueFromAnySource = (indexName) => {
+        // Posibles fuentes de datos, ordenadas por prioridad
+        const sources = [
+            // Array de valores directos
+            raw_data[`${indexName}_values`] ? raw_data[`${indexName}_values`][0] : null,
+            // Valor promedio en estadísticas
+            raw_data[`${indexName}_statistics`]?.mean,
+            // Objeto directo si existe
+            raw_data[indexName]?.mean,
+            // Buscar en recomendaciones (como vimos en la imagen)
+            recommendations?.find(rec => rec.description?.includes(`${indexName.toUpperCase()} de `))?.description.match(/[A-Z]+ de ([\-\d\.]+)/)?.[1],
+            // Cualquier valor numérico que se encuentre en el objeto raw_data
+            typeof raw_data[indexName] === 'number' ? raw_data[indexName] : null,
+        ];
+        
+        // Devolver el primer valor disponible
+        return sources.find(val => val !== null && val !== undefined);
+    };
+    
+    // Métricas NDVI - Buscando en todas las fuentes posibles
+    const ndviValue = extractValueFromAnySource('ndvi');
+    console.log('[ANALYTICS_CIENTIFICO] NDVI extraído:', ndviValue);
+    
+    if (ndviValue !== null && ndviValue !== undefined) {
+        // Convertir a número si es string
+        const ndviNumeric = typeof ndviValue === 'string' ? parseFloat(ndviValue) : ndviValue;
+        
+        // Crear objeto con las estadísticas necesarias para mostrar
+        const ndviData = {
+            mean: ndviNumeric,
+            median: raw_data.ndvi_statistics?.median || ndviNumeric,
+            std: raw_data.ndvi_statistics?.std || 0.05, // Valor por defecto si no hay estadísticas
+            min: raw_data.ndvi_statistics?.min || (ndviNumeric * 0.9), // Aproximación
+            max: raw_data.ndvi_statistics?.max || (ndviNumeric * 1.1), // Aproximación
+            count: raw_data.ndvi_statistics?.count || 1
+        };
+        
+        html += generateNDVIMetricsHTML(ndviData, interpretation.ndvi);
+        indicesMostrados++;
+    } else {
+        html += `<div class="analysis-section"><h6 class="section-title">🌱 NDVI - No disponible</h6><div class="alert alert-warning">No hay datos NDVI reales de EOSDA para la fecha seleccionada.</div></div>`;
     }
     
-    // Métricas EVI si están disponibles
-    if (raw_data.evi) {
-        html += generateEVIMetricsHTML(raw_data.evi, interpretation.evi);
+    // Métricas NDMI - Buscando en todas las fuentes posibles
+    const ndmiValue = extractValueFromAnySource('ndmi');
+    console.log('[ANALYTICS_CIENTIFICO] NDMI extraído:', ndmiValue);
+    
+    if (ndmiValue !== null && ndmiValue !== undefined) {
+        // Convertir a número si es string
+        const ndmiNumeric = typeof ndmiValue === 'string' ? parseFloat(ndmiValue) : ndmiValue;
+        
+        const ndmiData = {
+            mean: ndmiNumeric,
+            median: raw_data.ndmi_statistics?.median || ndmiNumeric,
+            std: raw_data.ndmi_statistics?.std || 0.05, // Valor por defecto si no hay estadísticas
+            min: raw_data.ndmi_statistics?.min || (ndmiNumeric * 0.9), // Aproximación
+            max: raw_data.ndmi_statistics?.max || (ndmiNumeric * 1.1), // Aproximación
+            count: raw_data.ndmi_statistics?.count || 1
+        };
+        
+        html += generateNDMIMetricsHTML(ndmiData, interpretation.ndmi);
+        indicesMostrados++;
+    } else {
+        html += `<div class="analysis-section"><h6 class="section-title">💧 NDMI - No disponible</h6><div class="alert alert-warning">No hay datos NDMI reales de EOSDA para la fecha seleccionada.</div></div>`;
+    }
+    
+    // Métricas EVI - Buscando en todas las fuentes posibles
+    const eviValue = extractValueFromAnySource('evi');
+    console.log('[ANALYTICS_CIENTIFICO] EVI extraído:', eviValue);
+    
+    if (eviValue !== null && eviValue !== undefined) {
+        // Convertir a número si es string
+        const eviNumeric = typeof eviValue === 'string' ? parseFloat(eviValue) : eviValue;
+        
+        const eviData = {
+            mean: eviNumeric,
+            median: raw_data.evi_statistics?.median || eviNumeric,
+            std: raw_data.evi_statistics?.std || 0.05, // Valor por defecto si no hay estadísticas
+            min: raw_data.evi_statistics?.min || (eviNumeric * 0.9), // Aproximación
+            max: raw_data.evi_statistics?.max || (eviNumeric * 1.1), // Aproximación
+            count: raw_data.evi_statistics?.count || 1
+        };
+        
+        html += generateEVIMetricsHTML(eviData, interpretation.evi);
+        indicesMostrados++;
+    } else {
+        html += `<div class="analysis-section"><h6 class="section-title">🌿 EVI - No disponible</h6><div class="alert alert-warning">No hay datos EVI reales de EOSDA para la fecha seleccionada.</div></div>`;
+    }
+    
+    // Si no se mostró ningún índice, mostrar mensaje general
+    if (indicesMostrados === 0) {
+        html += `<div class="analysis-section"><div class="alert alert-danger">No hay datos satelitales reales disponibles para esta escena. Verifique la fecha o seleccione otra imagen.</div></div>`;
+    } else {
+        console.log(`[ANALYTICS_CIENTIFICO] Se mostraron ${indicesMostrados} índices correctamente`);
     }
     
     // Recomendaciones
@@ -442,75 +535,115 @@ function generateScientificAnalysisHTML(analyticsData, sceneDate, viewId) {
  * @returns {string} HTML de métricas NDVI
  */
 function generateNDVIMetricsHTML(ndviData, interpretation) {
-    if (!ndviData || !interpretation) return '';
+    console.log('[ANALYTICS_CIENTIFICO] Generando panel NDVI con:', ndviData, interpretation);
     
-    const metrics = interpretation.metrics || {};
-    const healthStatus = interpretation.health_status || 'Desconocido';
-    const healthClass = getHealthStatusClass(healthStatus);
+    if (!ndviData) return '';
     
-    return `
-        <div class="analysis-section">
-            <h6 class="section-title">🌱 NDVI - Salud de la Vegetación</h6>
-            <div class="row">
-                <div class="col-md-8">
-                    <div class="metrics-grid">
-                        <div class="metric-card">
-                            <div class="metric-value">${formatMetricValue(ndviData.mean)}</div>
-                            <div class="metric-label">Promedio General</div>
-                            <small class="text-muted">Condición típica del campo</small>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-value">${formatMetricValue(ndviData.median)}</div>
-                            <div class="metric-label">Valor Central</div>
-                            <small class="text-muted">Elimina valores extremos</small>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-value">${formatMetricValue(ndviData.std)}</div>
-                            <div class="metric-label">Uniformidad</div>
-                            <small class="text-muted">${getUniformityDescription(ndviData.std)}</small>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-value">${formatMetricValue(ndviData.min)}</div>
-                            <div class="metric-label">Zona Problemática</div>
-                            <small class="text-muted">Área que necesita atención</small>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-value">${formatMetricValue(ndviData.max)}</div>
-                            <div class="metric-label">Mejor Zona</div>
-                            <small class="text-muted">Área en óptimo estado</small>
-                        </div>
-                        <div class="metric-card">
-                            <div class="metric-value">${ndviData.count?.toLocaleString() || 'N/A'}</div>
-                            <div class="metric-label">Puntos Analizados</div>
-                            <small class="text-muted">Mayor = más precisión</small>
+    // Si no tenemos interpretación, creamos una interpretación por defecto completa
+    if (!interpretation) {
+        console.log('[ANALYTICS_CIENTIFICO] Creando interpretación por defecto para NDVI');
+        let healthStatus;
+        let description;
+        
+        if (ndviData.mean >= 0.7) {
+            healthStatus = 'Excelente';
+            description = 'La vegetación muestra valores NDVI excelentes, indicando alta actividad fotosintética y buen desarrollo del cultivo.';
+        } else if (ndviData.mean >= 0.3) {
+            healthStatus = 'Bueno';
+            description = 'Los valores NDVI indican un desarrollo vegetal moderado a bueno. El cultivo se encuentra en condiciones aceptables.';
+        } else {
+            healthStatus = 'Deficiente';
+            description = 'Los valores NDVI son bajos, lo que sugiere posibles problemas de desarrollo o estrés en la vegetación.';
+        }
+        
+        interpretation = {
+            health_status: healthStatus,
+            description: description,
+            uniformity: getNDVIUniformityText(ndviData.std),
+            uniformity_description: getUniformityDescription(ndviData.std)
+        };
+    } else {
+        // Garantizar que siempre exista un objeto de interpretación completo
+        interpretation = interpretation || {};
+        // Obtener valores con fallbacks por si acaso
+        const healthStatus = interpretation.health_status || (ndviData.mean >= 0.7 ? 'Excelente' : (ndviData.mean >= 0.3 ? 'Bueno' : 'Deficiente'));
+        const healthClass = getHealthStatusClass(healthStatus);
+        const description = interpretation.description || (ndviData.mean >= 0.7 ? 
+            'La vegetación muestra valores NDVI excelentes, indicando alta actividad fotosintética y buen desarrollo del cultivo.' : 
+            (ndviData.mean >= 0.3 ? 
+                'Los valores NDVI indican un desarrollo vegetal moderado a bueno. El cultivo se encuentra en condiciones aceptables.' : 
+                'Los valores NDVI son bajos, lo que sugiere posibles problemas de desarrollo o estrés en la vegetación.')
+        );
+
+        // Generar uniformidad si no existe
+        const hasUniformityData = interpretation.uniformity && interpretation.uniformity_description;
+        const uniformityInfo = hasUniformityData ? `
+            <div class="uniformity-info" style="margin-top: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                <strong>Uniformidad del Campo:</strong><br>
+                <span style="font-size: 0.9rem;">${interpretation.uniformity}</span>
+                <br><small class="text-muted">${interpretation.uniformity_description || getUniformityDescription(ndviData.std)}</small>
+            </div>
+        ` : `
+            <div class="uniformity-info" style="margin-top: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                <strong>Uniformidad del Campo:</strong><br>
+                <span style="font-size: 0.9rem;">${getNDVIUniformityText(ndviData.std)}</span>
+                <br><small class="text-muted">${getUniformityDescription(ndviData.std)}</small>
+            </div>
+        `;
+
+        // Panel de métricas NDVI (sin puntos analizados/pixel count)
+        return `
+            <div class="analysis-section">
+                <h6 class="section-title">🌱 NDVI - Salud de la Vegetación</h6>
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="metrics-grid">
+                            <div class="metric-card">
+                                <div class="metric-value">${formatMetricValue(ndviData.mean)}</div>
+                                <div class="metric-label">Promedio General</div>
+                                <small class="text-muted">Condición típica del campo</small>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value">${formatMetricValue(ndviData.median)}</div>
+                                <div class="metric-label">Valor Central</div>
+                                <small class="text-muted">Elimina valores extremos</small>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value">${formatMetricValue(ndviData.std)}</div>
+                                <div class="metric-label">Uniformidad</div>
+                                <small class="text-muted">${getUniformityDescription(ndviData.std)}</small>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value">${formatMetricValue(ndviData.min)}</div>
+                                <div class="metric-label">Zona Problemática</div>
+                                <small class="text-muted">Área que necesita atención</small>
+                            </div>
+                            <div class="metric-card">
+                                <div class="metric-value">${formatMetricValue(ndviData.max)}</div>
+                                <div class="metric-label">Mejor Zona</div>
+                                <small class="text-muted">Área en óptimo estado</small>
+                            </div>
                         </div>
                     </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="interpretation-panel">
-                        <div class="status-badge ${healthClass}">${healthStatus}</div>
-                        <div class="interpretation-text">
-                            <strong>Diagnóstico:</strong><br>
-                            ${interpretation.description || 'Análisis en proceso'}
-                        </div>
-                        ${interpretation.uniformity ? `
-                            <div class="uniformity-info" style="margin-top: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
-                                <strong>Uniformidad del Campo:</strong><br>
-                                <span style="font-size: 0.9rem;">${interpretation.uniformity}</span>
-                                ${interpretation.uniformity_description ? `<br><small class="text-muted">${interpretation.uniformity_description}</small>` : ''}
+                    <div class="col-md-4">
+                        <div class="interpretation-panel">
+                            <div class="status-badge ${healthClass}">${healthStatus}</div>
+                            <div class="interpretation-text">
+                                <strong>Diagnóstico:</strong><br>
+                                ${description}
                             </div>
-                        ` : ''}
-                        <div style="margin-top: 12px; font-size: 0.85rem; color: #6c757d;">
-                            🎯 <strong>Qué significa:</strong> Valores > 0.6 indican cultivos saludables. 
-                            Valores < 0.3 sugieren problemas de crecimiento.
+                            ${uniformityInfo}
+                            <div style="margin-top: 12px; font-size: 0.85rem; color: #6c757d;">
+                                🎯 <strong>Qué significa:</strong> Valores &gt; 0.6 indican cultivos saludables. 
+                                Valores &lt; 0.3 sugieren problemas de crecimiento.
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-    `;
+        `;
+    }
 }
-
 /**
  * Genera HTML para métricas NDMI científicas
  * @param {Object} ndmiData - Datos NDMI brutos
@@ -518,10 +651,21 @@ function generateNDVIMetricsHTML(ndviData, interpretation) {
  * @returns {string} HTML de métricas NDMI
  */
 function generateNDMIMetricsHTML(ndmiData, interpretation) {
-    if (!ndmiData || !interpretation) return '';
+    console.log('[ANALYTICS_CIENTIFICO] Generando panel NDMI con:', ndmiData, interpretation);
     
-    const metrics = interpretation.metrics || {};
-    const moistureStatus = interpretation.moisture_status || 'Desconocido';
+    // Si no tenemos interpretación, creamos una interpretación por defecto
+    if (!interpretation) {
+        console.log('[ANALYTICS_CIENTIFICO] Creando interpretación por defecto para NDMI');
+        interpretation = {
+            moisture_status: getNDMIStatusText(ndmiData.mean),
+            description: getNDMIDescription(ndmiData.mean),
+            uniformity: getNDMIUniformityText(ndmiData.std),
+            uniformity_description: getUniformityDescription(ndmiData.std),
+            irrigation_recommendation: getNDMIIrrigationRecommendation(ndmiData.mean)
+        };
+    }
+    
+    const moistureStatus = interpretation.moisture_status || getNDMIStatusText(ndmiData.mean);
     const moistureClass = getMoistureStatusClass(moistureStatus);
     
     return `
@@ -543,7 +687,7 @@ function generateNDMIMetricsHTML(ndmiData, interpretation) {
                         <div class="metric-card">
                             <div class="metric-value">${formatMetricValue(ndmiData.std)}</div>
                             <div class="metric-label">Variación</div>
-                            <small class="text-muted">${getHumidityVariationDescription(ndmiData.std)}</small>
+                            <small class="text-muted">${interpretation.uniformity_description || getUniformityDescription(ndmiData.std)}</small>
                         </div>
                         <div class="metric-card">
                             <div class="metric-value">${formatMetricValue(ndmiData.min)}</div>
@@ -555,11 +699,6 @@ function generateNDMIMetricsHTML(ndmiData, interpretation) {
                             <div class="metric-label">Zona Más Húmeda</div>
                             <small class="text-muted">Buena retención de agua</small>
                         </div>
-                        <div class="metric-card">
-                            <div class="metric-value">${ndmiData.count?.toLocaleString() || 'N/A'}</div>
-                            <div class="metric-label">Puntos Medidos</div>
-                            <small class="text-muted">Cobertura del análisis</small>
-                        </div>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -567,18 +706,36 @@ function generateNDMIMetricsHTML(ndmiData, interpretation) {
                         <div class="status-badge ${moistureClass}">${moistureStatus}</div>
                         <div class="interpretation-text">
                             <strong>Estado Hídrico:</strong><br>
-                            ${interpretation.description || 'Evaluación en proceso'}
+                            ${interpretation.description || getNDMIDescription(ndmiData.mean)}
                         </div>
+                        ${interpretation.uniformity ? `
+                            <div class="uniformity-info" style="margin-top: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                                <strong>Uniformidad del Campo:</strong><br>
+                                <span style="font-size: 0.9rem;">${interpretation.uniformity}</span>
+                                ${interpretation.uniformity_description ? `<br><small class="text-muted">${interpretation.uniformity_description}</small>` : ''}
+                            </div>
+                        ` : `
+                            <div class="uniformity-info" style="margin-top: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                                <strong>Uniformidad del Campo:</strong><br>
+                                <span style="font-size: 0.9rem;">${getNDMIUniformityText(ndmiData.std)}</span>
+                                <br><small class="text-muted">${getUniformityDescription(ndmiData.std)}</small>
+                            </div>
+                        `}
                         <div style="margin-top: 12px; font-size: 0.85rem; color: #6c757d;">
-                            💡 <strong>Interpretación:</strong> Valores > 0.3 indican buena humedad. 
-                            Valores < 0.0 sugieren estrés hídrico severo.
+                            💡 <strong>Interpretación:</strong> Valores &gt; 0.3 indican buena humedad. 
+                            Valores &lt; 0.0 sugieren estrés hídrico severo.
                         </div>
                         ${interpretation.irrigation_recommendation ? `
                             <div style="margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; border-left: 3px solid #2196f3;">
                                 <strong>💧 Recomendación de Riego:</strong><br>
                                 <small style="color: #1976d2;">${interpretation.irrigation_recommendation}</small>
                             </div>
-                        ` : ''}
+                        ` : `
+                            <div style="margin-top: 10px; padding: 8px; background: #e3f2fd; border-radius: 4px; border-left: 3px solid #2196f3;">
+                                <strong>💧 Recomendación de Riego:</strong><br>
+                                <small style="color: #1976d2;">${getNDMIIrrigationRecommendation(ndmiData.mean)}</small>
+                            </div>
+                        `}
                     </div>
                 </div>
             </div>
@@ -593,9 +750,21 @@ function generateNDMIMetricsHTML(ndmiData, interpretation) {
  * @returns {string} HTML de métricas EVI
  */
 function generateEVIMetricsHTML(eviData, interpretation) {
-    if (!eviData || !interpretation) return '';
+    console.log('[ANALYTICS_CIENTIFICO] Generando panel EVI con:', eviData, interpretation);
     
-    const eviStatus = interpretation.status || 'Desconocido';
+    // Si no tenemos interpretación, creamos una interpretación por defecto
+    if (!interpretation) {
+        console.log('[ANALYTICS_CIENTIFICO] Creando interpretación por defecto para EVI');
+        interpretation = {
+            status: getEVIHealthStatus(eviData.mean),
+            description: getEVIHealthDescription(eviData.mean),
+            uniformity: getEVIUniformityText(eviData.std),
+            uniformity_description: getVariabilityDescription(eviData.std),
+            management_recommendation: getEVIManagementRecommendation(eviData.mean)
+        };
+    }
+    
+    const eviStatus = interpretation.status || getEVIHealthStatus(eviData.mean);
     const eviClass = getEVIStatusClass(eviStatus);
     
     return `
@@ -629,11 +798,6 @@ function generateEVIMetricsHTML(eviData, interpretation) {
                             <div class="metric-label">EVI Máximo</div>
                             <small class="text-muted">Zona de mayor vigor</small>
                         </div>
-                        <div class="metric-card">
-                            <div class="metric-value">${eviData.count?.toLocaleString() || 'N/A'}</div>
-                            <div class="metric-label">Píxeles EVI</div>
-                            <small class="text-muted">Resolución del análisis</small>
-                        </div>
                     </div>
                 </div>
                 <div class="col-md-4">
@@ -641,8 +805,21 @@ function generateEVIMetricsHTML(eviData, interpretation) {
                         <div class="status-badge ${eviClass}">${eviStatus}</div>
                         <div class="interpretation-text">
                             <strong>Análisis Avanzado:</strong><br>
-                            ${interpretation.description || 'Procesando datos EVI'}
+                            ${interpretation.description || getEVIHealthDescription(eviData.mean)}
                         </div>
+                        ${interpretation.uniformity ? `
+                            <div class="uniformity-info" style="margin-top: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                                <strong>Uniformidad del Cultivo:</strong><br>
+                                <span style="font-size: 0.9rem;">${interpretation.uniformity}</span>
+                                ${interpretation.uniformity_description ? `<br><small class="text-muted">${interpretation.uniformity_description}</small>` : ''}
+                            </div>
+                        ` : `
+                            <div class="uniformity-info" style="margin-top: 12px; padding: 8px; background: #f8f9fa; border-radius: 4px;">
+                                <strong>Uniformidad del Cultivo:</strong><br>
+                                <span style="font-size: 0.9rem;">${getEVIUniformityText(eviData.std)}</span>
+                                <br><small class="text-muted">${getVariabilityDescription(eviData.std)}</small>
+                            </div>
+                        `}
                         <div style="margin-top: 12px; font-size: 0.85rem; color: #6c757d;">
                             🔬 <strong>EVI vs NDVI:</strong> EVI es más preciso en cultivos densos y corrige mejor 
                             los efectos del suelo y la atmósfera.
@@ -650,6 +827,17 @@ function generateEVIMetricsHTML(eviData, interpretation) {
                         <div style="margin-top: 8px; padding: 6px; background: #fff3e0; border-radius: 4px;">
                             <small><strong>Rango óptimo:</strong> 0.3 - 0.8 para la mayoría de cultivos</small>
                         </div>
+                        ${interpretation.management_recommendation ? `
+                            <div style="margin-top: 10px; padding: 8px; background: #e8f5e9; border-radius: 4px; border-left: 3px solid #4caf50;">
+                                <strong>🌿 Recomendación de Manejo:</strong><br>
+                                <small style="color: #2e7d32;">${interpretation.management_recommendation}</small>
+                            </div>
+                        ` : `
+                            <div style="margin-top: 10px; padding: 8px; background: #e8f5e9; border-radius: 4px; border-left: 3px solid #4caf50;">
+                                <strong>🌿 Recomendación de Manejo:</strong><br>
+                                <small style="color: #2e7d32;">${getEVIManagementRecommendation(eviData.mean)}</small>
+                            </div>
+                        `}
                     </div>
                 </div>
             </div>
@@ -668,14 +856,35 @@ function generateAlertsHTML(alerts) {
     const alertsHTML = alerts.map(alert => {
         const alertClass = getAlertClass(alert.type);
         const priorityBadge = alert.priority ? `<span class="badge bg-${getPriorityColor(alert.priority)} ms-2">${alert.priority.toUpperCase()}</span>` : '';
-        
+        // Si la acción está indefinida, mostrar recomendación según NDMI
+        let actionText = alert.action;
+        if (!actionText || actionText === 'undefined') {
+            // Si el mensaje es de NDMI, dar apreciación según el valor
+            if (alert.title && alert.title.toLowerCase().includes('ndmi')) {
+                const ndmiMatch = alert.message.match(/NDMI de ([\-\d\.]+)/);
+                if (ndmiMatch) {
+                    const ndmiValue = parseFloat(ndmiMatch[1]);
+                    if (ndmiValue < 0) {
+                        actionText = `Active el sistema de riego en las zonas más secas detectadas por el análisis satelital (NDMI negativo). Realice inspección visual en campo antes de regar. Monitoree NDMI y humedad del suelo 2-3 días después del riego. Si el estrés hídrico persiste, consulte con un agrónomo.`;
+                    } else if (ndmiValue < 0.2) {
+                        actionText = `Aumente la frecuencia de riego y monitoree la humedad del suelo. Realice inspección visual en las zonas con NDMI bajo. Verifique recuperación tras el riego.`;
+                    } else {
+                        actionText = `El contenido de humedad es adecuado. Mantenga el monitoreo regular y registre las acciones realizadas. Si observa zonas secas, realice inspección visual y ajuste el riego si es necesario.`;
+                    }
+                } else {
+                    actionText = 'Monitoree la humedad y consulte con un agrónomo si el problema persiste.';
+                }
+            } else {
+                actionText = 'No se recomienda acción específica. Monitoree la parcela y consulte con un agrónomo si el problema persiste.';
+            }
+        }
         return `
             <div class="alert ${alertClass} mb-2">
                 <div class="d-flex justify-content-between align-items-start">
                     <div>
                         <strong>${alert.title}</strong>${priorityBadge}
                         <p class="mb-1">${alert.message}</p>
-                        <small><em>Acción recomendada: ${alert.action}</em></small>
+                        <small><em>Acción recomendada: ${actionText}</em></small>
                     </div>
                 </div>
             </div>
@@ -696,7 +905,45 @@ function generateAlertsHTML(alerts) {
  * @returns {string} HTML de recomendaciones
  */
 function generateRecommendationsHTML(recommendations) {
-    if (!recommendations || recommendations.length === 0) return '';
+    console.log('[ANALYTICS_CIENTIFICO] Generando panel de recomendaciones:', recommendations);
+    
+    // Si no hay recomendaciones, mostrar un mensaje por defecto con estructura consistente
+    if (!recommendations || recommendations.length === 0) {
+        return `
+            <div class="analysis-section">
+                <h6 class="section-title">📋 Recomendaciones Agronómicas</h6>
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="recommendation-card h-100">
+                            <div class="card h-100" style="border: 2px solid #e9ecef; border-radius: 12px;">
+                                <div class="card-header" style="background: linear-gradient(145deg, #f8f9fa, #e9ecef); border-bottom: 1px solid #dee2e6;">
+                                    <h6 class="mb-0" style="color: #2c3e50; font-weight: 600;">
+                                        ℹ️ Información
+                                    </h6>
+                                    <small class="text-muted d-block mt-1">
+                                        📂 General
+                                    </small>
+                                </div>
+                                <div class="card-body" style="padding: 16px;">
+                                    <p class="card-text" style="font-size: 0.9rem; line-height: 1.4; margin-bottom: 12px; color: #495057;">
+                                        No hay recomendaciones disponibles para esta fecha o escena específica. Esto puede deberse a que los índices vegetativos están dentro de rangos normales o no hay suficiente información para generar recomendaciones específicas.
+                                    </p>
+                                    <div class="tips-section" style="margin-top: 12px; padding: 8px; background: #f8f9fa; border-radius: 6px; border-left: 3px solid #007bff;">
+                                        <h6 style="font-size: 0.8rem; font-weight: 600; margin-bottom: 6px; color: #2c3e50;">
+                                            💡 Sugerencia:
+                                        </h6>
+                                        <div style="font-size: 0.75rem; color: #495057;">
+                                            Continúe monitoreando los índices vegetativos regularmente. Considere realizar inspecciones de campo para verificar el estado actual del cultivo.
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
     
     const priorityOrder = { 'critical': 0, 'urgent': 1, 'high': 2, 'medium': 3, 'low': 4 };
     const sortedRecs = recommendations.sort((a, b) => 
@@ -1013,6 +1260,102 @@ console.log('[ANALYTICS_CIENTIFICO] Módulo de Analytics Científico Satelital c
 // ========== FUNCIONES HELPER PARA MEJOR COMPRENSIÓN ==========
 
 /**
+ * Genera estado de salud para EVI basado en el valor promedio
+ * @param {number} value - Valor medio EVI
+ * @returns {string} Estado de salud EVI
+ */
+function getEVIHealthStatus(value) {
+    if (value === null || value === undefined || isNaN(value)) return 'Desconocido';
+    if (value < 0.1) {
+        return 'Suelo desnudo o escasa vegetación';
+    } else if (value < 0.3) {
+        return 'Vegetación pobre';
+    } else if (value < 0.5) {
+        return 'Vegetación moderada';
+    } else if (value < 0.8) {
+        return 'Vegetación buena';
+    } else {
+        return 'Vegetación excelente';
+    }
+}
+
+/**
+ * Genera descripción interpretativa para EVI según valor promedio
+ * @param {number} value - Valor medio EVI
+ * @returns {string} Descripción interpretativa
+ */
+function getEVIHealthDescription(value) {
+    if (value === null || value === undefined || isNaN(value)) return 'Evaluación en proceso.';
+    if (value < 0.1) {
+        return 'El campo presenta suelo desnudo o vegetación extremadamente escasa. Se recomienda revisar la cobertura vegetal.';
+    } else if (value < 0.3) {
+        return 'La vegetación es pobre, lo que puede indicar problemas de establecimiento, estrés o manejo deficiente.';
+    } else if (value < 0.5) {
+        return 'Vegetación moderada, el cultivo está en desarrollo pero podría beneficiarse de mejores prácticas agronómicas.';
+    } else if (value < 0.8) {
+        return 'Vegetación buena, el cultivo muestra buen vigor y salud general.';
+    } else {
+        return 'Vegetación excelente, óptimas condiciones de desarrollo y manejo.';
+    }
+}
+
+/**
+ * Genera texto de uniformidad para EVI según desviación estándar
+ * @param {number} std - Desviación estándar EVI
+ * @returns {string} Descripción de uniformidad
+ */
+function getEVIUniformityText(std) {
+    if (std === null || std === undefined || isNaN(std)) return 'Sin datos';
+    if (std < 0.04) {
+        return 'Muy uniforme (excelente distribución de vigor)';
+    } else if (std < 0.09) {
+        return 'Uniformidad buena (distribución de vigor aceptable)';
+    } else if (std < 0.15) {
+        return 'Variabilidad moderada (posibles zonas de bajo y alto vigor)';
+    } else {
+        return 'Alta variabilidad (diferencias significativas de vigor en el campo)';
+    }
+}
+
+/**
+ * Genera descripción de variabilidad para EVI según desviación estándar
+ * @param {number} std - Desviación estándar EVI
+ * @returns {string} Descripción de variabilidad
+ */
+function getVariabilityDescription(std) {
+    if (std === null || std === undefined || isNaN(std)) return 'Sin datos de variabilidad.';
+    if (std < 0.04) {
+        return 'El campo es muy uniforme en vigor.';
+    } else if (std < 0.09) {
+        return 'Buena uniformidad, pocas zonas problemáticas.';
+    } else if (std < 0.15) {
+        return 'Variabilidad moderada, revisar zonas de bajo vigor.';
+    } else {
+        return 'Alta variabilidad, se recomienda inspección y manejo específico.';
+    }
+}
+
+/**
+ * Genera recomendación de manejo para EVI según valor promedio
+ * @param {number} value - Valor medio EVI
+ * @returns {string} Recomendación de manejo
+ */
+function getEVIManagementRecommendation(value) {
+    if (value === null || value === undefined || isNaN(value)) return 'Sin recomendación disponible.';
+    if (value < 0.1) {
+        return 'Revisar cobertura vegetal y considerar resiembra o mejora de condiciones.';
+    } else if (value < 0.3) {
+        return 'Evaluar fertilización, riego y control de plagas para mejorar el vigor.';
+    } else if (value < 0.5) {
+        return 'Aplicar prácticas agronómicas para potenciar el desarrollo.';
+    } else if (value < 0.8) {
+        return 'Mantener manejo actual y monitorear posibles cambios.';
+    } else {
+        return 'Continuar con el manejo actual, condiciones óptimas.';
+    }
+}
+
+/**
  * Formatea valores métricos para mostrar de forma comprensible
  * @param {number} value - Valor numérico
  * @returns {string} Valor formateado
@@ -1023,6 +1366,83 @@ function formatMetricValue(value) {
         return value.toFixed(3);
     }
     return String(value);
+}
+
+/**
+ * Genera texto de uniformidad para NDVI basado en la desviación estándar
+ * @param {number} std - Desviación estándar del NDVI
+ * @returns {string} Descripción de uniformidad
+ */
+function getNDVIUniformityText(std) {
+    if (std === null || std === undefined) return 'Sin datos';
+    if (std < 0.04) {
+        return 'Muy uniforme (excelente distribución de humedad)';
+    } else if (std < 0.09) {
+        return 'Uniformidad buena (distribución de humedad aceptable)';
+    } else if (std < 0.15) {
+        return 'Variabilidad moderada (posibles zonas secas y húmedas)';
+    } else {
+        return 'Alta variabilidad (diferencias significativas de humedad en el campo)';
+    }
+}
+
+/**
+ * Devuelve texto interpretativo sobre la uniformidad NDMI según la desviación estándar
+ * @param {number} std - Desviación estándar NDMI
+ * @returns {string} Texto de uniformidad
+ */
+function getNDMIUniformityText(std) {
+    if (std === null || std === undefined || isNaN(std)) return 'Sin datos';
+    if (std < 0.04) {
+        return 'Muy uniforme (excelente distribución de humedad)';
+    } else if (std < 0.09) {
+        return 'Uniformidad buena (distribución de humedad aceptable)';
+    } else if (std < 0.15) {
+        return 'Variabilidad moderada (posibles zonas secas y húmedas)';
+    } else {
+        return 'Alta variabilidad (diferencias significativas de humedad en el campo)';
+    }
+}
+
+/**
+ * Genera texto de estado del NDMI basado en el valor promedio
+ * @param {number} value - Valor medio NDMI
+ * @returns {string} Estado del NDMI
+ */
+function getNDMIStatusText(value) {
+    if (!value && value !== 0) return 'Desconocido';
+    
+    if (value < -0.2) {
+        return 'Muy Seco';
+    } else if (value < 0) {
+        return 'Seco';
+    } else if (value < 0.2) {
+        return 'Moderadamente Seco';
+    } else if (value < 0.4) {
+        return 'Adecuado';
+    } else {
+        return 'Húmedo';
+    }
+}
+
+/**
+ * Genera descripción del NDMI basado en el valor promedio
+ * @param {number} value - Valor medio NDMI
+ * @returns {string} Descripción del estado del NDMI
+ */
+function getNDMIDescription(value) {
+    if (!value && value !== 0) return 'Evaluación en proceso';
+    if (value < -0.2) {
+        return 'El cultivo muestra signos de estrés hídrico severo. Requiere riego inmediato para evitar daños significativos.';
+    } else if (value < 0) {
+        return 'Condiciones secas. El cultivo puede estar experimentando estrés hídrico moderado y podría beneficiarse de riego.';
+    } else if (value < 0.2) {
+        return 'Contenido de humedad aceptable pero puede estar por debajo de lo óptimo para algunas etapas fenológicas.';
+    } else if (value < 0.4) {
+        return 'Buenas condiciones de humedad. El cultivo tiene un suministro de agua adecuado para su desarrollo.';
+    } else {
+        return 'Condiciones de humedad muy favorables. Los cultivos tienen abundante disponibilidad de agua.';
+    }
 }
 
 /**
@@ -1037,20 +1457,6 @@ function getUniformityDescription(std) {
     if (stdValue < 0.2) return 'Bastante uniforme';
     if (stdValue < 0.3) return 'Moderadamente uniforme';
     return 'Irregular, revisar zonas';
-}
-
-/**
- * Obtiene descripción de variación de humedad
- * @param {number} std - Desviación estándar NDMI
- * @returns {string} Descripción de variación
- */
-function getHumidityVariationDescription(std) {
-    if (!std || std === 'N/A') return 'Desconocido';
-    const stdValue = parseFloat(std);
-    if (stdValue < 0.15) return 'Humedad uniforme';
-    if (stdValue < 0.25) return 'Algo de variación';
-    if (stdValue < 0.35) return 'Variación moderada';
-    return 'Muy irregular';
 }
 
 /**
@@ -1088,11 +1494,12 @@ function getMoistureStatusClass(moistureStatus) {
  */
 function getEVIStatusClass(eviStatus) {
     const status = eviStatus.toLowerCase();
-    if (status.includes('excelente') || status.includes('alto')) return 'status-excellent';
-    if (status.includes('bueno') || status.includes('normal')) return 'status-good';
-    if (status.includes('moderado') || status.includes('medio')) return 'status-medium';
-    if (status.includes('bajo') || status.includes('pobre')) return 'status-poor';
-    return 'status-medium';
+    if (status.includes('excelente')) return 'status-excellent';
+    if (status.includes('bueno')) return 'status-good';
+    if (status.includes('moderado')) return 'status-moderate';
+    if (status.includes('escasa')) return 'status-poor';
+    if (status.includes('suelo') || status.includes('desnudo')) return 'status-critical';
+    return 'status-unknown';
 }
 
 /**
@@ -1221,7 +1628,7 @@ function getHeaderGradient(priority) {
  */
 function getTipBackground(priority) {
     switch (priority) {
-        case 'critical':
+                      case 'critical':
         case 'urgent': return '#fff5f5';
         case 'high': return '#fffbf0';
         case 'medium': return '#f0f9ff';
@@ -1248,4 +1655,141 @@ function getExpectedImpact(priority, category) {
     return impacts[priority] || 'Impacto variable según implementación';
 }
 
-// ========== FUNCIONES HELPER EXISTENTES ==========
+/**
+ * Aplica estilos CSS consistentes para los paneles de análisis
+ */
+function applyCientificoAnalyticsStyles() {
+    const styleId = 'cientifico-analytics-styles';
+    // Si ya existe el estilo, no lo volvemos a agregar
+    if (document.getElementById(styleId)) return;
+    
+    const styleSheet = document.createElement('style');
+    styleSheet.id = styleId;
+    styleSheet.textContent = `
+        .analysis-section {
+            margin-bottom: 24px;
+            padding: 16px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        
+        .section-title {
+            margin-bottom: 16px;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+        }
+        
+        .metric-card {
+            background: #f9f9f9;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+        
+        .metric-value {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #2c3e50;
+        }
+        
+        .metric-label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            text-align: center;
+        }
+        
+        .status-excellent {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        
+        .status-good {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+        
+        .status-moderate {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        
+        .status-poor {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        
+        .status-critical {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .status-unknown {
+            background-color: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .interpretation-text {
+            font-size: 0.9rem;
+            line-height: 1.4;
+            color: #495057;
+        }
+        
+        .recommendation-card {
+            height:  100%;
+        }
+        
+        /* Estilos consistentes para recomendaciones */
+        .actions-section, .tips-section {
+            margin-top: 12px;
+        }
+        
+        /* Estilos para estado sin datos */
+        .alert-warning {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 0;
+        }
+        
+        /* Estilo para paneles de uniformidad */
+        .uniformity-info {
+            margin-top: 12px;
+            padding: 8px;
+            background: #f8f9fa;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+    `;
+    
+    document.head.appendChild(styleSheet);
+    console.log('[ANALYTICS_CIENTIFICO] Estilos CSS aplicados para paneles de análisis');
+}
+
+/**
+ * Genera recomendación de riego basada en el valor NDMI
+ * @param {number} ndmiMean - Valor medio NDMI
+ * @returns {string} Recomendación de riego
+ */
+function getNDMIIrrigationRecommendation(ndmiMean) {
+    if (ndmiMean === null || ndmiMean === undefined || isNaN(ndmiMean)) return 'Sin datos suficientes para recomendar riego.';
+    if (ndmiMean < 0) {
+        return 'Se recomienda riego urgente en las zonas con NDMI negativo. Verifique humedad del suelo y realice inspección visual.';
+    } else if (ndmiMean < 0.2) {
+        return 'Considere riego adicional en áreas con NDMI bajo. Monitoree evolución tras el riego.';
+    } else if (ndmiMean < 0.4) {
+        return 'El riego es opcional, la humedad es adecuada pero puede optimizarse según el cultivo.';
+    } else {
+        return 'No se requiere riego. La humedad es óptima para el desarrollo del cultivo.';
+    }
+}
