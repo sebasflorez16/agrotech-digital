@@ -3,6 +3,7 @@ from . import views
 from .analytics_views import EOSDAAnalyticsAPIView
 from .simple_analytics import SimpleAnalyticsView
 from django.http import JsonResponse
+from .metereological import WeatherForecastView
 
 app_name = "parcels"
 
@@ -40,4 +41,10 @@ urlpatterns = [
     path('parcel/<int:parcel_id>/historical-indices/', views.ParcelHistoricalIndicesView.as_view(), name='parcel_historical_indices'),
     # Nuevo endpoint para análisis comparativo NDVI + Meteorología
     path('parcel/<int:parcel_id>/ndvi-weather-comparison/', views.ParcelNdviWeatherComparisonView.as_view(), name='parcel_ndvi_weather_comparison'),
+    # Endpoint para pronóstico del tiempo de 14 días - ambas rutas disponibles
+    path('parcel/<int:parcel_id>/weather-forecast/', WeatherForecastView.as_view(), name='weather_forecast'),
+    # Ruta alternativa (preferida por el frontend) para asegurar acceso
+    path('weather-forecast/<int:parcel_id>/', WeatherForecastView.as_view(), name='weather_forecast_alt'),
+    # Ruta directa extra para evitar posibles conflictos con el router
+    path('get-weather-forecast/<int:parcel_id>/', WeatherForecastView.as_view(), name='weather_forecast_direct'),
 ]

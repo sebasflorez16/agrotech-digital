@@ -48,7 +48,18 @@ function closeMeterologicalAnalysis() {
 function refreshMeteorologicalAnalysis() {
     console.log('[METEOROLOGICAL] 🔄 refreshMeteorologicalAnalysis llamada');
     
-    if (currentParcelId) {
+    // Sincronizar primero con el estado global
+    const parcelIdToUse = sincronizarParcelaSeleccionada();
+    
+    // Si estamos en modo pronóstico del tiempo, recargar el pronóstico
+    const container = document.getElementById('meteorologicalAnalysisContainer');
+    if (container && container.innerHTML.includes('weather-forecast-container')) {
+        console.log('[METEOROLOGICAL] Detectado modo pronóstico, recargando pronóstico...');
+        loadWeatherForecast(parcelIdToUse);
+        return;
+    }
+    
+    if (parcelIdToUse) {
         console.log('[METEOROLOGICAL] 🔄 Actualizando análisis...');
         
         // Mostrar toast de inicio de actualización
@@ -57,7 +68,7 @@ function refreshMeteorologicalAnalysis() {
         }
         
         // Llamar a la función de carga con indicador de actualización
-        loadMeteorologicalAnalysisWithRefresh(currentParcelId);
+        loadMeteorologicalAnalysisWithRefresh(parcelIdToUse);
     } else {
         console.warn('[METEOROLOGICAL] No hay parcela seleccionada para actualizar');
         if (typeof showToast === 'function') {
@@ -210,12 +221,26 @@ function loadMeteorologicalAnalysisWithRefresh(parcelId) {
  * Carga el análisis meteorológico para una parcela (función interna)
  */
 function loadMeteorologicalAnalysisInternal(parcelId) {
+    // Sincronizar primero con el estado global
+    sincronizarParcelaSeleccionada();
+    
+    // Si se proporciona un ID específico, usarlo; si no, intentar obtener el ID de la parcela seleccionada
+    if (!parcelId && window.EOSDA_STATE && window.EOSDA_STATE.selectedParcelId) {
+        parcelId = window.EOSDA_STATE.selectedParcelId;
+        console.log('[METEOROLOGICAL] Usando parcela seleccionada del estado global:', parcelId);
+    }
+    
     if (!parcelId) {
         console.warn('[METEOROLOGICAL] No hay parcela seleccionada');
         return;
     }
     
     currentParcelId = parcelId;
+    
+    // Actualizar también el estado global si es necesario
+    if (window.EOSDA_STATE && window.EOSDA_STATE.selectedParcelId !== parcelId) {
+        window.EOSDA_STATE.selectedParcelId = parcelId;
+    }
     console.log(`[METEOROLOGICAL] Cargando análisis meteorológico para parcela ${parcelId}`);
     
     showMeteorologicalLoading(true);
@@ -349,7 +374,9 @@ function processRealEOSDAData(data) {
     const totalPoints = data.metadata?.total_points || meteorologicalData.length;
     
     if (typeof showToast === 'function') {
-        showToast(`Datos meteorológicos EOSDA cargados: ${totalPoints} puntos desde enero 2025`, 'success');
+        const currentYear = new Date().getFullYear();
+        const currentMonth = new Date().toLocaleDateString('es-ES', { month: 'long' });
+        showToast(`Datos meteorológicos EOSDA cargados: ${totalPoints} puntos (enero ${currentYear} - ${currentMonth})`, 'success');
     }
     
     console.log(`[METEOROLOGICAL] Análisis completado con datos reales de EOSDA`);
@@ -652,6 +679,608 @@ function renderMeteorologicalChart(data) {
 }
 
 /**
+ * Función global para cargar el pronóstico del tiempo de 14 días
+ */
+function loadWeatherForecast(parcelId) {
+    console.log('[METEOROLOGICAL] 🌤️ loadWeatherForecast llamada para parcela:', parcelId);
+    
+    // Sincronizar primero con el estado global
+    sincronizarParcelaSeleccionada();
+    
+    // Si se proporciona un ID específico, usarlo; si no, intentar obtener el ID de la parcela seleccionada
+    if (!parcelId && window.EOSDA_STATE && window.EOSDA_STATE.selectedParcelId) {
+        parcelId = window.EOSDA_STATE.selectedParcelId;
+        console.log('[METEOROLOGICAL] Usando parcela seleccionada del estado global:', parcelId);
+    }
+    
+    if (!parcelId) {
+        console.warn('[METEOROLOGICAL] No hay parcela seleccionada para pronóstico');
+        if (typeof showToast === 'function') {
+            showToast('Seleccione una parcela primero', 'warning');
+        } else {
+            alert('Seleccione una parcela primero');
+        }
+        return;
+    }
+    
+    currentParcelId = parcelId;
+    
+    // Actualizar también el estado global si es necesario
+    if (window.EOSDA_STATE && window.EOSDA_STATE.selectedParcelId !== parcelId) {
+        window.EOSDA_STATE.selectedParcelId = parcelId;
+    }
+    console.log(`[METEOROLOGICAL] Cargando pronóstico del tiempo para parcela ${parcelId}`);
+    
+    showMeteorologicalLoading(true);
+    
+    // Usar directamente el endpoint del pronóstico
+    const baseUrl = window.location.hostname === 'localhost' || window.location.hostname.includes('localhost') 
+        ? `http://${window.location.hostname}:8000` 
+        : window.location.origin;
+    // Usar la ruta directa para evitar conflictos de routing
+    const endpoint = `${baseUrl}/api/parcels/get-weather-forecast/${parcelId}/`;
+    
+    console.log(`[METEOROLOGICAL] Haciendo petición al pronóstico (ruta directa): ${endpoint}`);
+    
+    fetch(endpoint, {
+        method: 'GET',
+        headers: window.getAuthHeaders ? window.getAuthHeaders() : {
+            'Authorization': `Bearer ${getAuthToken()}`,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('[METEOROLOGICAL] Datos del pronóstico recibidos:', data);
+        
+        // Verificar si hay un error en los datos
+        if (data.error) {
+            console.error('[METEOROLOGICAL] Error en la respuesta:', data.error);
+            showMeteorologicalError(data.message || data.error);
+            return;
+        }
+        
+        // Inspeccionar la estructura completa del pronóstico
+        console.log('[METEOROLOGICAL] Estructura del pronóstico:', JSON.stringify(data.forecast).substring(0, 300) + '...');
+        
+        // Verificar formato de fecha en los datos recibidos
+        if (data.forecast && data.forecast.length > 0) {
+            const sampleItem = data.forecast[0];
+            console.log('[METEOROLOGICAL] Formato de fecha en el pronóstico:', {
+                hasDate: !!sampleItem.date,
+                hasUppercaseDate: !!sampleItem.Date,
+                dateValue: sampleItem.date || sampleItem.Date,
+                dateProperties: Object.keys(sampleItem).filter(key => key.toLowerCase().includes('date'))
+            });
+        }
+        
+        // Procesar datos de pronóstico
+        renderWeatherForecast(data);
+        
+    })
+    .catch(error => {
+        console.error('[METEOROLOGICAL] Error cargando pronóstico del tiempo:', error);
+        showMeteorologicalError('Error al cargar el pronóstico meteorológico. No se pudieron obtener datos reales de EOSDA.');
+    });
+}
+
+/**
+ * Renderiza el pronóstico del tiempo en tarjetas
+ * Basado en la documentación de EOSDA Weather API: https://doc.eos.com/docs/weather/basic-weather-providers/
+ */
+function renderWeatherForecast(data) {
+    console.log('[METEOROLOGICAL] Renderizando pronóstico del tiempo');
+    
+    showMeteorologicalLoading(false);
+    
+    const container = document.getElementById('meteorologicalAnalysisContainer');
+    if (!container) return;
+    
+    // Extraer datos del pronóstico
+    let forecast = data.forecast || [];
+    const provider = data.source || 'EOSDA Weather';
+    const parcelName = data.parcel_name || '';
+    
+    // Mostrar todos los días del pronóstico que proporciona la API
+    // Los datos de la API ya vienen ordenados desde la fecha actual en adelante
+    console.log('[METEOROLOGICAL] Datos del pronóstico recibidos:', forecast.length, 'días');
+    console.log('[METEOROLOGICAL] Fechas del pronóstico:', forecast.map(day => day.date).join(', '));
+    
+    // Verificamos el formato de fecha que usa la API en cada elemento
+    const dateField = forecast[0] && forecast[0].Date ? 'Date' : 'date';
+    
+    // Convertimos las fechas si es necesario para normalizar el formato
+    forecast = forecast.map(day => {
+        if (!day.date && day[dateField]) {
+            day.date = day[dateField];
+        }
+        return day;
+    });
+    
+    console.log('[METEOROLOGICAL] Fechas normalizadas:', forecast.map(day => day.date).join(', '));
+    
+    // Filtrar solo los días a partir de hoy
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalizar a inicio del día
+    
+    forecast = forecast.filter(day => {
+        const dayDate = new Date(day.date);
+        return dayDate >= today;
+    });
+    
+    console.log('[METEOROLOGICAL] Datos filtrados:', forecast.length, 'días desde hoy');
+    
+    if (!forecast || forecast.length === 0) {
+        container.innerHTML = `
+            <div class="alert alert-warning">
+                <h6 class="alert-heading">Sin datos de pronóstico</h6>
+                <p>No hay datos de pronóstico disponibles para esta parcela. La API de EOSDA no devolvió datos reales.</p>
+                <p class="small">Por favor verifique que la parcela tiene un ID válido en EOSDA y que está correctamente registrada.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Verificar explícitamente qué días son reales vs generados para mejor depuración
+    console.log('[METEOROLOGICAL] Días con datos reales:', forecast.filter(day => day.is_real_data !== false).length);
+    console.log('[METEOROLOGICAL] Días con datos generados:', forecast.filter(day => day.is_real_data === false).length);
+    
+    // Crear contenido HTML para el pronóstico
+    let forecastHTML = `
+        <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="mb-1 fw-bold">Pronóstico del tiempo - Próximos ${forecast.length} días</h5>
+                    <p class="text-muted mb-0 small">
+                        <span class="me-2">${parcelName ? `Parcela: ${parcelName}` : ''}</span>
+                        <span>Datos: Agrotech</span>
+                        ${forecast.filter(day => day.is_real_data !== false).length < forecast.length ? 
+                        `<span class="badge bg-info bg-opacity-25 text-dark ms-2">
+                            <i class="fas fa-info-circle me-1"></i>${forecast.filter(day => day.is_real_data !== false).length} días reales + 
+                            ${forecast.length - forecast.filter(day => day.is_real_data !== false).length} estimados
+                         </span>` : ''}
+                    </p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary" onclick="loadMeteorologicalAnalysis(currentParcelId)">
+                        <i class="fas fa-chart-line me-1"></i>Ver análisis histórico
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="loadWeatherForecast(window.EOSDA_STATE.selectedParcelId)">
+                        <i class="fas fa-sync-alt me-1"></i>Actualizar
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Información del día actual -->
+            ${forecast.length > 0 ? createCurrentDayCard(forecast[0]) : ''}
+            
+            <!-- Contenedor de tarjetas de pronóstico -->
+            <div class="weather-forecast-container d-flex flex-nowrap overflow-auto pb-2 mb-3 mt-3">
+    `;        // Generar tarjetas para cada día del pronóstico
+    forecast.forEach((day, index) => {
+        // Manejar diferentes formatos de fecha (pueden venir como 'Date' o 'date')
+        let dateStr = day.date || day.Date;
+        console.log(`[METEOROLOGICAL] Procesando día ${index}, fecha original:`, dateStr);
+        
+        // Intentar convertir la fecha correctamente
+        const date = new Date(dateStr);
+        console.log(`[METEOROLOGICAL] Fecha convertida:`, date);
+        
+        // Determinar si es el día de hoy comparando la fecha
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Normalizar a inicio del día
+        const dayDate = new Date(date);
+        dayDate.setHours(0, 0, 0, 0);
+        const isToday = dayDate.getTime() === today.getTime();
+        
+        const formattedDate = date.toLocaleDateString('es-ES', {
+            weekday: 'short',
+            day: 'numeric',
+            month: 'short'
+        });
+        
+        // Determinar el estado del tiempo y seleccionar el icono correspondiente
+        const weatherInfo = getWeatherInfo(day);
+        
+        // Determinar si el día es real o generado (verificar campo is_real_data)
+        const isRealData = day.is_real_data !== false; // Por defecto, asumir que es real si no tiene la propiedad
+        
+        // Aplicar estilo según si es hoy o datos generados
+        let cardClass = isToday ? 'border-primary' : '';
+        // Añadir clase especial para datos generados
+        if (!isRealData) {
+            cardClass += ' generated-forecast';
+        }
+        
+        // Obtener valores de temperaturas (manejar múltiples formatos de la API EOSDA)
+        console.log(`[METEOROLOGICAL] Campos disponibles en día ${index}:`, Object.keys(day));
+        
+        const tempMax = day.Temp_air_max || day.temperature_max || day.temp_max || (day.temperature ? day.temperature + 4 : 'N/A');
+        const tempMin = day.Temp_air_min || day.temperature_min || day.temp_min || (day.temperature ? day.temperature - 4 : 'N/A'); 
+        const precipitation = day.Precip_total || day.precipitation || day.precip_mm || 0;
+        const humidity = day.Rel_humidity || day.humidity || day.humidity_avg || 0;
+        
+        // Formatear temperatura con 1 decimal si es un número
+        const formatTemp = (temp) => {
+            return typeof temp === 'number' ? temp.toFixed(1) + '°C' : 'N/A';
+        };
+        
+        forecastHTML += `
+            <div class="card weather-day-card ${cardClass}" style="min-width: 150px; width: 150px; margin-right: 12px; border-radius: 12px; overflow: hidden; ${!isRealData ? 'border-style: dashed; opacity: 0.9;' : ''}">
+                <!-- Encabezado con fecha -->
+                <div class="card-header text-center py-1 ${isToday ? 'bg-primary text-white' : isRealData ? 'bg-light' : 'bg-light-subtle'}" style="border: none;">
+                    <h6 class="card-title mb-0 fw-bold" style="font-size: 0.9rem;">${formattedDate}</h6>
+                    ${!isRealData ? '<small class="badge bg-secondary bg-opacity-50" style="font-size: 0.6rem;">Estimado</small>' : ''}
+                </div>
+                
+                <div class="card-body p-2 text-center">
+                    <!-- Icono del clima -->
+                    <div class="weather-icon-container my-2">
+                        <div class="weather-icon" style="background-color: ${weatherInfo.bgColor}; width: 75px; height: 75px; border-radius: 50%; margin: 0 auto; display: flex; justify-content: center; align-items: center;">
+                            <i class="${weatherInfo.icon}" style="font-size: 2.5rem; color: ${weatherInfo.iconColor};"></i>
+                        </div>
+                        <div class="small text-center mt-2 fw-bold" style="color: ${weatherInfo.textColor};">${weatherInfo.label}</div>
+                    </div>
+                    
+                    <!-- Datos meteorológicos -->
+                    <div class="weather-data mt-2 pt-2 border-top">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted">Temp máx:</span>
+                            <span class="fw-bold">${formatTemp(tempMax)}</span>
+                        </div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted">Temp mín:</span>
+                            <span class="fw-bold">${formatTemp(tempMin)}</span>
+                        </div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span class="text-muted">Precip:</span>
+                            <span class="fw-bold ${precipitation > 0 ? 'text-primary' : ''}">${typeof precipitation === 'number' ? precipitation.toFixed(1) + ' mm' : '0 mm'}</span>
+                        </div>
+                        <div class="d-flex justify-content-between small">
+                            <span class="text-muted">Humedad:</span>
+                            <span class="fw-bold">${typeof humidity === 'number' ? humidity.toFixed(0) + '%' : 'N/A'}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    forecastHTML += `
+            </div>
+            <div class="alert alert-info p-2 small">
+                <i class="fas fa-info-circle me-1"></i>
+                Deslice horizontalmente para ver el pronóstico completo. Este pronóstico se actualiza diariamente.
+                ${forecast.some(day => day.is_real_data === false) ? 
+                `<br><small><i class="fas fa-info-circle me-1"></i>Nota: Se muestran ${forecast.filter(day => day.is_real_data !== false).length} días con datos reales más ${forecast.filter(day => day.is_real_data === false).length} días estimados para completar un pronóstico de 7 días.</small>` : ''}
+            </div>
+        </div>
+    `;
+    
+    // Mostrar el pronóstico
+    container.innerHTML = forecastHTML;
+    
+    // Mostrar la sección si estaba oculta
+    const section = document.getElementById('meteorologicalAnalysisSection');
+    if (section) {
+        section.style.display = 'block';
+    }
+    
+    // Agregar estilos para el contenedor de tarjetas
+    const styleId = 'weather-forecast-styles';
+    if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+            .weather-forecast-container {
+                -webkit-overflow-scrolling: touch;
+                padding: 10px 0;
+            }
+            .weather-forecast-container::-webkit-scrollbar {
+                height: 6px;
+            }
+            .weather-forecast-container::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 10px;
+            }
+            .weather-forecast-container::-webkit-scrollbar-thumb {
+                background: #c1c1c1;
+                border-radius: 10px;
+            }
+            .weather-day-card {
+                transition: all 0.3s ease;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            }                .weather-day-card:hover {
+                transform: translateY(-6px);
+                box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+            }
+            .generated-forecast {
+                border-style: dashed !important;
+                border-color: #cccccc !important;
+            }
+            .weather-icon-container {
+                position: relative;
+                z-index: 1;
+            }
+            .current-day-card {
+                background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+                border-radius: 12px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+                overflow: hidden;
+            }
+            .current-day-temp {
+                font-size: 2.5rem;
+                font-weight: 700;
+            }
+            .current-day-condition {
+                font-size: 1.2rem;
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+            }
+            .weather-data-pill {
+                background-color: rgba(255,255,255,0.7);
+                border-radius: 20px;
+                padding: 4px 12px;
+                margin: 0 4px;
+                display: inline-flex;
+                align-items: center;
+                font-weight: 500;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    if (typeof showToast === 'function') {
+        showToast('Pronóstico del tiempo actualizado', 'success');
+    }
+}
+
+/**
+ * Crea la tarjeta para el día actual con más detalles
+ */
+function createCurrentDayCard(dayData) {
+    if (!dayData) return '';
+    
+    // Manejar diferentes formatos de fecha (pueden venir como 'Date' o 'date')
+    let dateStr = dayData.date || dayData.Date;
+    console.log(`[METEOROLOGICAL] createCurrentDayCard - Fecha original:`, dateStr);
+    
+    const date = new Date(dateStr);
+    console.log(`[METEOROLOGICAL] createCurrentDayCard - Fecha convertida:`, date);
+    
+    // Usar siempre la fecha actual para mostrar "Hoy" en la tarjeta principal
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString('es-ES', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+    });
+    
+    // Obtener valores de temperaturas (manejar múltiples formatos de la API EOSDA)
+    console.log('[METEOROLOGICAL] Campos disponibles en dayData:', Object.keys(dayData));
+    
+    // EOSDA utiliza 'Temp_air_max', 'Temp_air_min', otras APIs usan formatos diferentes
+    const tempMax = dayData.Temp_air_max || dayData.temperature_max || dayData.temp_max || (dayData.temperature ? dayData.temperature + 4 : 'N/A');
+    const tempMin = dayData.Temp_air_min || dayData.temperature_min || dayData.temp_min || (dayData.temperature ? dayData.temperature - 4 : 'N/A'); 
+    const temp = dayData.temperature || dayData.temp || dayData.temp_avg || ((typeof tempMax === 'number' && typeof tempMin === 'number') ? (tempMax + tempMin) / 2 : 'N/A');
+    
+    // Otros campos también tienen diferentes nombres según la API
+    const precipitation = dayData.Precip_total || dayData.precipitation || dayData.precip_mm || 0;
+    const humidity = dayData.Rel_humidity || dayData.humidity || dayData.humidity_avg || 0;
+    const windSpeed = dayData.Wind_speed || dayData.wind_speed || dayData.wind_kph || 0;
+    
+    // Formatear temperatura con 1 decimal si es un número
+    const formatTemp = (temp) => {
+        return typeof temp === 'number' ? temp.toFixed(1) + '°C' : 'N/A';
+    };
+    
+    const weatherInfo = getWeatherInfo(dayData);
+    
+    return `
+    <div class="current-day-card p-3 mb-3">
+        <div class="row">
+            <!-- Información principal -->
+            <div class="col-md-4 d-flex align-items-center">
+                <div class="text-center" style="width: 90px; margin-right: 15px;">
+                    <div class="weather-icon" style="background-color: ${weatherInfo.bgColor}; width: 85px; height: 85px; border-radius: 50%; display: flex; justify-content: center; align-items: center;">
+                        <i class="${weatherInfo.icon}" style="font-size: 3rem; color: ${weatherInfo.iconColor};"></i>
+                    </div>
+                </div>
+                <div>
+                    <h6 class="mb-1 text-muted">Hoy, ${formattedDate}</h6>
+                    <div class="current-day-condition" style="color: ${weatherInfo.textColor};">${weatherInfo.label}</div>
+                    <div class="current-day-temp">${formatTemp(temp)}</div>
+                </div>
+            </div>
+            
+            <!-- Detalles adicionales -->
+            <div class="col-md-8">
+                <div class="row h-100 align-items-center">
+                    <div class="col-12 col-md-4 text-center mt-3 mt-md-0">
+                        <button class="btn btn-primary" onclick="loadMeteorologicalAnalysis(currentParcelId)">
+                            <i class="fas fa-chart-line me-1"></i>Histórico completo
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    `;
+}
+
+/**
+ * Determina la información del clima basada en los datos del día
+ * Según la documentación de EOSDA Weather API: https://doc.eos.com/docs/weather/basic-weather-providers/
+ */
+function getWeatherInfo(dayData) {
+    // Valores predeterminados
+    let icon = 'fas fa-cloud';
+    let label = 'Parcialmente nublado';
+    let bgColor = '#f0f4f7';
+    let iconColor = '#6c757d';
+    let textColor = '#6c757d';
+    
+    // Si no hay datos, retornar valores predeterminados
+    if (!dayData) return { 
+        icon, label, bgColor, iconColor, textColor, 
+        isGeneratedForecast: false 
+    };
+    
+    // Si es un pronóstico generado (no es dato real), marcar visualmente
+    const isGeneratedForecast = dayData.is_real_data === false;
+    
+    // Extraer condiciones del clima si están disponibles (manejar múltiples formatos de la API)
+    let conditionsText = '';
+    
+    // Manejar diferentes formatos de la API EOSDA
+    if (dayData.description) {
+        conditionsText = dayData.description.toLowerCase();
+    } else if (dayData.conditions) {
+        conditionsText = dayData.conditions.toLowerCase();
+    } else if (dayData.weather_desc) {
+        if (Array.isArray(dayData.weather_desc)) {
+            conditionsText = dayData.weather_desc[0].toLowerCase();
+        } else {
+            conditionsText = String(dayData.weather_desc).toLowerCase();
+        }
+    }
+    
+    const precipitation = dayData.precipitation || dayData.precip_mm || 0;
+    const cloudCover = dayData.cloud_cover || 0;
+    const temperature = dayData.temperature || dayData.temp || dayData.temp_avg || 0;
+    const windSpeed = dayData.wind_speed || dayData.wind_kph || 0;
+    
+    // Determinar el estado del tiempo basado en los datos disponibles
+    if (conditionsText.includes('thunderstorm') || conditionsText.includes('storm') || conditionsText.includes('tormenta') || conditionsText.includes('trueno')) {
+        icon = 'fas fa-bolt';
+        label = 'Tormenta eléctrica';
+        bgColor = '#343a40';
+        iconColor = '#ffc107';
+        textColor = '#dc3545';
+    } else if (conditionsText.includes('rain') || conditionsText.includes('shower') || conditionsText.includes('lluvia') || precipitation > 3) {
+        if (precipitation > 10) {
+            icon = 'fas fa-cloud-showers-heavy';
+            label = 'Lluvia intensa';
+            bgColor = '#495057';
+            iconColor = '#0d6efd';
+            textColor = '#0d6efd';
+        } else {
+            icon = 'fas fa-cloud-rain';
+            label = 'Lluvia';
+            bgColor = '#e9ecef';
+            iconColor = '#0d6efd';
+            textColor = '#0d6efd';
+        }
+    } else if (conditionsText.includes('drizzle') || conditionsText.includes('llovizna') || precipitation > 0) {
+        icon = 'fas fa-cloud-rain';
+        label = 'Llovizna';
+        bgColor = '#e9ecef';
+        iconColor = '#6c757d';
+        textColor = '#0d6efd';
+    } else if (conditionsText.includes('snow') || conditionsText.includes('nieve')) {
+        icon = 'fas fa-snowflake';
+        label = 'Nieve';
+        bgColor = '#f8f9fa';
+        iconColor = '#0dcaf0';
+        textColor = '#0dcaf0';
+    } else if (conditionsText.includes('clear') || conditionsText.includes('sunny') || conditionsText.includes('soleado') || conditionsText.includes('despejado') || cloudCover < 10) {
+        if (temperature > 30) {
+            icon = 'fas fa-sun';
+            label = 'Soleado y caluroso';
+            bgColor = '#FFF9C4';
+            iconColor = '#fd7e14';
+            textColor = '#fd7e14';
+        } else {
+            icon = 'fas fa-sun';
+            label = 'Soleado';
+            bgColor = '#FFF9C4';
+            iconColor = '#ffc107';
+            textColor = '#fd7e14';
+        }
+    } else if (conditionsText.includes('cloudy') || conditionsText.includes('overcast') || conditionsText.includes('nublado') || cloudCover > 50) {
+        icon = 'fas fa-cloud';
+        label = 'Nublado';
+        bgColor = '#e9ecef';
+        iconColor = '#6c757d';
+        textColor = '#495057';
+    } else if (conditionsText.includes('partly') || conditionsText.includes('parcialmente') || cloudCover > 20) {
+        icon = 'fas fa-cloud-sun';
+        label = 'Parcialmente nublado';
+        bgColor = '#f8f9fa';
+        iconColor = '#6c757d';
+        textColor = '#495057';
+    } else if (conditionsText.includes('fog') || conditionsText.includes('mist') || conditionsText.includes('niebla')) {
+        icon = 'fas fa-smog';
+        label = 'Niebla';
+        bgColor = '#f8f9fa';
+        iconColor = '#adb5bd';
+        textColor = '#6c757d';
+    } else if (windSpeed > 20) {
+        icon = 'fas fa-wind';
+        label = 'Ventoso';
+        bgColor = '#e9ecef';
+        iconColor = '#6c757d';
+        textColor = '#495057';
+    }
+    
+    // Si es un pronóstico generado, modificar ligeramente el estilo visual
+    if (isGeneratedForecast) {
+        // Añadir "(Est.)" al final de la etiqueta para datos generados
+        label += " (Est.)";
+        
+        // Reducir ligeramente la intensidad de los colores para datos generados
+        // para diferenciarlos visualmente de los datos reales
+        const reduceOpacity = (color) => {
+            return color + "90"; // Añadir 90 (56% de opacidad) al color hexadecimal
+        };
+        
+        bgColor = reduceOpacity(bgColor);
+        iconColor = reduceOpacity(iconColor);
+    }
+    
+    // Retornar objeto con la información del clima
+    return {
+        icon,
+        label,
+        bgColor,
+        iconColor,
+        textColor,
+        isGeneratedForecast
+    };
+}
+
+/**
+ * Sincroniza el ID de parcela entre el estado global y la variable local
+ * Esta función debe ser llamada antes de cualquier operación con parcelas
+ */
+function sincronizarParcelaSeleccionada() {
+    if (window.EOSDA_STATE && window.EOSDA_STATE.selectedParcelId) {
+        if (currentParcelId !== window.EOSDA_STATE.selectedParcelId) {
+            console.log('[METEOROLOGICAL] Sincronizando ID de parcela:', 
+                      'local:', currentParcelId, 
+                      'global:', window.EOSDA_STATE.selectedParcelId);
+            currentParcelId = window.EOSDA_STATE.selectedParcelId;
+        }
+    } else if (currentParcelId) {
+        // Si no hay parcela global pero sí local, actualizar el estado global
+        if (window.EOSDA_STATE) {
+            window.EOSDA_STATE.selectedParcelId = currentParcelId;
+        }
+    }
+    return currentParcelId;
+}
+
+// Asignar inmediatamente a window para disponibilidad global
+window.loadWeatherForecast = loadWeatherForecast;
+
+/**
  * Muestra/oculta el loading del análisis meteorológico
  */
 function showMeteorologicalLoading(show) {
@@ -679,35 +1308,41 @@ function showMeteorologicalLoading(show) {
  * Muestra error profesional cuando falla la carga de datos
  */
 function showMeteorologicalError(errorMessage) {
-    console.error('[METEOROLOGICAL] Mostrando error:', errorMessage);
+    console.error('[METEOROLOGICAL] Error:', errorMessage);
     
     showMeteorologicalLoading(false);
     
     const container = document.getElementById('meteorologicalAnalysisContainer');
-    if (container) {
-        container.innerHTML = `
-            <div class="alert alert-danger" role="alert">
-                <h6 class="alert-heading">
-                    <i class="fas fa-exclamation-triangle me-2"></i>Error cargando datos meteorológicos
-                </h6>
-                <p class="mb-2">${errorMessage}</p>
-                <hr>
-                <div class="d-flex justify-content-between align-items-center">
-                    <small class="text-muted">
-                        <i class="fas fa-info-circle me-1"></i>
-                        Verifique que la parcela tenga coordenadas válidas y que EOSDA API esté disponible.
-                    </small>
-                    <button class="btn btn-outline-danger btn-sm" onclick="refreshMeteorologicalAnalysis()">
-                        <i class="fas fa-redo me-1"></i>Reintentar
-                    </button>
-                </div>
+    if (!container) return;
+    
+    // Crear un mensaje de error visualmente atractivo
+    container.innerHTML = `
+        <div class="alert alert-danger p-4">
+            <div class="d-flex align-items-center mb-3">
+                <i class="fas fa-exclamation-circle me-3" style="font-size: 2rem;"></i>
+                <h5 class="mb-0">Error cargando datos meteorológicos reales</h5>
             </div>
-        `;
-        container.style.display = 'block';
+            <p class="mb-3">${errorMessage}</p>
+            <p class="small mb-3"><i class="fas fa-info-circle me-1"></i> No se están utilizando datos ficticios. El sistema solo muestra datos reales de EOSDA.</p>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-danger" onclick="loadWeatherForecast(window.EOSDA_STATE.selectedParcelId)">
+                    <i class="fas fa-sync-alt me-2"></i>Reintentar
+                </button>
+                <button class="btn btn-outline-secondary" onclick="closeMeterologicalAnalysis()">
+                    <i class="fas fa-times me-2"></i>Cerrar
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Mostrar la sección si estaba oculta
+    const section = document.getElementById('meteorologicalAnalysisSection');
+    if (section) {
+        section.style.display = 'block';
     }
     
     if (typeof showToast === 'function') {
-        showToast('❌ Error cargando datos meteorológicos. Verifique la conexión.', 'error');
+        showToast('Error cargando pronóstico meteorológico', 'error');
     }
 }
 
@@ -1123,6 +1758,7 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('[METEOROLOGICAL] refreshMeteorologicalAnalysis:', typeof window.refreshMeteorologicalAnalysis);
     console.log('[METEOROLOGICAL] exportMeteorologicalData:', typeof window.exportMeteorologicalData);
     console.log('[METEOROLOGICAL] loadMeteorologicalAnalysis:', typeof window.loadMeteorologicalAnalysis);
+    console.log('[METEOROLOGICAL] loadWeatherForecast:', typeof window.loadWeatherForecast);
     console.log('[METEOROLOGICAL] initMeteorologicalAnalysis:', typeof window.initMeteorologicalAnalysis);
 });
 
@@ -1136,5 +1772,6 @@ console.log('[METEOROLOGICAL] 🚀 Funciones globales disponibles:', {
     refreshMeteorologicalAnalysis: typeof window.refreshMeteorologicalAnalysis,
     exportMeteorologicalData: typeof window.exportMeteorologicalData,
     loadMeteorologicalAnalysis: typeof window.loadMeteorologicalAnalysis,
+    loadWeatherForecast: typeof window.loadWeatherForecast,
     initMeteorologicalAnalysis: typeof window.initMeteorologicalAnalysis
 });

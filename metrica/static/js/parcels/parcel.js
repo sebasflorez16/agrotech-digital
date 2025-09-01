@@ -891,6 +891,14 @@ document.addEventListener("DOMContentLoaded", () => {
     initializeCesium();
     // Inicializar UX de filtro de imágenes
     setupImageFilterUX();
+    
+    // Inicializar módulo de análisis meteorológico si está disponible
+    if (typeof window.initMeteorologicalAnalysis === 'function') {
+        console.log('[PARCEL] Inicializando módulo de análisis meteorológico');
+        window.initMeteorologicalAnalysis();
+    } else {
+        console.warn('[PARCEL] El módulo de análisis meteorológico no está disponible');
+    }
 });
 
 // UX Mejorado: Filtrar imágenes por rango de fechas
@@ -959,20 +967,22 @@ function setupImageFilterUX() {
             
             const parcelId = window.EOSDA_STATE.selectedParcelId;
             
-            // Mostrar sección de análisis meteorológico
-            const section = document.getElementById('meteorologicalAnalysisSection');
-            if (section) {
-                section.style.display = 'block';
+            // Mostrar la sección de análisis meteorológico
+            const meteorologicalSection = document.getElementById("meteorologicalAnalysisSection");
+            if (meteorologicalSection) {
+                meteorologicalSection.style.display = "block";
                 
-                // Scroll suave hacia la sección
-                section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                
-                // Cargar análisis meteorológico
-                if (typeof window.loadMeteorologicalAnalysis === 'function') {
-                    window.loadMeteorologicalAnalysis(parcelId);
-                } else {
-                    console.warn('[PARCEL] Función loadMeteorologicalAnalysis no disponible');
-                }
+                // Actualizar explícitamente el estado global antes de llamar a la función
+            window.EOSDA_STATE.selectedParcelId = parcelId;
+            console.log('[PARCEL] Parcela seleccionada actualizada en estado global:', parcelId);
+            
+            // Llamar a la función de carga de análisis meteorológico si está disponible
+            if (typeof window.loadMeteorologicalAnalysis === 'function') {
+                console.log('[PARCEL] Cargando análisis meteorológico para parcela', parcelId);
+                window.loadMeteorologicalAnalysis(parcelId);
+            } else {
+                console.warn('[PARCEL] Función loadMeteorologicalAnalysis no disponible');
+            }
             } else {
                 console.error('[PARCEL] Sección meteorológicalAnalysisSection no encontrada');
             }

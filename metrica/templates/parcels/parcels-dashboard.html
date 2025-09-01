@@ -267,7 +267,7 @@
                         </div>
                         <button id="escenasSatelitalesBtn" class="btn btn-warning w-100 mb-2" style="font-weight:500;">Buscar escenas satelitales</button>
                         <button id="graficoHistoricoBtn" class="btn btn-success w-100 mb-2" style="font-weight:500;">Ver Gráfico Histórico</button>
-                        <button id="analisisMeteorologicoBtn" class="btn btn-info w-100" style="font-weight:500;">Análisis NDVI + Meteorología</button>
+                        <button id="analisisMeteorologicoBtn" class="btn btn-info w-100" style="font-weight:500;">Ver Meteorología</button>
                     </div>
                     
                     <!-- Info Parcela -->
@@ -514,14 +514,23 @@
                     <div id="meteorologicalAnalysisContainer" style="display: none;">
                         <!-- Controles -->
                         <div class="row mb-4">
-                            <div class="col-md-12 d-flex justify-content-end">
-                                <button class="btn btn-outline-primary me-2" onclick="exportMeteorologicalData()">Exportar CSV</button>
-                                <button class="btn btn-outline-secondary" onclick="refreshMeteorologicalAnalysis()">Actualizar</button>
+                            <div class="col-md-12 d-flex justify-content-between align-items-center">
+                                <button class="btn btn-primary" onclick="loadWeatherForecast(window.EOSDA_STATE.selectedParcelId)">
+                                    <i class="fas fa-cloud-sun me-1"></i> Ver Pronóstico
+                                </button>
+                                <div>
+                                    <button class="btn btn-outline-primary me-2" onclick="exportMeteorologicalData()">
+                                        <i class="fas fa-download me-1"></i> Exportar CSV
+                                    </button>
+                                    <button class="btn btn-outline-secondary" onclick="refreshMeteorologicalAnalysis()">
+                                        <i class="fas fa-sync-alt me-1"></i> Actualizar
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
                         <!-- Gráfico comparativo -->
-                        <div class="row">
+                        <div class="row">   
                             <div class="col-md-8">
                                 <div style="position: relative; height: 400px; background: #f8f9fa; border-radius: 8px; padding: 15px;">
                                     <canvas id="meteorologicalChart"></canvas>
