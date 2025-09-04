@@ -11,6 +11,76 @@
     <link rel="shortcut icon" href="/static/assets/images/favicon.ico">
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
+    <!-- Custom responsive styles -->
+    <style>
+        /* Mobile optimizations */
+        @media (max-width: 767px) {
+            .container {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+            
+            .page-title-box {
+                padding: 10px 0;
+            }
+            
+            .page-title {
+                font-size: 1.5rem;
+            }
+            
+            .breadcrumb {
+                font-size: 0.85rem;
+            }
+            
+            .card-body {
+                padding: 15px;
+            }
+            
+            .media-body .fw-semibold {
+                font-size: 0.9rem;
+            }
+            
+            .media-body .text-muted {
+                font-size: 0.8rem;
+            }
+            
+            .col-auto h4 {
+                font-size: 1.3rem;
+            }
+            
+            .thumb-md {
+                width: 35px;
+                height: 35px;
+            }
+            
+            .icon-sm {
+                font-size: 16px;
+            }
+        }
+        
+        /* Tablet optimizations */
+        @media (min-width: 768px) and (max-width: 991px) {
+            .card-body {
+                padding: 18px;
+            }
+        }
+        
+        /* Ensure cards stack properly on mobile */
+        @media (max-width: 576px) {
+            .row.g-0 > [class*="col-"] {
+                margin-bottom: 1rem;
+            }
+            
+            .border-e {
+                border-right: none !important;
+            }
+            
+            .border-b {
+                border-bottom: 1px solid #e9ecef !important;
+            }
+        }
+    </style>
+
 </head>
 
 <body>
@@ -43,13 +113,13 @@
         <div class="col-12">
             <div class="card overflow-hidden">
                 <div class="row g-0">
-                    <div class="col-md-6 col-lg-3 border-b border-e border-bo">
+                    <div class="col-sm-6 col-lg-3 border-b border-lg-e border-bo">
                         <div class="card-body">
                             <div class="row d-flex justify-content-center">
                                 <div class="col">
                                     <div class="media">
                                         <div
-                                            class="bg-light-alt d-flex justify-content-center align-items-center thumb-md  rounded-circle">
+                                            class="bg-light-alt d-flex justify-content-center align-items-center thumb-md rounded-circle">
                                             <i data-feather="tag" id="btnVerEmpleados"  class="align-self-center text-muted icon-sm"></i>
                                         </div>
                                         <a href="/templates/employees/RRHH-dashboard.html" class="media-body align-self-center ms-2">
@@ -66,13 +136,13 @@
                             </div><!--end row-->
                         </div><!--end card-body-->
                     </div> <!--end col-->
-                    <div class="col-md-6 col-lg-3 border-b border-e border-bo">
+                    <div class="col-sm-6 col-lg-3 border-b border-lg-e border-bo">
                         <div class="card-body">
                             <div class="row d-flex justify-content-center">
                                 <div class="col">
                                     <div class="media">
                                         <div
-                                            class="bg-light-alt d-flex justify-content-center align-items-center thumb-md  rounded-circle">
+                                            class="bg-light-alt d-flex justify-content-center align-items-center thumb-md rounded-circle">
                                             <i data-feather="tag" class="align-self-center text-muted icon-sm"></i>
                                         </div>
                                         <a href="#" class="media-body align-self-center ms-2">
@@ -89,13 +159,13 @@
                             </div><!--end row-->
                         </div><!--end card-body-->
                     </div> <!--end col-->
-                    <div class="col-md-6 col-lg-3 border-b border-e">
+                    <div class="col-sm-6 col-lg-3 border-b border-lg-e">
                         <div class="card-body">
                             <div class="row d-flex justify-content-center">
                                 <div class="col">
                                     <div class="media">
                                         <div
-                                            class="bg-light-alt d-flex justify-content-center align-items-center thumb-md  rounded-circle">
+                                            class="bg-light-alt d-flex justify-content-center align-items-center thumb-md rounded-circle">
                                             <i data-feather="zap" class="align-self-center text-muted icon-sm"></i>
                                         </div>
                                         <div class="media-body align-self-center ms-2">
@@ -110,13 +180,13 @@
                             </div><!--end row-->
                         </div><!--end card-body-->
                     </div> <!--end col-->
-                    <div class="col-md-6 col-lg-3 ps-lg-0">
+                    <div class="col-sm-6 col-lg-3 ps-lg-0">
                         <div class="card-body">
                             <div class="row d-flex justify-content-center">
                                 <div class="col">
                                     <div class="media">
                                         <div
-                                            class="bg-light-alt d-flex justify-content-center align-items-center thumb-md  rounded-circle">
+                                            class="bg-light-alt d-flex justify-content-center align-items-center thumb-md rounded-circle">
                                             <i data-feather="lock" class="align-self-center text-muted icon-sm"></i>
                                         </div>
                                         <div class="media-body align-self-center ms-2">
@@ -136,7 +206,7 @@
         </div><!--end col-->
     </div><!--end row-->
     <div class="row">
-        <div class="col-lg-8">
+        <div class="col-12 col-lg-8 mb-4">
             <div class="card">
                 <div class="card-header">
                     <div class="row align-items-center">
@@ -148,7 +218,7 @@
                 <div class="card-body">
                     <div class="">
                         <div id="Tickets_Status" class="apex-charts"></div>
-                        <div class="card">
+                        <div class="card mt-3">
             <div class="card-header">
                 <h4 class="card-title">Seleccionar Parcela</h4>
             </div>
@@ -162,7 +232,7 @@
                 </div><!--end card-body-->
             </div><!--end card-->
         </div> <!--end col-->
-        <div class="col-lg-4">
+        <div class="col-12 col-lg-4">
             <div class="card">
                 <div class="card-header">
                     <div class="row align-items-left">
@@ -559,6 +629,32 @@
 
 </div><!-- container -->
 
+    <!-- Responsive Charts Script -->
+    <script>
+        // Optimize ApexCharts for mobile devices
+        document.addEventListener('DOMContentLoaded', function() {
+            // Wait a bit for charts to be initialized
+            setTimeout(function() {
+                // Find all apex charts and make them responsive
+                const charts = document.querySelectorAll('.apexcharts-canvas');
+                charts.forEach(function(chart) {
+                    // Force chart resize on window resize
+                    if (chart.chart) {
+                        chart.chart.resize();
+                    }
+                });
+                
+                // Handle window resize events
+                window.addEventListener('resize', function() {
+                    charts.forEach(function(chart) {
+                        if (chart.chart) {
+                            chart.chart.resize();
+                        }
+                    });
+                });
+            }, 1000);
+        });
+    </script>
 
     <!-- App js -->
 

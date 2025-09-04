@@ -7,28 +7,184 @@
     <link rel="shortcut icon" href="/static/images/agrotech solo negro.png">
     <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
     
+    <!-- Bootstrap CSS para responsive mejorado -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Custom CSS para responsive -->
+    <style>
+        /* Sidebar fijo a la izquierda, por encima del topbar */
+        #left-sidebar {
+            width: 140px;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 3000;
+            background: #253445;
+            border-right: 1px solid #e9ecef;
+        }
+        /* Topbar horizontal debajo del sidebar */
+        #topbar-container {
+            width: calc(100% - 140px);
+            position: fixed;
+            top: 0;
+            left: 140px;
+            z-index: 2000;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(44,62,80,0.07);
+            border-bottom: 1px solid #e9ecef;
+            height: 64px;
+            display: flex;
+            align-items: center;
+        }
+        /* Layout principal */
+        .main-layout {
+            display: flex;
+            min-height: 100vh;
+            background: #f7f8fa;
+            padding-top: 64px;
+            margin-left: 140px;
+        }
+        /* Contenido principal estirado */
+        .page-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            padding: 56px 32px 40px 32px;
+            min-height: calc(100vh - 64px);
+        }
+        .page-content-tab {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+        }
+        /* Cards responsive */
+        .card {
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(44,62,80,0.04);
+            border-radius: 12px;
+        }
+        .card-body {
+            padding: 20px;
+        }
+        /* Dashboard stats responsive */
+        .stat-value {
+            font-size: 1.7rem !important;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 1rem !important;
+            color: #6c757d;
+        }
+        /* Charts responsive */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        /* Tables responsive */
+        .table-responsive {
+            overflow-x: auto;
+        }
+        /* Mobile styles */
+        @media (max-width: 767px) {
+            #topbar-container {
+                width: 100%;
+                left: 0;
+                height: 56px;
+            }
+            #left-sidebar {
+                display: none;
+                width: 100%;
+                position: static;
+                border-right: none;
+            }
+            .main-layout {
+                flex-direction: column;
+                padding-top: 56px;
+                background: #f7f8fa;
+                margin-left: 0;
+            }
+            .page-wrapper {
+                padding: 16px 8px 24px 8px;
+                align-items: stretch;
+                min-height: calc(100vh - 56px);
+            }
+            .page-content-tab {
+                max-width: 100%;
+                padding: 0;
+            }
+            .col-sm-6 {
+                margin-bottom: 15px;
+            }
+        }
+        /* Tablet styles */
+        @media (min-width: 768px) and (max-width: 1199px) {
+            .main-layout {
+                margin-left: 140px;
+            }
+            .page-wrapper {
+                padding: 32px 16px 32px 16px;
+            }
+            .chart-container {
+                height: 250px;
+            }
+            .page-content-tab {
+                max-width: none;
+            }
+        }
+        /* Desktop styles */
+        @media (min-width: 1200px) {
+            #left-sidebar {
+                width: 140px;
+            }
+            #topbar-container {
+                width: calc(100% - 140px);
+                left: 140px;
+                height: 64px;
+            }
+            .main-layout {
+                margin-left: 140px;
+            }
+            .page-wrapper {
+                padding: 56px 32px 40px 32px;
+                align-items: stretch;
+            }
+            .page-content-tab {
+                max-width: 1800px;
+                width: 100%;
+                margin: 0 auto;
+                padding: 0;
+            }
+            .chart-container {
+                height: 300px;
+            }
+            .stat-value {
+                font-size: 2rem !important;
+            }
+            .card-body {
+                padding: 24px;
+            }
+        }
+    </style>
+    
 </head>
 <body>
-    <div class="container-fluid">
-        
         <!-- Topbar -->
-    <div id="topbar-container"></div>
-
-    <div id="left-sidebar"></div>
-
-    <div id="maps/vector"></div>
-
-    <div class="page-wrapper">
-        <div class="page-content-tab">
-            <div id="page-content">
-                <!-- Aquí se inyectará dashboard.html -->
+        <div id="topbar-container" style="width: 100%; position: fixed; top: 0; left: 0; z-index: 2000;"></div>
+        <div class="main-layout" style="display: flex; min-height: 100vh; padding-top: 64px;">
+            <div id="left-sidebar" style="width: 140px; flex-shrink: 0; background: #253445; min-height: calc(100vh - 64px); position: sticky; top: 64px;"></div>
+            <div class="page-wrapper" style="flex: 1; display: flex; flex-direction: column; align-items: stretch; padding: 40px 24px; min-height: calc(100vh - 64px);">
+                <div class="page-content-tab" style="width: 100%; max-width: 1800px; margin: 0 auto;">
+                    <div id="page-content">
+                        <!-- Aquí se inyectará dashboard.html -->
+                    </div>
+                    <!-- Footer -->
+                    <div id="footer-container"></div>
+                </div>
             </div>
-
-            <!-- Footer -->
-            <div id="footer-container"></div>
         </div>
-    </div>
-    
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
@@ -37,6 +193,9 @@
     <script type="module" src="/static/js/dashboarddatos.js"></script>
     <script type="module" src="/static/js/parcels/dashboard-parcels-summary.js"></script>
     <script src="/static/js/user-profile.js"></script>
+
+    <!-- Bootstrap JS para responsive -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
 
     <script>

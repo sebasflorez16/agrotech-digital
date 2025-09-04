@@ -166,7 +166,9 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https?://[\w\-]+\.localhost:3000$",  # Por ejemplo: tenant1.localhost:3000
     r"^https?://localhost:3000$",             # También acceso directo
     r"^https?://[\w\-]+\.localhost:8000$",  # Por si acceden directo al backend
+    r"^https://agrotech-digital-production\.up\.railway\.app$",  # Backend en Railway
 ]
+
 # NOTA: No se usa CORS_ALLOW_ALL_ORIGINS=True para evitar riesgos de seguridad y exposición del API key de EOSDA.
 
 

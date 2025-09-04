@@ -69,17 +69,34 @@ function logout() {
 
 // Botón para ir a la gestión de labores
 const btnLabores = document.createElement("button");
-btnLabores.className = "btn btn-success mb-3";
+btnLabores.className = "btn btn-success mb-3 d-none d-lg-block"; // Solo visible en desktop (lg y xl)
 btnLabores.innerHTML = '<i class="fa fa-tasks"></i> Gestionar Labores';
 btnLabores.onclick = function() {
     window.location.href = "/templates/labores.html";
 };
-// Insertar el botón en el dashboard (por ejemplo, arriba del resumen de parcelas)
+// Insertar el botón en el dashboard solo en desktop
 window.addEventListener("DOMContentLoaded", () => {
-    const resumen = document.querySelector("#resumen-parcelas, .resumen-parcelas");
-    if (resumen) {
-        resumen.parentNode.insertBefore(btnLabores, resumen);
-    } else {
-        document.body.prepend(btnLabores);
+    // Solo crear el botón si estamos en desktop
+    if (window.innerWidth >= 992) { // Bootstrap lg breakpoint
+        const resumen = document.querySelector("#resumen-parcelas, .resumen-parcelas");
+        if (resumen) {
+            resumen.parentNode.insertBefore(btnLabores, resumen);
+        } else {
+            document.body.prepend(btnLabores);
+        }
     }
+    
+    // También manejar resize para ocultar/mostrar el botón
+    window.addEventListener('resize', function() {
+        if (window.innerWidth < 992 && btnLabores.parentNode) {
+            btnLabores.remove();
+        } else if (window.innerWidth >= 992 && !btnLabores.parentNode) {
+            const resumen = document.querySelector("#resumen-parcelas, .resumen-parcelas");
+            if (resumen) {
+                resumen.parentNode.insertBefore(btnLabores, resumen);
+            } else {
+                document.body.prepend(btnLabores);
+            }
+        }
+    });
 });
