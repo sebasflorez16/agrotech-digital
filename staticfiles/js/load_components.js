@@ -1,47 +1,36 @@
-// Funcion para cargar los o estender de otras plantillas los componentes en otras plantillas
-function loadComponents(components) {
-    for (const [id, file] of Object.entries(components)) {
-        fetch(file)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Error al cargar ${file}: ${response.status} ${response.statusText}`);
-                }
-                return response.text();
-            })
-            .then(html => {
-                const element = document.getElementById(id);
-                if (element) {
-                    element.innerHTML = html;
+// static/js/load-components.js
 
-                    // Si el archivo cargado es vendorjs.html, ejecuta los scripts
-                    if (id === "vendorjs") {
-                        element.querySelectorAll("script").forEach(oldScript => {
-                            const newScript = document.createElement("script");
-                            if (oldScript.src) {
-                                newScript.src = oldScript.src; // Para scripts externos
-                                newScript.async = false;
-                            } else {
-                                newScript.textContent = oldScript.textContent; // Para scripts inline
-                            }
-                            document.body.appendChild(newScript);
-                        });
-                    }
-                } else {
-                    console.warn(`Elemento con ID '${id}' no encontrado en el DOM.`);
+export async function loadLayoutComponents(components) {
+    const loadComponent = async ([id, path]) => {
+        try {
+            const response = await fetch(path);
+            if (!response.ok) throw new Error(`Error al cargar ${path}`);
+            const html = await response.text();
+            const container = document.getElementById(id);
+
+            if (container) {
+                container.innerHTML = html;
+
+                // Ejecutar scripts en vendorjs
+                if (id === "vendorjs") {
+                    container.querySelectorAll("script").forEach(script => {
+                        const s = document.createElement("script");
+                        if (script.src) {
+                            s.src = script.src;
+                            s.async = false;
+                        } else {
+                            s.textContent = script.textContent;
+                        }
+                        document.body.appendChild(s);
+                    });
                 }
-            })
-            .catch(error => console.error(`Error al cargar componente '${id}' desde ${file}:`, error));
-    }
+            } else {
+                console.warn(`Elemento con ID '${id}' no encontrado en el DOM.`);
+            }
+        } catch (err) {
+            console.error(`Error al cargar componente '${id}' desde ${path}:`, err);
+        }
+    };
+
+    await Promise.all(Object.entries(components).map(loadComponent));
 }
-const components = {
-    "topbar-container": "/static/partials/horizontal-nav.html",
-    "vendorjs": "/static/partials/vendorjs.html",
-    "footer-container": "/static/partials/footer.html",
-    "horizontal-nav": "/static/partials/horizontal-nav.html",
-    "right-sidebar": "/static/partials/right-sidebar.html",
-    "footer": "/static/partials/footer.html",
-    "left-sidebar": "/static/partials/left-sidebar.html"
-};
-document.addEventListener("DOMContentLoaded", () => {
-    loadComponents(components);
-});

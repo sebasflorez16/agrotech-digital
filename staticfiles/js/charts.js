@@ -12,19 +12,15 @@ document.addEventListener("DOMContentLoaded", function () {
                     height: 350,
                     toolbar: { show: false }
                 },
-                colors: ["#39b54a", "#f15a23"],
+                colors: ["#39b54a"],
                 series: [
                     {
-                        name: "Income",
-                        data: [30, 40, 35, 50, 49, 60, 70, 91, 125, 130, 140, 150]
-                    },
-                    {
-                        name: "Expenses",
-                        data: [20, 30, 25, 40, 39, 50, 60, 81, 95, 100, 110, 120]
+                        name: "NDVI Promedio",
+                        data: [0.45, 0.50, 0.60] // Datos simulados, reemplazar con datos reales del backend
                     }
                 ],
                 xaxis: {
-                    categories: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+                    categories: ["Enero", "Febrero", "Marzo"] // Meses correspondientes
                 },
                 stroke: {
                     curve: "smooth",

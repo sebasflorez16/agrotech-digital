@@ -1,4 +1,4 @@
-const BASE_URL = `http://${window.location.hostname}:8000/api/authentication`;
+const BASE_URL = window.ApiUrls ? window.ApiUrls.auth() : `${window.location.protocol}//${window.location.hostname}:8000/api/authentication`;
 
 console.log("BASE_URL:", BASE_URL);
 console.log("axios:", typeof axios !== "undefined" ? "disponible" : "no disponible");

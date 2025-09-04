@@ -18,6 +18,57 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
     <!-- Bootstrap JS Bundle (incluye Popper) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Lottie para animaciones meteorológicas -->
+    <!-- Asegurar la carga correcta de Lottie Player -->
+    <script src="https://unpkg.com/@lottiefiles/lottie-player@latest/dist/lottie-player.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@lottiefiles/lottie-interactivity@latest/dist/lottie-interactivity.min.js"></script>
+    <!-- Estilos adicionales para el modal meteorológico -->
+    <style>
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        /* Ajustes para el backdrop del modal - hacerlo más claro */
+        .modal-backdrop {
+            opacity: 0.3 !important; /* Reducir opacidad del fondo negro */
+            background-color: rgba(255, 255, 255, 0.1) !important; /* Mezclarlo con un poco de blanco */
+        }
+        
+        /* Mejora del efecto glassmorphism */
+        #weatherDetailModal .modal-content {
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); /* Sombra más suave */
+            border: 1px solid rgba(255, 255, 255, 0.5); /* Borde más visible */
+        }
+        
+        /* Ajustes para dispositivos móviles */
+        @media (max-width: 767.98px) {
+            .modal-dialog-centered {
+                align-items: flex-end !important;
+            }
+            
+            #weatherDetailModal .modal-content {
+                border-radius: 24px 24px 0 0;
+                max-height: 90vh;
+                overflow-y: auto;
+            }
+            
+            #weatherDetailModal .modal-body {
+                padding: 20px 15px;
+            }
+        }
+        
+        /* Hacer que el modal se sienta más responsivo */
+        .modal-lg {
+            max-width: 95%;
+        }
+        @media (min-width: 992px) {
+            .modal-lg {
+                max-width: 800px;
+            }
+        }
+    </style>
     <style>
         body {
             margin: 0;
@@ -357,135 +408,180 @@
         <div id="weatherError" style="display: none; text-align: center; color: red;">
             <p>Error al cargar el clima.</p>
         </div>
-        </div>
 
-
-        <!-- Gráfico de evolución NDVI -->
-        <div id="ndviTableContainer" style="margin: 30px auto; max-width: 90%; overflow-x: auto; display: none;">
-            <div style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);padding:18px 20px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                <h5 style="font-weight:bold;color:#145A32;margin-bottom:10px;">Gráfico de evolución NDVI</h5>
-                <canvas id="ndviChart" width="400" height="200" style="max-width:100%;"></canvas>
-                <div style="font-size:13px;color:#888;margin-top:8px;">(Próximamente: gráfico interactivo de NDVI/NDMI)</div>
-            </div>        </div>
-
-        <!-- Modal para Gráfico Histórico -->
-        <div class="modal fade" id="historicalChartModal" tabindex="-1" aria-labelledby="historicalChartModalLabel" aria-hidden="true">
-            <div class="modal-dialog modal-fullscreen-xl-down modal-dialog-centered" style="max-width: 95vw;">
-                <div class="modal-content" style="border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,0.15);">
-                    <div class="modal-header" style="background: linear-gradient(135deg, #2E7D32 0%, #388E3C 100%); color: white; border-radius: 12px 12px 0 0;">
+        <!-- Modal Detalle Meteorológico con Glassmorphism -->
+        <div id="weatherDetailModal" class="modal fade" tabindex="-1" aria-labelledby="weatherDetailModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+                <div class="modal-content" style="background: rgba(255, 255, 255, 0.3); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.5); border-radius: 16px; box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);">
+                    <div class="modal-header" style="background: linear-gradient(135deg, rgba(76, 175, 80, 0.7), rgba(255, 152, 0, 0.7)); border-bottom: none; border-radius: 16px 16px 0 0; padding: 20px;">
                         <div class="d-flex align-items-center">
-                            <i class="fas fa-chart-line me-2" style="font-size: 1.2em;"></i>
-                            <h5 class="modal-title mb-0" id="historicalChartModalLabel">
-                                Análisis Histórico de Índices Satelitales - <span id="parcelNameChart" style="font-weight: 600;">Parcela</span>
+                            <i class="fas fa-cloud-sun me-2" style="font-size: 1.5em; color: white;"></i>
+                            <h5 class="modal-title mb-0" id="weatherDetailModalLabel" style="color: white; font-weight: 600;">
+                                Detalles Meteorológicos - <span id="weatherDetailDate">Fecha</span>
                             </h5>
                         </div>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
-                    <div class="modal-body" style="padding: 24px; background-color: #f8f9fa;">
-                        <div id="historicalChartLoading" class="text-center py-5">
-                            <div class="spinner-border text-success" role="status" style="width: 3rem; height: 3rem;">
-                                <span class="visually-hidden">Cargando datos históricos...</span>
-                            </div>
-                            <p class="mt-3 text-muted" style="font-size: 1.1em;">Procesando datos satelitales de EOSDA...</p>
+                    <div class="modal-body" style="padding: 30px;">
+                        <!-- Botón de cerrar adicional para dispositivos móviles -->
+                        <div class="d-block d-md-none text-center mb-4">
+                            <button type="button" class="btn btn-lg btn-outline-secondary rounded-circle" data-bs-dismiss="modal">
+                                <i class="fas fa-times"></i>
+                            </button>
+                            <p class="small text-muted mt-1">Toca para cerrar</p>
                         </div>
                         
-                        <div id="historicalChartContainer" style="display: none;">
-                            <!-- Panel de Controles Mejorado -->
-                            <div class="card mb-4" style="border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-radius: 10px;">
-                                <div class="card-body" style="padding: 20px;">
-                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                                        <div class="d-flex flex-wrap align-items-center gap-4">
-                                            <h6 class="mb-0 text-muted" style="font-weight: 600;">Visualizar Índices:</h6>
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" id="showNDVI" checked style="transform: scale(1.2);">
-                                                <label class="form-check-label fw-bold" for="showNDVI">
-                                                    <span style="color: #2E7D32; font-size: 1.1em;">● NDVI</span>
-                                                    <small class="text-muted d-block">Vegetación</small>
-                                                </label>
-                                            </div>
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" id="showNDMI" checked style="transform: scale(1.2);">
-                                                <label class="form-check-label fw-bold" for="showNDMI">
-                                                    <span style="color: #1565C0; font-size: 1.1em;">● NDMI</span>
-                                                    <small class="text-muted d-block">Humedad</small>
-                                                </label>
-                                            </div>
-                                            <div class="form-check">
-                                                <input class="form-check-input" type="checkbox" id="showEVI" checked style="transform: scale(1.2);">
-                                                <label class="form-check-label fw-bold" for="showEVI">
-                                                    <span style="color: #E65100; font-size: 1.1em;">● EVI</span>
-                                                    <small class="text-muted d-block">Realzado</small>
-                                                </label>
-                                            </div>
-                                        </div>
-                                        <div class="d-flex gap-2">
-                                            <button class="btn btn-outline-secondary btn-sm px-3" onclick="resetChartZoom()" style="border-radius: 8px;">
-                                                <i class="fas fa-search-minus me-1"></i> Restablecer Zoom
-                                            </button>
-                                            <button class="btn btn-success btn-sm px-3" onclick="exportChartData()" style="border-radius: 8px;">
-                                                <i class="fas fa-download me-1"></i> Exportar CSV
-                                            </button>
-                                        </div>
-                                    </div>
+                        <div class="row">
+                            <!-- Columna para la animación Lottie -->
+                            <div class="col-md-5 text-center mb-4 mb-md-0">
+                                <div id="weatherAnimationContainer" style="height: 220px; margin-bottom: 15px; display: flex; justify-content: center; align-items: center;">
+                                    <!-- Animación Lottie se insertará aquí -->
                                 </div>
+                                <h3 id="weatherConditionTitle" class="mt-2" style="font-weight: 700; background: linear-gradient(135deg, #4CAF50, #FF9800); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; color: transparent;">Soleado</h3>
                             </div>
                             
-                            <!-- Gráfico Principal -->
-                            <div class="card mb-4" style="border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 10px;">
-                                <div class="card-body" style="padding: 24px;">
-                                    <div style="position: relative; height: 500px;">
-                                        <canvas id="historicalChart"></canvas>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Panel de Estadísticas Mejorado -->
-                            <div class="card" style="border: none; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-radius: 10px;">
-                                <div class="card-header" style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 10px 10px 0 0; border: none;">
-                                    <h6 class="mb-0" style="color: #495057; font-weight: 600;">
-                                        <i class="fas fa-chart-bar me-2"></i>Estadísticas del Período Analizado
-                                    </h6>
-                                </div>
-                                <div class="card-body" style="padding: 24px;">
-                                    <div class="row g-3">
-                                        <div class="col-md-4">
-                                            <div class="card h-100" style="border: 2px solid #2E7D32; border-radius: 10px; background: linear-gradient(135deg, #E8F5E8 0%, #F1F8E9 100%);">
-                                                <div class="card-body text-center py-4">
-                                                    <div class="mb-2">
-                                                        <i class="fas fa-leaf" style="font-size: 2em; color: #2E7D32;"></i>
+                            <!-- Columna para los datos detallados -->
+                            <div class="col-md-7">
+                                <div class="card mb-3" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+                                    <div class="card-body">
+                                        <h6 class="card-title fw-bold text-success mb-3">Temperaturas</h6>
+                                        <div class="row g-3 mb-2">
+                                            <div class="col-6">
+                                                <div class="d-flex align-items-center">
+                                                    <i class="fas fa-temperature-high me-2 text-danger"></i>
+                                                    <div>
+                                                        <div class="small text-muted">Máxima</div>
+                                                        <div class="fw-bold" id="detailTempMax">--°C</div>
                                                     </div>
-                                                    <h6 class="card-title fw-bold" style="color: #2E7D32; font-size: 1.2em;">NDVI</h6>
-                                                    <p class="card-text" id="ndviStats" style="color: #1B5E20; font-size: 0.95em; line-height: 1.4;">-</p>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="d-flex align-items-center">
+                                                    <i class="fas fa-temperature-low me-2 text-primary"></i>
+                                                    <div>
+                                                        <div class="small text-muted">Mínima</div>
+                                                        <div class="fw-bold" id="detailTempMin">--°C</div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        <div class="col-md-4">
-                                            <div class="card h-100" style="border: 2px solid #1565C0; border-radius: 10px; background: linear-gradient(135deg, #E3F2FD 0%, #E8F4FD 100%);">
-                                                <div class="card-body text-center py-4">
-                                                    <div class="mb-2">
-                                                        <i class="fas fa-tint" style="font-size: 2em; color: #1565C0;"></i>
+                                        <div class="row g-3">
+                                            <div class="col-6">
+                                                <div class="d-flex align-items-center">
+                                                    <i class="fas fa-sun me-2 text-warning"></i>
+                                                    <div>
+                                                        <div class="small text-muted">Sensación térmica</div>
+                                                        <div class="fw-bold" id="detailFeelsLike">--°C</div>
                                                     </div>
-                                                    <h6 class="card-title fw-bold" style="color: #1565C0; font-size: 1.2em;">NDMI</h6>
-                                                    <p class="card-text" id="ndmiStats" style="color: #0D47A1; font-size: 0.95em; line-height: 1.4;">-</p>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <div class="card h-100" style="border: 2px solid #E65100; border-radius: 10px; background: linear-gradient(135deg, #FFF3E0 0%, #FFF8F0 100%);">
-                                                <div class="card-body text-center py-4">
-                                                    <div class="mb-2">
-                                                        <i class="fas fa-eye" style="font-size: 2em; color: #E65100;"></i>
+                                            <div class="col-6">
+                                                <div class="d-flex align-items-center">
+                                                    <i class="fas fa-thermometer-half me-2 text-secondary"></i>
+                                                    <div>
+                                                        <div class="small text-muted">Promedio</div>
+                                                        <div class="fw-bold" id="detailTempAvg">--°C</div>
                                                     </div>
-                                                    <h6 class="card-title fw-bold" style="color: #E65100; font-size: 1.2em;">EVI</h6>
-                                                    <p class="card-text" id="eviStats" style="color: #BF360C; font-size: 0.95em; line-height: 1.4;">-</p>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
+                                
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="card" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+                                            <div class="card-body">
+                                                <h6 class="card-title fw-bold text-primary mb-2">Humedad y Precipitación</h6>
+                                                <div class="mb-2">
+                                                    <div class="d-flex justify-content-between align-items-center">
+                                                        <div class="small text-muted">Humedad relativa</div>
+                                                        <div class="fw-bold" id="detailHumidity">--%</div>
+                                                    </div>
+                                                    <div class="progress mt-1" style="height: 5px;">
+                                                        <div id="humidityProgressBar" class="progress-bar bg-info" role="progressbar" style="width: 0%"></div>
+                                                    </div>
+                                                </div>
+                                                <div class="d-flex justify-content-between align-items-center">
+                                                    <div class="small text-muted">Precipitación</div>
+                                                    <div class="fw-bold" id="detailPrecipitation">-- mm</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+                                            <div class="card-body">
+                                                <h6 class="card-title fw-bold text-warning mb-2">Viento</h6>
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <div class="small text-muted">Velocidad del viento</div>
+                                                    <div class="fw-bold" id="detailWindSpeed">-- km/h</div>
+                                                </div>
+                                                <!-- Presión atmosférica NO disponible en EOSDA -->
+                                                <div class="d-flex justify-content-between align-items-center" style="display: none !important;">
+                                                    <div class="small text-muted">Presión atmosférica</div>
+                                                    <div class="fw-bold" id="detailPressure">No disponible</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Descripción meteorológica -->
+                                <div class="card mt-3" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
+                                    <div class="card-body">
+                                        <h6 class="card-title fw-bold text-info mb-2">Descripción</h6>
+                                        <div id="weatherDescription" class="small text-muted fst-italic">
+                                            <!-- Aquí irá la descripción meteorológica -->
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Radiación Solar NO disponible en EOSDA -->
+                                <div class="card mt-3" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); display: none !important;">
+                                    <div class="card-body">
+                                        <h6 class="card-title fw-bold text-success mb-2">Radiación Solar</h6>
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <div class="small text-muted">Radiación solar</div>
+                                            <div class="fw-bold" id="detailSolarRadiation">No disponible</div>
+                                        </div>
+                                        <div class="progress mt-1 mb-2" style="height: 5px;">
+                                            <div id="radiationProgressBar" class="progress-bar bg-warning" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Campos NO disponibles en EOSDA - OCULTOS -->
+                                <div class="card mt-3" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); display: none !important;">
+                                    <div class="card-body">
+                                        <h6 class="card-title fw-bold text-info mb-2">Condiciones Adicionales</h6>
+                                        <div class="row g-3">
+                                            <div class="col-md-6">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <div class="small text-muted">Punto de rocío</div>
+                                                    <div class="fw-bold" id="detailDewPoint">No disponible</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <div class="small text-muted">Dirección del viento</div>
+                                                    <div class="fw-bold" id="detailWindDirection">No disponible</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <div class="small text-muted">Visibilidad</div>
+                                                    <div class="fw-bold" id="detailVisibility">No disponible</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <div class="small text-muted">Índice UV</div>
+                                                    <div class="fw-bold" id="detailUvIndex">No disponible</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -640,6 +736,289 @@
             </div>
         </div>
 
+        <!-- Sección de Análisis NDVI + Meteorología (estática, no modal) -->
+        <div id="meteorologicalAnalysisSection" style="display: none; margin-top: 30px;">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #4CAF50, #FF9800); color: white;">
+                    <h5 class="mb-0" style="color: white;">Análisis Comparativo Meteorológico</h5>
+                    <button type="button" class="btn-close btn-close-white" aria-label="Cerrar" onclick="closeMeterologicalAnalysis()" style="filter: brightness(0) invert(1);"></button>
+                </div>
+                <div class="card-body">
+                    <!-- Loading del análisis -->
+                    <div id="meteorologicalAnalysisLoading" style="display: none; text-align: center; padding: 40px;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-3">Analizando meteorológicos...</p>
+                    </div>
+
+                    <!-- Contenedor del análisis -->
+                    <div id="meteorologicalAnalysisContainer" style="display: none;">
+                        <!-- Controles -->
+                        <div class="row mb-4">
+                            <div class="col-md-12 d-flex justify-content-between align-items-center">
+                                <button class="btn btn-primary" onclick="loadWeatherForecast(window.EOSDA_STATE.selectedParcelId)">
+                                    <i class="fas fa-cloud-sun me-1"></i> Ver Pronóstico
+                                </button>
+                                <div>
+                                    <button class="btn btn-outline-primary me-2" onclick="exportMeteorologicalData()">
+                                        <i class="fas fa-download me-1"></i> Exportar CSV
+                                    </button>
+                                    <button class="btn btn-outline-secondary" onclick="refreshMeteorologicalAnalysis()">
+                                        <i class="fas fa-sync-alt me-1"></i> Actualizar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gráfico comparativo -->
+                        <div class="row">   
+                            <div class="col-md-8">
+                                <div style="position: relative; height: 400px; background: #f8f9fa; border-radius: 8px; padding: 15px;">
+                                    <canvas id="meteorologicalChart"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <!-- Correlaciones -->
+                                <div class="card mb-3">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-chart-line me-2"></i>Métricas Meteorológicas
+                                        </h6>
+                                        <small class="text-muted">Promedios del período seleccionado</small>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <small class="fw-bold">Temperatura Máxima Promedio:</small>
+                                                <span id="correlationStrengthPrecip" class="badge bg-secondary">-</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span id="correlationPrecipitation" style="font-weight: bold; color: #E65100; font-size: 1.1em;">-</span>
+                                                <small class="text-muted">Promedio del período</small>
+                                            </div>
+                                            <div class="progress mt-1" style="height: 6px;">
+                                                <div id="precipitationProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: #E65100;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <small class="fw-bold">Precipitación Total del Período:</small>
+                                                <span id="correlationStrengthTemp" class="badge bg-secondary">-</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span id="correlationTemperature" style="font-weight: bold; color: #1565C0; font-size: 1.1em;">-</span>
+                                                <small class="text-muted">Promedio del período</small>
+                                            </div>
+                                            <div class="progress mt-1" style="height: 6px;">
+                                                <div id="temperatureProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: #1565C0;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <small class="fw-bold">Velocidad del Viento Promedio:</small>
+                                                <span id="correlationStrengthWind" class="badge bg-secondary">-</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span id="correlationWind" style="font-weight: bold; color: #5E35B1; font-size: 1.1em;">-</span>
+                                                <small class="text-muted">Promedio del período</small>
+                                            </div>
+                                            <div class="progress mt-1" style="height: 6px;">
+                                                <div id="windProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: #5E35B1;"></div>
+                                            </div>
+                                        </div>
+                                        <div class="mb-2">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <small class="fw-bold">Radiación Solar Promedio:</small>
+                                                <span id="correlationStrengthSolar" class="badge bg-secondary">-</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span id="correlationSolar" style="font-weight: bold; color: #FF8F00; font-size: 1.1em;">-</span>
+                                                <small class="text-muted">Promedio del período</small>
+                                            </div>
+                                            <div class="progress mt-1" style="height: 6px;">
+                                                <div id="solarProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: #FF8F00;"></div>
+                                            </div>
+                                        </div>
+                                        <hr>
+                                    </div>
+                                </div>
+
+                                <!-- Insights -->
+                                <div class="card">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">
+                                            <i class="fas fa-lightbulb me-2"></i>Insights y Recomendaciones
+                                        </h6>
+                                        <small class="text-muted">Análisis automático basado en correlaciones</small>
+                                    </div>
+                                    <div class="card-body">
+                                        <div id="insightsContainer">
+                                            <div id="insightsLoading" class="text-center py-3">
+                                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                                    <span class="visually-hidden">Analizando...</span>
+                                                </div>
+                                                <p class="mt-2 mb-0 small text-muted">Generando insights...</p>
+                                            </div>
+                                            <ul id="insightsList" class="list-unstyled mb-0" style="display: none;">
+                                                <!-- Los insights se llenarán dinámicamente -->
+                                            </ul>
+                                        </div>
+                                        <div class="mt-3 p-2 bg-light rounded" style="display: none;" id="insightsHelp">
+                                            <small class="text-muted">
+                                                <i class="fas fa-info-circle me-1"></i>
+                                                <strong>¿Cómo interpretar?</strong><br>
+                                                • Correlación positiva: A mayor factor, mayor NDVI<br>
+                                                • Correlación negativa: A mayor factor, menor NDVI<br>
+                                                • Use estas recomendaciones para optimizar manejo
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal para Gráfico Histórico de Índices Satelitales -->
+        <div class="modal fade" id="historicalChartModal" tabindex="-1" aria-labelledby="historicalChartModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-xl">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="historicalChartModalLabel">
+                            <i class="fas fa-chart-line me-2"></i>Gráfico Histórico de Índices Satelitales
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <!-- Loading indicator -->
+                        <div id="historicalChartLoading" class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Cargando...</span>
+                            </div>
+                            <p class="mt-3">Cargando datos históricos...</p>
+                        </div>
+                        
+                        <!-- Chart container -->
+                        <div id="historicalChartContainer" style="display: none;">
+                            <!-- Parcel info -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <h6 class="mb-1">Parcela: <span id="parcelNameChart" class="fw-bold text-primary"></span></h6>
+                                </div>
+                            </div>
+                            
+                            <!-- Chart controls -->
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    <div class="card bg-light">
+                                        <div class="card-body py-2">
+                                            <div class="row align-items-center">
+                                                <div class="col-md-6">
+                                                    <small class="fw-bold">Mostrar/Ocultar índices:</small>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="form-check form-check-inline">
+                                                        <input class="form-check-input" type="checkbox" id="showNDVI" checked>
+                                                        <label class="form-check-label" for="showNDVI">
+                                                            <span style="color: #28a745;">■</span> NDVI
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check form-check-inline">
+                                                        <input class="form-check-input" type="checkbox" id="showNDMI" checked>
+                                                        <label class="form-check-label" for="showNDMI">
+                                                            <span style="color: #007bff;">■</span> NDMI
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check form-check-inline">
+                                                        <input class="form-check-input" type="checkbox" id="showEVI" checked>
+                                                        <label class="form-check-label" for="showEVI">
+                                                            <span style="color: #ffc107;">■</span> EVI
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Chart -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="card">
+                                        <div class="card-body">
+                                            <canvas id="historicalChart" width="400" height="200"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Statistics -->
+                            <div class="row mt-3">
+                                <div class="col-md-4">
+                                    <div class="card border-success">
+                                        <div class="card-header bg-success text-white">
+                                            <h6 class="mb-0"><i class="fas fa-leaf me-1"></i>NDVI (Vegetación)</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="ndviStats" class="small">
+                                                <div class="text-center">
+                                                    <div class="spinner-border spinner-border-sm" role="status">
+                                                        <span class="visually-hidden">Cargando...</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-primary">
+                                        <div class="card-header bg-primary text-white">
+                                            <h6 class="mb-0"><i class="fas fa-tint me-1"></i>NDMI (Humedad)</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="ndmiStats" class="small">
+                                                <div class="text-center">
+                                                    <div class="spinner-border spinner-border-sm" role="status">
+                                                        <span class="visually-hidden">Cargando...</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card border-warning">
+                                        <div class="card-header bg-warning text-dark">
+                                            <h6 class="mb-0"><i class="fas fa-eye me-1"></i>EVI (Vegetación Mejorada)</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div id="eviStats" class="small">
+                                                <div class="text-center">
+                                                    <div class="spinner-border spinner-border-sm" role="status">
+                                                        <span class="visually-hidden">Cargando...</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            <i class="fas fa-times me-1"></i>Cerrar
+                        </button>
+                        <button type="button" class="btn btn-primary" onclick="exportHistoricalChart()">
+                            <i class="fas fa-download me-1"></i>Exportar Gráfico
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -661,6 +1040,7 @@
     <script src="/static/js/parcels/analytics-cientifico.js"></script>
     <script src="/static/js/parcels/historical-chart.js?v=2025082412"></script>
     <script src="/static/js/parcels/meteorological-analysis.js?v=2025082425"></script>
+    <script src="/static/js/parcels/weather-detail.js?v=2025090101"></script>
 
     <script>
         // Mostrar el filtro de rango de fechas solo cuando se activa la capa NDVI

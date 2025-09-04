@@ -788,34 +788,26 @@ function renderWeatherForecast(data) {
     
     // Procesar datos antes de almacenar - agregar cálculos de precipitación y viento
     forecast = forecast.map(day => {
-        // Calcular precipitación total desde valores por hora de Rain o usar campos directos
+        // Calcular precipitación total desde valores por hora de Rain
         let precipitation = null;
-        if (day.precipitation !== null && day.precipitation !== undefined) {
-            // Usar el campo directo de precipitación si está disponible
-            precipitation = day.precipitation;
-        } else if (day.Rain && typeof day.Rain === 'object') {
-            // Si hay datos horarios, sumarlos (formato original EOSDA)
+        if (day.Rain && typeof day.Rain === 'object') {
             const rainValues = Object.values(day.Rain).filter(val => typeof val === 'number');
             if (rainValues.length > 0) {
                 precipitation = rainValues.reduce((sum, val) => sum + val, 0);
             }
-        } else if (day.Precip_total || day.precip_mm) {
-            precipitation = day.Precip_total || day.precip_mm;
+        } else if (day.Precip_total || day.precipitation || day.precip_mm) {
+            precipitation = day.Precip_total || day.precipitation || day.precip_mm;
         }
         
-        // Calcular velocidad del viento promedio desde valores por hora de Windspeed o usar campos directos
+        // Calcular velocidad del viento promedio desde valores por hora de Windspeed
         let windSpeed = null;
-        if (day.wind_speed !== null && day.wind_speed !== undefined) {
-            // Usar el campo directo de viento si está disponible
-            windSpeed = day.wind_speed;
-        } else if (day.Windspeed && typeof day.Windspeed === 'object') {
-            // Si hay datos horarios, promediarlos (formato original EOSDA)
+        if (day.Windspeed && typeof day.Windspeed === 'object') {
             const windValues = Object.values(day.Windspeed).filter(val => typeof val === 'number');
             if (windValues.length > 0) {
                 windSpeed = windValues.reduce((sum, val) => sum + val, 0) / windValues.length;
             }
-        } else if (day.Wind_speed || day.wind_kph) {
-            windSpeed = day.Wind_speed || day.wind_kph;
+        } else if (day.Wind_speed || day.wind_speed || day.wind_kph) {
+            windSpeed = day.Wind_speed || day.wind_speed || day.wind_kph;
         }
         
         // Agregar los campos calculados al objeto del día
@@ -953,33 +945,41 @@ function renderWeatherForecast(data) {
         // Obtener valores de temperaturas (manejar múltiples formatos de la API EOSDA)
         console.log(`[METEOROLOGICAL] Campos disponibles en día ${index}:`, Object.keys(day));
         
-        // Solo usar valores reales de EOSDA - usar campos que realmente existen
-        const tempMax = day.temperature_max || day.Temp_air_max || day.temp_max;
-        const tempMin = day.temperature_min || day.Temp_air_min || day.temp_min;
+        // Solo usar valores reales, no generar estimaciones
+        const tempMax = day.Temp_air_max || day.temperature_max || day.temp_max || 'N/A';
+        const tempMin = day.Temp_air_min || day.temperature_min || day.temp_min || 'N/A'; 
         
-        // Usar directamente los campos de EOSDA (incluye 0 como valor válido)
-        const precipitation = day.precipitation !== undefined ? day.precipitation : (day.calculated_precipitation !== undefined ? day.calculated_precipitation : null);
-        const windSpeed = day.wind_speed !== undefined ? day.wind_speed : (day.calculated_wind_speed !== undefined ? day.calculated_wind_speed : null);
-        const humidity = day.humidity || day.Rel_humidity || day.humidity_avg;
+        // Calcular precipitación total desde valores por hora de Rain o usar valor calculado
+        let precipitation = day.calculated_precipitation;
+        if (precipitation === null) {
+            if (day.Rain && typeof day.Rain === 'object') {
+                // Sumar todos los valores de Rain por hora
+                const rainValues = Object.values(day.Rain).filter(val => typeof val === 'number');
+                if (rainValues.length > 0) {
+                    precipitation = rainValues.reduce((sum, val) => sum + val, 0);
+                }
+            } else if (day.Precip_total || day.precipitation || day.precip_mm) {
+                precipitation = day.Precip_total || day.precipitation || day.precip_mm;
+            }
+        }
         
-        console.log(`[METEOROLOGICAL] Día ${index} - Precip: ${precipitation}, Viento: ${windSpeed}, Humedad: ${humidity}`);
+        // Calcular velocidad del viento promedio desde valores por hora de Windspeed o usar valor calculado
+        let windSpeed = day.calculated_wind_speed;
+        if (windSpeed === null) {
+            if (day.Windspeed && typeof day.Windspeed === 'object') {
+                // Promediar todos los valores de Windspeed por hora
+                const windValues = Object.values(day.Windspeed).filter(val => typeof val === 'number');
+                if (windValues.length > 0) {
+                    windSpeed = windValues.reduce((sum, val) => sum + val, 0) / windValues.length;
+                }
+            } else if (day.Wind_speed || day.wind_speed || day.wind_kph) {
+                windSpeed = day.Wind_speed || day.wind_speed || day.wind_kph;
+            }
+        }
         
-        // Debug específico para ver los valores calculados vs mostrados
-        console.log(`[METEOROLOGICAL] Día ${index} - VALORES PARA DISPLAY:`);
-        console.log(`[METEOROLOGICAL] - precipitation calculada: ${precipitation}, tipo: ${typeof precipitation}`);
-        console.log(`[METEOROLOGICAL] - windSpeed calculado: ${windSpeed}, tipo: ${typeof windSpeed}`);
-        console.log(`[METEOROLOGICAL] - humidity: ${humidity}, tipo: ${typeof humidity}`);
-        console.log(`[METEOROLOGICAL] - Raw Rain data:`, day.Rain);
-        console.log(`[METEOROLOGICAL] - Raw Windspeed data:`, day.Windspeed);
-        console.log(`[METEOROLOGICAL] - ¿Tiene calculated_precipitation?`, day.calculated_precipitation);
-        console.log(`[METEOROLOGICAL] - ¿Tiene calculated_wind_speed?`, day.calculated_wind_speed);
+        console.log(`[METEOROLOGICAL] Día ${index} - Precip: ${precipitation}, Viento: ${windSpeed}`);
         
-        // Verificar si los valores se están pasando correctamente al HTML
-        const precipDisplay = precipitation !== null && typeof precipitation === 'number' ? precipitation.toFixed(1) + ' mm' : 'N/A';
-        const windDisplay = windSpeed !== null && typeof windSpeed === 'number' ? windSpeed.toFixed(1) + ' km/h' : 'N/A';
-        
-        console.log(`[METEOROLOGICAL] - Precipitation DISPLAY: "${precipDisplay}"`);
-        console.log(`[METEOROLOGICAL] - WindSpeed DISPLAY: "${windDisplay}"`);
+        const humidity = day.Rel_humidity || day.humidity || day.humidity_avg || null;
         
         // Formatear temperatura con 1 decimal si es un número
         const formatTemp = (temp) => {
@@ -1007,23 +1007,23 @@ function renderWeatherForecast(data) {
                     <div class="weather-data mt-2 pt-2 border-top">
                         <div class="d-flex justify-content-between small mb-1">
                             <span class="text-muted">Temp máx:</span>
-                            <span class="fw-bold">${tempMax !== undefined && tempMax !== null ? tempMax.toFixed(1) + '°C' : 'N/A'}</span>
+                            <span class="fw-bold">${formatTemp(tempMax)}</span>
                         </div>
                         <div class="d-flex justify-content-between small mb-1">
                             <span class="text-muted">Temp mín:</span>
-                            <span class="fw-bold">${tempMin !== undefined && tempMin !== null ? tempMin.toFixed(1) + '°C' : 'N/A'}</span>
+                            <span class="fw-bold">${formatTemp(tempMin)}</span>
                         </div>
                         <div class="d-flex justify-content-between small mb-1">
                             <span class="text-muted">Precip:</span>
-                            <span class="fw-bold ${precipitation > 0 ? 'text-primary' : ''}">${precipitation !== null && precipitation !== undefined ? precipitation.toFixed(1) + ' mm' : 'N/A'}</span>
+                            <span class="fw-bold ${precipitation > 0 ? 'text-primary' : ''}">${precipitation !== null && typeof precipitation === 'number' ? precipitation.toFixed(1) + ' mm' : 'N/A'}</span>
                         </div>
                         <div class="d-flex justify-content-between small mb-1">
                             <span class="text-muted">Viento:</span>
-                            <span class="fw-bold">${windSpeed !== null && windSpeed !== undefined ? windSpeed.toFixed(1) + ' km/h' : 'N/A'}</span>
+                            <span class="fw-bold">${windSpeed !== null && typeof windSpeed === 'number' ? windSpeed.toFixed(1) + ' km/h' : 'N/A'}</span>
                         </div>
                         <div class="d-flex justify-content-between small">
                             <span class="text-muted">Humedad:</span>
-                            <span class="fw-bold">${humidity !== null && humidity !== undefined ? humidity.toFixed(0) + '%' : 'N/A'}</span>
+                            <span class="fw-bold">${humidity !== null && typeof humidity === 'number' ? humidity.toFixed(0) + '%' : 'N/A'}</span>
                         </div>
                     </div>
                 </div>
@@ -1151,10 +1151,10 @@ function createCurrentDayCard(dayData) {
     // Obtener valores de temperaturas (manejar múltiples formatos de la API EOSDA)
     console.log('[METEOROLOGICAL] Campos disponibles en dayData:', Object.keys(dayData));
     
-    // EOSDA utiliza diferentes formatos según la API
-    // Solo usar valores reales, priorizar campos que realmente existen
-    const tempMax = dayData.temperature_max || dayData.Temp_air_max || dayData.temp_max;
-    const tempMin = dayData.temperature_min || dayData.Temp_air_min || dayData.temp_min;
+    // EOSDA utiliza 'Temp_air_max', 'Temp_air_min', otras APIs usan formatos diferentes
+    // Solo usar valores reales, no generar estimaciones
+    const tempMax = dayData.Temp_air_max || dayData.temperature_max || dayData.temp_max || 'N/A';
+    const tempMin = dayData.Temp_air_min || dayData.temperature_min || dayData.temp_min || 'N/A'; 
     
     // Temperatura promedio solo si tenemos temperaturas reales o un valor de temperatura promedio directo
     let temp = 'N/A';
@@ -1164,10 +1164,36 @@ function createCurrentDayCard(dayData) {
         temp = (tempMax + tempMin) / 2;
     }
     
-    // Usar directamente los campos de EOSDA (incluye 0 como valor válido)
-    const precipitation = dayData.precipitation !== undefined ? dayData.precipitation : (dayData.calculated_precipitation !== undefined ? dayData.calculated_precipitation : null);
-    const windSpeed = dayData.wind_speed !== undefined ? dayData.wind_speed : (dayData.calculated_wind_speed !== undefined ? dayData.calculated_wind_speed : null);
-    const humidity = dayData.humidity || dayData.Rel_humidity || dayData.humidity_avg;
+    // Otros campos también tienen diferentes nombres según la API - solo usar valores reales
+    // Calcular precipitación total desde valores por hora de Rain o usar valor calculado
+    let precipitation = dayData.calculated_precipitation;
+    if (precipitation === null) {
+        if (dayData.Rain && typeof dayData.Rain === 'object') {
+            // Sumar todos los valores de Rain por hora
+            const rainValues = Object.values(dayData.Rain).filter(val => typeof val === 'number');
+            if (rainValues.length > 0) {
+                precipitation = rainValues.reduce((sum, val) => sum + val, 0);
+            }
+        } else if (dayData.Precip_total || dayData.precipitation || dayData.precip_mm) {
+            precipitation = dayData.Precip_total || dayData.precipitation || dayData.precip_mm;
+        }
+    }
+    
+    // Calcular velocidad del viento promedio desde valores por hora de Windspeed o usar valor calculado
+    let windSpeed = dayData.calculated_wind_speed;
+    if (windSpeed === null) {
+        if (dayData.Windspeed && typeof dayData.Windspeed === 'object') {
+            // Promediar todos los valores de Windspeed por hora
+            const windValues = Object.values(dayData.Windspeed).filter(val => typeof val === 'number');
+            if (windValues.length > 0) {
+                windSpeed = windValues.reduce((sum, val) => sum + val, 0) / windValues.length;
+            }
+        } else if (dayData.Wind_speed || dayData.wind_speed || dayData.wind_kph) {
+            windSpeed = dayData.Wind_speed || dayData.wind_speed || dayData.wind_kph;
+        }
+    }
+    
+    const humidity = dayData.Rel_humidity || dayData.humidity || dayData.humidity_avg || null;
     
     // Formatear temperatura con 1 decimal si es un número
     const formatTemp = (temp) => {
@@ -1204,28 +1230,28 @@ function createCurrentDayCard(dayData) {
                     <div class="col-6 col-md-3">
                         <div class="text-center small">
                             <i class="fas fa-thermometer-half text-danger mb-1" style="font-size: 1.2rem;"></i>
-                            <div class="fw-bold">${tempMax !== undefined && tempMax !== null ? tempMax.toFixed(1) + '°C' : 'N/A'}</div>
+                            <div class="fw-bold">${formatTemp(tempMax)}</div>
                             <div class="text-muted">Máx</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
                         <div class="text-center small">
                             <i class="fas fa-thermometer-quarter text-primary mb-1" style="font-size: 1.2rem;"></i>
-                            <div class="fw-bold">${tempMin !== undefined && tempMin !== null ? tempMin.toFixed(1) + '°C' : 'N/A'}</div>
+                            <div class="fw-bold">${formatTemp(tempMin)}</div>
                             <div class="text-muted">Mín</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
                         <div class="text-center small">
                             <i class="fas fa-cloud-rain text-info mb-1" style="font-size: 1.2rem;"></i>
-                            <div class="fw-bold ${precipitation && precipitation > 0 ? 'text-primary' : ''}">${precipitation !== null && precipitation !== undefined ? precipitation.toFixed(1) + ' mm' : 'N/A'}</div>
+                            <div class="fw-bold ${precipitation && precipitation > 0 ? 'text-primary' : ''}">${precipitation !== null && typeof precipitation === 'number' ? precipitation.toFixed(1) + ' mm' : 'N/A'}</div>
                             <div class="text-muted">Precipitación</div>
                         </div>
                     </div>
                     <div class="col-6 col-md-3">
                         <div class="text-center small">
                             <i class="fas fa-wind text-secondary mb-1" style="font-size: 1.2rem;"></i>
-                            <div class="fw-bold">${windSpeed !== null && windSpeed !== undefined ? windSpeed.toFixed(1) + ' km/h' : 'N/A'}</div>
+                            <div class="fw-bold">${windSpeed !== null && typeof windSpeed === 'number' ? windSpeed.toFixed(1) + ' km/h' : 'N/A'}</div>
                             <div class="text-muted">Viento</div>
                         </div>
                     </div>
@@ -1234,7 +1260,7 @@ function createCurrentDayCard(dayData) {
                     <div class="col-6">
                         <div class="text-center small">
                             <i class="fas fa-tint text-primary mb-1" style="font-size: 1.2rem;"></i>
-                            <div class="fw-bold">${humidity !== null && humidity !== undefined ? humidity.toFixed(0) + '%' : 'N/A'}</div>
+                            <div class="fw-bold">${humidity !== null && typeof humidity === 'number' ? humidity.toFixed(0) + '%' : 'N/A'}</div>
                             <div class="text-muted">Humedad</div>
                         </div>
                     </div>
@@ -1287,36 +1313,33 @@ function getWeatherInfo(dayData) {
         }
     }
     
-    // Obtener precipitación - priorizar campos directos de EOSDA API
-    let precipitation = null;
-    if (dayData.precipitation !== null && dayData.precipitation !== undefined) {
-        precipitation = dayData.precipitation;
-    } else if (dayData.calculated_precipitation !== null && dayData.calculated_precipitation !== undefined) {
-        precipitation = dayData.calculated_precipitation;
-    } else if (dayData.Rain && typeof dayData.Rain === 'object') {
-        // Sumar todos los valores de Rain por hora
-        const rainValues = Object.values(dayData.Rain).filter(val => typeof val === 'number');
-        if (rainValues.length > 0) {
-            precipitation = rainValues.reduce((sum, val) => sum + val, 0);
+    // Solo usar valores reales, no generar estimaciones
+    // Calcular precipitación total desde valores por hora de Rain o usar valor calculado
+    let precipitation = dayData.calculated_precipitation;
+    if (precipitation === null) {
+        if (dayData.Rain && typeof dayData.Rain === 'object') {
+            // Sumar todos los valores de Rain por hora
+            const rainValues = Object.values(dayData.Rain).filter(val => typeof val === 'number');
+            if (rainValues.length > 0) {
+                precipitation = rainValues.reduce((sum, val) => sum + val, 0);
+            }
+        } else if (dayData.precipitation || dayData.precip_mm || dayData.Precip_total) {
+            precipitation = dayData.precipitation || dayData.precip_mm || dayData.Precip_total;
         }
-    } else if (dayData.precip_mm || dayData.Precip_total) {
-        precipitation = dayData.precip_mm || dayData.Precip_total;
     }
     
-    // Obtener velocidad del viento - priorizar campos directos de EOSDA API
-    let windSpeed = null;
-    if (dayData.wind_speed !== null && dayData.wind_speed !== undefined) {
-        windSpeed = dayData.wind_speed;
-    } else if (dayData.calculated_wind_speed !== null && dayData.calculated_wind_speed !== undefined) {
-        windSpeed = dayData.calculated_wind_speed;
-    } else if (dayData.Windspeed && typeof dayData.Windspeed === 'object') {
-        // Promediar todos los valores de Windspeed por hora
-        const windValues = Object.values(dayData.Windspeed).filter(val => typeof val === 'number');
-        if (windValues.length > 0) {
-            windSpeed = windValues.reduce((sum, val) => sum + val, 0) / windValues.length;
+    // Calcular velocidad del viento promedio desde valores por hora de Windspeed o usar valor calculado
+    let windSpeed = dayData.calculated_wind_speed;
+    if (windSpeed === null) {
+        if (dayData.Windspeed && typeof dayData.Windspeed === 'object') {
+            // Promediar todos los valores de Windspeed por hora
+            const windValues = Object.values(dayData.Windspeed).filter(val => typeof val === 'number');
+            if (windValues.length > 0) {
+                windSpeed = windValues.reduce((sum, val) => sum + val, 0) / windValues.length;
+            }
+        } else if (dayData.wind_speed || dayData.Wind_speed || dayData.wind_kph) {
+            windSpeed = dayData.wind_speed || dayData.Wind_speed || dayData.wind_kph;
         }
-    } else if (dayData.Wind_speed || dayData.wind_kph) {
-        windSpeed = dayData.Wind_speed || dayData.wind_kph;
     }
     
     const cloudCover = dayData.cloud_cover || dayData.Cloud_cover || null;
@@ -1517,132 +1540,130 @@ function showMeteorologicalError(errorMessage) {
 function updateCorrelations(meteorologicalMetrics) {
     console.log('[METEOROLOGICAL] Actualizando métricas meteorológicas:', meteorologicalMetrics);
     
+    // Mostrar la sección si estaba ocultanto/solar, calcular desde meteorologicalData
+    const section = document.getElementById('meteorologicalAnalysisSection');== 0 || 
+    if (section) {gicalMetrics.avg_wind_speed || !meteorologicalMetrics.avg_solar_radiation) {
+        section.style.display = 'block';lculando métricas desde datos locales...');
+    }   const calculatedMetrics = calculateMetricsFromData();
+        
+    if (typeof showToast === 'function') {on las calculadas localmente
+        showToast('Error cargando pronóstico meteorológico', 'error');
+    }       ...meteorologicalMetrics,
+}           ...calculatedMetrics
+        };
+/**     
+ * Actualiza las métricas meteorológicas del períodoes combinadas:', meteorologicalMetrics);
+ */ }
+function updateCorrelations(meteorologicalMetrics) {
+    console.log('[METEOROLOGICAL] Actualizando métricas meteorológicas:', meteorologicalMetrics);
+    const avgTempMax = meteorologicalMetrics.avg_temp_max || 0;
     // Si no hay métricas, o si faltan viento/solar, calcular desde meteorologicalData
     if (!meteorologicalMetrics || Object.keys(meteorologicalMetrics).length === 0 || 
         !meteorologicalMetrics.avg_wind_speed || !meteorologicalMetrics.avg_solar_radiation) {
         console.log('[METEOROLOGICAL] Calculando métricas desde datos locales...');
-        const calculatedMetrics = calculateMetricsFromData();
+        const calculatedMetrics = calculateMetricsFromData();onProgressBar');
         
         // Combinar métricas del backend con las calculadas localmente
-        meteorologicalMetrics = {
-            ...meteorologicalMetrics,
+        meteorologicalMetrics = {gTempMax.toFixed(1) + '°C';
+            ...meteorologicalMetrics,00'; // Color naranja oscuro del gráfico
             ...calculatedMetrics
-        };
-        
+        };mpStrengthElem.textContent = heatStressIndex.risk;
+        tempStrengthElem.className = `badge ${heatStressIndex.risk === 'Alto' ? 'bg-danger' : heatStressIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
         console.log('[METEOROLOGICAL] Métricas finales combinadas:', meteorologicalMetrics);
-    }
-    
-    // Métrica 1: Temperatura Máxima Promedio
-    const avgTempMax = meteorologicalMetrics.avg_temp_max || 0;
+    }   if (tempProgress) {
+            const progressValue = (avgTempMax / 40) * 100;
+    // Métrica 1: Temperatura Máxima Promedioh.min(progressValue, 100)}%`;
+    const avgTempMax = meteorologicalMetrics.avg_temp_max || 0;sin cambiar
     const heatStressIndex = calculateHeatStressFromTemp(avgTempMax);
-    
+    }
     const tempElem = document.getElementById('correlationPrecipitation');
     const tempStrengthElem = document.getElementById('correlationStrengthPrecip');
     const tempProgress = document.getElementById('precipitationProgressBar');
-    
-    if (tempElem && tempStrengthElem) {
+    const daysWithRain = meteorologicalMetrics.days_with_rain || 0;
+    if (tempElem && tempStrengthElem) {itationIndex(totalPrecip, daysWithRain);
         tempElem.textContent = avgTempMax.toFixed(1) + '°C';
         tempElem.style.color = '#E65100'; // Color naranja oscuro del gráfico
-        
-        tempStrengthElem.textContent = heatStressIndex.risk;
+        t precipStrengthElem = document.getElementById('correlationStrengthTemp');
+        tempStrengthElem.textContent = heatStressIndex.risk;ureProgressBar');
         tempStrengthElem.className = `badge ${heatStressIndex.risk === 'Alto' ? 'bg-danger' : heatStressIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
-        
-        if (tempProgress) {
-            const progressValue = (avgTempMax / 40) * 100;
+        precipElem && precipStrengthElem) {
+        if (tempProgress) {ent = totalPrecip.toFixed(1) + ' mm';
+            const progressValue = (avgTempMax / 40) * 100;del gráfico
             tempProgress.style.width = `${Math.min(progressValue, 100)}%`;
             // Mantener el color fijo de temperatura (#E65100) sin cambiar
-        }
-    }
-    
-    // Métrica 2: Precipitación Total del Período
-    const totalPrecip = meteorologicalMetrics.total_precipitation || 0;
-    const daysWithRain = meteorologicalMetrics.days_with_rain || 0;
+        }recipStrengthElem.className = `badge ${precipIndex.risk === 'Bajo' ? 'bg-danger' : precipIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
+    }   
+        if (precipProgress) {
+    // Métrica 2: Precipitación Total del Período1500) * 100;
+    const totalPrecip = meteorologicalMetrics.total_precipitation || 0;)}%`;
+    const daysWithRain = meteorologicalMetrics.days_with_rain || 0;n cambiar
     const precipIndex = calculatePrecipitationIndex(totalPrecip, daysWithRain);
-    
+    }
     const precipElem = document.getElementById('correlationTemperature');
     const precipStrengthElem = document.getElementById('correlationStrengthTemp');
     const precipProgress = document.getElementById('temperatureProgressBar');
-    
+    const windIndex = calculateWindIndex(avgWind);
     if (precipElem && precipStrengthElem) {
-        precipElem.textContent = totalPrecip.toFixed(1) + ' mm';
+        precipElem.textContent = totalPrecip.toFixed(1) + ' mm';ndice:', windIndex);
         precipElem.style.color = '#1565C0'; // Color azul del gráfico
-        
-        precipStrengthElem.textContent = precipIndex.risk;
+        t windElem = document.getElementById('correlationWind');
+        precipStrengthElem.textContent = precipIndex.risk;elationStrengthWind');
         precipStrengthElem.className = `badge ${precipIndex.risk === 'Bajo' ? 'bg-danger' : precipIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
         
-        if (precipProgress) {
+        if (precipProgress) {gthElem) {
             const progressValue = (totalPrecip / 1500) * 100;
             precipProgress.style.width = `${Math.min(progressValue, 100)}%`;
             // Mantener el color fijo de precipitación (#1565C0) sin cambiar
-        }
-    }
-    
+        }indStrengthElem.textContent = windIndex.risk;
+    }   windStrengthElem.className = `badge ${windIndex.risk === 'Alto' ? 'bg-danger' : windIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
+        
     // Métrica 3: Velocidad del Viento Promedio
-    const avgWind = meteorologicalMetrics.avg_wind_speed || 0;
-    const windIndex = calculateWindIndex(avgWind);
-    
+    const avgWind = meteorologicalMetrics.avg_wind_speed || 0;malizar a 30 km/h máximo
+    const windIndex = calculateWindIndex(avgWind);(progressValue, 100)}%`;
+            // Mantener el color fijo de viento (#5E35B1) sin cambiar
     console.log('[METEOROLOGICAL] Viento promedio:', avgWind, 'Índice:', windIndex);
-    
+        console.log('[METEOROLOGICAL] ✅ Métrica de viento actualizada:', avgWind.toFixed(1), 'km/h');
     const windElem = document.getElementById('correlationWind');
-    const windStrengthElem = document.getElementById('correlationStrengthWind');
+    const windStrengthElem = document.getElementById('correlationStrengthWind');OM');
     const windProgress = document.getElementById('windProgressBar');
     
-    if (windElem && windStrengthElem) {
-        windElem.textContent = avgWind.toFixed(1) + ' km/h';
+    if (windElem && windStrengthElem) {dio
+        windElem.textContent = avgWind.toFixed(1) + ' km/h';on || 0;
         windElem.style.color = '#5E35B1'; // Color morado del gráfico
         
-        windStrengthElem.textContent = windIndex.risk;
+        windStrengthElem.textContent = windIndex.risk;gSolar, 'Índice:', solarIndex);
         windStrengthElem.className = `badge ${windIndex.risk === 'Alto' ? 'bg-danger' : windIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
-        
-        if (windProgress) {
+        t solarElem = document.getElementById('correlationSolar');
+        if (windProgress) { = document.getElementById('correlationStrengthSolar');
             const progressValue = (avgWind / 30) * 100; // Normalizar a 30 km/h máximo
             windProgress.style.width = `${Math.min(progressValue, 100)}%`;
             // Mantener el color fijo de viento (#5E35B1) sin cambiar
-        }
+        }olarElem.textContent = avgSolar.toFixed(1) + ' MJ/m²';
         console.log('[METEOROLOGICAL] ✅ Métrica de viento actualizada:', avgWind.toFixed(1), 'km/h');
     } else {
         console.warn('[METEOROLOGICAL] ❌ Elementos de viento no encontrados en DOM');
-    }
-    
+    }   solarStrengthElem.className = `badge ${solarIndex.risk === 'Bajo' ? 'bg-danger' : solarIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
+        
     // Métrica 4: Radiación Solar Promedio
-    const avgSolar = meteorologicalMetrics.avg_solar_radiation || 0;
-    const solarIndex = calculateSolarIndex(avgSolar);
-    
+    const avgSolar = meteorologicalMetrics.avg_solar_radiation || 0;ar a 30 MJ/m² máximo
+    const solarIndex = calculateSolarIndex(avgSolar);rogressValue, 100)}%`;
+            // Mantener el color fijo de radiación solar (#FF8F00) sin cambiar
     console.log('[METEOROLOGICAL] Solar promedio:', avgSolar, 'Índice:', solarIndex);
-    
+        console.log('[METEOROLOGICAL] ✅ Métrica de radiación solar actualizada:', avgSolar.toFixed(1), 'MJ/m²');
     const solarElem = document.getElementById('correlationSolar');
-    const solarStrengthElem = document.getElementById('correlationStrengthSolar');
+    const solarStrengthElem = document.getElementById('correlationStrengthSolar');os en DOM');
     const solarProgress = document.getElementById('solarProgressBar');
     
-    if (solarElem && solarStrengthElem) {
+    if (solarElem && solarStrengthElem) {as métricas meteorológicas actualizadas');
         solarElem.textContent = avgSolar.toFixed(1) + ' MJ/m²';
         solarElem.style.color = '#FF8F00'; // Color naranja claro del gráfico
         
-        solarStrengthElem.textContent = solarIndex.risk;
+        solarStrengthElem.textContent = solarIndex.risk;enen del backend
         solarStrengthElem.className = `badge ${solarIndex.risk === 'Bajo' ? 'bg-danger' : solarIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
-        
-        if (solarProgress) {
+         calculateMetricsFromData() {
+        if (solarProgress) {|| meteorologicalData.length === 0) {
             const progressValue = (avgSolar / 30) * 100; // Normalizar a 30 MJ/m² máximo
             solarProgress.style.width = `${Math.min(progressValue, 100)}%`;
-            // Mantener el color fijo de radiación solar (#FF8F00) sin cambiar
-        }
-        console.log('[METEOROLOGICAL] ✅ Métrica de radiación solar actualizada:', avgSolar.toFixed(1), 'MJ/m²');
-    } else {
-        console.warn('[METEOROLOGICAL] ❌ Elementos de radiación solar no encontrados en DOM');
-    }
-    
-       
-    
-    console.log('[METEOROLOGICAL] Todas las métricas meteorológicas actualizadas');
-}
-
-/**
- * Calcula las métricas desde los datos locales si no vienen del backend
- */
-function calculateMetricsFromData() {
-    if (!meteorologicalData || meteorologicalData.length === 0) {
-        return {};
-    }
     
     console.log('[METEOROLOGICAL] Calculando métricas desde datos locales...');
     console.log('[METEOROLOGICAL] Datos disponibles:', meteorologicalData.length, 'días');
@@ -1943,45 +1964,3 @@ console.log('[METEOROLOGICAL] 🚀 Funciones globales disponibles:', {
     loadWeatherForecast: typeof window.loadWeatherForecast,
     initMeteorologicalAnalysis: typeof window.initMeteorologicalAnalysis
 });
-
-// ==============================================
-// FUNCIÓN DE DEBUG PARA VERIFICAR DATOS
-// ==============================================
-
-/**
- * Función de debug para verificar que los datos se estén procesando correctamente
- */
-function debugWeatherData() {
-    console.log('[DEBUG WEATHER] =================================');
-    console.log('[DEBUG WEATHER] Estado actual de los datos del clima:');
-    console.log('[DEBUG WEATHER] window.weatherForecastData:', window.weatherForecastData);
-    
-    if (window.weatherForecastData && window.weatherForecastData.length > 0) {
-        const firstDay = window.weatherForecastData[0];
-        console.log('[DEBUG WEATHER] Primer día de datos:');
-        console.log('[DEBUG WEATHER] - Fecha:', firstDay.date || firstDay.Date);
-        console.log('[DEBUG WEATHER] - Rain (original):', firstDay.Rain);
-        console.log('[DEBUG WEATHER] - Windspeed (original):', firstDay.Windspeed);
-        console.log('[DEBUG WEATHER] - calculated_precipitation:', firstDay.calculated_precipitation);
-        console.log('[DEBUG WEATHER] - calculated_wind_speed:', firstDay.calculated_wind_speed);
-        
-        // Verificar cálculo manual
-        if (firstDay.Rain && typeof firstDay.Rain === 'object') {
-            const rainValues = Object.values(firstDay.Rain).filter(val => typeof val === 'number');
-            const totalRain = rainValues.reduce((sum, val) => sum + val, 0);
-            console.log('[DEBUG WEATHER] - Cálculo manual de precipitación:', totalRain);
-        }
-        
-        if (firstDay.Windspeed && typeof firstDay.Windspeed === 'object') {
-            const windValues = Object.values(firstDay.Windspeed).filter(val => typeof val === 'number');
-            const avgWind = windValues.reduce((sum, val) => sum + val, 0) / windValues.length;
-            console.log('[DEBUG WEATHER] - Cálculo manual de viento:', avgWind);
-        }
-    } else {
-        console.log('[DEBUG WEATHER] No hay datos de pronóstico disponibles');
-    }
-    console.log('[DEBUG WEATHER] =================================');
-}
-
-// Hacer la función disponible globalmente para debugging
-window.debugWeatherData = debugWeatherData;

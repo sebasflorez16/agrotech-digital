@@ -29,7 +29,10 @@ function checkAuth() {
     }
 
     //Validar si el token es realmente válido llamando a una API protegida
-    fetch(`http://${window.location.hostname}:8000/api/authentication/dashboard/`, {
+    const dashboardUrl = window.ApiUrls ? window.ApiUrls.auth() + '/dashboard/' : 
+                        `${window.location.protocol}//${window.location.hostname}:8000/api/authentication/dashboard/`;
+    
+    fetch(dashboardUrl, {
         method: "GET",
         headers: { "Authorization": `Bearer ${token}` }
     })
@@ -63,3 +66,20 @@ function logout() {
     localStorage.removeItem("refreshToken");
     window.location.href = "/authentication/login.html";
 }
+
+// Botón para ir a la gestión de labores
+const btnLabores = document.createElement("button");
+btnLabores.className = "btn btn-success mb-3";
+btnLabores.innerHTML = '<i class="fa fa-tasks"></i> Gestionar Labores';
+btnLabores.onclick = function() {
+    window.location.href = "/templates/labores.html";
+};
+// Insertar el botón en el dashboard (por ejemplo, arriba del resumen de parcelas)
+window.addEventListener("DOMContentLoaded", () => {
+    const resumen = document.querySelector("#resumen-parcelas, .resumen-parcelas");
+    if (resumen) {
+        resumen.parentNode.insertBefore(btnLabores, resumen);
+    } else {
+        document.body.prepend(btnLabores);
+    }
+});

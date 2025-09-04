@@ -1335,45 +1335,95 @@ class ParcelHistoricalIndicesView(APIView):
             indices = ["ndvi", "ndmi", "evi"]
             historical_data = {}
             
-            # Consultar cada índice a EOSDA
+            # Consultar cada índice a EOSDA usando Field Analytics API
             for index_name in indices:
                 logger.info(f"[HISTORICAL_INDICES] Consultando {index_name}...")
                 
-                # Usar el endpoint correcto de EOSDA para series temporales de índices
-                # Nota: Los endpoints v1/indices no existen, usar Statistics API en su lugar
-                eosda_url = "https://api-connect.eos.com/api/gdw/api"
+                # Usar Field Analytics API para obtener trend histórico del índice
+                eosda_url = f"https://api-connect.eos.com/field-analytics/trend/{eosda_id}"
                 headers = {
                     "x-api-key": settings.EOSDA_API_KEY,
-                    "Content-Type": "application/json"
+                    "Content-Type": "text/plain"
                 }
                 
-                # Payload para obtener series temporales de índices usando Statistics API
+                # Payload para obtener trend histórico de índice específico
                 payload = {
-                    "type": "mt_stats",
                     "params": {
-                        "bm_type": [index_name.upper()],  # NDVI, NDMI, EVI en mayúsculas
                         "date_start": start_date,
                         "date_end": end_date,
-                        "geometry": polygon_geojson,
-                        "sensors": ["S2", "L8"],
-                        "max_cloud_cover_in_aoi": 30,
-                        "exclude_cover_pixels": True,
-                        "reference": f"agrotech_historical_{parcel_id}_{index_name}",
-                        "limit": 100
+                        "index": index_name.upper(),  # NDVI, NDMI, EVI
+                        "data_source": "S2"  # Sentinel-2
                     }
                 }
                 
                 try:
+                    # Paso 1: Crear tarea
                     response = requests.post(eosda_url, json=payload, headers=headers, timeout=30)
                     
                     if response.status_code in [200, 202]:
                         task_data = response.json()
                         
-                        # EOSDA Statistics API devuelve un task_id, necesitamos consultar el resultado
-                        # Por ahora, generar datos de prueba hasta implementar el polling de tareas
-                        logger.info(f"[HISTORICAL_INDICES] Tarea EOSDA creada para {index_name}: {task_data.get('task_id', 'N/A')}")
-                        logger.info(f"[HISTORICAL_INDICES] Generando datos de prueba mientras se implementa polling de tareas")
-                        historical_data[index_name] = self._generate_test_data(index_name, start_date, end_date)
+                        if task_data.get("status") == "created":
+                            request_id = task_data.get("request_id")
+                            logger.info(f"[HISTORICAL_INDICES] Tarea creada para {index_name}: {request_id}")
+                            
+                            # Paso 2: Obtener resultado de la tarea
+                            result_url = f"{eosda_url}/{request_id}"
+                            
+                            # Intentar obtener el resultado (puede requerir espera)
+                            import time
+                            max_attempts = 10
+                            wait_time = 3  # segundos
+                            
+                            for attempt in range(max_attempts):
+                                try:
+                                    result_response = requests.get(result_url, headers=headers, timeout=30)
+                                    
+                                    if result_response.status_code == 200:
+                                        result_data = result_response.json()
+                                        
+                                        if result_data.get("status") == "success":
+                                            # Procesar datos reales de EOSDA
+                                            raw_data = result_data.get("result", [])
+                                            processed_data = []
+                                            
+                                            for point in raw_data:
+                                                processed_data.append({
+                                                    'date': point.get('date'),
+                                                    'mean': round(point.get('average', 0), 3),
+                                                    'median': round(point.get('median', 0), 3),
+                                                    'std': round(point.get('std', 0), 3),
+                                                    'min': round(point.get('min', 0), 3),
+                                                    'max': round(point.get('max', 0), 3)
+                                                })
+                                            
+                                            historical_data[index_name] = processed_data
+                                            logger.info(f"[HISTORICAL_INDICES] Obtenidos {len(processed_data)} puntos reales para {index_name}")
+                                            break
+                                        elif result_data.get("status") == "processing":
+                                            logger.info(f"[HISTORICAL_INDICES] Tarea {index_name} aún procesando, intento {attempt + 1}/{max_attempts}")
+                                            time.sleep(wait_time)
+                                            continue
+                                        else:
+                                            logger.error(f"[HISTORICAL_INDICES] Error en resultado {index_name}: {result_data}")
+                                            break
+                                    else:
+                                        logger.error(f"[HISTORICAL_INDICES] Error obteniendo resultado {index_name}: {result_response.status_code}")
+                                        break
+                                        
+                                except Exception as e:
+                                    logger.error(f"[HISTORICAL_INDICES] Error en intento {attempt + 1} para {index_name}: {str(e)}")
+                                    if attempt == max_attempts - 1:
+                                        break
+                                    time.sleep(wait_time)
+                            
+                            # Si no se obtuvieron datos reales, usar fallback
+                            if index_name not in historical_data:
+                                logger.warning(f"[HISTORICAL_INDICES] No se pudieron obtener datos reales para {index_name}, usando fallback")
+                                historical_data[index_name] = self._generate_test_data(index_name, start_date, end_date)
+                        else:
+                            logger.error(f"[HISTORICAL_INDICES] Error creando tarea {index_name}: {task_data}")
+                            historical_data[index_name] = self._generate_test_data(index_name, start_date, end_date)
                             
                     else:
                         logger.error(f"[HISTORICAL_INDICES] Error {index_name}: {response.status_code} - {response.text}")

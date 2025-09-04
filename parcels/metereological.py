@@ -63,17 +63,26 @@ class WeatherForecastView(APIView):
                         lat = sum(coord[1] for coord in coords) / len(coords)
                         logger.info(f"[WEATHER_FORECAST] Coordenadas calculadas del GeoJSON: lat={lat}, lng={lng}")
                     else:
-                        # Fallback si no hay geometría
-                        lat, lng = 4.6097, -74.0817  # Bogotá como fallback
-                        logger.warning(f"[WEATHER_FORECAST] Usando coordenadas fallback (Bogotá): lat={lat}, lng={lng}")
+                        # No usar fallback, devolver error si no hay geometría
+                        logger.warning(f"[WEATHER_FORECAST] No se pudo determinar las coordenadas de la parcela: geometría vacía o inválida")
+                        return Response(
+                            {"error": "No se pudo determinar las coordenadas de la parcela: geometría vacía o inválida"}, 
+                            status=400
+                        )
                 else:
-                    # Fallback si no hay geometría
-                    lat, lng = 4.6097, -74.0817  # Bogotá como fallback
-                    logger.warning(f"[WEATHER_FORECAST] Usando coordenadas fallback (Bogotá): lat={lat}, lng={lng}")
+                    # No usar fallback, devolver error si no hay geometría
+                    logger.warning(f"[WEATHER_FORECAST] No se pudo determinar las coordenadas de la parcela: formato de geometría incorrecto")
+                    return Response(
+                        {"error": "No se pudo determinar las coordenadas de la parcela: formato de geometría incorrecto"}, 
+                        status=400
+                    )
             except Exception as e:
-                # Fallback si hay error
-                lat, lng = 4.6097, -74.0817  # Bogotá como fallback
-                logger.error(f"[WEATHER_FORECAST] Error al obtener coordenadas: {str(e)}. Usando fallback (Bogotá): lat={lat}, lng={lng}")
+                # No usar fallback, reportar el error específico
+                logger.error(f"[WEATHER_FORECAST] Error al obtener coordenadas: {str(e)}")
+                return Response(
+                    {"error": f"Error al obtener coordenadas de la parcela: {str(e)}"}, 
+                    status=400
+                )
         
         # Usar la API de pronóstico meteorológico
         # Según la documentación: https://doc.eos.com/docs/weather/basic-weather-providers/#weather-forecast-without-data-aggregation
@@ -1426,9 +1435,12 @@ def weather_forecast_action(viewset_instance, request, pk=None):
         lng = centroid.x
         print(f"[WEATHER_FORECAST] Coordenadas obtenidas del centroide: lat={lat}, lng={lng}")
     else:
-        # Fallback si no hay geometría
-        lat, lng = 4.6097, -74.0817  # Bogotá como fallback
-        print(f"[WEATHER_FORECAST] Usando coordenadas fallback: lat={lat}, lng={lng}")
+        # No usar fallback, devolver error si no hay geometría
+        print(f"[WEATHER_FORECAST] No se pudo determinar las coordenadas de la parcela: geometría vacía o inválida")
+        return Response(
+            {"error": "No se pudo determinar las coordenadas de la parcela: geometría vacía o inválida"}, 
+            status=400
+        )
     
     try:
         x_api_key = settings.EOSDA_API_KEY

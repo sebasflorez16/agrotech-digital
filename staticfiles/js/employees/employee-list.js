@@ -1,9 +1,9 @@
 // Definir la URL base para la API
-const BASE_URL = `http://${window.location.hostname}:8000/api/RRHH`;
+const BASE_URL = window.ApiUrls ? window.ApiUrls.rrhh() : `${window.location.protocol}//${window.location.hostname}:8000/api/RRHH`;
 
 // Ejecutar el código cuando el DOM esté completamente cargado
 document.addEventListener("DOMContentLoaded", function () {
-    console.log("📌 Página de empleados cargada. Obteniendo datos...");
+    console.log("Página de empleados cargada. Obteniendo datos...");
     cargarEmpleados(); // Llamar a la función automáticamente para cargar los empleados
 
     // Agregar evento al botón para crear empleados

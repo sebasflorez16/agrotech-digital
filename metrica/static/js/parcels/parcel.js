@@ -312,7 +312,7 @@ function initializeCesium() {
                 // Configuración de interfaz optimizada para agricultura
                 baseLayerPicker: true, // Habilitar selector de capas nativo de Cesium (incluye las mejores opciones gratuitas)
                 shouldAnimate: true, // Habilita animaciones suaves
-                sceneMode: Cesium.SceneMode.SCENE3D, // Modo 3D por defecto para mejor visualización satelital
+                sceneMode: Cesium.SceneMode.SCENE2D, // Modo 3D por defecto para mejor visualización satelital
                 timeline: false, // Oculta el timeline (no necesario para agricultura)
                 animation: false, // Oculta controles de animación
                 geocoder: true, // Mantener búsqueda geográfica
