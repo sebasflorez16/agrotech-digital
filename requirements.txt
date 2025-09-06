@@ -68,7 +68,7 @@ MarkupSafe==3.0.2
 matplotlib==3.10.3
 matplotlib-inline==0.1.7
 narwhals==1.45.0
-numpy @ file:///Users/runner/miniforge3/conda-bld/bld/rattler-build_numpy_1753401541/work/dist/numpy-2.3.2-cp311-cp311-macosx_11_0_arm64.whl#sha256=be29a87738c7c8b72f7f0e490722c2c2e96a7ce42d6918317bc936a8693f4e90
+numpy==2.3.2
 packaging @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_packaging_1745345660/work
 pandas==2.3.0
 parso==0.8.4
