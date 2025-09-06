@@ -44,7 +44,7 @@ GDAL @ file:///Users/runner/miniforge3/conda-bld/libgdal-core_1753466771736/work
 gdown==5.2.0
 geojson==3.2.0
 geopandas==1.1.1
-gunicorn==23.0.0
+gunicorn==21.2.0
 idna==3.10
 ipyevents==2.0.2
 ipyfilechooser==0.6.0
