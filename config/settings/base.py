@@ -115,8 +115,8 @@ SHARED_APPS = [
     "corsheaders",
     'django.contrib.contenttypes',
     "django.contrib.auth",
-    'django.contrib.gis',  # GIS deshabilitado temporalmente
-    'rest_framework_gis', # GIS deshabilitado temporalmente
+    # 'django.contrib.gis',  # GIS deshabilitado temporalmente
+    # 'rest_framework_gis', # GIS deshabilitado temporalmente
     "django.contrib.sessions",
     "django.contrib.sites",
     "django.contrib.messages",
