@@ -69,7 +69,7 @@ matplotlib==3.10.3
 matplotlib-inline==0.1.7
 narwhals==1.45.0
 numpy==2.3.2
-packaging @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_packaging_1745345660/work
+packaging==23.2
 pandas==2.3.0
 parso==0.8.4
 pexpect==4.9.0
