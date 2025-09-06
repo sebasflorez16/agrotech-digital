@@ -48,7 +48,13 @@ LOCALE_PATHS = [str(ROOT_DIR / "locale")]
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 
 
+import dj_database_url
+
 DATABASES = {
+    'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'))
+}
+
+"""DATABASES = {
     'default': {
         'ENGINE': 'django_tenants.postgresql_backend',
         'NAME': "agrotech",
@@ -57,7 +63,7 @@ DATABASES = {
         'HOST': "localhost",
         'PORT': "5432",
     }
-}
+}"""
 
 
 # GIS deshabilitado temporalmente para desarrollo sin dependencias nativas
