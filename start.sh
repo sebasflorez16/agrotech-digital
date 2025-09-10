@@ -35,15 +35,24 @@ else
     echo "✅ DATABASE_URL configurado: ${DATABASE_URL:0:50}..."
 fi
 
-echo "🚀 Iniciando Gunicorn en puerto $PORT..."
+# Ejecutar setup de Railway con variables de entorno disponibles
+echo "� Ejecutando setup de Railway..."
+python manage.py setup_railway
+if [ $? -ne 0 ]; then
+    echo "❌ Setup de Railway falló"
+    exit 1
+fi
+echo "✅ Setup de Railway completado"
+
+echo "�🚀 Iniciando Gunicorn en puerto $PORT..."
 
 # Iniciar gunicorn con configuración optimizada para Railway
-exec gunicorn config.wsgi 
-    --bind 0.0.0.0:$PORT 
-    --workers 2 
-    --timeout 120 
-    --max-requests 1000 
-    --max-requests-jitter 100 
-    --log-level info 
-    --access-logfile - 
+exec gunicorn config.wsgi \
+    --bind 0.0.0.0:$PORT \
+    --workers 2 \
+    --timeout 120 \
+    --max-requests 1000 \
+    --max-requests-jitter 100 \
+    --log-level info \
+    --access-logfile - \
     --error-logfile -
