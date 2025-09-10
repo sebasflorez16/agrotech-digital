@@ -4,7 +4,7 @@ from .models import Warehouse, Supply
 from .serializers import SupplySerializer
 from django.http import HttpResponse
 from django.template.loader import render_to_string
-import weasyprint
+#import weasyprint
 from django.conf import settings
 import os
 
@@ -53,7 +53,5 @@ def warehouse_report_pdf(request, warehouse_id):
     response = HttpResponse(content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="reporte_almacen_{warehouse.id}.pdf"'
     logo_path = os.path.join(settings.STATIC_ROOT, 'img', 'agrotech-logo.png')
-    weasyprint.HTML(string=html, base_url=request.build_absolute_uri('/')).write_pdf(response, stylesheets=[
-        weasyprint.CSS(string='body { font-family: Arial, sans-serif; }'),
-    ])
+   
     return response
