@@ -14,10 +14,10 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            '--skip-checks',
+            '--strict',
             action='store_true',
-            dest='skip_checks',
-            help='Omitir verificaciones de base de datos',
+            dest='strict_mode',
+            help='Fallar si hay errores (por defecto es tolerante)',
         )
 
     def handle(self, *args, **options):
@@ -33,7 +33,7 @@ class Command(BaseCommand):
                     self.stdout.write(self.style.SUCCESS('✅ Conexión a base de datos exitosa'))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'❌ Error de conexión: {e}'))
-            if not options['skip_checks']:
+            if options['strict_mode']:
                 sys.exit(1)
 
         try:
@@ -51,7 +51,7 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS('✅ Migrate estándar completado'))
             except Exception as e2:
                 self.stdout.write(self.style.ERROR(f'❌ Error en migrate: {e2}'))
-                if not options['skip_checks']:
+                if options['strict_mode']:
                     sys.exit(1)
 
         try:
