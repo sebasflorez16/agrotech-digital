@@ -69,9 +69,44 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS('✅ Superusuario creado: admin/admin123'))
             else:
                 self.stdout.write(self.style.SUCCESS('✅ Superusuario ya existe'))
-                
+
         except Exception as e:
             self.stdout.write(self.style.WARNING(f'⚠️ Error creando superusuario: {e}'))
+
+        try:
+            # Crear tenant por defecto para django-tenants
+            from base_agrotech.models import Client, Domain
+            
+            # Verificar si existe el tenant público
+            if not Client.objects.filter(schema_name='public').exists():
+                self.stdout.write('🏢 Creando tenant público por defecto...')
+                tenant = Client.objects.create(
+                    schema_name='public',
+                    name='AgroTech Digital',
+                    paid_until='2025-12-31',
+                    on_trial=False
+                )
+                
+                # Crear dominio para Railway
+                Domain.objects.create(
+                    domain='agrotech-digital-production.up.railway.app',
+                    tenant=tenant,
+                    is_primary=True
+                )
+                
+                # Crear dominio localhost para desarrollo
+                Domain.objects.create(
+                    domain='localhost',
+                    tenant=tenant,
+                    is_primary=False
+                )
+                
+                self.stdout.write(self.style.SUCCESS('✅ Tenant público creado con dominios'))
+            else:
+                self.stdout.write(self.style.SUCCESS('✅ Tenant público ya existe'))
+                
+        except Exception as e:
+            self.stdout.write(self.style.WARNING(f'⚠️ Error configurando tenant: {e}'))
 
         self.stdout.write(self.style.SUCCESS('🎉 Setup multi-tenant completado exitosamente!'))
         self.stdout.write('🔗 La aplicación está lista para usar en Railway')
