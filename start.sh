@@ -1,16 +1,4 @@
 #!/bin/bash
-echo "🚀 Iniciando aplicación AgroTech Digital..."
-
-# Configurar Django settings si no está configurado
-export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-config.settings.production}"
-echo "🔍 DJANGO_SETTINGS_MODULE: $DJANGO_SETTINGS_MODULE"
-echo "🔍 DATABASE_URL: ${DATABASE_URL:0:50}..." # Solo primeros 50 caracteres por seguridad
-
-# Railway proporciona PORT automáticamente, usar ese puerto exacto
-DETECTED_PORT=${PORT:-8080}
-echo "✅ Railway PORT: $DETECTED_PORT"
-
-#!/bin/bash
 
 echo "🚀 Iniciando aplicación AgroTech Digital..."
 
@@ -36,15 +24,35 @@ else
 fi
 
 # Ejecutar setup de Railway con variables de entorno disponibles
-echo "� Ejecutando setup de Railway..."
-python manage.py setup_railway
-if [ $? -ne 0 ]; then
-    echo "❌ Setup de Railway falló"
-    exit 1
-fi
-echo "✅ Setup de Railway completado"
+echo "🔧 Ejecutando setup de Railway..."
+echo "📋 Comando: python manage.py setup_railway"
 
-echo "�🚀 Iniciando Gunicorn en puerto $PORT..."
+python manage.py setup_railway 2>&1
+setup_exit_code=$?
+
+echo "📊 Setup exit code: $setup_exit_code"
+
+if [ $setup_exit_code -ne 0 ]; then
+    echo "❌ Setup de Railway falló con código: $setup_exit_code"
+    echo "🚨 Intentando script de emergencia..."
+    
+    # Fallback: ejecutar script de emergencia
+    python fix_railway_tables.py 2>&1
+    emergency_exit_code=$?
+    
+    echo "📊 Emergency script exit code: $emergency_exit_code"
+    
+    if [ $emergency_exit_code -ne 0 ]; then
+        echo "❌ Script de emergencia también falló"
+        echo "🚨 Continuando sin setup (puede causar errores)"
+    else
+        echo "✅ Script de emergencia completado exitosamente"
+    fi
+else
+    echo "✅ Setup de Railway completado exitosamente"
+fi
+
+echo "🚀 Iniciando Gunicorn en puerto $PORT..."
 
 # Iniciar gunicorn con configuración optimizada para Railway
 exec gunicorn config.wsgi \
