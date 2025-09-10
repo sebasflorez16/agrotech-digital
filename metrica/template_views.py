@@ -10,12 +10,22 @@ from django.http import HttpResponse
 
 
 class HomeView(TemplateView):
-    """Vista raíz que redirige al dashboard o login según autenticación"""
+    """Vista raíz simple que muestra información del sistema"""
     def get(self, request, *args, **kwargs):
-        if request.user.is_authenticated:
-            return redirect('/templates/vertical_base.html')
-        else:
-            return redirect('/templates/authentication/login.html')
+        return HttpResponse("""
+        <html>
+        <head><title>AgroTech Digital</title></head>
+        <body>
+            <h1>🌱 AgroTech Digital</h1>
+            <p>✅ Sistema funcionando correctamente</p>
+            <p>✅ Django cargado</p>
+            <p>✅ Railway desplegado</p>
+            <hr>
+            <p><a href="/admin/">Panel de Administración</a></p>
+            <p><a href="/templates/authentication/login.html">Página de Login</a></p>
+        </body>
+        </html>
+        """, content_type="text/html")
 
 
 class LoginTemplateView(TemplateView):
@@ -46,4 +56,18 @@ def dashboard_template_view(request):
 
 def home_view(request):
     """Vista raíz simple para evitar 502"""
-    return HttpResponse("AgroTech Digital - Sistema funcionando correctamente")
+    return HttpResponse("""
+    <html>
+    <head><title>AgroTech Digital</title></head>
+    <body>
+        <h1>🌱 AgroTech Digital - Sistema funcionando correctamente</h1>
+        <p>✅ Django está funcionando</p>
+        <p>✅ Base de datos conectada</p>
+        <p>✅ Gunicorn corriendo</p>
+        <hr>
+        <p><a href="/admin/">Admin Panel</a></p>
+        <p><a href="/templates/authentication/login.html">Login</a></p>
+        <p><a href="/templates/vertical_base.html">Dashboard</a></p>
+    </body>
+    </html>
+    """, content_type="text/html")

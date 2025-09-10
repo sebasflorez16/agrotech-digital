@@ -1,2 +1,1 @@
-release: python manage.py setup_railway
-web: gunicorn config.wsgi --bind 0.0.0.0:$PORT
+web: gunicorn config.wsgi --bind 0.0.0.0:$PORT --log-level debug

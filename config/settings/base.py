@@ -25,6 +25,16 @@ if READ_DOT_ENV_FILE:
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
 DEBUG = env.bool("DJANGO_DEBUG", False)
+
+# https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
+# Configuración base para ALLOWED_HOSTS - se sobrescribe en production.py
+ALLOWED_HOSTS = [
+    "localhost",
+    "127.0.0.1",
+    "agrotech-digital-production.up.railway.app",
+    ".railway.app",
+    ".localhost"
+]
 # Local time zone. Choices are
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # though not all of them may be available with every OS.
