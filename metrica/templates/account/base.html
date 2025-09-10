@@ -21,6 +21,9 @@
     <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}" />
 
     {% block extra_css %} {% endblock %} {% include "partials/head-css.html" %}
+    
+    <!-- CSS responsivo personalizado para autenticación -->
+    <link href="{% static 'css/auth-responsive.css' %}" rel="stylesheet" type="text/css" />
   </head>
 
   <body id="body" {% block body_extra %} {% endblock %}>

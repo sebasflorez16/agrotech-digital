@@ -59,6 +59,55 @@ MIDDLEWARE = [
 # ------------------------------------------------------------------------------
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
+# LOGGING
+# ------------------------------------------------------------------------------
+# Configuración optimizada para producción - reduce logs innecesarios
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
+        },
+    },
+    "root": {
+        "level": "WARNING",
+        "handlers": ["console"],
+    },
+    "loggers": {
+        "django.db.backends": {
+            "level": "ERROR",  # Solo errores de base de datos
+            "handlers": ["console"],
+            "propagate": False,
+        },
+        "django.server": {
+            "level": "ERROR",  # Solo errores del servidor
+            "handlers": ["console"],
+            "propagate": False,
+        },
+        "gunicorn.access": {
+            "level": "WARNING",  # Reduce logs de acceso de Gunicorn
+            "handlers": ["console"],
+            "propagate": False,
+        },
+        "django.request": {
+            "level": "ERROR",  # Solo errores de requests
+            "handlers": ["console"],
+            "propagate": False,
+        },
+    },
+}
+
+# Desactivar logs de desarrollo en producción
+DEBUG = False
+
 # CACHES
 # ------------------------------------------------------------------------------
 CACHES = {
