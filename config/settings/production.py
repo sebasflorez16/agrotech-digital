@@ -16,7 +16,12 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
 
 # DATABASES
 # ------------------------------------------------------------------------------
-DATABASES["default"] = env.db("DATABASE_URL")  # noqa F405
+# Configurar con dj_database_url pero preservando el motor de django-tenants
+import dj_database_url
+
+DATABASES["default"] = dj_database_url.config(default=env("DATABASE_URL"))  # noqa F405
+# IMPORTANTE: Forzar el motor de django-tenants (no sobrescribir con env.db)
+DATABASES["default"]["ENGINE"] = "django_tenants.postgresql_backend"
 DATABASES["default"]["ATOMIC_REQUESTS"] = True  # noqa F405
 DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)  # noqa F405
 
