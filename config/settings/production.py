@@ -16,14 +16,26 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
 
 # DATABASES
 # ------------------------------------------------------------------------------
-# Configurar con dj_database_url pero preservando el motor de django-tenants
-import dj_database_url
+# Configuración manual para django-tenants en Railway
+import os
+from urllib.parse import urlparse
 
-DATABASES["default"] = dj_database_url.config(default=env("DATABASE_URL"))  # noqa F405
-# IMPORTANTE: Forzar el motor de django-tenants (no sobrescribir con env.db)
-DATABASES["default"]["ENGINE"] = "django_tenants.postgresql_backend"
-DATABASES["default"]["ATOMIC_REQUESTS"] = True  # noqa F405
-DATABASES["default"]["CONN_MAX_AGE"] = env.int("CONN_MAX_AGE", default=60)  # noqa F405
+# Parsear DATABASE_URL manualmente para django-tenants
+DATABASE_URL = env("DATABASE_URL")
+url = urlparse(DATABASE_URL)
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django_tenants.postgresql_backend",  # Motor específico de django-tenants
+        "NAME": url.path[1:],  # Quitar '/' inicial
+        "USER": url.username,
+        "PASSWORD": url.password,
+        "HOST": url.hostname,
+        "PORT": url.port or 5432,
+        "ATOMIC_REQUESTS": True,
+        "CONN_MAX_AGE": env.int("CONN_MAX_AGE", default=60),
+    }
+}
 
 # CACHES
 # ------------------------------------------------------------------------------

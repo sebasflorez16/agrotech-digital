@@ -57,18 +57,8 @@ LOCALE_PATHS = [str(ROOT_DIR / "locale")]
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 
-
-import dj_database_url
-
+# Configuración base para desarrollo local
 DATABASES = {
-    'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'))
-}
-# IMPORTANTE: django-tenants requiere el motor especial 'django_tenants.postgresql_backend'.
-# dj_database_url pone por defecto 'django.db.backends.postgresql', lo cual rompe la gestión multi-tenant.
-# Por eso, forzamos el motor correcto aquí:
-DATABASES['default']['ENGINE'] = 'django_tenants.postgresql_backend'
-
-"""DATABASES = {
     'default': {
         'ENGINE': 'django_tenants.postgresql_backend',
         'NAME': "agrotech",
@@ -76,16 +66,9 @@ DATABASES['default']['ENGINE'] = 'django_tenants.postgresql_backend'
         'PASSWORD': "guibsonsid.16",
         'HOST': "localhost",
         'PORT': "5432",
+        'ATOMIC_REQUESTS': True,
     }
-}"""
-
-
-# GIS deshabilitado temporalmente para desarrollo sin dependencias nativas
-# ORIGINAL_BACKEND = "django.contrib.gis.db.backends.postgis"
-
-
-# El ATOMIC_REQUESTS si esta activo ayuda a que dentro de las peticiones si ocurre un error durante la misma, todos los cambios que se hicieron en la base de datos se revertiran.
-DATABASES["default"]["ATOMIC_REQUESTS"] = True
+}
 
 
 DATABASE_ROUTERS = (
