@@ -6,7 +6,13 @@ from .base import env
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
-ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["example.com"])
+# Permitir el dominio de Railway y configuración por variable de entorno
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
+    "agrotech-digital-production.up.railway.app",
+    ".railway.app",  # Permitir cualquier subdominio de Railway
+    "localhost",
+    "127.0.0.1"
+])
 
 # DATABASES
 # ------------------------------------------------------------------------------

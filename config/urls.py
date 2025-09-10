@@ -4,18 +4,24 @@ from django.conf.urls.static import static
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.views import defaults as default_views
+from metrica.template_views import HomeView, home_view
 
 urlpatterns = [
+    # 🔹 Página raíz
+    path('', HomeView.as_view(), name='home'),
+    
     # 🔹 Autenticación y Tokens JWT
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path("api/authentication/", include("authentication.urls", namespace="authentication")),
 
+    # 🔹 Plantillas HTML estáticas (necesario para producción)
+    path("templates/", include("metrica.template_urls", namespace="templates")),
 
     # 🔹 Administración
     path("admin/", admin.site.urls),
     # 🔹 API global
-    path("", include("api_urls")),
+    path("", include("metrica.api_urls")),
 
     # 🔹 Gestión de usuarios
     path("users/", include("metrica.users.urls", namespace="users")),
