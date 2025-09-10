@@ -53,6 +53,10 @@ import dj_database_url
 DATABASES = {
     'default': dj_database_url.config(default=os.environ.get('DATABASE_URL'))
 }
+# IMPORTANTE: django-tenants requiere el motor especial 'django_tenants.postgresql_backend'.
+# dj_database_url pone por defecto 'django.db.backends.postgresql', lo cual rompe la gestión multi-tenant.
+# Por eso, forzamos el motor correcto aquí:
+DATABASES['default']['ENGINE'] = 'django_tenants.postgresql_backend'
 
 """DATABASES = {
     'default': {
