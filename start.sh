@@ -52,6 +52,18 @@ else
     echo "✅ Setup de Railway completado exitosamente"
 fi
 
+# Recopilar archivos estáticos para producción
+echo "📁 Recopilando archivos estáticos..."
+python manage.py collectstatic --noinput --clear
+collectstatic_exit_code=$?
+
+if [ $collectstatic_exit_code -eq 0 ]; then
+    echo "✅ Archivos estáticos recopilados exitosamente"
+else
+    echo "⚠️ Error recopilando archivos estáticos (código: $collectstatic_exit_code)"
+    echo "🚨 Continuando..."
+fi
+
 echo "🚀 Iniciando Gunicorn en puerto $PORT..."
 
 # Iniciar gunicorn con configuración optimizada para Railway
