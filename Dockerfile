@@ -12,7 +12,7 @@ RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 # Expone el puerto (ajusta si usas otro)
-EXPOSE 8000
+EXPOSE 8080
 
 # Comando de inicio (ajusta si usas gunicorn)
 CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
