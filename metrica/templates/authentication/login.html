@@ -10,7 +10,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
 
     <!-- App favicon -->
-    <link rel="shortcut icon" href="/static/images/favicon.ico">
+    <link rel="shortcut icon" href="/static/images/agrotech%20solo%20negro.png">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
 
     <!-- App css -->
@@ -87,6 +87,85 @@
         .col-lg-7 {
             flex: 0 0 60%; /* Aumenta el ancho de la columna de la imagen */
             max-width: 60%;
+        }
+
+        @media (max-width: 767px) {
+            body.auth-page {
+                background: #f7f8fa;
+            }
+            .auth-page .card {
+                position: relative;
+                z-index: 2;
+            }
+            /* Fondo de imagen detrás del formulario en móvil */
+            .login-bg-mobile {
+                position: fixed;
+                top: 0; left: 0; width: 100vw; height: 100vh;
+                z-index: 1;
+                background: url('/static/images/6062.jpg') no-repeat center center;
+                background-size: cover;
+                opacity: 0.25;
+                pointer-events: none;
+            }
+            .auth-page .card {
+                width: 100% !important;
+                margin: 0 auto;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+                border-radius: 18px;
+            }
+            .auth-page .card-body {
+                padding: 18px 10px 10px 10px;
+            }
+            .auth-page .auth-header-box {
+                border-top-left-radius: 18px;
+                border-top-right-radius: 18px;
+                padding: 18px 10px;
+            }
+            .auth-page .auth-header-box h4 {
+                font-size: 20px;
+            }
+            .auth-page .auth-header-box p {
+                font-size: 13px;
+            }
+            .container-fluid, .row.vh-100 {
+                height: auto !important;
+                min-height: 100vh;
+                padding: 0;
+            }
+            .col-lg-5, .col-lg-7 {
+                flex: 0 0 100%;
+                max-width: 100%;
+                padding: 0;
+            }
+            .message-section {
+                display: none;
+            }
+            .auth-logo {
+                height: 80px !important;
+            }
+            .overlay {
+                display: none;
+            }
+        }
+
+        /* Ocultar botones sociales en todos los tamaños */
+        .auth-page .btn-outline-secondary {
+            display: none !important;
+        }
+
+        /* Fondo sutil con imagen para todo el login */
+        body.auth-page {
+            background: url('/static/images/6062.jpg') no-repeat center center fixed;
+            background-size: cover;
+            background-blend-mode: lighten;
+            background-color: #f7f8fa;
+        }
+
+        /* Sombra y desenfoque sutil para el card en móvil y desktop */
+        .auth-page .card {
+            backdrop-filter: blur(2px);
+            background: rgba(255,255,255,0.92);
+            box-shadow: 0 8px 32px rgba(44,62,80,0.12);
         }
     </style>
 </head>
@@ -167,6 +246,9 @@
             
         </div><!-- end row -->
     </div><!-- end container -->
+
+    <!-- Fondo de imagen detrás del formulario en móvil -->
+    <div class="login-bg-mobile"></div>
 
     <!-- vendor js -->
     <script src="/static/libs/bootstrap/js/bootstrap.bundle.min.js"></script>

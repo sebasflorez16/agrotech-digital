@@ -3,263 +3,167 @@
 <script src="/static/js/app.js"></script>
 <script src="/static/js/user-profile.js"></script>
 
+<!-- Iconos necesarios para el menú -->
+<link href="https://unpkg.com/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
 
-<div class="topbar">  
-    <!-- LOGO -->
-    <!--end logo-->  
-    <!-- Navbar -->
-    <nav class="navbar-custom">    
-        <ul class="list-unstyled topbar-nav float-end mb-0"> 
-            <li class="dropdown hide-phone">
-                <a class="nav-link dropdown-toggle arrow-none nav-icon" data-bs-toggle="dropdown" href="javascript:void(0)" role="button"
-                    aria-haspopup="false" aria-expanded="false">
-                    <i class="ti ti-search"></i>
-                </a>                
-                <div class="dropdown-menu dropdown-menu-end dropdown-lg p-0">
-                    <!-- Top Search Bar -->
-                    <div class="app-search-topbar">
-                        <form action="#" method="get">
-                            <input type="search" name="search" class="from-control top-search mb-0" placeholder="Type text...">
-                            <button type="submit"><i class="ti ti-search"></i></button>
-                        </form>
-                    </div>
-                </div>
-            </li>                      
 
-            <li class="notification-list">
-                <a class="nav-link arrow-none nav-icon offcanvas-btn" href="javascript:void(0)" data-bs-toggle="offcanvas" data-bs-target="#Appearance" role="button" aria-controls="Rightbar">
-                    <i class="ti ti-settings ti-spin"></i>
-                </a>
-            </li>                       
-            
-            <li class="dropdown notification-list">
-                <a class="nav-link dropdown-toggle arrow-none nav-icon" data-bs-toggle="dropdown" href="javascript:void(0)" role="button"
-                    aria-haspopup="false" aria-expanded="false">
-                    <i class="ti ti-mail"></i>
-                </a>
-                <div class="dropdown-menu dropdown-menu-end dropdown-lg pt-0">
-                
-                    <h6 class="dropdown-item-text font-15 m-0 py-3 border-bottom d-flex justify-content-between align-items-center">
-                        Emails <span class="badge bg-soft-primary badge-pill">3</span>
-                    </h6> 
-                    <div class="notification-menu" data-simplebar>
-                        <!-- item-->
-                        <a href="javascript:void(0)" class="dropdown-item py-3">
-                            <small class="float-end text-muted ps-2">2 min ago</small>
-                            <div class="media">
-                                <div class="avatar-md bg-soft-primary">
-                                    <img src="images/users/user-1.jpg" alt="" class="thumb-sm rounded-circle">
-                                </div>
-                                <div class="media-body align-self-center ms-2 text-truncate">
-                                    <h6 class="my-0 fw-normal text-dark">Your order is placed</h6>
-                                    <small class="text-muted mb-0">Dummy text of the printing and industry.</small>
-                                </div><!--end media-body-->
-                            </div><!--end media-->
-                        </a><!--end-item-->
-                        <!-- item-->
-                        <a href="javascript:void(0)" class="dropdown-item py-3">
-                            <small class="float-end text-muted ps-2">10 min ago</small>
-                            <div class="media">
-                                <div class="avatar-md bg-soft-primary">
-                                    <img src="{% static 'images/users/user-4.jpg' %}" alt="" class="thumb-sm rounded-circle">
-                                </div>
-                                <div class="media-body align-self-center ms-2 text-truncate">
-                                    <h6 class="my-0 fw-normal text-dark">Meeting with designers</h6>
-                                    <small class="text-muted mb-0">It is a long established fact that a reader.</small>
-                                </div><!--end media-body-->
-                            </div><!--end media-->
-                        </a><!--end-item-->
-                        <!-- item-->
-                        <a href="javascript:void(0)" class="dropdown-item py-3">
-                            <small class="float-end text-muted ps-2">40 min ago</small>
-                            <div class="media">
-                                <div class="avatar-md bg-soft-primary">
-                                    <img src="{% static 'images/users/user-2.jpg' %}" alt="" class="thumb-sm rounded-circle">
-                                </div>
-                                <div class="media-body align-self-center ms-2 text-truncate">
-                                    <h6 class="my-0 fw-normal text-dark">UX 3 Task complete.</h6>
-                                    <small class="text-muted mb-0">Dummy text of the printing.</small>
-                                </div><!--end media-body-->
-                            </div><!--end media-->
-                        </a><!--end-item-->
-                        <!-- item-->
-                        <a href="javascript:void(0)" class="dropdown-item py-3">
-                            <small class="float-end text-muted ps-2">1 hr ago</small>
-                            <div class="media">
-                                <div class="avatar-md bg-soft-primary">
-                                    <img src="{% static 'images/users/user-5.jpg' %}" alt="" class="thumb-sm rounded-circle">
-                                </div>
-                                <div class="media-body align-self-center ms-2 text-truncate">
-                                    <h6 class="my-0 fw-normal text-dark">Your order is placed</h6>
-                                    <small class="text-muted mb-0">It is a long established fact that a reader.</small>
-                                </div><!--end media-body-->
-                            </div><!--end media-->
-                        </a><!--end-item-->
-                        <!-- item-->
-                        <a href="javascript:void(0)" class="dropdown-item py-3">
-                            <small class="float-end text-muted ps-2">2 hrs ago</small>
-                            <div class="media">
-                                <div class="avatar-md bg-soft-primary">
-                                    <img src="{% static 'images/users/user-3.jpg' %}" alt="" class="thumb-sm rounded-circle">
-                                </div>
-                                <div class="media-body align-self-center ms-2 text-truncate">
-                                    <h6 class="my-0 fw-normal text-dark">Payment Successfull</h6>
-                                    <small class="text-muted mb-0">Dummy text of the printing.</small>
-                                </div><!--end media-body-->
-                            </div><!--end media-->
-                        </a><!--end-item-->
-                    </div>
-                    <!-- All-->
-                    <a href="javascript:void(0);" class="dropdown-item text-center text-primary">
-                        View all <i class="fi-arrow-right"></i>
-                    </a>
-                </div>
-            </li>
-
-            <li class="dropdown notification-list">
-                <a class="nav-link dropdown-toggle arrow-none nav-icon" data-bs-toggle="dropdown" href="javascript:void(0)" role="button"
-                    aria-haspopup="false" aria-expanded="false">
-                    <i class="ti ti-bell"></i>
-                    <span class="alert-badge"></span>
-                </a>
-                <div class="dropdown-menu dropdown-menu-end dropdown-lg pt-0">
-                
-                    <h6 class="dropdown-item-text font-15 m-0 py-3 border-bottom d-flex justify-content-between align-items-center">
-                        Notifications <span class="badge bg-soft-primary badge-pill">2</span>
-                    </h6> 
-                    <div class="notification-menu" data-simplebar>
-                        <!-- item-->
-                        <a href="javascript:void(0)" class="dropdown-item py-3">
-                            <small class="float-end text-muted ps-2">2 min ago</small>
-                            <div class="media">
-                                <div class="avatar-md bg-soft-primary">
-                                    <i class="ti ti-chart-arcs"></i>
-                                </div>
-                                <div class="media-body align-self-center ms-2 text-truncate">
-                                    <h6 class="my-0 fw-normal text-dark">Your order is placed</h6>
-                                    <small class="text-muted mb-0">Dummy text of the printing and industry.</small>
-                                </div><!--end media-body-->
-                            </div><!--end media-->
-                        </a><!--end-item-->
-                        <!-- item-->
-                        <a href="javascript:void(0)" class="dropdown-item py-3">
-                            <small class="float-end text-muted ps-2">10 min ago</small>
-                            <div class="media">
-                                <div class="avatar-md bg-soft-primary">
-                                    <i class="ti ti-device-computer-camera"></i>
-                                </div>
-                                <div class="media-body align-self-center ms-2 text-truncate">
-                                    <h6 class="my-0 fw-normal text-dark">Meeting with designers</h6>
-                                    <small class="text-muted mb-0">It is a long established fact that a reader.</small>
-                                </div><!--end media-body-->
-                            </div><!--end media-->
-                        </a><!--end-item-->
-                        <!-- item-->
-                        <a href="javascript:void(0)" class="dropdown-item py-3">
-                            <small class="float-end text-muted ps-2">40 min ago</small>
-                            <div class="media">
-                                <div class="avatar-md bg-soft-primary">                                                    
-                                    <i class="ti ti-diamond"></i>
-                                </div>
-                                <div class="media-body align-self-center ms-2 text-truncate">
-                                    <h6 class="my-0 fw-normal text-dark">UX 3 Task complete.</h6>
-                                    <small class="text-muted mb-0">Dummy text of the printing.</small>
-                                </div><!--end media-body-->
-                            </div><!--end media-->
-                        </a><!--end-item-->
-                        <!-- item-->
-                        <a href="javascript:void(0)" class="dropdown-item py-3">
-                            <small class="float-end text-muted ps-2">1 hr ago</small>
-                            <div class="media">
-                                <div class="avatar-md bg-soft-primary">
-                                    <i class="ti ti-drone"></i>
-                                </div>
-                                <div class="media-body align-self-center ms-2 text-truncate">
-                                    <h6 class="my-0 fw-normal text-dark">Your order is placed</h6>
-                                    <small class="text-muted mb-0">It is a long established fact that a reader.</small>
-                                </div><!--end media-body-->
-                            </div><!--end media-->
-                        </a><!--end-item-->
-                        <!-- item-->
-                        <a href="javascript:void(0)" class="dropdown-item py-3">
-                            <small class="float-end text-muted ps-2">2 hrs ago</small>
-                            <div class="media">
-                                <div class="avatar-md bg-soft-primary">
-                                    <i class="ti ti-users"></i>
-                                </div>
-                                <div class="media-body align-self-center ms-2 text-truncate">
-                                    <h6 class="my-0 fw-normal text-dark">Payment Successfull</h6>
-                                    <small class="text-muted mb-0">Dummy text of the printing.</small>
-                                </div><!--end media-body-->
-                            </div><!--end media-->
-                        </a><!--end-item-->
-                    </div>
-                    <!-- All-->
-                    <a href="javascript:void(0);" class="dropdown-item text-center text-primary">
-                        View all <i class="fi-arrow-right"></i>
-                    </a>
-                </div>
-            </li>
-
-            <li class="dropdown">
-                <a class="nav-link dropdown-toggle nav-user" data-bs-toggle="dropdown" href="#" role="button"
-                    aria-haspopup="false" aria-expanded="false">
-                    <div class="d-flex align-items-center">
-                        <img id="userImage" alt="profile-user" class="rounded-circle me-0 me-md-2 thumb-sm" />
-                        <div class="user-name">
-                            <small class="d-none d-lg-block font-11">Admin</small>
-                            <span class="d-none d-lg-block fw-semibold font-12" id="userName"><i
-                                    class="mdi mdi-chevron-down"></i></span>
-                        </div>
-                    </div>
-                </a>
-                <div class="dropdown-menu dropdown-menu-end">
-                    <a class="dropdown-item" href="javascript:void(0)"><i class="ti ti-user font-16 me-1 align-text-bottom"></i> Profile</a>
-                    <a class="dropdown-item" href="javascript:void(0)"><i class="ti ti-settings font-16 me-1 align-text-bottom"></i> Settings</a>
-                    <div class="dropdown-divider mb-0"></div>
-                    <a class="dropdown-item" href="javascript:void(0)"><i class="ti ti-power font-16 me-1 align-text-bottom"></i> Logout</a>
-                </div>
-            </li><!--end topbar-profile-->
-            <li class="menu-item">
-                <!-- Mobile menu toggle-->
-                <a class="navbar-toggle nav-link" id="mobileToggle" aria-label="Abrir menú lateral" tabindex="0">
-                    <div class="lines">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </div>
-                </a><!-- End mobile menu toggle-->
-            </li> <!--end menu item--> 
-        </ul><!--end topbar-nav-->
-
-        <div class="navbar-custom-menu">
-            <div id="navigation">
-                <!-- Navigation Menu-->
-                <ul class="navigation-menu">
-                    <li class="nav-item dropdown parent-menu-item">
-                        <a class="nav-link dropdown-toggle" href="javascript:void(0)" id="navbarDashboards" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" data-display="static">
-                            <span><i class="ti ti-smart-home menu-icon"></i>Dashboards</span>
-                        </a>
-                    </li><!--end nav-item-->
-
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="javascript:void(0)" id="navbarApps" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <span><i class="ti ti-apps menu-icon"></i>Apps</span>
-                        </a>
-                    </li><!--end nav-item--> 
-                    
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="javascript:void(0)" id="navbarUI_Kit" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                            <span><i class="ti ti-planet menu-icon"></i>UI Kit</span>
-                        </a>                    
-                </ul><!-- End navigation menu -->
-            </div> <!-- end navigation -->
-        </div>
-        <!-- Navbar -->
-    </nav>
-    <!-- end navbar-->
+<!-- Topbar profesional y responsive para móvil y desktop -->
+<div class="topbar-custom">
+    <button class="menu-toggle" aria-label="Abrir menú" onclick="toggleMobileSidebar()">
+        <i class="fas fa-bars"></i>
+    </button>
+    <div class="topbar-title">Agrotech Digital</div>
+    <div class="topbar-actions">
+        <button class="topbar-icon" aria-label="Notificaciones" disabled>
+            <i class="fas fa-bell"></i>
+        </button>
+        <button class="topbar-icon" aria-label="Perfil" disabled>
+            <i class="fas fa-user-circle"></i>
+        </button>
+    </div>
 </div>
-<!-- Top Bar End -->
+
+<!-- Menú lateral móvil (drawer) -->
+<div id="mobile-sidebar" class="mobile-sidebar" style="display: none;">
+    <!-- Logo -->
+    <div class="brand" style="padding: 32px 0 18px 0; text-align: center;">
+        <a href="#" class="logo">
+            <span>
+                <img src="/static/images/agrotech solo blanco.png" alt="logo-small" class="logo-sm" style="max-width: 80px; margin: 0 auto; display: block;">
+            </span>
+        </a>
+    </div>
+    <!-- Menú con rutas reales -->
+    <ul class="menu" style="padding: 0 0 10px 0; margin: 0;">
+        <li><a href="/dashboard/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-home" style="font-size: 1.2em;"></i> Dashboard</a></li>
+        <li><a href="/rrhh/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-user" style="font-size: 1.2em;"></i> Recursos Humanos</a></li>
+        <li><a href="/inventario/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-box" style="font-size: 1.2em;"></i> Inventario</a></li>
+        <li><a href="/configuracion/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-settings" style="font-size: 1.2em;"></i> Configuración</a></li>
+        <li><a href="/parcelas/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-map" style="font-size: 1.2em;"></i> Parcelas</a></li>
+        <li><a href="/labores/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="fa fa-tasks" style="font-size: 1.2em;"></i> Labores</a></li>
+        <li><a href="/cultivos/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="fa fa-tasks" style="font-size: 1.2em;"></i> Cultivos</a></li>
+    </ul>
+</div>
+
+<!-- Overlay para cerrar el menú móvil -->
+<div id="sidebar-overlay" class="sidebar-overlay" style="display: none;"></div>
+
+<style>
+.topbar-custom {
+    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2000;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(44,62,80,0.07);
+    border-bottom: 1px solid #e9ecef;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+}
+.menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    font-size: 28px;
+    color: #253445;
+    margin-right: 8px;
+    cursor: pointer;
+}
+.topbar-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #253445;
+    letter-spacing: 0.5px;
+}
+.topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.topbar-icon {
+    font-size: 22px;
+    color: #253445;
+    background: none;
+    border: none;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Mobile sidebar styles */
+.mobile-sidebar {
+    display: block;
+    position: fixed;
+    top: 56px;
+    left: 0;
+    width: 85vw;
+    max-width: 320px;
+    min-width: 220px;
+    height: calc(100vh - 56px);
+    background: #253445;
+    z-index: 4000;
+    box-shadow: 2px 0 12px rgba(44,62,80,0.12);
+    border-right: 1px solid #e9ecef;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    overflow-y: auto;
+    padding-top: 18px;
+}
+
+.mobile-sidebar.show {
+    transform: translateX(0);
+}
+
+.mobile-sidebar .menu li a:hover {
+    background-color: rgba(255,255,255,0.1);
+}
+
+.sidebar-overlay {
+    display: block;
+    position: fixed;
+    top: 56px;
+    left: 0;
+    width: 100vw;
+    height: calc(100vh - 56px);
+    background: rgba(44,62,80,0.18);
+    z-index: 3999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+
+.sidebar-overlay.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+@media (min-width: 768px) {
+    .topbar-custom {
+        height: 64px;
+        font-size: 1.2rem;
+        padding: 0 24px;
+    }
+    .menu-toggle {
+        display: none !important; /* Ocultar hamburguesa en desktop */
+    }
+    .topbar-title {
+        font-size: 1.2rem;
+    }
+    .topbar-icon {
+        font-size: 26px;
+    }
+    .mobile-sidebar,
+    .sidebar-overlay {
+        display: none !important; /* Ocultar en desktop */
+    }
+}
+</style>
 
 <!-- Contenido existente de horizontal-nav.html -->
 <script>
