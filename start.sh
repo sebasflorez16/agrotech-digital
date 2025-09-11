@@ -23,38 +23,48 @@ else
     echo "✅ DATABASE_URL configurado: ${DATABASE_URL:0:50}..."
 fi
 
-# Ejecutar setup de Railway con variables de entorno disponibles
-echo "🔧 Ejecutando setup de Railway..."
-echo "📋 Comando: python manage.py setup_railway"
+# Verificar que Django esté disponible antes del setup
+echo "🔧 Verificando disponibilidad de Django..."
+DJANGO_SETTINGS_MODULE=config.settings.production python -c "import django; print('Django disponible')" 2>/dev/null
+django_available=$?
 
-python manage.py setup_railway 2>&1
-setup_exit_code=$?
+if [ $django_available -eq 0 ]; then
+    # Ejecutar setup de Railway con variables de entorno disponibles
+    echo "🔧 Ejecutando setup de Railway..."
+    echo "📋 Comando: python manage.py setup_railway"
 
-echo "📊 Setup exit code: $setup_exit_code"
+    DJANGO_SETTINGS_MODULE=config.settings.production python manage.py setup_railway 2>&1
+    setup_exit_code=$?
 
-if [ $setup_exit_code -ne 0 ]; then
-    echo "❌ Setup de Railway falló con código: $setup_exit_code"
-    echo "🚨 Intentando script de emergencia..."
-    
-    # Fallback: ejecutar script de emergencia
-    python fix_railway_tables.py 2>&1
-    emergency_exit_code=$?
-    
-    echo "📊 Emergency script exit code: $emergency_exit_code"
-    
-    if [ $emergency_exit_code -ne 0 ]; then
-        echo "❌ Script de emergencia también falló"
-        echo "🚨 Continuando sin setup (puede causar errores)"
+    echo "📊 Setup exit code: $setup_exit_code"
+
+    if [ $setup_exit_code -ne 0 ]; then
+        echo "❌ Setup de Railway falló con código: $setup_exit_code"
+        echo "🚨 Intentando script de emergencia..."
+        
+        # Fallback: ejecutar script de emergencia
+        DJANGO_SETTINGS_MODULE=config.settings.production python fix_railway_tables.py 2>&1
+        emergency_exit_code=$?
+        
+        echo "📊 Emergency script exit code: $emergency_exit_code"
+        
+        if [ $emergency_exit_code -ne 0 ]; then
+            echo "❌ Script de emergencia también falló"
+            echo "🚨 Continuando sin setup (puede causar errores)"
+        else
+            echo "✅ Script de emergencia completado exitosamente"
+        fi
     else
-        echo "✅ Script de emergencia completado exitosamente"
+        echo "✅ Setup de Railway completado exitosamente"
     fi
 else
-    echo "✅ Setup de Railway completado exitosamente"
+    echo "⚠️ Django no disponible, saltando setup de Railway"
+    echo "🚨 Continuando con inicio del servidor..."
 fi
 
 # Recopilar archivos estáticos para producción
 echo "📁 Recopilando archivos estáticos..."
-python manage.py collectstatic --noinput --clear
+DJANGO_SETTINGS_MODULE=config.settings.production python manage.py collectstatic --noinput --clear
 collectstatic_exit_code=$?
 
 if [ $collectstatic_exit_code -eq 0 ]; then
@@ -75,4 +85,5 @@ exec gunicorn config.wsgi \
     --max-requests-jitter 100 \
     --log-level info \
     --access-logfile - \
-    --error-logfile -
+    --error-logfile - \
+    --env DJANGO_SETTINGS_MODULE=config.settings.production
