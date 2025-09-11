@@ -57,7 +57,7 @@ LOCALE_PATHS = [str(ROOT_DIR / "locale")]
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 
-# Configuración base para desarrollo local
+# Configuración base para desarrollo local (se sobrescribe en production.py)
 DATABASES = {
     'default': {
         'ENGINE': 'django_tenants.postgresql_backend',
@@ -69,6 +69,8 @@ DATABASES = {
         'ATOMIC_REQUESTS': True,
     }
 }
+
+# NOTA: Esta configuración se sobrescribe completamente en production.py para Railway
 
 
 DATABASE_ROUTERS = (

@@ -21,7 +21,9 @@ import os
 from urllib.parse import urlparse
 
 # Parsear DATABASE_URL manualmente para django-tenants
+
 DATABASE_URL = env("DATABASE_URL")
+print(f"DATABASE_URL encontrado: {DATABASE_URL[:50]}...")
 url = urlparse(DATABASE_URL)
 
 DATABASES = {
@@ -31,11 +33,14 @@ DATABASES = {
         "USER": url.username,
         "PASSWORD": url.password,
         "HOST": url.hostname,
-        "PORT": url.port or 5432,
+        "PORT": url.port or 8080,
         "ATOMIC_REQUESTS": True,
         "CONN_MAX_AGE": env.int("CONN_MAX_AGE", default=60),
     }
 }
+print(f"Configuración DB - HOST: {url.hostname}, NAME: {url.path[1:]}, USER: {url.username}")
+    
+
 
 # MIDDLEWARE - Agregar WhiteNoise después de SecurityMiddleware
 # ------------------------------------------------------------------------------
