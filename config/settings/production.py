@@ -16,64 +16,84 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
 
 # DATABASES
 # ------------------------------------------------------------------------------
-# Configuración dinámica para Railway - lazy loading de DATABASE_URL
+# Configuración dinámica para Railway - lazy loading REAL de DATABASE_URL
 import os
 from urllib.parse import urlparse
 
-def get_database_config():
-    """Configuración dinámica de base de datos para Railway"""
-    try:
-        # Intentar obtener DATABASE_URL
+class DatabaseConfig:
+    """Configuración de base de datos con lazy loading real"""
+    
+    def __init__(self):
+        self._config = None
+    
+    def __getitem__(self, key):
+        if self._config is None:
+            self._config = self._get_runtime_config()
+        return self._config[key]
+    
+    def get(self, key, default=None):
+        if self._config is None:
+            self._config = self._get_runtime_config()
+        return self._config.get(key, default)
+    
+    def items(self):
+        if self._config is None:
+            self._config = self._get_runtime_config()
+        return self._config.items()
+    
+    def keys(self):
+        if self._config is None:
+            self._config = self._get_runtime_config()
+        return self._config.keys()
+    
+    def values(self):
+        if self._config is None:
+            self._config = self._get_runtime_config()
+        return self._config.values()
+    
+    def _get_runtime_config(self):
+        """Obtener configuración en tiempo de ejecución"""
         database_url = os.environ.get('DATABASE_URL')
         
-        if database_url:
-            print(f"DATABASE_URL encontrado en runtime: {database_url[:50]}...")
-            url = urlparse(database_url)
-            
-            config = {
-                "ENGINE": "django_tenants.postgresql_backend",
-                "NAME": url.path[1:],  # Quitar '/' inicial
-                "USER": url.username,
-                "PASSWORD": url.password,
-                "HOST": url.hostname,
-                "PORT": url.port or 5432,
-                "ATOMIC_REQUESTS": True,
-                "CONN_MAX_AGE": int(os.environ.get("CONN_MAX_AGE", "60")),
-                "OPTIONS": {
-                    "connect_timeout": 30,
-                    "application_name": "agrotech_railway",
+        if database_url and 'localhost' not in database_url:
+            print(f"✅ DATABASE_URL encontrado en runtime: {database_url[:50]}...")
+            try:
+                url = urlparse(database_url)
+                config = {
+                    "ENGINE": "django_tenants.postgresql_backend",
+                    "NAME": url.path[1:],  # Quitar '/' inicial
+                    "USER": url.username,
+                    "PASSWORD": url.password,
+                    "HOST": url.hostname,
+                    "PORT": url.port or 5432,
+                    "ATOMIC_REQUESTS": True,
+                    "CONN_MAX_AGE": int(os.environ.get("CONN_MAX_AGE", "60")),
+                    "OPTIONS": {
+                        "connect_timeout": 30,
+                        "application_name": "agrotech_railway",
+                    }
                 }
-            }
-            print(f"Configuración DB - HOST: {url.hostname}, NAME: {url.path[1:]}, USER: {url.username}")
-            return config
-        else:
-            print("DATABASE_URL no encontrado, usando configuración por defecto")
-            # Configuración fallback para desarrollo
-            return {
-                "ENGINE": "django_tenants.postgresql_backend",
-                "NAME": "agrotech",
-                "USER": "postgres",
-                "PASSWORD": "password",
-                "HOST": "localhost",
-                "PORT": "5432",
-                "ATOMIC_REQUESTS": True,
-                "CONN_MAX_AGE": 60,
-            }
-    except Exception as e:
-        print(f"Error configurando base de datos: {e}")
-        # Configuración mínima de emergencia
+                print(f"✅ Config DB - HOST: {url.hostname}, NAME: {url.path[1:]}, USER: {url.username}")
+                return config
+            except Exception as e:
+                print(f"❌ Error parseando DATABASE_URL: {e}")
+        
+        # Solo usar localhost en desarrollo local
+        print("⚠️ Usando configuración localhost (desarrollo)")
         return {
             "ENGINE": "django_tenants.postgresql_backend",
-            "NAME": "railway",
-            "USER": "postgres", 
-            "PASSWORD": "",
+            "NAME": "agrotech",
+            "USER": "postgres",
+            "PASSWORD": "password",
             "HOST": "localhost",
             "PORT": "5432",
+            "ATOMIC_REQUESTS": True,
+            "CONN_MAX_AGE": 60,
         }
 
-# Configurar DATABASES con lazy loading
+# Usar proxy para lazy loading real
 DATABASES = {
-    "default": get_database_config()
+    "default": DatabaseConfig()
 }
     
 

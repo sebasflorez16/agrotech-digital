@@ -2,7 +2,17 @@
 
 echo "🚀 Iniciando aplicación AgroTech Digital..."
 
-# Configurar variables de entorno críticas
+# PASO 1: Configurar entorno crítico ANTES de Django
+echo "🔧 Ejecutando configuración de entorno Railway..."
+python3 railway_env_setup.py
+env_setup_code=$?
+
+if [ $env_setup_code -ne 0 ]; then
+    echo "❌ Configuración de entorno falló"
+    echo "🚨 Continuando con configuración manual..."
+fi
+
+# PASO 2: Configurar variables de entorno críticas
 export DJANGO_SETTINGS_MODULE="config.settings.production"
 
 # Detectar puerto de Railway
