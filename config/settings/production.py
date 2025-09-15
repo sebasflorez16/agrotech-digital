@@ -38,14 +38,6 @@ if DATABASE_URL and 'localhost' not in DATABASE_URL:
             "PORT": url.port or 5432,
             "ATOMIC_REQUESTS": False,  # Importante para django-tenants
             "CONN_MAX_AGE": 0,  # Desactivar pooling para evitar problemas con schemas
-            "OPTIONS": {
-                "connect_timeout": 60,
-                "application_name": "agrotech_railway",
-                "isolation_level": None,  # Permitir autocommit para django-tenants
-            },
-            "TEST": {
-                "NAME": "test_railway",
-            }
         }
     }
     print(f"✅ DB Config - HOST: {url.hostname}, NAME: {url.path[1:]}")
