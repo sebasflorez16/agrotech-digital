@@ -16,29 +16,65 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
 
 # DATABASES
 # ------------------------------------------------------------------------------
-# Configuración manual para django-tenants en Railway
+# Configuración dinámica para Railway - lazy loading de DATABASE_URL
 import os
 from urllib.parse import urlparse
 
-# Parsear DATABASE_URL manualmente para django-tenants
+def get_database_config():
+    """Configuración dinámica de base de datos para Railway"""
+    try:
+        # Intentar obtener DATABASE_URL
+        database_url = os.environ.get('DATABASE_URL')
+        
+        if database_url:
+            print(f"DATABASE_URL encontrado en runtime: {database_url[:50]}...")
+            url = urlparse(database_url)
+            
+            config = {
+                "ENGINE": "django_tenants.postgresql_backend",
+                "NAME": url.path[1:],  # Quitar '/' inicial
+                "USER": url.username,
+                "PASSWORD": url.password,
+                "HOST": url.hostname,
+                "PORT": url.port or 5432,
+                "ATOMIC_REQUESTS": True,
+                "CONN_MAX_AGE": int(os.environ.get("CONN_MAX_AGE", "60")),
+                "OPTIONS": {
+                    "connect_timeout": 30,
+                    "application_name": "agrotech_railway",
+                }
+            }
+            print(f"Configuración DB - HOST: {url.hostname}, NAME: {url.path[1:]}, USER: {url.username}")
+            return config
+        else:
+            print("DATABASE_URL no encontrado, usando configuración por defecto")
+            # Configuración fallback para desarrollo
+            return {
+                "ENGINE": "django_tenants.postgresql_backend",
+                "NAME": "agrotech",
+                "USER": "postgres",
+                "PASSWORD": "password",
+                "HOST": "localhost",
+                "PORT": "5432",
+                "ATOMIC_REQUESTS": True,
+                "CONN_MAX_AGE": 60,
+            }
+    except Exception as e:
+        print(f"Error configurando base de datos: {e}")
+        # Configuración mínima de emergencia
+        return {
+            "ENGINE": "django_tenants.postgresql_backend",
+            "NAME": "railway",
+            "USER": "postgres", 
+            "PASSWORD": "",
+            "HOST": "localhost",
+            "PORT": "5432",
+        }
 
-DATABASE_URL = env("DATABASE_URL")
-print(f"DATABASE_URL encontrado: {DATABASE_URL[:50]}...")
-url = urlparse(DATABASE_URL)
-
+# Configurar DATABASES con lazy loading
 DATABASES = {
-    "default": {
-        "ENGINE": "django_tenants.postgresql_backend",  # Motor específico de django-tenants
-        "NAME": url.path[1:],  # Quitar '/' inicial
-        "USER": url.username,
-        "PASSWORD": url.password,
-        "HOST": url.hostname,
-        "PORT": url.port or 8080,
-        "ATOMIC_REQUESTS": True,
-        "CONN_MAX_AGE": env.int("CONN_MAX_AGE", default=60),
-    }
+    "default": get_database_config()
 }
-print(f"Configuración DB - HOST: {url.hostname}, NAME: {url.path[1:]}, USER: {url.username}")
     
 
 

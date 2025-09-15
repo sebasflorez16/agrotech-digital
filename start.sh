@@ -21,11 +21,16 @@ if [ -z "$DATABASE_URL" ]; then
     exit 1
 else
     echo "✅ DATABASE_URL configurado: ${DATABASE_URL:0:50}..."
+    # Exportar explícitamente para que esté disponible en subprocesos
+    export DATABASE_URL=$DATABASE_URL
 fi
+
+# Asegurar que las variables estén disponibles para Django
+export DJANGO_SETTINGS_MODULE="config.settings.production"
 
 # Verificar que Django esté disponible antes del setup
 echo "🔧 Verificando disponibilidad de Django..."
-DJANGO_SETTINGS_MODULE=config.settings.production python -c "import django; print('Django disponible')" 2>/dev/null
+python -c "import django; print('✅ Django disponible')" 2>/dev/null
 django_available=$?
 
 if [ $django_available -eq 0 ]; then
@@ -33,7 +38,7 @@ if [ $django_available -eq 0 ]; then
     echo "🔧 Ejecutando setup de Railway..."
     echo "📋 Comando: python manage.py setup_railway"
 
-    DJANGO_SETTINGS_MODULE=config.settings.production python manage.py setup_railway 2>&1
+    python manage.py setup_railway 2>&1
     setup_exit_code=$?
 
     echo "📊 Setup exit code: $setup_exit_code"
@@ -43,7 +48,7 @@ if [ $django_available -eq 0 ]; then
         echo "🚨 Intentando script de emergencia..."
         
         # Fallback: ejecutar script de emergencia
-        DJANGO_SETTINGS_MODULE=config.settings.production python fix_railway_tables.py 2>&1
+        python fix_railway_tables.py 2>&1
         emergency_exit_code=$?
         
         echo "📊 Emergency script exit code: $emergency_exit_code"
@@ -64,7 +69,7 @@ fi
 
 # Recopilar archivos estáticos para producción
 echo "📁 Recopilando archivos estáticos..."
-DJANGO_SETTINGS_MODULE=config.settings.production python manage.py collectstatic --noinput --clear
+python manage.py collectstatic --noinput --clear
 collectstatic_exit_code=$?
 
 if [ $collectstatic_exit_code -eq 0 ]; then
