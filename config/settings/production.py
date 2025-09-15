@@ -16,71 +16,41 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
 
 # DATABASES
 # ------------------------------------------------------------------------------
-# Configuración dinámica para Railway - lazy loading REAL de DATABASE_URL
+# Configuración simplificada para Railway con fallback inmediato
 import os
 from urllib.parse import urlparse
 
-class DatabaseConfig:
-    """Configuración de base de datos con lazy loading real"""
+# Intentar obtener DATABASE_URL inmediatamente
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL and 'localhost' not in DATABASE_URL:
+    # Parsear URL de Railway
+    print(f"✅ Railway DATABASE_URL detectado: {DATABASE_URL[:50]}...")
+    url = urlparse(DATABASE_URL)
     
-    def __init__(self):
-        self._config = None
+    DATABASES = {
+        "default": {
+            "ENGINE": "django_tenants.postgresql_backend",
+            "NAME": url.path[1:],  # Quitar '/' inicial
+            "USER": url.username,
+            "PASSWORD": url.password,
+            "HOST": url.hostname,
+            "PORT": url.port or 5432,
+            "ATOMIC_REQUESTS": True,
+            "CONN_MAX_AGE": int(os.environ.get("CONN_MAX_AGE", "60")),
+            "OPTIONS": {
+                "connect_timeout": 30,
+                "application_name": "agrotech_railway",
+            }
+        }
+    }
+    print(f"✅ DB Config - HOST: {url.hostname}, NAME: {url.path[1:]}")
     
-    def __getitem__(self, key):
-        if self._config is None:
-            self._config = self._get_runtime_config()
-        return self._config[key]
-    
-    def get(self, key, default=None):
-        if self._config is None:
-            self._config = self._get_runtime_config()
-        return self._config.get(key, default)
-    
-    def items(self):
-        if self._config is None:
-            self._config = self._get_runtime_config()
-        return self._config.items()
-    
-    def keys(self):
-        if self._config is None:
-            self._config = self._get_runtime_config()
-        return self._config.keys()
-    
-    def values(self):
-        if self._config is None:
-            self._config = self._get_runtime_config()
-        return self._config.values()
-    
-    def _get_runtime_config(self):
-        """Obtener configuración en tiempo de ejecución"""
-        database_url = os.environ.get('DATABASE_URL')
-        
-        if database_url and 'localhost' not in database_url:
-            print(f"✅ DATABASE_URL encontrado en runtime: {database_url[:50]}...")
-            try:
-                url = urlparse(database_url)
-                config = {
-                    "ENGINE": "django_tenants.postgresql_backend",
-                    "NAME": url.path[1:],  # Quitar '/' inicial
-                    "USER": url.username,
-                    "PASSWORD": url.password,
-                    "HOST": url.hostname,
-                    "PORT": url.port or 5432,
-                    "ATOMIC_REQUESTS": True,
-                    "CONN_MAX_AGE": int(os.environ.get("CONN_MAX_AGE", "60")),
-                    "OPTIONS": {
-                        "connect_timeout": 30,
-                        "application_name": "agrotech_railway",
-                    }
-                }
-                print(f"✅ Config DB - HOST: {url.hostname}, NAME: {url.path[1:]}, USER: {url.username}")
-                return config
-            except Exception as e:
-                print(f"❌ Error parseando DATABASE_URL: {e}")
-        
-        # Solo usar localhost en desarrollo local
-        print("⚠️ Usando configuración localhost (desarrollo)")
-        return {
+else:
+    # Configuración por defecto solo para desarrollo local
+    print("⚠️ DATABASE_URL no encontrado, usando localhost")
+    DATABASES = {
+        "default": {
             "ENGINE": "django_tenants.postgresql_backend",
             "NAME": "agrotech",
             "USER": "postgres",
@@ -90,11 +60,7 @@ class DatabaseConfig:
             "ATOMIC_REQUESTS": True,
             "CONN_MAX_AGE": 60,
         }
-
-# Usar proxy para lazy loading real
-DATABASES = {
-    "default": DatabaseConfig()
-}
+    }
     
 
 

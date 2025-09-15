@@ -2,17 +2,31 @@
 
 echo "🚀 Iniciando aplicación AgroTech Digital..."
 
-# PASO 1: Configurar entorno crítico ANTES de Django
-echo "🔧 Ejecutando configuración de entorno Railway..."
-python3 railway_env_setup.py
-env_setup_code=$?
+# CRÍTICO: Verificar variables ANTES de cualquier cosa
+echo "� Verificando variables críticas de Railway..."
 
-if [ $env_setup_code -ne 0 ]; then
-    echo "❌ Configuración de entorno falló"
-    echo "🚨 Continuando con configuración manual..."
+# Listar todas las variables que pueden contener DB info
+echo "📋 Variables de entorno disponibles:"
+env | grep -E "(DATABASE|POSTGRES|DB_|RAILWAY)" | head -10
+
+# Verificar DATABASE_URL específicamente
+if [ -z "$DATABASE_URL" ]; then
+    echo "❌ DATABASE_URL no está configurado"
+    echo "🔍 Buscando variables alternativas..."
+    
+    # Intentar construir DATABASE_URL desde variables separadas
+    if [ ! -z "$PGHOST" ] && [ ! -z "$PGDATABASE" ]; then
+        export DATABASE_URL="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE"
+        echo "✅ DATABASE_URL construido desde variables PG: ${DATABASE_URL:0:50}..."
+    else
+        echo "❌ No se pueden construir credenciales de base de datos"
+        echo "🚨 La aplicación puede fallar"
+    fi
+else
+    echo "✅ DATABASE_URL configurado: ${DATABASE_URL:0:50}..."
 fi
 
-# PASO 2: Configurar variables de entorno críticas
+# Configurar variables de entorno críticas
 export DJANGO_SETTINGS_MODULE="config.settings.production"
 
 # Detectar puerto de Railway
