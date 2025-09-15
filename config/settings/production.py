@@ -16,7 +16,7 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
 
 # DATABASES
 # ------------------------------------------------------------------------------
-# Configuración simplificada para Railway con fallback inmediato
+# Configuración optimizada para Railway con django-tenants
 import os
 from urllib.parse import urlparse
 
@@ -36,11 +36,15 @@ if DATABASE_URL and 'localhost' not in DATABASE_URL:
             "PASSWORD": url.password,
             "HOST": url.hostname,
             "PORT": url.port or 5432,
-            "ATOMIC_REQUESTS": True,
-            "CONN_MAX_AGE": int(os.environ.get("CONN_MAX_AGE", "60")),
+            "ATOMIC_REQUESTS": False,  # Importante para django-tenants
+            "CONN_MAX_AGE": 0,  # Desactivar pooling para evitar problemas con schemas
             "OPTIONS": {
-                "connect_timeout": 30,
+                "connect_timeout": 60,
                 "application_name": "agrotech_railway",
+                "isolation_level": None,  # Permitir autocommit para django-tenants
+            },
+            "TEST": {
+                "NAME": "test_railway",
             }
         }
     }
@@ -57,8 +61,8 @@ else:
             "PASSWORD": "password",
             "HOST": "localhost",
             "PORT": "5432",
-            "ATOMIC_REQUESTS": True,
-            "CONN_MAX_AGE": 60,
+            "ATOMIC_REQUESTS": False,
+            "CONN_MAX_AGE": 0,
         }
     }
     
