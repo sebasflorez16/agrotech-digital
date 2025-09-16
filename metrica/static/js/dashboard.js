@@ -30,7 +30,7 @@ function checkAuth() {
 
     //Validar si el token es realmente válido llamando a una API protegida
     const dashboardUrl = window.ApiUrls ? window.ApiUrls.auth() + '/dashboard/' : 
-                        `${window.location.protocol}//${window.location.hostname}:8000/api/authentication/dashboard/`;
+                        `${window.location.origin}/api/authentication/dashboard/`;
     
     fetch(dashboardUrl, {
         method: "GET",

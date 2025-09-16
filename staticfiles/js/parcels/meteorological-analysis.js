@@ -179,10 +179,8 @@ function loadMeteorologicalAnalysisWithRefresh(parcelId) {
     
     showMeteorologicalLoading(true);
     
-    // Construir URL con timestamp para evitar cache
-    const baseUrl = window.location.hostname === 'localhost' || window.location.hostname.includes('localhost') 
-        ? `http://${window.location.hostname}:8000` 
-        : window.location.origin;
+    // Construir URL - usar siempre window.location.origin para producción
+    const baseUrl = window.location.origin;
     const endpoint = `${baseUrl}/api/parcels/parcel/${parcelId}/ndvi-weather-comparison/?refresh=${Date.now()}`;
     
     console.log(`[METEOROLOGICAL] Haciendo petición de actualización a: ${endpoint}`);
@@ -245,10 +243,8 @@ function loadMeteorologicalAnalysisInternal(parcelId) {
     
     showMeteorologicalLoading(true);
     
-    // Usar directamente el endpoint que funciona
-    const baseUrl = window.location.hostname === 'localhost' || window.location.hostname.includes('localhost') 
-        ? `http://${window.location.hostname}:8000` 
-        : window.location.origin;
+    // Usar siempre window.location.origin para producción
+    const baseUrl = window.location.origin;
     const endpoint = `${baseUrl}/api/parcels/parcel/${parcelId}/ndvi-weather-comparison/`;
     
     console.log(`[METEOROLOGICAL] Haciendo petición a: ${endpoint}`);
@@ -713,10 +709,8 @@ function loadWeatherForecast(parcelId) {
     
     showMeteorologicalLoading(true);
     
-    // Usar directamente el endpoint del pronóstico
-    const baseUrl = window.location.hostname === 'localhost' || window.location.hostname.includes('localhost') 
-        ? `http://${window.location.hostname}:8000` 
-        : window.location.origin;
+    // Usar siempre window.location.origin para producción
+    const baseUrl = window.location.origin;
     // Usar la ruta directa para evitar conflictos de routing
     const endpoint = `${baseUrl}/api/parcels/get-weather-forecast/${parcelId}/`;
     

@@ -11,9 +11,9 @@ async function fetchParcelSummary() {
             return;
         }
 
-        // NOTA: Usamos window.location.hostname para que la URL sea dinámica y soporte multi-tenant.
+        // NOTA: Usamos window.location.origin para que la URL sea dinámica y soporte multi-tenant.
         // Así, cada tenant accede a su propio subdominio/API sin hardcodear el host.
-        const url = `http://${window.location.hostname}:8000/api/parcels/parcel/summary/`;
+        const url = `${window.location.origin}/api/parcels/parcel/summary/`;
         const resp = await fetch(url, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -115,7 +115,7 @@ async function fetchParcels() {
             return;
         }
 
-        const url = `http://${window.location.hostname}:8000/api/parcels/parcel/list-parcels/`;
+        const url = `${window.location.origin}/api/parcels/parcel/list-parcels/`;
         const resp = await fetch(url, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -227,7 +227,7 @@ function renderChart(chartElementId, chartTitle, dataValues, dataLabels, color) 
 
 async function updateNDVIChart(polygon) {
     const token = localStorage.getItem("accessToken");
-    const url = `http://${window.location.hostname}:8000/api/parcels/parcel/ndvi-historical/`;
+    const url = `${window.location.origin}/api/parcels/parcel/ndvi-historical/`;
 
     const ndviData = await fetchChartData(url, polygon, token);
     if (ndviData) {
@@ -239,7 +239,7 @@ async function updateNDVIChart(polygon) {
 
 async function updateWaterStressChart(polygon) {
     const token = localStorage.getItem("accessToken");
-    const url = `http://${window.location.hostname}:8000/api/parcels/parcel/water-stress-historical/`;
+    const url = `${window.location.origin}/api/parcels/parcel/water-stress-historical/`;
 
     const waterStressData = await fetchChartData(url, polygon, token);
     if (waterStressData) {
@@ -262,7 +262,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function updateTable(parcelId) {
         try {
             const token = localStorage.getItem("accessToken");
-            const url = `http://${window.location.hostname}:8000/api/parcels/parcel/${parcelId}/`;
+            const url = `${window.location.origin}/api/parcels/parcel/${parcelId}/`;
             const resp = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${token}`,

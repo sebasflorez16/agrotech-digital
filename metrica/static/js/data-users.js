@@ -8,7 +8,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Llamada a la API para obtener los datos del usuario autenticado
-    fetch(`http://${window.location.hostname}:8000/api/authentication/user/`, {
+    fetch(`${window.location.origin}/api/authentication/user/`, {
         method: "GET",
         headers: { "Authorization": `Bearer ${token}` }
     })

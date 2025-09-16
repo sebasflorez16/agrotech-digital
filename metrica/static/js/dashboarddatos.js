@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
 function fetchUserCount() {
     let token = localStorage.getItem("accessToken");
 
-    fetch(`http://${window.location.hostname}:8000/api/authentication/dashboard/`, {  //Ruta correcta
+    fetch(`${window.location.origin}/api/authentication/dashboard/`, {  //Ruta correcta
         method: "GET",
         headers: { "Authorization": `Bearer ${token}` }
     })
