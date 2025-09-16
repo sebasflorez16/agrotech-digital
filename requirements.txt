@@ -1,3 +1,4 @@
+django-redis==5.4.0
 dj-database-url
 whitenoise==6.6.0
 annotated-types==0.7.0
