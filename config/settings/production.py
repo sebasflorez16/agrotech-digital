@@ -147,3 +147,28 @@ CACHES = {
         },
     }
 }
+
+# CSRF Configuration for multi-tenant
+# ------------------------------------------------------------------------------
+CSRF_TRUSTED_ORIGINS = [
+    "https://agrotechcolombia.com",
+    "https://www.agrotechcolombia.com",
+    "https://agrotech-digital-production.up.railway.app",
+    "https://*.agrotechcolombia.com",  # Para subdominios de clientes
+    "https://*.railway.app",
+]
+
+# Cookie settings for multi-tenant
+CSRF_COOKIE_DOMAIN = None  # Permite que cada tenant maneje sus propias cookies
+CSRF_COOKIE_SECURE = True  # Solo HTTPS en producción
+CSRF_COOKIE_HTTPONLY = True  # Seguridad adicional
+CSRF_COOKIE_SAMESITE = 'Lax'  # Compatibilidad con subdominios
+
+# Session settings
+SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = 'Lax'
+
+# Configuración adicional para django-tenants
+USE_TZ = True
+CSRF_USE_SESSIONS = False  # Usar cookies en lugar de sesiones para CSRF
