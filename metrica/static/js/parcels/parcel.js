@@ -252,7 +252,7 @@ window.clearEOSDACache = function() {
     console.log('[CACHE CLEARED] Cache de EOSDA limpiado');
 };
 
-const BASE_URL = window.ApiUrls ? window.ApiUrls.parcels() : `${window.location.protocol}//${window.location.hostname}:8000/api/parcels`;
+const BASE_URL = window.ApiUrls ? window.ApiUrls.parcels() : `${window.location.origin}/api/parcels`;
 
 // Inicializar el mapa de Cesium
 // Variables globales

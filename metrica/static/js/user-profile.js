@@ -10,7 +10,7 @@ function fetchAndRenderUserProfile() {
     }
 
     const baseUrl = window.location.origin;
-    const endpoint = `http://${window.location.hostname}:8000/users/api/profile-utils/`;
+    const endpoint = `${window.location.origin}/users/api/profile-utils/`;
 
     fetch(endpoint, { 
         method: 'GET',

@@ -172,3 +172,28 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 # Configuración adicional para django-tenants
 USE_TZ = True
 CSRF_USE_SESSIONS = False  # Usar cookies en lugar de sesiones para CSRF
+
+# CORS Configuration - Para resolver problemas de peticiones entre dominios
+# ------------------------------------------------------------------------------
+CORS_ALLOWED_ORIGINS = [
+    "https://agrotechcolombia.com",
+    "https://www.agrotechcolombia.com", 
+    "https://agrotech-digital-production.up.railway.app",
+    "https://*.agrotechcolombia.com",  # Para subdominios de clientes
+]
+
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_ORIGINS = False  # Solo dominios específicos
+
+# Headers permitidos para CORS
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
