@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Establece la variable de entorno para Django en producción
+ENV DJANGO_SETTINGS_MODULE=config.settings.production
+
 # Copia requirements primero para aprovechar cache de Docker
 COPY requirements.txt /app/
 

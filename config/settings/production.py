@@ -8,6 +8,8 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
 # Permitir el dominio de Railway y configuración por variable de entorno
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
+    "agrotechcolombia.com",
+    "www.agrotechcolombia.com",
     "agrotech-digital-production.up.railway.app",
     ".railway.app",  # Permitir cualquier subdominio de Railway
     "localhost",
