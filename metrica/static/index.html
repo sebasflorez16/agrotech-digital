@@ -440,9 +440,7 @@
          * Redirige al usuario al login del backend con redirección al frontend
          */
         function redirectToLogin() {
-            // Redirige al login del backend con parámetro next para volver al frontend tras login
-            const nextUrl = encodeURIComponent(window.location.origin);
-            window.location.href = `https://agrotechcolombia.com/authentication/login/?next=${nextUrl}`;
+            window.location.href = `https://agrotechcolombia.com/authentication/login/?next=https://site-production-208b.up.railway.app/vertical_base.html`;
         }
 
         /**

@@ -178,7 +178,7 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 # NOTA: No se usa CORS_ALLOW_ALL_ORIGINS=True para evitar riesgos de seguridad y exposición del API key de EOSDA.
 
 
-LOGIN_REDIRECT_URL = "https://site-production-208b.up.railway.app/vertical_base.html"  # Redirige al dashboard después de login
+LOGIN_REDIRECT_URL = "https://site-production-208b.up.railway.app/vertical_base.html"  # Redirige al dashboard del frontend después de login
 LOGIN_URL = "/authentication/login/"  # Redirige a la página de login si no estás autenticado
 ACCOUNT_LOGOUT_REDIRECT_URL = "/authentication/login/"  # Redirige al login después de logout
 

@@ -208,4 +208,4 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 ]
 
 # Redirigir al frontend estático después del login
-LOGIN_REDIRECT_URL = "https://site-production-208b.up.railway.app/templates/vertical_base.html"
+LOGIN_REDIRECT_URL = "https://site-production-208b.up.railway.app/vertical_base.html"
