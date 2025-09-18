@@ -171,13 +171,14 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https?://[\w\-]+\.localhost:3000$",  # Por ejemplo: tenant1.localhost:3000
     r"^https?://localhost:3000$",             # También acceso directo
     r"^https?://[\w\-]+\.localhost:8000$",  # Por si acceden directo al backend
-    r"^https://agrotech-digital-production\.up\.railway\.app$",  # Backend en Railway
+    r"^https://agrotechcolombia\.com$",  # Backend en Railway
+    r"^https://site-production-208b.up.railway.app/$",  # Backend en Railway
 ]
 
 # NOTA: No se usa CORS_ALLOW_ALL_ORIGINS=True para evitar riesgos de seguridad y exposición del API key de EOSDA.
 
 
-LOGIN_REDIRECT_URL = "/authentication/dashboard/"  # Redirige al dashboard después de login
+LOGIN_REDIRECT_URL = "https://site-production-208b.up.railway.app/vertical_base.html"  # Redirige al dashboard después de login
 LOGIN_URL = "/authentication/login/"  # Redirige a la página de login si no estás autenticado
 ACCOUNT_LOGOUT_REDIRECT_URL = "/authentication/login/"  # Redirige al login después de logout
 

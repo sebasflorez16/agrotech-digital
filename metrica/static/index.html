@@ -327,7 +327,7 @@
             <p>Monitorea tus cultivos con análisis NDVI, estrés hídrico y pronósticos meteorológicos precisos</p>
             <div class="hero-buttons">
                 <a href="#" class="btn-primary" onclick="redirectToLogin()">Acceder a la Plataforma</a>
-                <a href="/templates/vertical_base.html" class="btn-secondary">Dashboard</a>
+                <a href="http://agrotechcolombia.com/templates/authentication/login.html" class="btn-secondary">Dashboard</a>
                 <a href="#api" class="btn-secondary">Ver API</a>
             </div>
         </div>
@@ -434,15 +434,15 @@
     <!-- JavaScript -->
     <script>
         // Configuración del backend - CAMBIAR POR TU URL DE RAILWAY
-        const BACKEND_URL = 'https://agrotech-digital-production.up.railway.app'; // Reemplaza con tu URL real
+        const BACKEND_URL = 'https://agrotechcolombia.com'; // Reemplaza con tu URL real
         
         /**
          * Redirige al usuario al login del backend con redirección al frontend
          */
         function redirectToLogin() {
-            // Ir directamente a la página de login del backend con parámetro next
-            const nextUrl = encodeURIComponent('https://site-production-208b.up.railway.app/templates/vertical_base.html');
-            window.location.href = `https://agrotechcolombia.com/templates/authentication/login.html?next=${nextUrl}`;
+            // Redirige al login del backend con parámetro next para volver al frontend tras login
+            const nextUrl = encodeURIComponent(window.location.origin);
+            window.location.href = `https://agrotechcolombia.com/authentication/login/?next=${nextUrl}`;
         }
 
         /**
