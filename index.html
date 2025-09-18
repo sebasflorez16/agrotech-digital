@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agrotech Digital - Tecnología para el Campo</title>
+    <meta name="description" content="Plataforma de análisis satelital y monitoreo agrícola con tecnología EOSDA. Optimiza tus cultivos con datos precisos.">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    
+    <!-- CSS Styles -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Header */
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2d5aa0;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            list-style: none;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: #333;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: #2d5aa0;
+        }
+
+        .btn-login {
+            background: #2d5aa0;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .btn-login:hover {
+            background: #1e3d72;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(45, 90, 160, 0.3);
+        }
+
+        /* Hero Section */
+        .hero {
+            padding: 5rem 0;
+            text-align: center;
+            color: white;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1rem;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            opacity: 0.9;
+        }
+
+        .hero-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary {
+            background: #28a745;
+            color: white;
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .btn-primary:hover {
+            background: #1e7e34;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            padding: 1rem 2rem;
+            border: 2px solid white;
+            border-radius: 30px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+
+        .btn-secondary:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        /* Features Section */
+        .features {
+            background: white;
+            padding: 5rem 0;
+        }
+
+        .features h2 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 3rem;
+            color: #2d5aa0;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: #f8f9fa;
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: center;
+            transition: transform 0.3s;
+            border: 1px solid #e9ecef;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            color: #2d5aa0;
+            margin-bottom: 1rem;
+        }
+
+        /* API Demo Section */
+        .api-demo {
+            background: #f8f9fa;
+            padding: 4rem 0;
+        }
+
+        .api-demo h2 {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: #2d5aa0;
+        }
+
+        .demo-container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .api-endpoint {
+            background: #2d5aa0;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            margin-bottom: 1rem;
+            word-break: break-all;
+        }
+
+        .api-response {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 5px;
+            border-left: 4px solid #28a745;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+
+        /* Footer */
+        footer {
+            background: #2d5aa0;
+            color: white;
+            text-align: center;
+            padding: 2rem 0;
+        }
+
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-section h3 {
+            margin-bottom: 1rem;
+        }
+
+        .footer-section a {
+            color: #bdd0ff;
+            text-decoration: none;
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-section a:hover {
+            color: white;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+
+            .hero-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Loading animation */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #2d5aa0;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <nav class="container">
+            <a href="#" class="logo">🌱 Agrotech Digital</a>
+            <ul class="nav-links">
+                <li><a href="#inicio">Inicio</a></li>
+                <li><a href="#funcionalidades">Funcionalidades</a></li>
+                <li><a href="#api">API</a></li>
+                <li><a href="#contacto">Contacto</a></li>
+            </ul>
+            <a href="#" class="btn-login" onclick="redirectToLogin()">Iniciar Sesión</a>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero" id="inicio">
+        <div class="container">
+            <h1>Tecnología Satelital para tu Campo</h1>
+            <p>Monitorea tus cultivos con análisis NDVI, estrés hídrico y pronósticos meteorológicos precisos</p>
+            <div class="hero-buttons">
+                <a href="#" class="btn-primary" onclick="redirectToLogin()">Acceder a la Plataforma</a>
+                <a href="#api" class="btn-secondary">Ver API</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="funcionalidades">
+        <div class="container">
+            <h2>Funcionalidades Principales</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🛰️</div>
+                    <h3>Análisis Satelital</h3>
+                    <p>Imágenes satelitales de alta resolución con índices NDVI, NDMI y EVI para monitoreo de vegetación</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>Dashboard Analítico</h3>
+                    <p>Visualiza estadísticas históricas, gráficos temporales y métricas clave de tus parcelas</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌧️</div>
+                    <h3>Pronóstico Meteorológico</h3>
+                    <p>Datos climáticos precisos para planificación de actividades agrícolas</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📱</div>
+                    <h3>API REST</h3>
+                    <p>Integra nuestros datos en tus propias aplicaciones con nuestra API robusta</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">💧</div>
+                    <h3>Estrés Hídrico</h3>
+                    <p>Detecta zonas con déficit hídrico para optimizar sistemas de riego</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📈</div>
+                    <h3>Reportes Automatizados</h3>
+                    <p>Informes periódicos sobre el estado de tus cultivos y recomendaciones</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- API Demo Section -->
+    <section class="api-demo" id="api">
+        <div class="container">
+            <h2>API de Agrotech Digital</h2>
+            <div class="demo-container">
+                <h3>Ejemplo de Endpoints Disponibles</h3>
+                
+                <h4>📍 Obtener Parcelas</h4>
+                <div class="api-endpoint">GET https://agrotech-digital-production.up.railway.app/api/parcels/</div>
+                
+                <h4>🛰️ Análisis NDVI por Parcela</h4>
+                <div class="api-endpoint">POST https://agrotech-digital-production.up.railway.app/api/parcels/ndvi-historical/</div>
+                
+                <h4>🌧️ Pronóstico Meteorológico</h4>
+                <div class="api-endpoint">GET https://agrotech-digital-production.up.railway.app/api/parcels/weather-forecast/{parcel_id}/</div>
+                
+                <h4>📊 Escenas Satelitales por Fecha</h4>
+                <div class="api-endpoint">GET https://agrotech-digital-production.up.railway.app/api/parcels/parcel/{id}/scenes/?start_date=2024-01-01&end_date=2024-01-31</div>
+                
+                <h4>💧 Estrés Hídrico Histórico</h4>
+                <div class="api-endpoint">POST https://agrotech-digital-production.up.railway.app/api/parcels/water-stress-historical/</div>
+                
+                <button onclick="testAPI()" class="btn-primary" style="margin-top: 1rem;">
+                    <span id="test-btn-text">🧪 Probar API</span>
+                    <span id="test-loading" class="loading" style="display: none;"></span>
+                </button>
+                
+                <div id="api-result" style="margin-top: 1rem;"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer id="contacto">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Agrotech Digital</h3>
+                    <p>Soluciones tecnológicas para el sector agrícola mediante análisis satelital y datos precisos.</p>
+                </div>
+                <div class="footer-section">
+                    <h3>Enlaces Rápidos</h3>
+                    <a href="#" onclick="redirectToLogin()">Iniciar Sesión</a>
+                    <a href="#funcionalidades">Funcionalidades</a>
+                    <a href="#api">Documentación API</a>
+                    <a href="#">Soporte Técnico</a>
+                </div>
+                <div class="footer-section">
+                    <h3>Contacto</h3>
+                    <a href="mailto:info@agrotech-digital.com">info@agrotech-digital.com</a>
+                    <a href="tel:+57123456789">+57 123 456 789</a>
+                    <p>Bogotá, Colombia</p>
+                </div>
+            </div>
+            <hr style="border-color: #4a69bd; margin: 2rem 0;">
+            <p>&copy; 2024 Agrotech Digital. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript -->
+    <script>
+        // Configuración del backend - CAMBIAR POR TU URL DE RAILWAY
+        const BACKEND_URL = 'https://agrotech-digital-production.up.railway.app'; // Reemplaza con tu URL real
+        
+        /**
+         * Redirige al usuario al login del backend
+         */
+        function redirectToLogin() {
+            window.location.href = `${BACKEND_URL}/accounts/login/`;
+        }
+
+        /**
+         * Función de prueba de la API
+         */
+        async function testAPI() {
+            const testBtn = document.getElementById('test-btn-text');
+            const loading = document.getElementById('test-loading');
+            const resultDiv = document.getElementById('api-result');
+            
+            // Mostrar loading
+            testBtn.style.display = 'none';
+            loading.style.display = 'inline-block';
+            
+            try {
+                // Intentar obtener información pública del backend
+                const response = await fetch(`${BACKEND_URL}/api/parcels/summary/`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div class="api-response">✅ API Conectada Exitosamente
+
+Respuesta del servidor:
+${JSON.stringify(data, null, 2)}</div>
+                    `;
+                } else if (response.status === 401) {
+                    resultDiv.innerHTML = `
+                        <div class="api-response">🔐 API Funcional - Autenticación Requerida
+
+Status: ${response.status}
+Message: Este endpoint requiere autenticación.
+Para acceder, inicia sesión en la plataforma.</div>
+                    `;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Error testing API:', error);
+                resultDiv.innerHTML = `
+                    <div class="api-response">⚠️ Error de Conexión
+
+Error: ${error.message}
+Verifica que el backend esté ejecutándose en:
+${BACKEND_URL}
+
+Nota: Actualiza la variable BACKEND_URL en este archivo con tu URL de Railway.</div>
+                `;
+            } finally {
+                // Ocultar loading
+                testBtn.style.display = 'inline-block';
+                loading.style.display = 'none';
+            }
+        }
+
+        /**
+         * Ejemplo de función para hacer peticiones autenticadas
+         * (requiere token JWT o sesión activa)
+         */
+        async function authenticatedAPICall(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${BACKEND_URL}${endpoint}`, {
+                    ...options,
+                    credentials: 'include', // Incluir cookies de sesión
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                        // Si usas JWT: 'Authorization': `Bearer ${token}`,
+                        ...options.headers
+                    }
+                });
+                
+                if (response.ok) {
+                    return await response.json();
+                } else if (response.status === 401) {
+                    // Redirigir al login si no está autenticado
+                    redirectToLogin();
+                    return null;
+                } else {
+                    throw new Error(`API Error: ${response.status}`);
+                }
+            } catch (error) {
+                console.error('API Call failed:', error);
+                throw error;
+            }
+        }
+
+        /**
+         * Ejemplos de uso de la API (descomenta para usar)
+         */
+        /*
+        // Obtener lista de parcelas (requiere autenticación)
+        async function getParcels() {
+            try {
+                const parcels = await authenticatedAPICall('/api/parcels/');
+                console.log('Parcelas:', parcels);
+                return parcels;
+            } catch (error) {
+                console.error('Error obteniendo parcelas:', error);
+            }
+        }
+
+        // Obtener pronóstico meteorológico (requiere autenticación)
+        async function getWeatherForecast(parcelId) {
+            try {
+                const forecast = await authenticatedAPICall(`/api/parcels/weather-forecast/${parcelId}/`);
+                console.log('Pronóstico:', forecast);
+                return forecast;
+            } catch (error) {
+                console.error('Error obteniendo pronóstico:', error);
+            }
+        }
+
+        // Obtener análisis NDVI histórico (requiere autenticación)
+        async function getNDVIAnalysis(polygon, startDate, endDate) {
+            try {
+                const analysis = await authenticatedAPICall('/api/parcels/ndvi-historical/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        polygon: polygon,
+                        start_date: startDate,
+                        end_date: endDate
+                    })
+                });
+                console.log('Análisis NDVI:', analysis);
+                return analysis;
+            } catch (error) {
+                console.error('Error obteniendo análisis NDVI:', error);
+            }
+        }
+        */
+
+        // Smooth scrolling para navegación
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Animación de entrada para las feature cards
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        // Aplicar animación a las feature cards
+        document.addEventListener('DOMContentLoaded', () => {
+            const featureCards = document.querySelectorAll('.feature-card');
+            featureCards.forEach(card => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+                observer.observe(card);
+            });
+        });
+    </script>
+</body>
+</html>

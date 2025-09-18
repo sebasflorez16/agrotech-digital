@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Login - AgroTech</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta content="Plataforma de Gestión Agrícola" name="description" />
+    <meta content="AgroTech" name="author" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <!-- App favicon -->
+    <link rel="shortcut icon" href="/static/images/agrotech%20solo%20negro.png">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+
+    <!-- App css -->
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        /* Estilo personalizado para el formulario */
+        .auth-page .card {
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* Sombra más pronunciada para efecto 3D */
+            background-color: #ffffff; /* Fondo blanco para el formulario */
+        }
+
+        .auth-page .form-control {
+            border-radius: 8px;
+        }
+
+        .auth-page .btn-primary {
+            border-radius: 8px;
+        }
+
+        .auth-page .auth-header-box {
+            background-color: rgb(43, 115, 47);
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+        }
+
+        .auth-page .auth-header-box h4 {
+            font-size: 24px;
+        }
+
+        .auth-page .auth-header-box p {
+            font-size: 14px;
+        }
+
+        .message-section {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            background: url('/static/images/6062.jpg') no-repeat center center;
+            background-size: cover;
+        }
+        
+        /* Cuadro con desenfoque solo sobre él */
+        .overlay {
+            position: relative;
+            z-index: 2;
+            background: rgba(255, 255, 255, 0); /* Color semitransparente */
+            backdrop-filter: blur(10px); /* 🔥 Efecto de desenfoque solo dentro del cuadro */
+            padding: 40px;
+            border-radius: 30px; /* Bordes redondeados para un look más profesional */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2); /* Sombra ligera para destacar el cuadro */
+        }
+        
+        .message-section h1 {
+            font-size: 46px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.7);
+            color: #ffffff;
+        }
+        
+        
+        
+        /* Ajustar el ancho de la parte blanca */
+        .col-lg-5 {
+            flex: 0 0 40%; /* Reduce el ancho de la columna blanca */
+            max-width: 40%;
+        }
+
+        .col-lg-7 {
+            flex: 0 0 60%; /* Aumenta el ancho de la columna de la imagen */
+            max-width: 60%;
+        }
+
+        @media (max-width: 767px) {
+            body.auth-page {
+                background: #f7f8fa;
+            }
+            .auth-page .card {
+                position: relative;
+                z-index: 2;
+            }
+            /* Fondo de imagen detrás del formulario en móvil */
+            .login-bg-mobile {
+                position: fixed;
+                top: 0; left: 0; width: 100vw; height: 100vh;
+                z-index: 1;
+                background: url('/static/images/6062.jpg') no-repeat center center;
+                background-size: cover;
+                opacity: 0.25;
+                pointer-events: none;
+            }
+            .auth-page .card {
+                width: 100% !important;
+                margin: 0 auto;
+                box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+                border-radius: 18px;
+            }
+            .auth-page .card-body {
+                padding: 18px 10px 10px 10px;
+            }
+            .auth-page .auth-header-box {
+                border-top-left-radius: 18px;
+                border-top-right-radius: 18px;
+                padding: 18px 10px;
+            }
+            .auth-page .auth-header-box h4 {
+                font-size: 20px;
+            }
+            .auth-page .auth-header-box p {
+                font-size: 13px;
+            }
+            .container-fluid, .row.vh-100 {
+                height: auto !important;
+                min-height: 100vh;
+                padding: 0;
+            }
+            .col-lg-5, .col-lg-7 {
+                flex: 0 0 100%;
+                max-width: 100%;
+                padding: 0;
+            }
+            .message-section {
+                display: none;
+            }
+            .auth-logo {
+                height: 80px !important;
+            }
+            .overlay {
+                display: none;
+            }
+        }
+
+        /* Ocultar botones sociales en todos los tamaños */
+        .auth-page .btn-outline-secondary {
+            display: none !important;
+        }
+
+        /* Fondo sutil con imagen para todo el login */
+        body.auth-page {
+            background: url('/static/images/6062.jpg') no-repeat center center fixed;
+            background-size: cover;
+            background-blend-mode: lighten;
+            background-color: #f7f8fa;
+        }
+
+        /* Sombra y desenfoque sutil para el card en móvil y desktop */
+        .auth-page .card {
+            backdrop-filter: blur(2px);
+            background: rgba(255,255,255,0.92);
+            box-shadow: 0 8px 32px rgba(44,62,80,0.12);
+        }
+    </style>
+</head>
+
+<body id="body" class="auth-page">
+
+    <!-- Log In page -->
+    <div class="container-fluid">
+        <div class="row vh-100">
+            <!-- Columna izquierda: Formulario -->
+            <div class="col-lg-5 d-flex align-items-center justify-content-center bg-white">
+                <div class="card w-75 p-4">
+                    <div class="card-body p-0 auth-header-box text-center text-white">
+                        <div class="p-3">
+                            <a href="#" class="logo logo-admin">
+                                <img src="/static/images/agrotech solo blanco.png" height="120" alt="AgroTech Logo"
+                                    class="auth-logo">
+                            </a>
+                            <h4 class="mt-3 mb-1 fw-semibold text-white">Bienvenido a AgroTech</h4>
+                            <p class="mb-0">Inicia sesión para continuar con la plataforma.</p>
+                        </div>
+                    </div>
+                    <div class="card-body pt-4">
+                        <!-- Formulario de inicio de sesión -->
+                        <form id="login-form">
+                            <div class="form-group mb-3">
+                                <label class="form-label" for="username">Nombre de Usuario</label>
+                                <input type="text" class="form-control" id="username" name="username"
+                                    placeholder="Ingrese su nombre de usuario" required>
+                            </div><!-- end form-group -->
+            
+                            <div class="form-group mb-3">
+                                <label class="form-label" for="password">Contraseña</label>
+                                <input type="password" class="form-control" id="password" name="password"
+                                    placeholder="Ingrese su contraseña" required>
+                            </div><!-- end form-group -->
+            
+                            <div id="error-message" class="alert alert-danger d-none"></div>
+            
+                            <div class="form-group mb-3">
+                                <div class="form-check form-switch form-switch-success">
+                                    <input class="form-check-input" type="checkbox" id="remember" name="remember">
+                                    <label class="form-check-label" for="remember">Recuérdame</label>
+                                </div>
+                            </div><!-- end form-group -->
+            
+                            <!-- Opciones adicionales -->
+                            <div class="form-group mb-3">
+                                <button class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center" type="button">
+                                    <i class="fab fa-google me-2" style="color: #DB4437; font-size: 20px;"></i>
+                                    Iniciar sesión con Google
+                                </button>
+                            </div>
+                            <div class="form-group mb-3">
+                                <button class="btn btn-outline-secondary w-100 d-flex align-items-center justify-content-center" type="button">
+                                    <i class="fab fa-facebook-f me-2" style="color: #4267B2; font-size: 20px;"></i>
+                                    Iniciar sesión con Facebook
+                                </button>
+                            </div>
+            
+                            <div class="form-group mb-0">
+                                <button class="btn btn-primary w-100" type="submit">Iniciar Sesión <i
+                                        class="fas fa-sign-in-alt ms-1"></i></button>
+                            </div> <!-- end form-group -->
+                        </form><!-- end form -->
+                    </div>
+                </div><!-- end card -->
+            </div><!-- end col -->
+
+            <!-- Columna derecha: Mensaje -->
+            <div class="col-lg-7 message-section">
+                <div class="text-center overlay">
+                    <h1>¡Bienvenido a la Plataforma AgroTech!</h1>
+                    <img src="/static/images/agrotech para canva.png" alt="AgroTech Logo" height="400" class="mt-3">
+                </div>
+            </div>
+            
+            
+        </div><!-- end row -->
+    </div><!-- end container -->
+
+    <!-- Fondo de imagen detrás del formulario en móvil -->
+    <div class="login-bg-mobile"></div>
+
+    <!-- vendor js -->
+    <script src="/static/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/libs/simplebar/simplebar.min.js"></script>
+    <script src="/static/libs/feather-icons/feather.min.js"></script>
+    <!-- App js -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script type="module" src="/static/js/auth.js"></script>
+    <script type="module" src="/static/js/login.js"></script>
+
+</body>
+
+</html>

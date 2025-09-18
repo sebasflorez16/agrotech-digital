@@ -23,8 +23,8 @@ export async function login(username, password) {
         localStorage.setItem("accessToken", access);
         localStorage.setItem("refreshToken", refresh);
 
-        // Redirigir al dashboard
-        window.location.href = "/templates/vertical_base.html";
+        // Redirigir al dashboard en el frontend estático (dinámico para cualquier dominio)
+        window.location.href = window.location.origin + "/templates/vertical_base.html";
 
     } catch (error) {
         console.error("Error en el login:", error);

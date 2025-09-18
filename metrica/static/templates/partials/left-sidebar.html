@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sidebar Responsivo</title>
+    <link rel="stylesheet" href="/static/css/sidebar.css">
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="/static/css/icons.min.css" rel="stylesheet" />
+    <link href="https://unpkg.com/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet" />
+    
+    <!-- Responsive styles for sidebar -->
+    <style>
+        @media (max-width: 767px) {
+            .menu li a {
+                padding: 12px 22px !important;
+                font-size: 16px !important;
+            }
+            
+            .menu li a i {
+                font-size: 1.3em !important;
+            }
+            
+            .brand {
+                padding: 24px 0 16px 0 !important;
+            }
+            
+            .logo-sm {
+                max-width: 70px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar" style="font-family: 'Roboto', 'Segoe UI', Arial, sans-serif; font-size: 15px; background: #253445;">
+        <!-- Logo -->
+        <div class="brand" style="padding: 32px 0 18px 0; text-align: center;">
+            <a href="#" class="logo">
+                <span>
+                    <img src="/static/images/agrotech solo blanco.png" alt="logo-small" class="logo-sm" style="max-width: 80px; margin: 0 auto; display: block;">
+                </span>
+            </a>
+        </div>
+        <!-- Menú -->
+        <ul class="menu" style="padding: 0 0 10px 0; margin: 0;">
+            <li><a href="/dashboard/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-home" style="font-size: 1.2em;"></i> Dashboard</a></li>
+            <li><a href="/rrhh/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-user" style="font-size: 1.2em;"></i> Recursos Humanos</a></li>
+            <li>
+                <a href="/inventario/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; background: #2C3E50; font-size: 15px; font-weight: 600; letter-spacing: 0.01em; box-shadow: 0 2px 8px rgba(44,62,80,0.07);">
+                    <i class="ti ti-box" style="font-size: 1.2em;"></i> Inventario
+                </a>
+            </li>
+            <li><a href="/configuracion/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-settings" style="font-size: 1.2em;"></i> Configuración</a></li>
+            <li><a href="/parcelas/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-map" style="font-size: 1.2em;"></i> Parcelas</a></li>
+            <li><a href="/labores/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="fa fa-tasks" style="font-size: 1.2em;"></i> Labores</a></li>
+            <li><a href="/cultivos/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="fa fa-tasks" style="font-size: 1.2em;"></i> Cultivos</a></li>
+        </ul>
+    </div>
+    <div class="content">
+    </div>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/leftsidebar.js"></script>
+    <!-- Reescribir rutas del sidebar para que sean las mismas en móvil y desktop -->
+    <script>
+    function rewriteSidebarLinks(sidebarElement) {
+        const routeMap = {
+            '/templates/vertical_base.html': '/dashboard/',
+            '/templates/employees/RRHH-dashboard.html': '/rrhh/',
+            '/templates/inventario/dashboard_inventario.html': '/inventario/',
+            'settings.html': '/configuracion/',
+            '/templates/parcels/parcels-dashboard.html': '/parcelas/',
+            '/templates/labores.html': '/labores/',
+            '/templates/crop/crop_list.html': '/cultivos/'
+        };
+        sidebarElement.querySelectorAll('a').forEach(function(link) {
+            const href = link.getAttribute('href');
+            if (routeMap[href]) {
+                link.setAttribute('href', routeMap[href]);
+            }
+        });
+    }
+    document.addEventListener('DOMContentLoaded', function() {
+        // Desktop sidebar
+        const desktopSidebar = document.getElementById('sidebar');
+        if (desktopSidebar) {
+            rewriteSidebarLinks(desktopSidebar);
+        }
+    });
+    </script>
+</body>
+</html>

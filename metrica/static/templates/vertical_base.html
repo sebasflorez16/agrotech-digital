@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="shortcut icon" href="/static/images/agrotech solo negro.png">
+    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
+    
+    <!-- Bootstrap CSS para responsive mejorado -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Iconos necesarios para el menú -->
+    <link href="https://unpkg.com/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+    
+    <!-- Custom CSS para responsive -->
+    <style>
+        /* Sidebar fijo a la izquierda, por encima del topbar */
+        #left-sidebar {
+            width: 140px;
+            height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 3000;
+            background: #253445;
+            border-right: 1px solid #e9ecef;
+        }
+        /* Topbar horizontal debajo del sidebar */
+        #topbar-container {
+            width: calc(100% - 140px);
+            position: fixed;
+            top: 0;
+            left: 140px;
+            z-index: 2000;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(44,62,80,0.07);
+            border-bottom: 1px solid #e9ecef;
+            height: 64px;
+            display: flex;
+            align-items: center;
+        }
+        /* Layout principal */
+        .main-layout {
+            display: flex;
+            min-height: 100vh;
+            background: #f7f8fa;
+            padding-top: 64px;
+            margin-left: 140px;
+        }
+        /* Contenido principal estirado */
+        .page-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            padding: 56px 32px 40px 32px;
+            min-height: calc(100vh - 64px);
+        }
+        .page-content-tab {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+        }
+        /* Cards responsive */
+        .card {
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(44,62,80,0.04);
+            border-radius: 12px;
+        }
+        .card-body {
+            padding: 20px;
+        }
+        /* Dashboard stats responsive */
+        .stat-value {
+            font-size: 1.7rem !important;
+            font-weight: bold;
+        }
+        .stat-label {
+            font-size: 1rem !important;
+            color: #6c757d;
+        }
+        /* Charts responsive */
+        .chart-container {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+        /* Tables responsive */
+        .table-responsive {
+            overflow-x: auto;
+        }
+        /* Mobile styles */
+        @media (max-width: 767px) {
+            .main-layout, .page-wrapper, .page-content-tab {
+                width: 100vw !important;
+                max-width: 100vw !important;
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+                margin: 0 !important;
+            }
+            .card {
+                width: 100% !important;
+                max-width: 100vw !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+                border-radius: 16px;
+                box-shadow: 0 2px 8px rgba(44,62,80,0.08);
+            }
+            .card-body, .card-header {
+                padding: 12px 8px !important;
+            }
+            #topbar-container {
+                width: 100%;
+                left: 0;
+                height: 56px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 0 12px;
+            }
+            #topbar-container .menu-toggle {
+                display: flex !important;
+                align-items: center;
+                justify-content: center;
+                background: none;
+                border: none;
+                font-size: 28px;
+                color: #253445;
+                margin-right: 8px;
+                cursor: pointer;
+            }
+            .mobile-sidebar {
+                display: block;
+                position: fixed;
+                top: 56px;
+                left: 0;
+                width: 85vw;
+                max-width: 320px;
+                min-width: 220px;
+                height: calc(100vh - 56px);
+                background: #253445;
+                z-index: 4000;
+                box-shadow: 2px 0 12px rgba(44,62,80,0.12);
+                border-right: 1px solid #e9ecef;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                overflow-y: auto;
+                padding-top: 18px;
+            }
+            .mobile-sidebar.show {
+                transform: translateX(0);
+            }
+            .mobile-sidebar .menu li a:hover {
+                background-color: rgba(255,255,255,0.1);
+            }
+            .sidebar-overlay {
+                display: block;
+                position: fixed;
+                top: 56px;
+                left: 0;
+                width: 100vw;
+                height: calc(100vh - 56px);
+                background: rgba(44,62,80,0.18);
+                z-index: 3999;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.3s ease, visibility 0.3s ease;
+            }
+            .sidebar-overlay.show {
+                opacity: 1;
+                visibility: visible;
+            }
+            #left-sidebar {
+                display: none !important;
+            }
+        }
+        /* Tablet styles */
+        @media (min-width: 768px) and (max-width: 1199px) {
+            .main-layout {
+                margin-left: 140px;
+            }
+            .page-wrapper {
+                padding: 32px 16px 32px 16px;
+            }
+            .chart-container {
+                height: 250px;
+            }
+            .page-content-tab {
+                max-width: none;
+            }
+        }
+        /* Desktop styles */
+        @media (min-width: 1200px) {
+            #left-sidebar {
+                width: 140px;
+            }
+            #topbar-container {
+                width: calc(100% - 140px);
+                left: 140px;
+                height: 64px;
+            }
+            .main-layout {
+                margin-left: 140px;
+            }
+            .page-wrapper {
+                padding: 56px 32px 40px 32px;
+                align-items: stretch;
+            }
+            .page-content-tab {
+                max-width: 1800px;
+                width: 100%;
+                margin: 0 auto;
+                padding: 0;
+            }
+            .chart-container {
+                height: 300px;
+            }
+            .stat-value {
+                font-size: 2rem !important;
+            }
+            .card-body {
+                padding: 24px;
+            }
+        }
+        .topbar-custom {
+            width: 100%;
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: 2000;
+            background: #fff;
+            box-shadow: 0 2px 8px rgba(44,62,80,0.07);
+            border-bottom: 1px solid #e9ecef;
+            height: 56px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 12px;
+        }
+        .menu-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            font-size: 28px;
+            color: #253445;
+            margin-right: 8px;
+            cursor: pointer;
+        }
+        .topbar-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #253445;
+            letter-spacing: 0.5px;
+        }
+        .topbar-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .topbar-icon {
+            font-size: 22px;
+            color: #253445;
+            background: none;
+            border: none;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        @media (min-width: 768px) {
+            .topbar-custom {
+                height: 64px;
+                font-size: 1.2rem;
+                padding: 0 24px;
+            }
+            .menu-toggle {
+                font-size: 32px;
+            }
+            .topbar-title {
+                font-size: 1.2rem;
+            }
+            .topbar-icon {
+                font-size: 26px;
+            }
+        }
+    </style>
+    
+</head>
+<body>
+        <!-- Topbar mejorado y responsive -->
+        <div id="topbar-container" class="topbar-custom">
+            <button class="menu-toggle" aria-label="Abrir menú" onclick="toggleMobileSidebar()">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="topbar-title">Agrotech Digital</div>
+            <div class="topbar-actions">
+                <button class="topbar-icon" aria-label="Notificaciones" disabled style="background:none;border:none;">
+                    <i class="fas fa-bell"></i>
+                </button>
+                <button class="topbar-icon" aria-label="Perfil" disabled style="background:none;border:none;">
+                    <i class="fas fa-user-circle"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Menú lateral móvil (solo visible en móvil) -->
+        <div id="mobile-sidebar" class="mobile-sidebar">
+            <!-- Logo -->
+            <div class="brand" style="padding: 32px 0 18px 0; text-align: center;">
+                <a href="#" class="logo">
+                    <span>
+                        <img src="/static/images/agrotech solo blanco.png" alt="logo-small" class="logo-sm" style="max-width: 80px; margin: 0 auto; display: block;">
+                    </span>
+                </a>
+            </div>
+            <!-- Menú con rutas reales -->
+            <ul class="menu" style="padding: 0 0 10px 0; margin: 0;">
+                <li><a href="/dashboard/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-home" style="font-size: 1.2em;"></i> Dashboard</a></li>
+                <li><a href="/rrhh/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-user" style="font-size: 1.2em;"></i> Recursos Humanos</a></li>
+                <li><a href="/inventario/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-box" style="font-size: 1.2em;"></i> Inventario</a></li>
+                <li><a href="/configuracion/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-settings" style="font-size: 1.2em;"></i> Configuración</a></li>
+                <li><a href="/parcelas/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-map" style="font-size: 1.2em;"></i> Parcelas</a></li>
+                <li><a href="/labores/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="fa fa-tasks" style="font-size: 1.2em;"></i> Labores</a></li>
+                <li><a href="/cultivos/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="fa fa-tasks" style="font-size: 1.2em;"></i> Cultivos</a></li>
+            </ul>
+        </div>
+
+        <!-- Overlay para cerrar el menú móvil -->
+        <div id="sidebar-overlay" class="sidebar-overlay"></div>
+        <div class="main-layout" style="display: flex; min-height: 100vh; padding-top: 64px;">
+            <div id="left-sidebar" style="width: 140px; flex-shrink: 0; background: #253445; min-height: calc(100vh - 64px); position: sticky; top: 64px;"></div>
+            <div class="page-wrapper" style="flex: 1; display: flex; flex-direction: column; align-items: stretch; padding: 40px 24px; min-height: calc(100vh - 64px);">
+                <div class="page-content-tab" style="width: 100%; max-width: 1800px; margin: 0 auto;">
+                    <div id="page-content">
+                        <!-- Aquí se inyectará dashboard.html -->
+                    </div>
+                    <!-- Footer -->
+                    <div id="footer-container"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script type="module" src="/static/js/dashboard.js"></script>
+    <script type="module" src="/static/js/dashboarddatos.js"></script>
+    <script type="module" src="/static/js/parcels/dashboard-parcels-summary.js"></script>
+    <script src="/static/js/user-profile.js"></script>
+
+    <!-- Bootstrap JS para responsive -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+
+    <script>
+    </script>
+    <script type="module">
+        import { loadLayoutComponents } from '/static/js/load_components.js';
+        
+        // En móvil, no cargar el topbar porque usamos el estático
+        const isMobile = window.innerWidth <= 767;
+        const components = {
+            "page-content": "/templates/dashboard.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
+        };
+        
+        // Solo cargar el topbar en desktop
+        if (!isMobile) {
+            components["topbar-container"] = "/templates/partials/horizontal-nav.html";
+        }
+        
+        loadLayoutComponents(components);
+    </script>
+    </script>
+
+  
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="/static/js/charts.js"></script>
+
+<script>
+// Función global para manejar el menú lateral móvil
+function toggleMobileSidebar() {
+    const mobileSidebar = document.getElementById('mobile-sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    
+    if (mobileSidebar && overlay) {
+        const isOpen = mobileSidebar.classList.contains('show');
+        
+        if (isOpen) {
+            mobileSidebar.classList.remove('show');
+            overlay.classList.remove('show');
+        } else {
+            mobileSidebar.classList.add('show');
+            overlay.classList.add('show');
+        }
+    }
+}
+
+// Esperar a que el dashboard esté listo antes de inicializar ApexCharts
+function safeInitCharts() {
+    if (document.getElementById('page-content')) {
+        // ...aquí iría la lógica de inicialización de gráficos...
+        if (typeof window.initCharts === 'function') {
+            window.initCharts();
+        }
+    } else {
+        setTimeout(safeInitCharts, 200);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    safeInitCharts();
+    
+    // Configurar eventos del menú móvil
+    const overlay = document.getElementById('sidebar-overlay');
+    if (overlay) {
+        overlay.addEventListener('click', toggleMobileSidebar);
+    }
+    
+    // Cerrar menú al hacer clic en los enlaces
+    const mobileSidebar = document.getElementById('mobile-sidebar');
+    if (mobileSidebar) {
+        const links = mobileSidebar.querySelectorAll('a');
+        links.forEach(function(link) {
+            link.addEventListener('click', function() {
+                toggleMobileSidebar();
+            });
+        });
+    }
+});
+</script>
+
+</body>
+</html>

@@ -4,23 +4,20 @@
  */
 
 /**
- * Genera la URL base del backend para el tenant actual
+ * Genera la URL base del backend
  * @param {string} apiPath - Ruta de la API (ej: '/api/parcels', '/api/authentication')
- * @param {number} port - Puerto del backend (por defecto 8000)
+ * @param {number} port - Puerto del backend (no usado en producción)
  * @returns {string} URL completa del backend
  */
 function getBackendUrl(apiPath = '', port = 8000) {
-    const protocol = window.location.protocol; // http: o https:
-    const hostname = window.location.hostname; // tenant dinámico
-    
-    // Construir URL base
-    let baseUrl = `${protocol}//${hostname}:${port}`;
+    // URL fija del backend en Railway
+    const baseUrl = 'https://agrotechcolombia.com';
     
     // Agregar path si se proporciona
     if (apiPath) {
         // Asegurar que el path comience con /
         const cleanPath = apiPath.startsWith('/') ? apiPath : `/${apiPath}`;
-        baseUrl += cleanPath;
+        return baseUrl + cleanPath;
     }
     
     return baseUrl;
