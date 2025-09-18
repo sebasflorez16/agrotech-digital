@@ -197,3 +197,15 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+# Configuraciones específicas para frontend estático separado
+# ------------------------------------------------------------------------------
+# Permitir el frontend estático en Railway
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://agrotech-digital-production\.up\.railway\.app$",  # Backend en Railway
+    r"^https://site-production-208b\.up\.railway\.app$",  # Frontend estático en Railway
+    r"^https://agrotechcolombia\.com$",  # Dominio personalizado backend
+]
+
+# Redirigir al frontend estático después del login
+LOGIN_REDIRECT_URL = "https://site-production-208b.up.railway.app/templates/vertical_base.html"
