@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path("api/authentication/", include("authentication.urls", namespace="authentication")),
+    path("authentication/", include("authentication.urls", namespace="auth_views")),  # Vistas tradicionales
 
     # 🔹 Plantillas HTML estáticas (necesario para producción)
     path("templates/", include("metrica.template_urls", namespace="templates")),

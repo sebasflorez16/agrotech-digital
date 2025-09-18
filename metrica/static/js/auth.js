@@ -1,5 +1,5 @@
 // Configuración de la URL base del backend usando ApiUrls
-const BASE_URL = window.ApiUrls ? window.ApiUrls.auth() : "https://agrotechcolombia.com/api/authentication";
+const BASE_URL = window.ApiUrls ? window.ApiUrls.auth() + "/api" : "https://agrotechcolombia.com/api/authentication/api";
 
 console.log("BASE_URL:", BASE_URL);
 console.log("axios:", typeof axios !== "undefined" ? "disponible" : "no disponible");

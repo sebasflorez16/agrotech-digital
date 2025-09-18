@@ -1,4 +1,3 @@
-
 from django.http import JsonResponse
 from metrica.users.models import User
 from rest_framework.response import Response
@@ -13,6 +12,9 @@ from rest_framework import status
 
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth.views import LoginView as DjangoLoginView
+from django.urls import reverse_lazy
+from django.conf import settings
 
 class LoginView(ObtainAuthToken):
     permission_classes = [AllowAny]  # Permitir acceso sin autenticación
@@ -58,8 +60,14 @@ class DashboardView(APIView):
         })
 
 
-
-
+class CustomLoginView(DjangoLoginView):
+    """Vista de login tradicional con formulario"""
+    template_name = 'authentication/login.html'
+    redirect_authenticated_user = True
+    
+    def get_success_url(self):
+        # Usar la configuración de LOGIN_REDIRECT_URL
+        return settings.LOGIN_REDIRECT_URL
 
 
 """login_view = AuthenticationView.as_view(template_name = "authentication/auth-login.html")
