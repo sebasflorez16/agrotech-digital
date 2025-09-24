@@ -16,8 +16,7 @@ urlpatterns = [
 
     # 🔹 Administración
     path("admin/", admin.site.urls),
-    # 🔹 API global
-    #path("", include("metrica.api_urls")),
+
 
     # 🔹 Gestión de usuarios
     path("users/", include("metrica.users.urls", namespace="users")),
