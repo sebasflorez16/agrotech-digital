@@ -6,7 +6,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.permissions import AllowAny
 from rest_framework.authtoken.views import ObtainAuthToken
 from django.contrib.auth import authenticate
-from django.contrib.auth.views import LoginView as DjangoLoginView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 
@@ -45,16 +44,5 @@ class LoginView(ObtainAuthToken):
         return response
 
 
-class DashboardView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        return Response({
-            "message": "Bienvenido al dashboard",
-            "user_count": User.objects.count()
-        })
-
-
-class CustomLoginView(DjangoLoginView):
-    template_name = "authentication/login.html"
-    redirect_authenticated_user = True
+# ❌ ELIMINADAS - CustomLoginView y DashboardView que requerían templates HTML
+# Solo mantenemos APIs REST para frontend separado

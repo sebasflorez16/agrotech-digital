@@ -1,5 +1,5 @@
-# Usa una imagen oficial de Python - versión estable
-FROM python:3.11-slim
+# Usa una imagen oficial de Python - compatible con Railway
+FROM python:3.11
 
 # Establece el directorio de trabajo
 WORKDIR /app
