@@ -1,5 +1,5 @@
-# Usa una imagen oficial de Python - versión slim para mejor rendimiento
-FROM python:3.11-slim-bullseye
+# Usa una imagen oficial de Python - versión estable
+FROM python:3.11-slim
 
 # Establece el directorio de trabajo
 WORKDIR /app
