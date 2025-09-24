@@ -13,8 +13,6 @@ urlpatterns = [
     path("api/authentication/", include("authentication.urls", namespace="authentication")),
     path("authentication/", include("authentication.urls", namespace="auth_views")),  # Vistas tradicionales
 
-    # 🔹 Plantillas HTML estáticas (necesario para producción)
-    path("templates/", include("metrica.template_urls", namespace="templates")),
 
     # 🔹 Administración
     path("admin/", admin.site.urls),
