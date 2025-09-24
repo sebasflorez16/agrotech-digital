@@ -1,5 +1,18 @@
-# Usa una imagen oficial de Python - compatible con Railway
-FROM python:3.11
+# Usar imagen Ubuntu con Python (evita problemas con Docker Hub)
+FROM ubuntu:22.04
+
+# Instalar Python y dependencias
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-pip \
+    python3.11-dev \
+    gcc \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Crear enlace simbólico para python
+RUN ln -s /usr/bin/python3.11 /usr/bin/python && \
+    ln -s /usr/bin/pip3.11 /usr/bin/pip
 
 # Establece el directorio de trabajo
 WORKDIR /app
