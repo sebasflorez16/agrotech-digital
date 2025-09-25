@@ -91,17 +91,9 @@ else
     echo "🚨 Continuando con inicio del servidor..."
 fi
 
-# Recopilar archivos estáticos para producción
-echo "📁 Recopilando archivos estáticos..."
-python manage.py collectstatic --noinput --clear
-collectstatic_exit_code=$?
-
-if [ $collectstatic_exit_code -eq 0 ]; then
-    echo "✅ Archivos estáticos recopilados exitosamente"
-else
-    echo "⚠️ Error recopilando archivos estáticos (código: $collectstatic_exit_code)"
-    echo "🚨 Continuando..."
-fi
+# ❌ ELIMINADO - Backend solo APIs no necesita archivos estáticos
+# echo "📁 Recopilando archivos estáticos..."
+# python manage.py collectstatic --noinput --clear
 
 echo "🚀 Iniciando Gunicorn en puerto $PORT..."
 
