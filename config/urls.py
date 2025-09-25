@@ -7,8 +7,7 @@ from django.views import defaults as default_views
 
 
 urlpatterns = [
-    # 🔹 Autenticación y Tokens JWT (SOLO APIs)
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # 🔹 Autenticación JWT - Solo tu vista custom con CORS
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path("api/authentication/", include("authentication.urls", namespace="authentication")),
 

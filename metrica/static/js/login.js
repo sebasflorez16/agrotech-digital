@@ -1,10 +1,27 @@
-import { login } from "./auth.js"; // Importa la función login
+// 🔹 Archivo único para toda la lógica de autenticación
 
+// Función para redirigir al login desde index.html
+function redirectToLogin() {
+    window.location.href = "https://site-production-208b.up.railway.app/templates/authentication/login.html";
+}
+
+// Función para logout
+function logout() {
+    localStorage.removeItem("accessToken");
+    localStorage.removeItem("refreshToken");
+    window.location.href = "https://site-production-208b.up.railway.app/templates/authentication/login.html";
+}
+
+// Hacer las funciones disponibles globalmente para el index.html
+window.redirectToLogin = redirectToLogin;
+window.logout = logout;
+
+// 🔹 Lógica del formulario de login
 document.addEventListener("DOMContentLoaded", function () {
     const loginForm = document.getElementById("login-form");
 
     if (!loginForm) {
-        console.error("Error: No se encontró el formulario con id='login-form'");
+        console.log("No se encontró formulario de login - probablemente en index.html");
         return;
     }
 
@@ -14,6 +31,42 @@ document.addEventListener("DOMContentLoaded", function () {
         const username = document.getElementById("username").value.trim();
         const password = document.getElementById("password").value.trim();
 
-        await login(username, password);
+        // Validación básica
+        if (!username || !password) {
+            alert("Por favor completa todos los campos");
+            return;
+        }
+
+        try {
+            // POST al backend para autenticación
+            const response = await fetch('https://agrotechcolombia.com/api/authentication/login/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ 
+                    username: username, 
+                    password: password 
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.access) {
+                // ✅ Autenticación exitosa
+                localStorage.setItem("accessToken", data.access);
+                localStorage.setItem("refreshToken", data.refresh);
+                
+                // Redirigir al dashboard principal
+                window.location.href = "https://site-production-208b.up.railway.app/templates/vertical_base.html";
+                
+            } else {
+                // ❌ Error de autenticación
+                alert("Error: " + (data.error || 'Credenciales incorrectas'));
+            }
+        } catch (error) {
+            console.error('Error de red:', error);
+            alert("Error de conexión. Intenta de nuevo.");
+        }
     });
 });
