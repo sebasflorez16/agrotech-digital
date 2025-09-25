@@ -2,10 +2,12 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <!-- Permitir CSS y fuentes externas, y evitar errores de MIME -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; connect-src 'self' https:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapa 3D Cesium - AgroTech</title>
     <!-- Estilos de Cesium -->
-    <link href="https://cesium.com/downloads/cesiumjs/releases/1.102/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.102/Build/Cesium/Widgets/widgets.css" rel="stylesheet" type="text/css" />
     <link href="/static/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
     <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
     <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
@@ -16,6 +18,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <!-- Feather Icons debe cargarse antes de app.js -->
+    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <!-- Bootstrap JS Bundle (incluye Popper) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Lottie para animaciones meteorológicas -->
@@ -1031,13 +1035,13 @@
 <!-- Scripts -->
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.102/Build/Cesium/Cesium.js"></script>
     <script>
-        // Configurar token de Cesium Ion
-        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUzNS1mMWZiLTQzMjYtOGEwLTNhYTVjODI1M2ZmYSIsImlkIjYyOTIsImlhdCI6MTU1OTE5MjI3MH0.lKLWe8g4Q3l7Oj5WCQ8VD2k4rRJCvQfFSqCPZi8Y5Dc';
+        // Configurar token de Cesium Ion (público)
+        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiIzODVjN2UzMy0zOTYyLTQ3ZGQtYTU4OC1iZDgxMjBmNTlhOTgiLCJpZCI6MjkwMzgyLCJpYXQiOjE3NTM1NDAxODB9.fw441vH5WIi_qxJccSI_wG4A5M0T3k6kdqDtAAlnFmE';
     </script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qs/dist/qs.js"></script>
-    <script src="/static/js/utils/api-utils.js"></script>
-    <script src="/static/js/auth/dev-auth-helper.js"></script>
+    <script type="module" src="/static/js/utils/api-utils.js"></script>
+    <script type="module" src="/static/js/auth/dev-auth-helper.js"></script>
     <script src="/static/js/app.js"></script>
     <script type="module" src="/static/js/parcels/parcel.js"></script>
     <script type="module" src="/static/js/parcels/layers.js"></script>
@@ -1110,9 +1114,13 @@
             // "vendorjs": "/templates/partials/vendorjs.html"
         };
 
-        // Cargar todos los componentes
+        // Cargar todos los componentes solo si el contenedor existe
         for (const [id, url] of Object.entries(components)) {
-            loadHTML(id, url);
+            if (document.getElementById(id)) {
+                loadHTML(id, url);
+            } else {
+                console.warn(`Contenedor '${id}' no existe en el DOM. No se carga ${url}`);
+            }
         }
     </script>
 
