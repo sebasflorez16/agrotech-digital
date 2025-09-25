@@ -13,21 +13,49 @@
     <style>
         @media (max-width: 767px) {
             .menu li a {
-                padding: 12px 22px !important;
-                font-size: 16px !important;
+                padding: 15px 25px !important;
+                font-size: 17px !important;
+                min-height: 48px !important;
+                display: flex !important;
+                align-items: center !important;
             }
             
             .menu li a i {
-                font-size: 1.3em !important;
+                font-size: 1.4em !important;
+                margin-right: 12px !important;
             }
             
             .brand {
-                padding: 24px 0 16px 0 !important;
+                padding: 30px 0 20px 0 !important;
             }
             
             .logo-sm {
-                max-width: 70px !important;
+                max-width: 80px !important;
             }
+            
+            /* Mejorar touch targets en móvil */
+            .menu li a:hover, .menu li a:focus {
+                background: #34495E !important;
+                transform: translateX(5px) !important;
+                transition: all 0.2s ease !important;
+            }
+            
+            /* Sidebar responsivo */
+            .sidebar {
+                width: 100% !important;
+                height: 100vh !important;
+                overflow-y: auto !important;
+            }
+        }
+        
+        /* Estilos generales mejorados */
+        .menu li a {
+            text-decoration: none !important;
+            cursor: pointer !important;
+        }
+        
+        .menu li a:active {
+            background: #2C3E50 !important;
         }
     </style>
 </head>
@@ -44,47 +72,38 @@
         </div>
         <!-- Menú -->
         <ul class="menu" style="padding: 0 0 10px 0; margin: 0;">
-            <li><a href="/dashboard/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-home" style="font-size: 1.2em;"></i> Dashboard</a></li>
-            <li><a href="/rrhh/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-user" style="font-size: 1.2em;"></i> Recursos Humanos</a></li>
+            <li><a href="../vertical_base.html" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-home" style="font-size: 1.2em;"></i> Dashboard</a></li>
+            <li><a href="../employees/RRHH-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-user" style="font-size: 1.2em;"></i> Recursos Humanos</a></li>
             <li>
-                <a href="/inventario/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; background: #2C3E50; font-size: 15px; font-weight: 600; letter-spacing: 0.01em; box-shadow: 0 2px 8px rgba(44,62,80,0.07);">
+                <a href="../inventario/dashboard_inventario.html" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; background: #2C3E50; font-size: 15px; font-weight: 600; letter-spacing: 0.01em; box-shadow: 0 2px 8px rgba(44,62,80,0.07);">
                     <i class="ti ti-box" style="font-size: 1.2em;"></i> Inventario
                 </a>
             </li>
-            <li><a href="/configuracion/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-settings" style="font-size: 1.2em;"></i> Configuración</a></li>
-            <li><a href="/parcelas/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-map" style="font-size: 1.2em;"></i> Parcelas</a></li>
-            <li><a href="/labores/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="fa fa-tasks" style="font-size: 1.2em;"></i> Labores</a></li>
-            <li><a href="/cultivos/" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="fa fa-tasks" style="font-size: 1.2em;"></i> Cultivos</a></li>
+            <li><a href="settings.html" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-settings" style="font-size: 1.2em;"></i> Configuración</a></li>
+            <li><a href="../parcels/parcels-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="ti ti-map" style="font-size: 1.2em;"></i> Parcelas</a></li>
+            <li><a href="../labores.html" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="fa fa-tasks" style="font-size: 1.2em;"></i> Labores</a></li>
+            <li><a href="../crop/crop_list.html" style="display: flex; align-items: center; gap: 10px; color: #fff; padding: 10px 22px; border-radius: 7px; transition: background 0.15s; font-size: 15px;"><i class="fa fa-tasks" style="font-size: 1.2em;"></i> Cultivos</a></li>
         </ul>
     </div>
     <div class="content">
     </div>
     <script src="/static/js/bootstrap.bundle.min.js"></script>
     <script src="/static/js/leftsidebar.js"></script>
-    <!-- Reescribir rutas del sidebar para que sean las mismas en móvil y desktop -->
+    <!-- Mejorar comportamiento táctil en móvil -->
     <script>
-    function rewriteSidebarLinks(sidebarElement) {
-        const routeMap = {
-            '/templates/vertical_base.html': '/dashboard/',
-            '/templates/employees/RRHH-dashboard.html': '/rrhh/',
-            '/templates/inventario/dashboard_inventario.html': '/inventario/',
-            'settings.html': '/configuracion/',
-            '/templates/parcels/parcels-dashboard.html': '/parcelas/',
-            '/templates/labores.html': '/labores/',
-            '/templates/crop/crop_list.html': '/cultivos/'
-        };
-        sidebarElement.querySelectorAll('a').forEach(function(link) {
-            const href = link.getAttribute('href');
-            if (routeMap[href]) {
-                link.setAttribute('href', routeMap[href]);
-            }
-        });
-    }
     document.addEventListener('DOMContentLoaded', function() {
-        // Desktop sidebar
-        const desktopSidebar = document.getElementById('sidebar');
-        if (desktopSidebar) {
-            rewriteSidebarLinks(desktopSidebar);
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            // Mejorar feedback táctil en móvil
+            sidebar.querySelectorAll('a[href]').forEach(function(link) {
+                link.addEventListener('touchstart', function() {
+                    this.style.backgroundColor = '#34495E';
+                });
+                
+                link.addEventListener('touchend', function() {
+                    this.style.backgroundColor = '';
+                });
+            });
         }
     });
     </script>

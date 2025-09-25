@@ -1030,6 +1030,10 @@
 
 <!-- Scripts -->
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.102/Build/Cesium/Cesium.js"></script>
+    <script>
+        // Configurar token de Cesium Ion
+        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUzNS1mMWZiLTQzMjYtOGEwLTNhYTVjODI1M2ZmYSIsImlkIjYyOTIsImlhdCI6MTU1OTE5MjI3MH0.lKLWe8g4Q3l7Oj5WCQ8VD2k4rRJCvQfFSqCPZi8Y5Dc';
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qs/dist/qs.js"></script>
     <script src="/static/js/utils/api-utils.js"></script>
@@ -1067,14 +1071,20 @@
         // Utilidad para cargar HTML en un elemento por ID
         async function loadHTML(id, url) {
             try {
+                const container = document.getElementById(id);
+                if (!container) {
+                    console.warn(`Contenedor '${id}' no encontrado. Omitiendo carga de ${url}`);
+                    return;
+                }
+                
                 const response = await fetch(url);
                 if (!response.ok) throw new Error(`Error al cargar ${url}`);
                 const html = await response.text();
-                document.getElementById(id).innerHTML = html;
+                container.innerHTML = html;
 
                 // Ejecutar scripts si el archivo contiene scripts (solo para vendorjs)
                 if (id === "vendorjs") {
-                    document.getElementById(id).querySelectorAll("script").forEach(oldScript => {
+                    container.querySelectorAll("script").forEach(oldScript => {
                         const newScript = document.createElement("script");
                         if (oldScript.src) {
                             newScript.src = oldScript.src;
@@ -1092,11 +1102,12 @@
 
         // Componentes a cargar: id del contenedor y ruta del archivo
         const components = {
-            "topbar-container": "/templates/partials/horizontal-nav.html",
-            "footer-container": "/templates/partials/footer.html",
-            "left-sidebar": "/templates/partials/left-sidebar.html",
-            "righsidebar": "/templates/partials/right-sidebar.html",
-            "vendorjs": "/templates/partials/vendorjs.html"
+            "topbar-container": "../partials/horizontal-nav.html",
+            "left-sidebar": "../partials/left-sidebar.html"
+            // Desactivados componentes que no tienen contenedores:
+            // "footer-container": "/templates/partials/footer.html",
+            // "righsidebar": "/templates/partials/right-sidebar.html", 
+            // "vendorjs": "/templates/partials/vendorjs.html"
         };
 
         // Cargar todos los componentes
