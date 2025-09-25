@@ -267,28 +267,25 @@ let viewerReady = true;
 
 // Inicializar el mapa de Cesium
 function initializeCesium() {
-    const token = localStorage.getItem("accessToken");
 
+    // Token de Cesium hardcodeado - Agrotech
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDYwOTcwMy1mMTRlLTQxMTYtYWRmNi02OTY4YjZkNjI0YWQiLCJpZCI6MjkwMzgyLCJpYXQiOjE3NTM1NDAzNTJ9.qZvwbfLRYsWlXHqxsePXVRfv87tF_0IIr6_Ch6efdF8';
+
+    // Configurar axios (mantener para el resto de la app)
+    const token = localStorage.getItem("accessToken");
     if (!token) {
         console.error("No se encontró el token. Redirigiendo...");
         window.location.href = "/templates/authentication/login.html";
         return;
     }
-
-    // Configurar axios
-    axiosInstance = axios.create({ // Asignar axiosInstance a la variable global
+    axiosInstance = axios.create({
         baseURL: BASE_URL,
         headers: {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${token}`
         }
     });
-
-    // Exponer axiosInstance globalmente para otros módulos
     window.axiosInstance = axiosInstance;
-
-    // Token de Cesium hardcodeado - Agrotech
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDYwOTcwMy1mMTRlLTQxMTYtYWRmNi02OTY4YjZkNjI0YWQiLCJpZCI6MjkwMzgyLCJpYXQiOjE3NTM1NDAzNTJ9.qZvwbfLRYsWlXHqxsePXVRfv87tF_0IIr6_Ch6efdF8';
 
     // Inicializar el visor de Cesium inmediatamente
     viewer = new Cesium.Viewer('cesiumContainer', {
