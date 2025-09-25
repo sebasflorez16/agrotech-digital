@@ -1,20 +1,4 @@
-// 🔹 Archivo único para toda la lógica de autenticación
-
-// Función para redirigir al login desde index.html
-function redirectToLogin() {
-    window.location.href = "https://site-production-208b.up.railway.app/templates/authentication/login.html";
-}
-
-// Función para logout
-function logout() {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    window.location.href = "https://site-production-208b.up.railway.app/templates/authentication/login.html";
-}
-
-// Hacer las funciones disponibles globalmente para el index.html
-window.redirectToLogin = redirectToLogin;
-window.logout = logout;
+// 🔹 Archivo único para lógica de autenticación del formulario
 
 // 🔹 Lógica del formulario de login
 document.addEventListener("DOMContentLoaded", function () {
