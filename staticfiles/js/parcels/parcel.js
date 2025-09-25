@@ -287,96 +287,109 @@ function initializeCesium() {
     // Exponer axiosInstance globalmente para otros módulos
     window.axiosInstance = axiosInstance;
 
-    loadParcels(); // Llamar a loadParcels después de configurar axiosInstance y inicializar el mapa de Cesium
+    // Token de Cesium hardcodeado - Agrotech
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDYwOTcwMy1mMTRlLTQxMTYtYWRmNi02OTY4YjZkNjI0YWQiLCJpZCI6MjkwMzgyLCJpYXQiOjE3NTM1NDAzNTJ9.qZvwbfLRYsWlXHqxsePXVRfv87tF_0IIr6_Ch6efdF8';
 
-    // Obtener datos del backend
-    axiosInstance.get("/parcel/")
-        .then(response => {
-            const data = response.data;
-            const cesiumToken = data.cesium_token;
-            if (!cesiumToken) {
-                alert("No se recibió el token Cesium del backend. Contacta al administrador.");
-                console.error("Token Cesium faltante en la respuesta del backend.");
-                return;
-            }
-            Cesium.Ion.defaultAccessToken = cesiumToken;
+    // Inicializar el visor de Cesium inmediatamente
+    viewer = new Cesium.Viewer('cesiumContainer', {
+        // Usar el mejor mapa base disponible para agricultura (Cesium Ion incluye opciones gratuitas excelentes)
+        // El BaseLayerPicker nativo incluye: Bing Maps Aerial, Esri World Imagery, OpenStreetMap, etc.
+        
+        // Configuración de interfaz optimizada para agricultura
+        baseLayerPicker: true, // Habilitar selector de capas nativo de Cesium (incluye las mejores opciones gratuitas)
+        shouldAnimate: true, // Habilita animaciones suaves
+        sceneMode: Cesium.SceneMode.SCENE2D, // Modo 3D por defecto para mejor visualización satelital
+        timeline: false, // Oculta el timeline (no necesario para agricultura)
+        animation: false, // Oculta controles de animación
+        geocoder: true, // Mantener búsqueda geográfica
+        homeButton: true, // Mantener botón home para navegación rápida
+        infoBox: true, // Habilitar infoBox para información de parcelas
+        sceneModePicker: true, // Permitir cambio entre 2D/3D/Columbus
+        selectionIndicator: true, // Mostrar indicador de selección
+        navigationHelpButton: true, // Mantener ayuda de navegación
+        navigationInstructionsInitiallyVisible: false, // No mostrar instrucciones inicialmente
+        fullscreenButton: true, // Habilitar pantalla completa
+        vrButton: false, // Deshabilitar VR (no relevante para agricultura)
+        creditContainer: document.createElement('div') // Ocultar créditos para UI más limpia
+    });
 
-            // Las URLs WMTS/TMS de EOSDA ahora deben apuntar al proxy backend para evitar CORS y proteger el token
-            // Inicializar el visor de Cesium
+    // Configurar terreno de alta calidad después de la inicialización
+    Cesium.createWorldTerrainAsync({
+        requestWaterMask: true, // Incluir máscara de agua para mejor contexto agrícola
+        requestVertexNormals: true // Mejor iluminación del terreno
+    }).then(terrainProvider => {
+        viewer.terrainProvider = terrainProvider;
+        console.log("Terreno de alta calidad habilitado para visualización agrícola.");
+    }).catch(error => {
+        console.warn("No se pudo cargar terreno de alta calidad, usando terreno básico:", error);
+        // Mantener terreno básico si hay problemas
+    });
 
-            // Inicializar el visor de Cesium con configuración optimizada para agricultura
-            viewer = new Cesium.Viewer('cesiumContainer', {
-                // Usar el mejor mapa base disponible para agricultura (Cesium Ion incluye opciones gratuitas excelentes)
-                // El BaseLayerPicker nativo incluye: Bing Maps Aerial, Esri World Imagery, OpenStreetMap, etc.
-                
-                // Configuración de interfaz optimizada para agricultura
-                baseLayerPicker: true, // Habilitar selector de capas nativo de Cesium (incluye las mejores opciones gratuitas)
-                shouldAnimate: true, // Habilita animaciones suaves
-                sceneMode: Cesium.SceneMode.SCENE2D, // Modo 3D por defecto para mejor visualización satelital
-                timeline: false, // Oculta el timeline (no necesario para agricultura)
-                animation: false, // Oculta controles de animación
-                geocoder: true, // Mantener búsqueda geográfica
-                homeButton: true, // Mantener botón home para navegación rápida
-                infoBox: true, // Habilitar infoBox para información de parcelas
-                sceneModePicker: true, // Permitir cambio entre 2D/3D/Columbus
-                selectionIndicator: true, // Mostrar indicador de selección
-                navigationHelpButton: true, // Mantener ayuda de navegación
-                navigationInstructionsInitiallyVisible: false, // No mostrar instrucciones inicialmente
-                fullscreenButton: true, // Habilitar pantalla completa
-                vrButton: false, // Deshabilitar VR (no relevante para agricultura)
-                creditContainer: document.createElement('div') // Ocultar créditos para UI más limpia
-            });
+    // Configurar manejo de errores para tiles fallidos
+    viewer.scene.globe.tileCacheSize = 100; // Reducir cache para mejor rendimiento
+    viewer.scene.globe.enableLighting = false; // Deshabilitar iluminación para mejor rendimiento
 
-            // Configurar terreno de alta calidad después de la inicialización
-            Cesium.createWorldTerrainAsync({
-                requestWaterMask: true, // Incluir máscara de agua para mejor contexto agrícola
-                requestVertexNormals: true // Mejor iluminación del terreno
-            }).then(terrainProvider => {
-                viewer.terrainProvider = terrainProvider;
-                console.log("Terreno de alta calidad habilitado para visualización agrícola.");
-            }).catch(error => {
-                console.warn("No se pudo cargar terreno de alta calidad, usando terreno básico:", error);
-                // Mantener terreno básico si hay problemas
-            });
+    // Suprimir errores de tiles para mejorar UX
+    viewer.cesiumWidget.creditContainer.style.display = "none";
+    
+    // Configurar manejo de errores silencioso
+    const originalLogError = console.error;
+    console.error = function(...args) {
+        const errorStr = args.join(' ');
+        // Suprimir errores conocidos de tiles
+        if (errorStr.includes('Failed to obtain image tile') || 
+            errorStr.includes('virtualearth.net') ||
+            errorStr.includes('CORS policy') ||
+            errorStr.includes('503 (Service Unavailable)')) {
+            // Log silencioso para debugging si es necesario
+            console.debug('[SUPPRESSED TILE ERROR]', ...args);
+            return;
+        }
+        // Mantener otros errores
+        originalLogError.apply(console, args);
+    };
 
-            // Configurar manejo de errores para tiles fallidos
-            viewer.scene.globe.tileCacheSize = 100; // Reducir cache para mejor rendimiento
-            viewer.scene.globe.enableLighting = false; // Deshabilitar iluminación para mejor rendimiento
+    // Configurar controles de cámara optimizados
+    const controller = viewer.scene.screenSpaceCameraController;
+    controller.enableZoom = true;
+    controller.enableRotate = true;
+    controller.enableTranslate = true;
+    controller.enableTilt = true;
+    controller.enableLook = true;
+    
+    // Configurar límites de zoom para mejor rendimiento y calidad
+    controller.minimumZoomDistance = 1000; // Mínimo 1km de altitud
+    controller.maximumZoomDistance = 50000000; // Máximo ~50,000km de altitud
+    
+    // Configurar calidad de renderizado
+    viewer.scene.globe.maximumScreenSpaceError = 2; // Reducir para mejor calidad (default: 2)
+    viewer.scene.globe.tileCacheSize = 200; // Aumentar cache para mejor rendimiento
+    
+    // Configurar resolución de texturas
+    viewer.resolutionScale = 1.0; // Usar resolución completa
+    
+    // Deshabilitar efectos que pueden afectar el rendimiento
+    viewer.scene.globe.enableLighting = false;
+    viewer.scene.globe.dynamicAtmosphereLighting = false;
+    viewer.scene.globe.showGroundAtmosphere = false;
 
-            // Suprimir errores de tiles para mejorar UX
-            viewer.cesiumWidget.creditContainer.style.display = "none";
-            
-            // Configurar manejo de errores silencioso
-            const originalLogError = console.error;
-            console.error = function(...args) {
-                const errorStr = args.join(' ');
-                // Suprimir errores conocidos de tiles
-                if (errorStr.includes('Failed to obtain image tile') || 
-                    errorStr.includes('virtualearth.net') ||
-                    errorStr.includes('CORS policy') ||
-                    errorStr.includes('503 (Service Unavailable)')) {
-                    // Log silencioso para debugging si es necesario
-                    console.debug('[SUPPRESSED TILE ERROR]', ...args);
-                    return;
-                }
-                // Mantener otros errores
-                originalLogError.apply(console, args);
-            };
+    // Centrar el mapa en Colombia con vista optimizada
+    viewer.scene.camera.setView({
+        destination: Cesium.Cartesian3.fromDegrees(-74.0817, 4.6097, 2000000), // Aumentar altura inicial
+        orientation: {
+            heading: 0.0,
+            pitch: -Cesium.Math.PI_OVER_TWO, // Vista directa hacia abajo
+            roll: 0.0
+        }
+    });
 
-            // Configurar controles de cámara optimizados
-            const controller = viewer.scene.screenSpaceCameraController;
-            controller.enableZoom = true;
-            controller.enableRotate = true;
-            controller.enableTranslate = true;
-            controller.enableTilt = true;
-            controller.enableLook = true;
-            
-            // Configurar límites de zoom para mejor rendimiento y calidad
-            controller.minimumZoomDistance = 1000; // Mínimo 1km de altitud
-            controller.maximumZoomDistance = 50000000; // Máximo ~50,000km de altitud
-            
-            // Configurar calidad de renderizado
-            viewer.scene.globe.maximumScreenSpaceError = 2; // Reducir para mejor calidad (default: 2)
+    console.log("Cesium cargado correctamente con configuración optimizada.");
+
+    // 🔹 Agregar controles de dibujo
+    setupDrawingTools(viewer);
+    
+    // Cargar parcelas después de inicializar Cesium
+    loadParcels();
             viewer.scene.globe.tileCacheSize = 200; // Aumentar cache para mejor rendimiento
             
             // Configurar resolución de texturas
@@ -399,36 +412,6 @@ function initializeCesium() {
 
             console.log("Cesium cargado correctamente con configuración optimizada.");
 
-            // 🔹 Dibujar parcelas guardadas
-            if (data.features) {
-                data.features.forEach(parcel => {
-                    const coordinates = parcel.geometry.coordinates[0].map(coord =>
-                        Cesium.Cartesian3.fromDegrees(coord[0], coord[1])
-                    );
-                    // Polígono transparente (solo borde)
-                    viewer.entities.add({
-                        name: parcel.properties.name || "Parcela sin nombre",
-                        polygon: {
-                            hierarchy: new Cesium.PolygonHierarchy(coordinates),
-                            material: Cesium.Color.TRANSPARENT,
-                            outline: true,
-                            outlineColor: Cesium.Color.BLACK
-                        }
-                    });
-                    // Polyline para borde visible (verde oscuro, grosor 2)
-                    viewer.entities.add({
-                        polyline: {
-                            positions: coordinates.concat([coordinates[0]]),
-                            width: 2,
-                            material: Cesium.Color.fromCssColorString('#145A32') // Verde oscuro
-                        }
-                    });
-                });
-            }
-            // 🔹 Agregar controles de dibujo
-            setupDrawingTools(viewer);
-        })
-        .catch(error => console.error("Error al obtener datos:", error));
 }
 
 // 🔹 Función separada para manejar el dibujo
@@ -576,13 +559,29 @@ function loadParcels() {
 
     axiosInstance.get("/parcel/")
         .then(response => {
-            const data = response.data.parcels || response.data;
+            console.log("Respuesta del backend para parcelas:", response.data);
+            
+            // Manejar diferentes formatos de respuesta
+            let data;
+            if (response.data.parcels && Array.isArray(response.data.parcels)) {
+                data = response.data.parcels;
+            } else if (response.data.results && Array.isArray(response.data.results)) {
+                data = response.data.results;
+            } else if (Array.isArray(response.data)) {
+                data = response.data;
+            } else {
+                console.warn("Formato de respuesta inesperado:", response.data);
+                data = [];
+            }
+            
             const tableBody = document.getElementById("parcelTable").getElementsByTagName("tbody")[0] || document.getElementById("parcelTable").appendChild(document.createElement("tbody"));
             tableBody.innerHTML = "";
+            
             if (!data.length) {
                 tableBody.innerHTML = `<tr><td colspan='7' class='text-center'>No hay parcelas registradas.</td></tr>`;
                 return;
             }
+            
             data.forEach(parcel => {
                 const props = parcel.properties || parcel;
                 const row = document.createElement("tr");
@@ -603,9 +602,39 @@ function loadParcels() {
                     </td>
                 `;
                 tableBody.appendChild(row);
+                
+                // Dibujar parcela en el mapa si tiene geometría
+                if (parcel.geometry && parcel.geometry.coordinates && viewer) {
+                    try {
+                        const coordinates = parcel.geometry.coordinates[0].map(coord =>
+                            Cesium.Cartesian3.fromDegrees(coord[0], coord[1])
+                        );
+                        // Polígono transparente (solo borde)
+                        viewer.entities.add({
+                            name: props.name || "Parcela sin nombre",
+                            polygon: {
+                                hierarchy: new Cesium.PolygonHierarchy(coordinates),
+                                material: Cesium.Color.TRANSPARENT,
+                                outline: true,
+                                outlineColor: Cesium.Color.BLACK
+                            }
+                        });
+                        // Polyline para borde visible (verde oscuro, grosor 2)
+                        viewer.entities.add({
+                            polyline: {
+                                positions: coordinates.concat([coordinates[0]]),
+                                width: 2,
+                                material: Cesium.Color.fromCssColorString('#145A32') // Verde oscuro
+                            }
+                        });
+                    } catch (error) {
+                        console.error("Error dibujando parcela en el mapa:", error);
+                    }
+                }
             });
         })
         .catch(error => {
+            console.error("Error al cargar las parcelas:", error);
             showErrorToast("Error al cargar las parcelas: " + (error.message || error));
         });
 }
