@@ -173,6 +173,7 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https?://[\w\-]+\.localhost:8000$",  # Por si acceden directo al backend
     r"^https://agrotechcolombia\.com$",  # Backend en Railway
     r"^https://site-production-208b.up.railway.app/$",  # Backend en Railway
+    "https://agrotechcolombia.netlify.app",  # Frontend estático en Netlify
 ]
 
 # NOTA: No se usa CORS_ALLOW_ALL_ORIGINS=True para evitar riesgos de seguridad y exposición del API key de EOSDA.
