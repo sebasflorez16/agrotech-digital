@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <!-- Permitir CSS y fuentes externas, y evitar errores de MIME -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; connect-src 'self' https:;">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https: *; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; img-src 'self' data: https:; connect-src 'self' https:; worker-src 'self' blob:; child-src 'self' blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapa 3D Cesium - AgroTech</title>
     <!-- Estilos de Cesium -->
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.102/Build/Cesium/Widgets/widgets.css" rel="stylesheet" type="text/css" />
-    <link href="/static/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
-    <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
-    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
-    <link href="/static/css/employees.css" rel="stylesheet" type="text/css" />
+    <link href="../../css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="../../css/icons.min.css" rel="stylesheet" type="text/css" />
+    <link href="../../css/app.min.css" rel="stylesheet" type="text/css" />
+    <link href="../../css/employees.css" rel="stylesheet" type="text/css" />
     <!-- Font Awesome for Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <!-- Tabler Icons for Sidebar -->
@@ -1043,15 +1043,15 @@
     </script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qs/dist/qs.js"></script>
-    <script type="module" src="/static/js/utils/api-utils.js"></script>
-    <script type="module" src="/static/js/auth/dev-auth-helper.js"></script>
-    <script src="/static/js/app.js"></script>
-    <script type="module" src="/static/js/parcels/parcel.js"></script>
-    <script type="module" src="/static/js/parcels/layers.js"></script>
-    <script src="/static/js/parcels/analytics-cientifico.js"></script>
-    <script src="/static/js/parcels/historical-chart.js?v=2025082412"></script>
-    <script src="/static/js/parcels/meteorological-analysis.js?v=2025082425"></script>
-    <script src="/static/js/parcels/weather-detail.js?v=2025090101"></script>
+    <script type="module" src="../../js/utils/api-utils.js"></script>
+    <script type="module" src="../../js/auth/dev-auth-helper.js"></script>
+    <script src="../../js/app.js"></script>
+    <script type="module" src="../../js/parcels/parcel.js"></script>
+    <script type="module" src="../../js/parcels/layers.js"></script>
+    <script src="../../js/parcels/analytics-cientifico.js"></script>
+    <script src="../../js/parcels/historical-chart.js?v=2025082412"></script>
+    <script src="../../js/parcels/meteorological-analysis.js?v=2025082425"></script>
+    <script src="../../js/parcels/weather-detail.js?v=2025090101"></script>
 
     <script>
         // Mostrar el filtro de rango de fechas solo cuando se activa la capa NDVI
