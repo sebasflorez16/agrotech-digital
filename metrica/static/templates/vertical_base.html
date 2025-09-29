@@ -15,6 +15,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     
     <!-- Custom CSS para responsive -->
+    <script type="module">
+        // Protección de autenticación
+        const token = localStorage.getItem("accessToken");
+        if (!token) {
+            window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
+        }
+    </script>
     <style>
         /* Sidebar fijo a la izquierda, por encima del topbar */
         #left-sidebar {
@@ -364,7 +371,7 @@
         const components = {
             "page-content": "/templates/dashboard.html",
             "footer-container": "/templates/partials/footer.html",
-            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "left-sidebar": "../templates/partials/left-sidebar.html",
             "vendorjs": "/templates/partials/vendorjs.html"
         };
         

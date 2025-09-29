@@ -41,8 +41,10 @@ document.addEventListener("DOMContentLoaded", function () {
                 localStorage.setItem("accessToken", data.access);
                 localStorage.setItem("refreshToken", data.refresh);
                 
-                // Redirigir al dashboard principal
-                window.location.href = "https://agrotechcolombia.netlify.app/templates/vertical_base.html";
+                // Pequeño delay para asegurar que se guarden los tokens
+                setTimeout(() => {
+                    window.location.href = "https://agrotechcolombia.netlify.app/templates/vertical_base.html";
+                }, 200);
                 
             } else {
                 // ❌ Error de autenticación
