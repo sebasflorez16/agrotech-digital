@@ -173,14 +173,14 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https?://[\w\-]+\.localhost:8000$",  # Por si acceden directo al backend
     r"^https://agrotechcolombia\.com$",  # Backend en Railway
     r"^https://site-production-208b.up.railway.app/$",  # Backend en Railway
-    "https://agrotechcolombia.netlify.app",  # Frontend estático en Netlify
+    r"^https://agrotechcolombia.netlify.app$",  # Frontend estático en Netlify
 ]
 
 # NOTA: No se usa CORS_ALLOW_ALL_ORIGINS=True para evitar riesgos de seguridad y exposición del API key de EOSDA.
 
 
-LOGIN_REDIRECT_URL = "https://site-production-208b.up.railway.app/vertical_base.html"  # Redirige al dashboard del frontend después de login
-LOGIN_URL = "/authentication/login/"  # Redirige a la página de login si no estás autenticado
+LOGIN_REDIRECT_URL = "https://agrotechcolombia.netlify.app/templates/vertical_base.html"  # Redirige al dashboard del frontend después de login
+LOGIN_URL = "https://agrotechcolombia.netlify.app/templates/vertical_base.html"  # Redirige a la página de login si no estás autenticado
 ACCOUNT_LOGOUT_REDIRECT_URL = "/authentication/login/"  # Redirige al login después de logout
 
 

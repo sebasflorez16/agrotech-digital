@@ -13,7 +13,8 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
     "agrotech-digital-production.up.railway.app",
     ".railway.app",  # Permitir cualquier subdominio de Railway
     "localhost",
-    "127.0.0.1"
+    "127.0.0.1",
+    "https://agrotechcolombia.netlify.app",
 ])
 
 # DATABASES
@@ -180,6 +181,8 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.agrotechcolombia.com", 
     "https://agrotech-digital-production.up.railway.app",
     "https://*.agrotechcolombia.com",  # Para subdominios de clientes
+    "https://agrotechcolombia.netlify.app/",
+    #"https://site-production-208b.up.railway.app",  # Frontend estático en Railway
 ]
 
 CORS_ALLOW_CREDENTIALS = True
