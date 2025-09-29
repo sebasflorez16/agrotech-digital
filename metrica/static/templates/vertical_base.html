@@ -16,11 +16,18 @@
     
     <!-- Custom CSS para responsive -->
     <script type="module">
-        // Protección de autenticación
-        const token = localStorage.getItem("accessToken");
-        if (!token) {
-            window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
-        }
+        // Protección de autenticación - fix para evitar loop
+        document.addEventListener("DOMContentLoaded", function() {
+            const token = localStorage.getItem("accessToken");
+            console.log("Token encontrado:", token ? "SÍ" : "NO");
+            
+            if (!token || token === "null" || token === "undefined" || token.trim() === "") {
+                console.log("Redirigiendo al login...");
+                window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
+            } else {
+                console.log("Usuario autenticado, permaneciendo en dashboard");
+            }
+        });
     </script>
     <style>
         /* Sidebar fijo a la izquierda, por encima del topbar */

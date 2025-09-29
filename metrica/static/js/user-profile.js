@@ -9,8 +9,8 @@ function fetchAndRenderUserProfile() {
         return;
     }
 
-    const baseUrl = window.location.origin;
-    const endpoint = `${window.location.origin}/users/api/profile-utils/`;
+    // Apuntar al backend correcto, no al frontend
+    const endpoint = `https://agrotechcolombia.com/users/api/profile-utils/`;
 
     fetch(endpoint, { 
         method: 'GET',
@@ -19,13 +19,19 @@ function fetchAndRenderUserProfile() {
             'Content-Type': 'application/json'
         }
     })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             console.log(data);
             renderUserProfile(data);
         })
         .catch(error => {
-            console.error(error);
+            console.error("Error cargando perfil de usuario:", error);
+            // NO redirigir al login por errores de perfil
         });
 }
 

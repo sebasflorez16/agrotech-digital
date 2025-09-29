@@ -1,7 +1,7 @@
 // 🔹 Función para verificar si el usuario está autenticado
 export function isAuthenticated() {
     const token = localStorage.getItem("accessToken");
-    return token !== null && token !== undefined;
+    return token && token !== "null" && token !== "undefined" && token.trim() !== "";
 }
 
 // 🔹 Función para redirigir al login
