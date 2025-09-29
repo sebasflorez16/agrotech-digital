@@ -311,16 +311,17 @@ function initializeCesium() {
     });
 
     // Configurar terreno de alta calidad después de la inicialización
-    Cesium.createWorldTerrainAsync({
-        requestWaterMask: true, // Incluir máscara de agua para mejor contexto agrícola
-        requestVertexNormals: true // Mejor iluminación del terreno
-    }).then(terrainProvider => {
+    try {
+        const terrainProvider = Cesium.createWorldTerrain({
+            requestWaterMask: true, // Incluir máscara de agua para mejor contexto agrícola
+            requestVertexNormals: true // Mejor iluminación del terreno
+        });
         viewer.terrainProvider = terrainProvider;
         console.log("Terreno de alta calidad habilitado para visualización agrícola.");
-    }).catch(error => {
+    } catch (error) {
         console.warn("No se pudo cargar terreno de alta calidad, usando terreno básico:", error);
         // Mantener terreno básico si hay problemas
-    });
+    }
 
     // Configurar manejo de errores para tiles fallidos
     viewer.scene.globe.tileCacheSize = 100; // Reducir cache para mejor rendimiento

@@ -10,7 +10,7 @@
                    font-src 'self' 'unsafe-inline' https: data:; 
                    img-src 'self' 'unsafe-inline' https: data: blob:; 
                    connect-src 'self' 'unsafe-inline' https: data: blob:; 
-                   worker-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:; 
+                   worker-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob: https://cesium.com; 
                    child-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapa 3D Cesium - AgroTech</title>
@@ -1047,8 +1047,11 @@
     </script>
 
 <!-- Scripts -->
-    <script src="https://cesium.com/downloads/cesiumjs/releases/1.102/Build/Cesium/Cesium.js"></script>
+    <!-- Cesium 1.118 ya está cargado arriba, no duplicar -->
     <script>
+        // Configurar ruta base para workers de Cesium
+        window.CESIUM_BASE_URL = 'https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/';
+        
         // Configurar token de Cesium Ion - Agrotech
         Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDYwOTcwMy1mMTRlLTQxMTYtYWRmNi02OTY4YjZkNjI0YWQiLCJpZCI6MjkwMzgyLCJpYXQiOjE3NTM1NDAzNTJ9.qZvwbfLRYsWlXHqxsePXVRfv87tF_0IIr6_Ch6efdF8';
     </script>
