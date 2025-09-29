@@ -38,20 +38,26 @@ function checkAuth() {
     })
     .then(response => {
         console.log("Respuesta del servidor:", response.status);
-        
-        if (!response.ok) {
+        if (response.status === 401) {
+            // Token inválido o expirado: redirige al login y limpia tokens
             console.error("Token inválido o expirado, redirigiendo al login...");
             localStorage.removeItem("accessToken");
             localStorage.removeItem("refreshToken");
             window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
-        } else {
-            console.log("Token válido, cargando dashboard...");
-            loadDashboardData();
+            throw new Error("No autorizado, redirigiendo al login.");
         }
+        if (!response.ok) {
+            // Otro error (no autenticación): solo mostrar en consola
+            console.error("Error al verificar autenticación:", response.statusText);
+            return;
+        }
+        // Token válido
+        console.log("Token válido, cargando dashboard...");
+        loadDashboardData();
     })
     .catch(error => {
         console.error("Error al verificar autenticación:", error);
-        window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
+        // No redirigir automáticamente en otros errores
     });
 }
 

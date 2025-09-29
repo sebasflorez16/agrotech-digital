@@ -9,11 +9,20 @@ document.addEventListener("DOMContentLoaded", () => {
 function fetchUserCount() {
     let token = localStorage.getItem("accessToken");
 
-    fetch (`https://agrotechcolombia.com/api/authentication/dashboard/`, {  //Ruta correcta
+    fetch(`https://agrotechcolombia.com/api/authentication/dashboard/`, {
         method: "GET",
         headers: { "Authorization": `Bearer ${token}` }
     })
-    .then(response => response.json())
+    .then(response => {
+        if (response.status === 401) {
+            // Token inválido o expirado: redirige al login y limpia tokens
+            localStorage.removeItem("accessToken");
+            localStorage.removeItem("refreshToken");
+            window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
+            throw new Error("No autorizado, redirigiendo al login.");
+        }
+        return response.json();
+    })
     .then(data => {
         console.log("Número de usuarios registrados:", data.user_count);
         const userCountElement = document.getElementById("userCount");
