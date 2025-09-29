@@ -24,13 +24,13 @@ function checkAuth() {
 
     if (!token) {
         console.warn("⚠️ No hay token, redirigiendo al login...");
-        window.location.href = "/templates/authentication/login.html";
+        window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
         return;
     }
 
     //Validar si el token es realmente válido llamando a una API protegida
     const dashboardUrl = window.ApiUrls ? window.ApiUrls.auth() + '/dashboard/' : 
-                        `${window.location.origin}/api/authentication/dashboard/`;
+                        `https://agrotechcolombia.com/api/authentication/dashboard/`;
     
     fetch(dashboardUrl, {
         method: "GET",
@@ -43,7 +43,7 @@ function checkAuth() {
             console.error("Token inválido o expirado, redirigiendo al login...");
             localStorage.removeItem("accessToken");
             localStorage.removeItem("refreshToken");
-            window.location.href = "/templates/authentication/login.html";
+            window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
         } else {
             console.log("Token válido, cargando dashboard...");
             loadDashboardData();
@@ -51,7 +51,7 @@ function checkAuth() {
     })
     .catch(error => {
         console.error("Error al verificar autenticación:", error);
-        window.location.href = "/templates/authentication/login.html";
+        window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
     });
 }
 
@@ -64,7 +64,7 @@ function checkAuth() {
 function logout() {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
-    window.location.href = "/authentication/login.html";
+    window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
 }
 
 // Botón para ir a la gestión de labores

@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", () => {
 function fetchUserCount() {
     let token = localStorage.getItem("accessToken");
 
-    fetch(`${window.location.origin}/api/authentication/dashboard/`, {  //Ruta correcta
+    fetch (`https://agrotechcolombia.com/api/authentication/dashboard/`, {  //Ruta correcta
         method: "GET",
         headers: { "Authorization": `Bearer ${token}` }
     })

@@ -21,9 +21,3 @@ export function logout() {
     redirectToLogin();
 }
 
-// 🔹 Función para proteger páginas (usar en vertical_base.html)
-export function requireAuth() {
-    if (!isAuthenticated()) {
-        redirectToLogin();
-    }
-}
