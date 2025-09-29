@@ -260,10 +260,25 @@
     
     <!-- Verificación de autenticación antes de cargar login -->
     <script>
-        // Si ya está autenticado, redirigir al dashboard
+        // Solo redirigir al dashboard si el token es válido según el backend
         const existingToken = localStorage.getItem("accessToken");
         if (existingToken && existingToken !== "null" && existingToken !== "undefined" && existingToken.trim() !== "") {
-            window.location.href = "https://agrotechcolombia.netlify.app/templates/vertical_base.html";
+            fetch("https://agrotechcolombia.com/api/authentication/dashboard/", {
+                method: "GET",
+                headers: { "Authorization": `Bearer ${existingToken}` }
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = "https://agrotechcolombia.netlify.app/templates/vertical_base.html";
+                } else {
+                    // Token inválido, limpiar y quedarse en login
+                    localStorage.removeItem("accessToken");
+                    localStorage.removeItem("refreshToken");
+                }
+            })
+            .catch(() => {
+                // Error de red, quedarse en login
+            });
         }
     </script>
     

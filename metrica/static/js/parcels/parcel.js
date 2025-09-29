@@ -268,8 +268,9 @@ let viewerReady = true;
 // Inicializar el mapa de Cesium
 function initializeCesium() {
 
-    // Token de Cesium hardcodeado - Agrotech
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDYwOTcwMy1mMTRlLTQxMTYtYWRmNi02OTY4YjZkNjI0YWQiLCJpZCI6MjkwMzgyLCJpYXQiOjE3NTM1NDAzNTJ9.qZvwbfLRYsWlXHqxsePXVRfv87tF_0IIr6_Ch6efdF8';
+    // Token de Cesium Ion deshabilitado temporalmente (expirado)
+    // Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDYwOTcwMy1mMTRlLTQxMTYtYWRmNi02OTY4YjZkNjI0YWQiLCJpZCI6MjkwMzgyLCJpYXQiOjE3NTM1NDAzNTJ9.qZvwbfLRYsWlXHqxsePXVRfv87tF_0IIr6_Ch6efdF8';
+    console.log("Usando Cesium sin token Ion - solo recursos gratuitos disponibles");
 
     // Configurar axios (mantener para el resto de la app)
     const token = localStorage.getItem("accessToken");
@@ -295,7 +296,7 @@ function initializeCesium() {
         // Configuración de interfaz optimizada para agricultura
         baseLayerPicker: true, // Habilitar selector de capas nativo de Cesium (incluye las mejores opciones gratuitas)
         shouldAnimate: true, // Habilita animaciones suaves
-        sceneMode: Cesium.SceneMode.SCENE2D, // Modo 3D por defecto para mejor visualización satelital
+        sceneMode: Cesium.SceneMode.SCENE3D, // Modo 3D para mejor visualización satelital y dibujo de polígonos
         timeline: false, // Oculta el timeline (no necesario para agricultura)
         animation: false, // Oculta controles de animación
         geocoder: true, // Mantener búsqueda geográfica
@@ -310,17 +311,13 @@ function initializeCesium() {
         creditContainer: document.createElement('div') // Ocultar créditos para UI más limpia
     });
 
-    // Configurar terreno de alta calidad después de la inicialización
+    // Configurar terreno básico sin requerir token Ion
     try {
-        const terrainProvider = Cesium.createWorldTerrain({
-            requestWaterMask: true, // Incluir máscara de agua para mejor contexto agrícola
-            requestVertexNormals: true // Mejor iluminación del terreno
-        });
-        viewer.terrainProvider = terrainProvider;
-        console.log("Terreno de alta calidad habilitado para visualización agrícola.");
+        // Usar terreno elipsoidal básico (gratuito, sin token requerido)
+        viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
+        console.log("Terreno básico elipsoidal configurado (sin token Ion requerido).");
     } catch (error) {
-        console.warn("No se pudo cargar terreno de alta calidad, usando terreno básico:", error);
-        // Mantener terreno básico si hay problemas
+        console.warn("Error al configurar terreno básico:", error);
     }
 
     // Configurar manejo de errores para tiles fallidos
@@ -330,7 +327,22 @@ function initializeCesium() {
     // Suprimir errores de tiles para mejorar UX
     viewer.cesiumWidget.creditContainer.style.display = "none";
     
-    // Configurar manejo de errores silencioso
+    // Configurar manejo de errores silencioso para tiles
+    viewer.scene.globe.tileLoadProgressEvent.addEventListener(function(queuedTileCount) {
+        // Silenciar errores de tiles para evitar spam en consola
+    });
+    
+    // Configurar provider de imagen más confiable
+    try {
+        const imageryProvider = new Cesium.OpenStreetMapImageryProvider({
+            url: 'https://a.tile.openstreetmap.org/'
+        });
+        viewer.imageryLayers.removeAll();
+        viewer.imageryLayers.addImageryProvider(imageryProvider);
+        console.log("Imagery provider OpenStreetMap configurado exitosamente.");
+    } catch (error) {
+        console.warn("Error al configurar imagery provider:", error);
+    }
     const originalLogError = console.error;
     console.error = function(...args) {
         const errorStr = args.join(' ');
@@ -347,15 +359,21 @@ function initializeCesium() {
         originalLogError.apply(console, args);
     };
 
-    // Configurar controles de cámara optimizados
+    // Configurar controles de cámara optimizados para agricultura
     const controller = viewer.scene.screenSpaceCameraController;
     controller.enableZoom = true;
-    controller.enableRotate = true;
+    controller.enableRotate = true; // Importante para vista 3D
     controller.enableTranslate = true;
-    controller.enableTilt = true;
+    controller.enableTilt = true; // Permite inclinar la vista para mejor perspectiva de parcelas
     controller.enableLook = true;
     
-    // Configurar límites de zoom para mejor rendimiento y calidad
+    // Configurar límites de zoom optimizados para visualización agrícola
+    controller.minimumZoomDistance = 10; // Permite zoom muy cercano para detalles de parcelas
+    controller.maximumZoomDistance = 20000000; // Vista amplia para regiones grandes
+    
+    // Mejorar la experiencia de navegación 3D
+    viewer.scene.globe.enableLighting = false; // Iluminación simple para mejor rendimiento
+    viewer.scene.globe.depthTestAgainstTerrain = false; // Mejor rendimiento sin terreno 3D complejo
     controller.minimumZoomDistance = 1000; // Mínimo 1km de altitud
     controller.maximumZoomDistance = 50000000; // Máximo ~50,000km de altitud
     
@@ -398,12 +416,12 @@ function initializeCesium() {
             viewer.scene.globe.dynamicAtmosphereLighting = false;
             viewer.scene.globe.showGroundAtmosphere = false;
 
-            // Centrar el mapa en Colombia con vista optimizada
+            // Centrar el mapa en Colombia con vista optimizada para agricultura 3D
             viewer.scene.camera.setView({
-                destination: Cesium.Cartesian3.fromDegrees(-74.0817, 4.6097, 2000000), // Aumentar altura inicial
+                destination: Cesium.Cartesian3.fromDegrees(-74.0817, 4.6097, 1500000), // Colombia, altura moderada
                 orientation: {
                     heading: 0.0,
-                    pitch: -Cesium.Math.PI_OVER_TWO, // Vista directa hacia abajo
+                    pitch: -Cesium.Math.PI_OVER_FOUR, // Inclinación de 45° para mejor perspectiva 3D
                     roll: 0.0
                 }
             });
@@ -460,9 +478,11 @@ function setupDrawingTools(viewer) {
                         hierarchy: new Cesium.CallbackProperty(() => {
                             return new Cesium.PolygonHierarchy(positions);
                         }, false),
-                        material: Cesium.Color.RED.withAlpha(0.5), // Pintar de rojo con transparencia
+                        material: Cesium.Color.LIME.withAlpha(0.4), // Verde lima con transparencia para mejor visibilidad en 3D
                         outline: true,
-                        outlineColor: Cesium.Color.RED
+                        outlineColor: Cesium.Color.DARKGREEN,
+                        height: 0, // Altura del polígono sobre el terreno
+                        extrudedHeight: 5 // Altura de extrusión para mejor visualización 3D (5 metros)
                     }
                 });
             }
