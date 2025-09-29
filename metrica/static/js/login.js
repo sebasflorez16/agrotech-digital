@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 localStorage.setItem("refreshToken", data.refresh);
                 
                 // Redirigir al dashboard principal
-                window.location.href = "https://site-production-208b.up.railway.app/templates/vertical_base.html";
+                window.location.href = "https://agrotechcolombia.netlify.app/templates/vertical_base.html";
                 
             } else {
                 // ❌ Error de autenticación
