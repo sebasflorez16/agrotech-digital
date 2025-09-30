@@ -268,9 +268,9 @@ let viewerReady = true;
 // Inicializar el mapa de Cesium
 function initializeCesium() {
 
-    // Token de Cesium Ion deshabilitado temporalmente (expirado)
-    // Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDYwOTcwMy1mMTRlLTQxMTYtYWRmNi02OTY4YjZkNjI0YWQiLCJpZCI6MjkwMzgyLCJpYXQiOjE3NTM1NDAzNTJ9.qZvwbfLRYsWlXHqxsePXVRfv87tF_0IIr6_Ch6efdF8';
-    console.log("Usando Cesium sin token Ion - solo recursos gratuitos disponibles");
+    // Activar el token de Cesium Ion para recursos gratuitos y terreno
+    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDYwOTcwMy1mMTRlLTQxMTYtYWRmNi02OTY4YjZkNjI0YWQiLCJpZCI6MjkwMzgyLCJpYXQiOjE3NTM1NDAzNTJ9.qZvwbfLRYsWlXHqxsePXVRfv87tF_0IIr6_Ch6efdF8';
+    console.log("Token Cesium Ion activado correctamente");
 
     // Configurar axios (mantener para el resto de la app)
     const token = localStorage.getItem("accessToken");
@@ -288,9 +288,9 @@ function initializeCesium() {
     });
     window.axiosInstance = axiosInstance;
 
-    // Inicializar el visor de Cesium inmediatamente
+    // Inicializar el visor de Cesium con mapa base satelital Esri World Imagery
     viewer = new Cesium.Viewer('cesiumContainer', {
-        baseLayerPicker: true,
+        baseLayerPicker: false,
         shouldAnimate: true,
         sceneMode: Cesium.SceneMode.SCENE3D,
         scene3DOnly: true,
@@ -306,46 +306,24 @@ function initializeCesium() {
         fullscreenButton: true,
         vrButton: false,
         creditContainer: document.createElement('div'),
-        imageryProvider: new Cesium.BingMapsImageryProvider({
-            url: 'https://dev.virtualearth.net',
-            mapStyle: Cesium.BingMapsStyle.AERIAL,
-            key: '' // Si tienes una API key de Bing, colócala aquí
-        }),
-        baseLayerPickerViewModels: [
-            new Cesium.ProviderViewModel({
-                name: 'Bing Maps Aerial',
-                iconUrl: Cesium.buildModuleUrl('Widgets/Images/ImageryProviders/bingAerial.png'),
-                tooltip: 'Bing Maps Aerial',
-                creationFunction: function() {
-                    return new Cesium.BingMapsImageryProvider({
-                        url: 'https://dev.virtualearth.net',
-                        mapStyle: Cesium.BingMapsStyle.AERIAL,
-                        key: '' // Si tienes una API key de Bing, colócala aquí
-                    });
-                }
-            }),
-            new Cesium.ProviderViewModel({
-                name: 'Bing Maps Aerial with Labels',
-                iconUrl: Cesium.buildModuleUrl('Widgets/Images/ImageryProviders/bingAerialLabels.png'),
-                tooltip: 'Bing Maps Aerial with Labels',
-                creationFunction: function() {
-                    return new Cesium.BingMapsImageryProvider({
-                        url: 'https://dev.virtualearth.net',
-                        mapStyle: Cesium.BingMapsStyle.AERIAL_WITH_LABELS,
-                        key: '' // Si tienes una API key de Bing, colócala aquí
-                    });
-                }
-            })
-        ]
+        imageryProvider: new Cesium.ArcGisMapServerImageryProvider({
+            url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+            credit: 'Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community'
+        })
     });
 
-    // Configurar terreno básico sin requerir token Ion
+    // Configurar terreno realista gratuito de Cesium Ion
     try {
-        // Usar terreno elipsoidal básico (gratuito, sin token requerido)
-        viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
-        console.log("Terreno básico elipsoidal configurado (sin token Ion requerido).");
+        // Forma recomendada por Cesium para terreno Ion gratuito
+        viewer.terrainProvider = Cesium.CesiumTerrainProvider.fromIonAssetId(1);
+        console.log("Terreno 3D de Cesium Ion configurado correctamente.");
     } catch (error) {
-        console.warn("Error al configurar terreno básico:", error);
+        console.warn("Error al configurar terreno 3D Cesium Ion:", error);
+        // Mostrar advertencia visual si el terreno falla
+        const cesiumContainer = document.getElementById('cesiumContainer');
+        if (cesiumContainer) {
+            cesiumContainer.innerHTML = '<div style="color: white; background: #c00; padding: 1em; text-align: center;">No se pudo cargar el terreno 3D de Cesium Ion. Verifica tu conexión y el token.</div>';
+        }
     }
 
     // Configurar manejo de errores para tiles fallidos
@@ -360,17 +338,8 @@ function initializeCesium() {
         // Silenciar errores de tiles para evitar spam en consola
     });
     
-    // Configurar provider de imagen más confiable
-    try {
-        const imageryProvider = new Cesium.OpenStreetMapImageryProvider({
-            url: 'https://a.tile.openstreetmap.org/'
-        });
-        viewer.imageryLayers.removeAll();
-        viewer.imageryLayers.addImageryProvider(imageryProvider);
-        console.log("Imagery provider OpenStreetMap configurado exitosamente.");
-    } catch (error) {
-        console.warn("Error al configurar imagery provider:", error);
-    }
+    // El mapa base es fijo (Esri World Imagery), no se cambia dinámicamente
+    // Si se quiere cambiar el proveedor, hacerlo en la inicialización arriba
     const originalLogError = console.error;
     console.error = function(...args) {
         const errorStr = args.join(' ');
@@ -428,6 +397,9 @@ function initializeCesium() {
     });
 
     console.log("Cesium cargado correctamente con configuración optimizada.");
+
+    // Forzar transición a modo 3D inmediatamente después de inicializar
+    viewer.scene.morphTo3D(0);
 
     // 🔹 Agregar controles de dibujo
     setupDrawingTools(viewer);

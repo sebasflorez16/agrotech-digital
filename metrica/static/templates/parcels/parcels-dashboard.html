@@ -162,6 +162,41 @@
             border-radius: 12px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
             text-align: center;
+            transition: all 0.3s ease;
+        }
+        @media (max-width: 767.98px) {
+            #button-container {
+                position: static;
+                width: 95vw;
+                max-width: 98vw;
+                margin: 0 auto 18px auto;
+                top: unset;
+                left: unset;
+                transform: none;
+                background: rgba(255,255,255,0.95);
+                border-radius: 18px;
+                box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+                padding: 18px 8px 14px 8px;
+                text-align: center;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+            #button-container h3 {
+                font-size: 1.2rem;
+                margin-bottom: 10px;
+            }
+            .custom-button {
+                width: 90vw !important;
+                max-width: 98vw;
+                font-size: 1.1rem;
+                margin: 8px 0;
+                padding: 14px 0;
+                border-radius: 10px;
+            }
+            #cancel-button {
+                margin-top: 6px;
+            }
         }
         .custom-button {
             display: block;
