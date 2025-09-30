@@ -288,7 +288,7 @@ function initializeCesium() {
     });
     window.axiosInstance = axiosInstance;
 
-    // Inicializar el visor de Cesium con mapa base satelital Esri World Imagery
+    // Inicializar el visor de Cesium sin imageryProvider, luego agregar la capa satelital manualmente
     viewer = new Cesium.Viewer('cesiumContainer', {
         baseLayerPicker: false,
         shouldAnimate: true,
@@ -305,12 +305,14 @@ function initializeCesium() {
         navigationInstructionsInitiallyVisible: false,
         fullscreenButton: true,
         vrButton: false,
-        creditContainer: document.createElement('div'),
-        imageryProvider: new Cesium.ArcGisMapServerImageryProvider({
-            url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
-            credit: 'Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community'
-        })
+        creditContainer: document.createElement('div')
     });
+
+    // Agregar la capa satelital Esri World Imagery manualmente
+    viewer.imageryLayers.addImageryProvider(new Cesium.ArcGisMapServerImageryProvider({
+        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+        credit: 'Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community'
+    }));
 
     // Configurar terreno realista gratuito de Cesium Ion
     try {
