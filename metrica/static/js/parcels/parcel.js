@@ -290,25 +290,53 @@ function initializeCesium() {
 
     // Inicializar el visor de Cesium inmediatamente
     viewer = new Cesium.Viewer('cesiumContainer', {
-        // Usar el mejor mapa base disponible para agricultura (Cesium Ion incluye opciones gratuitas excelentes)
-        // El BaseLayerPicker nativo incluye: Bing Maps Aerial, Esri World Imagery, OpenStreetMap, etc.
-        
-        // Configuración de interfaz optimizada para agricultura
-        baseLayerPicker: true, // Habilitar selector de capas nativo de Cesium (incluye las mejores opciones gratuitas)
-        shouldAnimate: true, // Habilita animaciones suaves
-        sceneMode: Cesium.SceneMode.SCENE3D, // Modo 3D para mejor visualización satelital y dibujo de polígonos
-        timeline: false, // Oculta el timeline (no necesario para agricultura)
-        animation: false, // Oculta controles de animación
-        geocoder: true, // Mantener búsqueda geográfica
-        homeButton: true, // Mantener botón home para navegación rápida
-        infoBox: true, // Habilitar infoBox para información de parcelas
-        sceneModePicker: true, // Permitir cambio entre 2D/3D/Columbus
-        selectionIndicator: true, // Mostrar indicador de selección
-        navigationHelpButton: true, // Mantener ayuda de navegación
-        navigationInstructionsInitiallyVisible: false, // No mostrar instrucciones inicialmente
-        fullscreenButton: true, // Habilitar pantalla completa
-        vrButton: false, // Deshabilitar VR (no relevante para agricultura)
-        creditContainer: document.createElement('div') // Ocultar créditos para UI más limpia
+        baseLayerPicker: true,
+        shouldAnimate: true,
+        sceneMode: Cesium.SceneMode.SCENE3D,
+        scene3DOnly: true,
+        sceneModePicker: false,
+        timeline: false,
+        animation: false,
+        geocoder: true,
+        homeButton: true,
+        infoBox: true,
+        selectionIndicator: true,
+        navigationHelpButton: true,
+        navigationInstructionsInitiallyVisible: false,
+        fullscreenButton: true,
+        vrButton: false,
+        creditContainer: document.createElement('div'),
+        imageryProvider: new Cesium.BingMapsImageryProvider({
+            url: 'https://dev.virtualearth.net',
+            mapStyle: Cesium.BingMapsStyle.AERIAL,
+            key: '' // Si tienes una API key de Bing, colócala aquí
+        }),
+        baseLayerPickerViewModels: [
+            new Cesium.ProviderViewModel({
+                name: 'Bing Maps Aerial',
+                iconUrl: Cesium.buildModuleUrl('Widgets/Images/ImageryProviders/bingAerial.png'),
+                tooltip: 'Bing Maps Aerial',
+                creationFunction: function() {
+                    return new Cesium.BingMapsImageryProvider({
+                        url: 'https://dev.virtualearth.net',
+                        mapStyle: Cesium.BingMapsStyle.AERIAL,
+                        key: '' // Si tienes una API key de Bing, colócala aquí
+                    });
+                }
+            }),
+            new Cesium.ProviderViewModel({
+                name: 'Bing Maps Aerial with Labels',
+                iconUrl: Cesium.buildModuleUrl('Widgets/Images/ImageryProviders/bingAerialLabels.png'),
+                tooltip: 'Bing Maps Aerial with Labels',
+                creationFunction: function() {
+                    return new Cesium.BingMapsImageryProvider({
+                        url: 'https://dev.virtualearth.net',
+                        mapStyle: Cesium.BingMapsStyle.AERIAL_WITH_LABELS,
+                        key: '' // Si tienes una API key de Bing, colócala aquí
+                    });
+                }
+            })
+        ]
     });
 
     // Configurar terreno básico sin requerir token Ion
@@ -416,12 +444,12 @@ function initializeCesium() {
             viewer.scene.globe.dynamicAtmosphereLighting = false;
             viewer.scene.globe.showGroundAtmosphere = false;
 
-            // Centrar el mapa en Colombia con vista optimizada para agricultura 3D
+            // Centrar el mapa en Colombia con vista optimizada
             viewer.scene.camera.setView({
-                destination: Cesium.Cartesian3.fromDegrees(-74.0817, 4.6097, 1500000), // Colombia, altura moderada
+                destination: Cesium.Cartesian3.fromDegrees(-74.0817, 4.6097, 2000000), // Aumentar altura inicial
                 orientation: {
                     heading: 0.0,
-                    pitch: -Cesium.Math.PI_OVER_FOUR, // Inclinación de 45° para mejor perspectiva 3D
+                    pitch: -Cesium.Math.PI_OVER_TWO, // Vista directa hacia abajo
                     roll: 0.0
                 }
             });
@@ -478,11 +506,9 @@ function setupDrawingTools(viewer) {
                         hierarchy: new Cesium.CallbackProperty(() => {
                             return new Cesium.PolygonHierarchy(positions);
                         }, false),
-                        material: Cesium.Color.LIME.withAlpha(0.4), // Verde lima con transparencia para mejor visibilidad en 3D
+                        material: Cesium.Color.RED.withAlpha(0.5), // Pintar de rojo con transparencia
                         outline: true,
-                        outlineColor: Cesium.Color.DARKGREEN,
-                        height: 0, // Altura del polígono sobre el terreno
-                        extrudedHeight: 5 // Altura de extrusión para mejor visualización 3D (5 metros)
+                        outlineColor: Cesium.Color.RED
                     }
                 });
             }
