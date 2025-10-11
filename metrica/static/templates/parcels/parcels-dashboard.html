@@ -14,8 +14,13 @@
                    child-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapa 3D Cesium - AgroTech</title>
-    <!-- Estilos de Cesium -->
+    <!-- Cesium Configuration - MUST be set BEFORE loading Cesium.js -->
+    <script>
+        // Configure base URL for Cesium static files
+        window.CESIUM_BASE_URL = 'https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/';
+    </script>
     
+    <!-- Estilos de Cesium -->
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
     <link href="../../css/bootstrap.min.css" rel="stylesheet" type="text/css" />
@@ -1083,13 +1088,7 @@
 
 <!-- Scripts -->
     <!-- Cesium 1.118 ya está cargado arriba, no duplicar -->
-    <script>
-        // Configurar ruta base para workers de Cesium
-        window.CESIUM_BASE_URL = 'https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/';
-        
-        // Configurar token de Cesium Ion - Agrotech
-        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDYwOTcwMy1mMTRlLTQxMTYtYWRmNi02OTY4YjZkNjI0YWQiLCJpZCI6MjkwMzgyLCJpYXQiOjE3NTM1NDAzNTJ9.qZvwbfLRYsWlXHqxsePXVRfv87tF_0IIr6_Ch6efdF8';
-    </script>
+    <!-- El token de Cesium Ion se configura en parcel.js después de verificar que Cesium esté cargado -->
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qs/dist/qs.js"></script>
     <script type="module" src="../../js/utils/api-utils.js"></script>
