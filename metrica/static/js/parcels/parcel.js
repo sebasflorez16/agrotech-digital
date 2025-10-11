@@ -341,8 +341,17 @@ function initializeCesium() {
 
     // Configurar terreno realista gratuito de Cesium Ion, con fallback a terreno plano si falla
     try {
-        viewer.terrainProvider = Cesium.createWorldTerrain();
-        console.log("Terreno 3D de Cesium Ion configurado correctamente.");
+        // Usar CesiumTerrainProvider directamente con el asset ID de World Terrain
+        Cesium.CesiumTerrainProvider.fromIonAssetId(1, {
+            requestVertexNormals: true,
+            requestWaterMask: true
+        }).then(terrainProvider => {
+            viewer.terrainProvider = terrainProvider;
+            console.log("Terreno 3D de Cesium Ion configurado correctamente.");
+        }).catch(error => {
+            console.warn("Error al cargar terreno 3D, usando terreno plano:", error);
+            viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
+        });
     } catch (error) {
         console.warn("Error al configurar terreno 3D Cesium Ion, usando terreno plano:", error);
         viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();

@@ -261,6 +261,13 @@ a:hover {
   color: var(--text-primary);
 }
 
+.nav-logo-image {
+  height: 45px;
+  width: 45px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 8px rgba(76, 175, 80, 0.3));
+}
+
 .nav-logo img {
   height: 50px;
   width: auto;
@@ -310,6 +317,8 @@ a:hover {
   border: none;
   cursor: pointer;
   padding: var(--spacing-xs);
+  z-index: 1001;
+  position: relative;
 }
 
 .nav-burger span {
@@ -318,6 +327,7 @@ a:hover {
   background: var(--text-primary);
   border-radius: 2px;
   transition: var(--transition-normal);
+  display: block;
 }
 
 /* Mobile Menu */
@@ -335,13 +345,25 @@ a:hover {
     padding: var(--spacing-lg);
     gap: var(--spacing-md);
     align-items: flex-start;
-    transition: var(--transition-normal);
+    transition: right 0.3s ease-in-out;
     border-left: 1px solid rgba(255, 255, 255, 0.1);
     box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    overflow-y: auto;
   }
 
   .nav-links.active {
     right: 0;
+  }
+
+  .nav-links li {
+    width: 100%;
+  }
+
+  .nav-links a {
+    width: 100%;
+    padding: var(--spacing-sm) var(--spacing-md);
+    display: block;
   }
 
   .nav-burger {
@@ -490,13 +512,15 @@ a:hover {
   -webkit-text-fill-color: transparent;
   background-clip: text;
   display: block;
+  letter-spacing: 0.05em;
 }
 
 .hero-stat-label {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.85);
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 1px;
+  font-weight: 500;
 }
 
 /* ============================================
@@ -921,7 +945,13 @@ a:hover {
     4px 4px 8px var(--shadow-dark),
     -4px -4px 8px var(--shadow-light);
   transition: var(--transition-normal);
-  font-size: 1.2rem;
+  color: var(--text-primary);
+}
+
+.footer-social a svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
 }
 
 .footer-social a:hover {
@@ -931,6 +961,7 @@ a:hover {
     -6px -6px 12px var(--shadow-light),
     0 0 20px rgba(76, 175, 80, 0.3);
   transform: translateY(-3px);
+  color: white;
 }
 
 .footer-bottom {
