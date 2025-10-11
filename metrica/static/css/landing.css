@@ -361,17 +361,15 @@ a:hover {
   }
 }
 
-/* ============================================
-   HERO SECTION
-   ============================================ */
+/* ===== HERO SECTION ===== */
 .hero {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-  padding-top: 80px;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+    padding-top: 100px;
 }
 
 .hero-bg {
@@ -381,6 +379,11 @@ a:hover {
   width: 100%;
   height: 100%;
   z-index: 0;
+  background-image: url('../images/agrotech satelite 1.png');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 .hero-bg::before {
@@ -390,9 +393,28 @@ a:hover {
   left: 0;
   width: 100%;
   height: 100%;
-  background: 
-    radial-gradient(circle at 20% 50%, rgba(76, 175, 80, 0.1) 0%, transparent 50%),
-    radial-gradient(circle at 80% 80%, rgba(255, 111, 0, 0.1) 0%, transparent 50%);
+  background: linear-gradient(
+    135deg,
+    rgba(10, 14, 39, 0.92) 0%,
+    rgba(10, 14, 39, 0.85) 40%,
+    rgba(76, 175, 80, 0.15) 100%
+  );
+  z-index: 1;
+}
+
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(
+    circle at 80% 20%,
+    rgba(255, 111, 0, 0.12) 0%,
+    transparent 60%
+  );
+  z-index: 2;
   animation: float 20s ease-in-out infinite;
 }
 
@@ -403,7 +425,7 @@ a:hover {
 
 .hero-content {
   position: relative;
-  z-index: 1;
+  z-index: 3;
   text-align: center;
   max-width: 900px;
 }
@@ -527,8 +549,20 @@ a:hover {
 
 .features-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: var(--spacing-md);
+}
+
+@media (min-width: 769px) {
+  .features-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) and (min-width: 481px) {
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .feature-card {
@@ -570,9 +604,9 @@ a:hover {
 }
 
 .feature-icon {
-  width: 70px;
-  height: 70px;
-  background: linear-gradient(135deg, var(--brand-green), var(--brand-green-dark));
+  width: 80px;
+  height: 80px;
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(76, 175, 80, 0.05));
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
@@ -582,15 +616,27 @@ a:hover {
   box-shadow: 
     4px 4px 8px var(--shadow-dark),
     -4px -4px 8px var(--shadow-light);
+  overflow: hidden;
+  border: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.feature-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .feature-card:nth-child(even) .feature-icon {
-  background: linear-gradient(135deg, var(--brand-orange), var(--brand-orange-dark));
+  background: linear-gradient(135deg, rgba(255, 111, 0, 0.15), rgba(255, 111, 0, 0.05));
+  border-color: rgba(255, 111, 0, 0.2);
 }
 
 .feature-title {
   margin-bottom: var(--spacing-sm);
   color: var(--text-primary);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .feature-description {
@@ -631,13 +677,26 @@ a:hover {
 
 .product-image {
   width: 100%;
-  height: 250px;
+  height: 300px;
   background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(255, 111, 0, 0.1));
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 4rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  position: relative;
+}
+
+.product-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.product-image:hover img {
+  transform: scale(1.05);
 }
 
 .product-content {
@@ -714,6 +773,18 @@ a:hover {
 .stat-icon {
   font-size: 3rem;
   margin-bottom: var(--spacing-sm);
+  width: 80px;
+  height: 80px;
+  margin: 0 auto var(--spacing-sm);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--neuro-shadow);
+}
+
+.stat-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .stat-value {
