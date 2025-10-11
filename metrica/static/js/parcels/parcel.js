@@ -308,23 +308,48 @@ function initializeCesium() {
         creditContainer: document.createElement('div')
     });
 
-    // Agregar la capa satelital Esri World Imagery manualmente
-    viewer.imageryLayers.addImageryProvider(new Cesium.ArcGisMapServerImageryProvider({
-        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
-        credit: 'Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community'
-    }));
-
-    // Configurar terreno realista gratuito de Cesium Ion
+    // Agregar la capa satelital Esri World Imagery manualmente, con fallback a OpenStreetMap si falla
+    let imageryLayer;
     try {
-        // Forma recomendada por Cesium para terreno Ion gratuito
-        viewer.terrainProvider = Cesium.CesiumTerrainProvider.fromIonAssetId(1);
+        imageryLayer = viewer.imageryLayers.addImageryProvider(new Cesium.ArcGisMapServerImageryProvider({
+            url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+            credit: 'Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community'
+        }));
+        imageryLayer.errorEvent.addEventListener(function(err) {
+            console.warn('Error al cargar capa Esri, usando OpenStreetMap:', err);
+            viewer.imageryLayers.remove(imageryLayer, true);
+            viewer.imageryLayers.addImageryProvider(new Cesium.OpenStreetMapImageryProvider({
+                url: 'https://a.tile.openstreetmap.org/'
+            }));
+            // Mostrar advertencia visual
+            const cesiumContainer = document.getElementById('cesiumContainer');
+            if (cesiumContainer) {
+                cesiumContainer.insertAdjacentHTML('afterbegin', '<div style="color: white; background: #c90; padding: 1em; text-align: center;">No se pudo cargar la capa satelital Esri. Mostrando OpenStreetMap.</div>');
+            }
+        });
+    } catch (err) {
+        console.warn('Error al inicializar capa Esri, usando OpenStreetMap:', err);
+        viewer.imageryLayers.addImageryProvider(new Cesium.OpenStreetMapImageryProvider({
+            url: 'https://a.tile.openstreetmap.org/'
+        }));
+        // Mostrar advertencia visual
+        const cesiumContainer = document.getElementById('cesiumContainer');
+        if (cesiumContainer) {
+            cesiumContainer.insertAdjacentHTML('afterbegin', '<div style="color: white; background: #c90; padding: 1em; text-align: center;">No se pudo cargar la capa satelital Esri. Mostrando OpenStreetMap.</div>');
+        }
+    }
+
+    // Configurar terreno realista gratuito de Cesium Ion, con fallback a terreno plano si falla
+    try {
+        viewer.terrainProvider = Cesium.createWorldTerrain();
         console.log("Terreno 3D de Cesium Ion configurado correctamente.");
     } catch (error) {
-        console.warn("Error al configurar terreno 3D Cesium Ion:", error);
+        console.warn("Error al configurar terreno 3D Cesium Ion, usando terreno plano:", error);
+        viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
         // Mostrar advertencia visual si el terreno falla
         const cesiumContainer = document.getElementById('cesiumContainer');
         if (cesiumContainer) {
-            cesiumContainer.innerHTML = '<div style="color: white; background: #c00; padding: 1em; text-align: center;">No se pudo cargar el terreno 3D de Cesium Ion. Verifica tu conexión y el token.</div>';
+            cesiumContainer.insertAdjacentHTML('afterbegin', '<div style="color: white; background: #c00; padding: 1em; text-align: center;">No se pudo cargar el terreno 3D de Cesium Ion. Mostrando terreno plano.</div>');
         }
     }
 
