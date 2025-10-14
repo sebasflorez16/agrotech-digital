@@ -319,24 +319,30 @@ function initializeCesium() {
     });
     window.axiosInstance = axiosInstance;
 
-    // Inicializar el visor de Cesium sin imageryProvider, luego agregar la capa satelital manualmente
+    // Inicializar el visor de Cesium con configuración mínima y robusta
     viewer = new Cesium.Viewer('cesiumContainer', {
-        baseLayerPicker: false,
-        shouldAnimate: true,
-        sceneMode: Cesium.SceneMode.SCENE3D,
-        scene3DOnly: true,
-        sceneModePicker: false,
-        timeline: false,
+        // Opciones de interfaz
         animation: false,
-        geocoder: true,
-        homeButton: true,
-        infoBox: true,
-        selectionIndicator: true,
-        navigationHelpButton: true,
-        navigationInstructionsInitiallyVisible: false,
+        baseLayerPicker: false,
         fullscreenButton: true,
         vrButton: false,
-        creditContainer: document.createElement('div')
+        geocoder: false,
+        homeButton: true,
+        infoBox: true,
+        sceneModePicker: false,
+        selectionIndicator: true,
+        timeline: false,
+        navigationHelpButton: false,
+        
+        // Configuración de escena
+        scene3DOnly: true,
+        shouldAnimate: false,
+        
+        // Configuración de terreno e imágenes (se configura después)
+        baseLayer: false,  // Importante: deshabilitar capa base para configurarla manualmente
+        
+        // Créditos - usar contenedor por defecto de Cesium (evita el error islon)
+        // creditContainer se omite intencionalmente para usar el predeterminado
     });
 
     // Agregar la capa satelital Esri World Imagery manualmente, con fallback a OpenStreetMap si falla
