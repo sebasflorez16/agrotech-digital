@@ -1,13 +1,17 @@
 # Configuración de Netlify para AgroTech Digital
-# Optimizado para Cesium.js y comunicación con Railway
+# Optimizado para Leaflet + Esri World Imagery
 
-[build]
-  # ⚡ IMPORTANTE: Servir SOLO desde metrica/static (frontend)
-  # No confundir con la raíz del repo (backend Django)
-  publish = "metrica/static"
-  
-  # No necesitamos comando de build para archivos estáticos
-  command = "echo 'Desplegando frontend desde metrica/static'"
+git add netlify.toml
+git commit -m "fix: Simplificar CSP para permitir todos los recursos externos (tiles, CDNs, etc.)"
+git push origin main
+  command = "echo 'Desplegando archivos estáticos'"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# ========================================
+# REDIRECTS
+# ========================================
 
 # Redirigir todas las peticiones de API a Railway
 [[redirects]]
@@ -17,64 +21,60 @@
   force = true
   headers = {X-From = "Netlify"}
 
-# Headers de seguridad optimizados para Cesium
-[[headers]]
-  for = "/*"
-  [headers.values]
-    # Content Security Policy permisivo para Cesium
-    Content-Security-Policy = """
-      default-src 'self' https: data: blob:; 
-      script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cesium.com https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; 
-      style-src 'self' 'unsafe-inline' https://cesium.com https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com; 
-      img-src 'self' data: blob: https://*; 
-      connect-src 'self' https://site-production-208b.up.railway.app https://cesium.com https://api.eosda.com https://*.arcgisonline.com https://*.openstreetmap.org; 
-      worker-src 'self' blob: https://cesium.com;
-      child-src 'self' blob:;
-      font-src 'self' data: https://cdnjs.cloudflare.com https://unpkg.com;
-      frame-src 'self';
-    """
-    
-    # Permitir recursos cross-origin
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization"
-    
-    # Headers de seguridad adicionales
-    X-Frame-Options = "SAMEORIGIN"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    
-    # Cache control para recursos estáticos
-    Cache-Control = "public, max-age=3600, must-revalidate"
-
-# Cache más largo para recursos JS/CSS
-[[headers]]
-  for = "/metrica/static/js/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-[[headers]]
-  for = "/metrica/static/css/*"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-
-# Configuración de formularios
-[build.environment]
-  NODE_VERSION = "18"
-
-# Reglas de rewrite para acceder a archivos
-[[redirects]]
-  from = "/templates/*"
-  to = "/metrica/templates/:splat"
-  status = 200
-
-[[redirects]]
-  from = "/static/*"
-  to = "/metrica/static/:splat"
-  status = 200
-  
 # Manejo de 404
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 404
+
+# ========================================
+# HEADERS DE SEGURIDAD
+# ========================================
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Content Security Policy MUY permisivo para desarrollo - permite todos los recursos externos
+    Content-Security-Policy = '''
+      default-src 'self' https: data: blob: 'unsafe-inline' 'unsafe-eval'; 
+      script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; 
+      style-src 'self' 'unsafe-inline' https:; 
+      img-src 'self' data: blob: https: http:; 
+      connect-src 'self' https: http:; 
+      worker-src 'self' blob:;
+      child-src 'self' blob:;
+      font-src 'self' data: https: http:;
+      frame-src 'self' https:;
+      media-src 'self' https: http: data: blob:;
+    '''
+    
+    # CORS headers
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    
+    # Security headers
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+    # Cache por defecto
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+# Cache largo para JS (RUTAS CORREGIDAS - relativas a publish)
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache largo para CSS (RUTAS CORREGIDAS - relativas a publish)
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache largo para imágenes (RUTAS CORREGIDAS - relativas a publish)
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
