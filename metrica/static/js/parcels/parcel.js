@@ -260,6 +260,7 @@ window.addEventListener('error', function(e) {
     
     // Suprimir errores conocidos de Cesium que no afectan funcionalidad
     if (errorMsg.includes('islon') || 
+        errorMsg.includes('isIon') ||
         errorMsg.includes('addCreditToNextFrame') ||
         errorMsg.includes('initialize') ||
         errorMsg.includes('Failed to obtain image tile')) {
@@ -320,6 +321,7 @@ function initializeCesium() {
     window.axiosInstance = axiosInstance;
 
     // Inicializar el visor de Cesium con configuración mínima y robusta
+    // NO pasar creditContainer manualmente - Cesium lo maneja internamente
     viewer = new Cesium.Viewer('cesiumContainer', {
         // Opciones de interfaz
         animation: false,
@@ -339,10 +341,10 @@ function initializeCesium() {
         shouldAnimate: false,
         
         // Configuración de terreno e imágenes (se configura después)
-        baseLayer: false,  // Importante: deshabilitar capa base para configurarla manualmente
+        baseLayer: false  // Importante: deshabilitar capa base para configurarla manualmente
         
-        // Créditos - usar contenedor por defecto de Cesium (evita el error islon)
-        // creditContainer se omite intencionalmente para usar el predeterminado
+        // ⚠️ NO configurar creditContainer/creditViewport manualmente
+        // Cesium los crea automáticamente y evita errores de isIon
     });
 
     // Agregar la capa satelital Esri World Imagery manualmente, con fallback a OpenStreetMap si falla
@@ -385,8 +387,11 @@ function initializeCesium() {
     viewer.scene.globe.tileCacheSize = 100; // Reducir cache para mejor rendimiento
     viewer.scene.globe.enableLighting = false; // Deshabilitar iluminación para mejor rendimiento
 
-    // Suprimir errores de tiles para mejorar UX
-    viewer.cesiumWidget.creditContainer.style.display = "none";
+    // Ocultar el contenedor de créditos que Cesium creó automáticamente
+    const creditDisplay = viewer.cesiumWidget.creditContainer;
+    if (creditDisplay) {
+        creditDisplay.style.display = "none";
+    }
     
     // Configurar manejo de errores silencioso para tiles
     viewer.scene.globe.tileLoadProgressEvent.addEventListener(function(queuedTileCount) {
