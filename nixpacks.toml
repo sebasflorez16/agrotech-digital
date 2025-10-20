@@ -1,9 +1,9 @@
 # Nixpacks configuration for Railway with GDAL support
 [phases.setup]
-nixPkgs = ["gdal", "geos", "proj"]
+nixPkgs = ["python312", "gdal", "geos", "proj", "postgresql"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = ["pip install --upgrade pip", "pip install -r requirements.txt"]
 
 [start]
 cmd = "python manage.py migrate_schemas --shared && python manage.py migrate_schemas && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 120"
