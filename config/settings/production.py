@@ -181,7 +181,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.agrotechcolombia.com", 
     "https://agrotech-digital-production.up.railway.app",
     "https://*.agrotechcolombia.com",  # Para subdominios de clientes
-    "https://agrotechcolombia.netlify.app/",
+    "https://agrotechcolombia.netlify.app",
     #"https://site-production-208b.up.railway.app",  # Frontend estático en Railway
 ]
 
