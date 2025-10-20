@@ -183,7 +183,6 @@ LOGIN_REDIRECT_URL = "https://agrotechcolombia.netlify.app/templates/vertical_ba
 LOGIN_URL = "https://agrotechcolombia.netlify.app/templates/vertical_base.html"  # Redirige a la página de login si no estás autenticado
 ACCOUNT_LOGOUT_REDIRECT_URL = "/authentication/login/"  # Redirige al login después de logout
 
-
 # Configuraciones adicionales (opcional)
 #ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_VERIFICATION = "none"  # Verificación obligatoria se pondra none para el desarrollo

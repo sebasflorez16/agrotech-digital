@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <!-- Content Security Policy permisiva para Cesium y WebAssembly -->
+    <!-- Content Security Policy permisiva para Leaflet y recursos externos -->
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:; 
                    script-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:; 
@@ -10,19 +10,30 @@
                    font-src 'self' 'unsafe-inline' https: data:; 
                    img-src 'self' 'unsafe-inline' https: data: blob:; 
                    connect-src 'self' 'unsafe-inline' https: data: blob:; 
-                   worker-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob: https://cesium.com; 
+                   worker-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:; 
                    child-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa 3D Cesium - AgroTech</title>
-    <!-- Cesium Configuration - MUST be set BEFORE loading Cesium.js -->
-    <script>
-        // Configure base URL for Cesium static files
-        window.CESIUM_BASE_URL = 'https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/';
-    </script>
+    <title>Mapa Satelital - AgroTech</title>
     
-    <!-- Estilos de Cesium -->
-    <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-    <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
+    <!-- Leaflet CSS y JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Leaflet.Draw para herramientas de dibujo -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+    
+    <!-- Leaflet Geocoder (Control de búsqueda) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    
+    <!-- Leaflet Fullscreen -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen@latest/Control.FullScreen.css" />
+    <script src="https://unpkg.com/leaflet.fullscreen@latest/Control.FullScreen.js"></script>
+    
+    <!-- Bootstrap y otros estilos -->
     <link href="../../css/bootstrap.min.css" rel="stylesheet" type="text/css" />
     <link href="../../css/icons.min.css" rel="stylesheet" type="text/css" />
     <link href="../../css/app.min.css" rel="stylesheet" type="text/css" />
@@ -1098,7 +1109,7 @@
     <script type="module" src="../../js/parcels/layers.js"></script>
     <script src="../../js/parcels/analytics-cientifico.js"></script>
     <script src="../../js/parcels/historical-chart.js?v=2025082412"></script>
-    <script src="../../js/parcels/meteorological-analysis.js?v=2025082425"></script>
+    <script src="../../js/parcels/meteorological-analysis.js?v=2025102002"></script>
     <script src="../../js/parcels/weather-detail.js?v=2025090101"></script>
 
     <script>

@@ -1,0 +1,87 @@
+# Configura# ========================================
+# REDIRECTS - MULTI-TENANT SUPPORT
+# ========================================
+
+# 1. Redirigir TODAS las peticiones de API a Railway
+# IMPORTANTE: 
+# - force=true: Redirige ANTES de buscar archivos locales
+# - status=200: Proxy transparente (el navegador no ve el redirect)
+# - Preserva headers X-Forwarded-Host para detección de tenant en django-tenants
+[[redirects]]
+  from = "/api/*"
+  to = "https://agrotechcolombia.com/api/:splat"
+  status = 200
+  force = true
+  # Headers necesarios para django-tenants
+  [redirects.headers]
+    X-Forwarded-Proto = "https"lify para AgroTech Digital
+# Optimizado para Leaflet + Esri World Imagery + Railway Backend
+
+[build]
+  # ⚡ La carpeta actual (metrica/static) ya ES la raíz en Netlify
+  publish = "."
+  command = "echo 'Desplegando frontend desde static/'"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# ========================================
+# REDIRECTS - ORDEN CRÍTICO
+# ========================================
+
+# 1. Redirigir TODAS las peticiones de API a Railway (Backend en Producción)
+# IMPORTANTE: force=true asegura que se redirija ANTES de buscar archivos locales
+[[redirects]]
+  from = "/api/*"
+  to = "https://agrotechcolombia.com/api/:splat"
+  status = 200
+  force = true
+
+# 2. Manejo de 404 - DEBE IR AL FINAL
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 404
+
+# ========================================
+# HEADERS DE SEGURIDAD
+# ========================================
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Content Security Policy - Permisivo para desarrollo (Leaflet, Chart.js, etc.)
+    Content-Security-Policy = "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https: http:; connect-src 'self' https: http:; worker-src 'self' blob:; child-src 'self' blob:; font-src 'self' data: https:; frame-src 'self'; media-src 'self' https: http: data: blob:;"
+    
+    # CORS headers - Necesarios para API calls a Railway
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With"
+    Access-Control-Max-Age = "86400"
+    
+    # Security headers - Estándar de seguridad web
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+    # Cache - Moderado para contenido dinámico
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+# Cache largo para JS - Assets estáticos inmutables
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache largo para CSS - Assets estáticos inmutables
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache largo para imágenes - Assets estáticos inmutables
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

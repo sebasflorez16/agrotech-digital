@@ -36,6 +36,7 @@ function crearModalEscenasEOSDA() {
     return modal;
 }
 
+
 // Función para abrir el modal y mostrar las escenas
 window.mostrarModalEscenasEOSDA = async function(parcelId) {
     const modal = crearModalEscenasEOSDA();
@@ -252,227 +253,153 @@ window.clearEOSDACache = function() {
     console.log('[CACHE CLEARED] Cache de EOSDA limpiado');
 };
 
-const BASE_URL = window.ApiUrls ? window.ApiUrls.parcels() : `${window.location.origin}/api/parcels`;
+// BASE_URL usa rutas relativas para aprovechar los redirects de Netlify
+// Netlify redirige /api/* → https://agrotechcolombia.com/api/* preservando el tenant
+const BASE_URL = window.ApiUrls ? window.ApiUrls.parcels() : '/api/parcels';
 
-// Manejador de errores global para suprimir errores conocidos de Cesium
-window.addEventListener('error', function(e) {
-    const errorMsg = e.message || '';
-    
-    // Suprimir errores conocidos de Cesium que no afectan funcionalidad
-    if (errorMsg.includes('islon') || 
-        errorMsg.includes('isIon') ||
-        errorMsg.includes('addCreditToNextFrame') ||
-        errorMsg.includes('initialize') ||
-        errorMsg.includes('Failed to obtain image tile')) {
-        console.debug('[CESIUM_ERROR_SUPPRESSED]', e.message);
-        e.preventDefault();
-        return false;
-    }
-});
-
-// Inicializar el mapa de Cesium
 // Variables globales
 let axiosInstance; // Declarar axiosInstance como global
-let positions = []; // Almacena las posiciones del polígono
-let polygonEntity = null; // Referencia al polígono dibujado
+let positions = []; // Almacena las posiciones del polígono (coordenadas lat/lng)
+let currentPolygon = null; // Referencia al polígono dibujado en Leaflet
+let drawnItems = null; // FeatureGroup para elementos dibujados
 
-let viewer; // Declarar viewer como global
-let viewerReady = true;
+let map; // Declarar mapa Leaflet como global
+let mapReady = false;
 
 
 
-// Inicializar el mapa de Cesium
-function initializeCesium() {
-    console.log('[CESIUM] Iniciando carga...');
+// Inicializar el mapa con Leaflet
+function initializeLeaflet() {
+    console.log('[LEAFLET] Iniciando carga del mapa...');
     
-    // Verificar que Cesium esté disponible
-    if (typeof Cesium === 'undefined') {
-        console.error('[CESIUM] Cesium no está cargado. Reintentando en 500ms...');
-        setTimeout(initializeCesium, 500);
-        return;
-    }
-
-    // Verificar que Cesium.Ion esté disponible
-    if (!Cesium.Ion || typeof Cesium.Ion.defaultAccessToken === 'undefined') {
-        console.warn('[CESIUM] Cesium.Ion no está disponible. Reintentando en 500ms...');
-        setTimeout(initializeCesium, 500);
+    // Verificar que Leaflet esté disponible
+    if (typeof L === 'undefined') {
+        console.error('[LEAFLET] Leaflet no está cargado. Reintentando en 500ms...');
+        setTimeout(initializeLeaflet, 500);
         return;
     }
 
     try {
-        // Activar el token de Cesium Ion para recursos gratuitos y terreno
-        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI4MDYwOTcwMy1mMTRlLTQxMTYtYWRmNi02OTY4YjZkNjI0YWQiLCJpZCI6MjkwMzgyLCJpYXQiOjE3NTM1NDAzNTJ9.qZvwbfLRYsWlXHqxsePXVRfv87tF_0IIr6_Ch6efdF8';
-        console.log('[CESIUM] Token activado correctamente');
-
         // Configurar axios (mantener para el resto de la app)
         const token = localStorage.getItem("accessToken");
-    if (!token) {
-        console.error("No se encontró el token. Redirigiendo...");
-        window.location.href = "/templates/authentication/login.html";
-        return;
-    }
-    axiosInstance = axios.create({
-        baseURL: BASE_URL,
-        headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${token}`
-        }
-    });
-    window.axiosInstance = axiosInstance;
-
-    // Inicializar el visor de Cesium con configuración mínima y robusta
-    // NO pasar creditContainer manualmente - Cesium lo maneja internamente
-    viewer = new Cesium.Viewer('cesiumContainer', {
-        // Opciones de interfaz
-        animation: false,
-        baseLayerPicker: false,
-        fullscreenButton: true,
-        vrButton: false,
-        geocoder: false,
-        homeButton: true,
-        infoBox: true,
-        sceneModePicker: false,
-        selectionIndicator: true,
-        timeline: false,
-        navigationHelpButton: false,
-        
-        // Configuración de escena
-        scene3DOnly: true,
-        shouldAnimate: false,
-        
-        // Configuración de terreno e imágenes (se configura después)
-        baseLayer: false  // Importante: deshabilitar capa base para configurarla manualmente
-        
-        // ⚠️ NO configurar creditContainer/creditViewport manualmente
-        // Cesium los crea automáticamente y evita errores de isIon
-    });
-
-    // Agregar la capa satelital Esri World Imagery manualmente, con fallback a OpenStreetMap si falla
-    let imageryLayer;
-    try {
-        imageryLayer = viewer.imageryLayers.addImageryProvider(new Cesium.ArcGisMapServerImageryProvider({
-            url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
-            credit: 'Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community'
-        }));
-        imageryLayer.errorEvent.addEventListener(function(err) {
-            console.warn('Error al cargar capa Esri, usando OpenStreetMap:', err);
-            viewer.imageryLayers.remove(imageryLayer, true);
-            viewer.imageryLayers.addImageryProvider(new Cesium.OpenStreetMapImageryProvider({
-                url: 'https://a.tile.openstreetmap.org/'
-            }));
-            // Mostrar advertencia visual
-            const cesiumContainer = document.getElementById('cesiumContainer');
-            if (cesiumContainer) {
-                cesiumContainer.insertAdjacentHTML('afterbegin', '<div style="color: white; background: #c90; padding: 1em; text-align: center;">No se pudo cargar la capa satelital Esri. Mostrando OpenStreetMap.</div>');
-            }
-        });
-    } catch (err) {
-        console.warn('Error al inicializar capa Esri, usando OpenStreetMap:', err);
-        viewer.imageryLayers.addImageryProvider(new Cesium.OpenStreetMapImageryProvider({
-            url: 'https://a.tile.openstreetmap.org/'
-        }));
-        // Mostrar advertencia visual
-        const cesiumContainer = document.getElementById('cesiumContainer');
-        if (cesiumContainer) {
-            cesiumContainer.insertAdjacentHTML('afterbegin', '<div style="color: white; background: #c90; padding: 1em; text-align: center;">No se pudo cargar la capa satelital Esri. Mostrando OpenStreetMap.</div>');
-        }
-    }
-
-    // Usar terreno plano simple para evitar errores de carga en Netlify
-    // El terreno 3D de Cesium Ion requiere configuración compleja y puede fallar
-    viewer.terrainProvider = new Cesium.EllipsoidTerrainProvider();
-    console.log("Terreno plano configurado correctamente.");
-
-    // Configurar manejo de errores para tiles fallidos
-    viewer.scene.globe.tileCacheSize = 100; // Reducir cache para mejor rendimiento
-    viewer.scene.globe.enableLighting = false; // Deshabilitar iluminación para mejor rendimiento
-
-    // Ocultar el contenedor de créditos que Cesium creó automáticamente
-    const creditDisplay = viewer.cesiumWidget.creditContainer;
-    if (creditDisplay) {
-        creditDisplay.style.display = "none";
-    }
-    
-    // Configurar manejo de errores silencioso para tiles
-    viewer.scene.globe.tileLoadProgressEvent.addEventListener(function(queuedTileCount) {
-        // Silenciar errores de tiles para evitar spam en consola
-    });
-    
-    // El mapa base es fijo (Esri World Imagery), no se cambia dinámicamente
-    // Si se quiere cambiar el proveedor, hacerlo en la inicialización arriba
-    const originalLogError = console.error;
-    console.error = function(...args) {
-        const errorStr = args.join(' ');
-        // Suprimir errores conocidos de tiles
-        if (errorStr.includes('Failed to obtain image tile') || 
-            errorStr.includes('virtualearth.net') ||
-            errorStr.includes('CORS policy') ||
-            errorStr.includes('503 (Service Unavailable)')) {
-            // Log silencioso para debugging si es necesario
-            console.debug('[SUPPRESSED TILE ERROR]', ...args);
+        if (!token) {
+            console.error("No se encontró el token. Redirigiendo...");
+            window.location.href = "/templates/authentication/login.html";
             return;
         }
-        // Mantener otros errores
-        originalLogError.apply(console, args);
-    };
+        axiosInstance = axios.create({
+            baseURL: BASE_URL,
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            }
+        });
+        window.axiosInstance = axiosInstance;
 
-    // Configurar controles de cámara optimizados para agricultura
-    const controller = viewer.scene.screenSpaceCameraController;
-    controller.enableZoom = true;
-    controller.enableRotate = true;
-    controller.enableTranslate = true;
-    controller.enableTilt = true;
-    controller.enableLook = true;
-    
-    // Configurar límites de zoom
-    controller.minimumZoomDistance = 1000; // Mínimo 1km de altitud
-    controller.maximumZoomDistance = 20000000; // Máximo ~20,000km de altitud
-    
-    // Configurar calidad de renderizado
-    viewer.scene.globe.maximumScreenSpaceError = 2;
-    viewer.scene.globe.tileCacheSize = 200;
-    viewer.resolutionScale = 1.0;
-    
-    // Deshabilitar efectos para mejor rendimiento
-    viewer.scene.globe.enableLighting = false;
-    viewer.scene.globe.dynamicAtmosphereLighting = false;
-    viewer.scene.globe.showGroundAtmosphere = false;
-    viewer.scene.globe.depthTestAgainstTerrain = false;
+        // Inicializar el mapa Leaflet centrado en Colombia
+        map = L.map('cesiumContainer', {
+            center: [4.6097, -74.0817], // Colombia
+            zoom: 6,
+            zoomControl: true,
+            attributionControl: true,
+            fullscreenControl: false // Lo agregamos manualmente después
+        });
 
-    // Centrar el mapa en Colombia
-    viewer.scene.camera.setView({
-        destination: Cesium.Cartesian3.fromDegrees(-74.0817, 4.6097, 2000000),
-        orientation: {
-            heading: 0.0,
-            pitch: -Cesium.Math.PI_OVER_TWO,
-            roll: 0.0
+        // Agregar la capa satelital Esri World Imagery
+        const esriSatellite = L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            {
+                attribution: 'Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community',
+                maxZoom: 19
+            }
+        ).addTo(map);
+
+        // Opcional: Agregar capa de etiquetas sobre el satélite para referencia
+        const esriLabels = L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+            {
+                attribution: 'Esri',
+                maxZoom: 19,
+                opacity: 0.7
+            }
+        ).addTo(map);
+
+        // 🔍 Agregar control de búsqueda de geocodificación (lupa)
+        // Usando Nominatim (OpenStreetMap) - gratis y sin límites estrictos
+        if (typeof L.Control.Geocoder !== 'undefined') {
+            L.Control.geocoder({
+                defaultMarkGeocode: false,
+                placeholder: 'Buscar ubicación...',
+                errorMessage: 'No se encontró la ubicación',
+                position: 'topright',
+                geocoder: L.Control.Geocoder.nominatim({
+                    geocodingQueryParams: {
+                        countrycodes: 'co', // Priorizar resultados en Colombia
+                        limit: 5
+                    }
+                })
+            }).on('markgeocode', function(e) {
+                const bbox = e.geocode.bbox;
+                const poly = L.polygon([
+                    bbox.getSouthEast(),
+                    bbox.getNorthEast(),
+                    bbox.getNorthWest(),
+                    bbox.getSouthWest()
+                ]);
+                map.fitBounds(poly.getBounds());
+                
+                // Agregar marcador temporal en la ubicación encontrada
+                const marker = L.marker(e.geocode.center).addTo(map)
+                    .bindPopup(e.geocode.name)
+                    .openPopup();
+                
+                // Remover marcador después de 5 segundos
+                setTimeout(() => {
+                    map.removeLayer(marker);
+                }, 5000);
+            }).addTo(map);
+            console.log('[LEAFLET] Control de búsqueda agregado');
+        } else {
+            console.warn('[LEAFLET] Plugin Geocoder no disponible - verifique que el script esté cargado');
         }
-    });
 
-    console.log("Cesium cargado correctamente con configuración optimizada.");
+        // 📺 Agregar control de pantalla completa
+        if (typeof L.Control.Fullscreen !== 'undefined') {
+            map.addControl(new L.Control.Fullscreen({
+                position: 'topright',
+                title: 'Ver en pantalla completa',
+                titleCancel: 'Salir de pantalla completa'
+            }));
+            console.log('[LEAFLET] Control de pantalla completa agregado');
+        } else {
+            console.warn('[LEAFLET] Plugin Fullscreen no disponible - verifique que el script esté cargado');
+        }
 
-    // Forzar transición a modo 3D
-    viewer.scene.morphTo3D(0);
+        console.log('[LEAFLET] Mapa satelital Esri World Imagery cargado correctamente');
 
-    // Agregar controles de dibujo
-    setupDrawingTools(viewer);
-    
-    // Cargar parcelas
-    loadParcels();
-    
-    // Marcar como listo
-    viewerReady = true;
-    console.log('[CESIUM] Inicialización completa');
-    
+        // Inicializar FeatureGroup para elementos dibujados
+        drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+
+        // Agregar controles de dibujo
+        setupDrawingTools(map);
+        
+        // Cargar parcelas
+        loadParcels();
+        
+        // Marcar como listo
+        mapReady = true;
+        console.log('[LEAFLET] Inicialización completa');
+        
     } catch (error) {
-        console.error('[CESIUM] Error durante inicialización:', error);
+        console.error('[LEAFLET] Error durante inicialización:', error);
         
         // Mostrar mensaje amigable al usuario
-        const cesiumContainer = document.getElementById('cesiumContainer');
-        if (cesiumContainer) {
-            cesiumContainer.innerHTML = `
+        const mapContainer = document.getElementById('cesiumContainer');
+        if (mapContainer) {
+            mapContainer.innerHTML = `
                 <div style="color: white; background: #c00; padding: 2em; text-align: center; margin: 2em;">
-                    <h3>⚠️ Error al cargar el mapa 3D</h3>
+                    <h3>⚠️ Error al cargar el mapa</h3>
                     <p>${error.message}</p>
                     <button onclick="location.reload()" style="background: white; color: #c00; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px;">
                         🔄 Recargar página
@@ -483,67 +410,101 @@ function initializeCesium() {
     }
 }
 
-// 🔹 Función separada para manejar el dibujo
-function setupDrawingTools(viewer) {
-    let isDrawing = false;
-
-    // Referencia al botón
+// 🔹 Función separada para manejar el dibujo con Leaflet
+function setupDrawingTools(map) {
+    // Referencia al botón de cancelar
     const cancelBtn = document.getElementById("cancel-button");
 
+    // Inicializar control de dibujo de Leaflet
+    const drawControl = new L.Control.Draw({
+        draw: {
+            polygon: {
+                allowIntersection: false,
+                shapeOptions: {
+                    color: '#ff0000',
+                    fillColor: '#ff0000',
+                    fillOpacity: 0.5
+                }
+            },
+            polyline: false,
+            circle: false,
+            rectangle: false,
+            marker: false,
+            circlemarker: false
+        },
+        edit: {
+            featureGroup: drawnItems,
+            remove: false
+        }
+    });
+    map.addControl(drawControl);
+
+    // Variable para controlar si estamos dibujando
+    let isDrawing = false;
+
+    // Funciones globales para iniciar y cancelar dibujo
     window.startDrawing = function () {
+        // Limpiar cualquier dibujo previo
+        drawnItems.clearLayers();
+        positions = [];
+        currentPolygon = null;
+        
+        // Activar modo de dibujo
+        new L.Draw.Polygon(map, drawControl.options.draw.polygon).enable();
         isDrawing = true;
-        positions = []; // Reiniciar las posiciones al iniciar un nuevo dibujo
-        polygonEntity = null;
-        cancelBtn.style.display = "none";
-        console.log("Dibujo iniciado.");
+        
+        cancelBtn.style.display = "block";
+        console.log("[LEAFLET] Dibujo iniciado.");
     };
 
     window.cancelDrawing = function () {
+        // Desactivar modo de dibujo
+        map.fire('draw:drawstop');
+        
+        // Limpiar
+        drawnItems.clearLayers();
+        positions = [];
+        currentPolygon = null;
         isDrawing = false;
-        positions = []; // Limpiar las posiciones al cancelar el dibujo
-        if (polygonEntity) {
-            viewer.entities.remove(polygonEntity);
-            polygonEntity = null;
-        }
+        
         cancelBtn.style.display = "none";
-        console.log("Dibujo cancelado.");
+        console.log("[LEAFLET] Dibujo cancelado.");
     };
 
-    viewer.screenSpaceEventHandler.setInputAction((click) => {
-        if (!isDrawing) return;
-
-        let cartesian = viewer.scene.pickPosition(click.position);
-        if (!cartesian) {
-            cartesian = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
+    // Evento cuando se completa el dibujo
+    map.on('draw:created', function (e) {
+        const layer = e.layer;
+        
+        // Agregar al FeatureGroup
+        drawnItems.addLayer(layer);
+        currentPolygon = layer;
+        
+        // Extraer coordenadas [lat, lng]
+        const latlngs = layer.getLatLngs()[0]; // Obtener array de LatLng
+        positions = latlngs.map(latlng => [latlng.lat, latlng.lng]);
+        
+        console.log("[LEAFLET] Polígono dibujado con", positions.length, "vértices");
+        
+        // Ocultar botón cancelar
+        if (cancelBtn) {
+            cancelBtn.style.display = "none";
         }
-
-        if (cartesian) {
-            positions.push(cartesian);
-
-            // Mostrar botón cancelar si hay al menos 1 punto
-            if (positions.length > 0) {
-                cancelBtn.style.display = "block";
-            }
-
-            if (!polygonEntity) {
-                polygonEntity = viewer.entities.add({
-                    polygon: {
-                        hierarchy: new Cesium.CallbackProperty(() => {
-                            return new Cesium.PolygonHierarchy(positions);
-                        }, false),
-                        material: Cesium.Color.RED.withAlpha(0.5), // Pintar de rojo con transparencia
-                        outline: true,
-                        outlineColor: Cesium.Color.RED
-                    }
-                });
-            }
-        }
-    }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
-
-    viewer.screenSpaceEventHandler.setInputAction(() => {
+        
         isDrawing = false;
-        console.log("Dibujo finalizado.");
-    }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
+    });
+
+    // Evento cuando se inicia el dibujo
+    map.on('draw:drawstart', function (e) {
+        isDrawing = true;
+        if (cancelBtn) {
+            cancelBtn.style.display = "block";
+        }
+    });
+
+    // Evento cuando se detiene el dibujo
+    map.on('draw:drawstop', function (e) {
+        isDrawing = false;
+    });
 }
 
 // Función para abrir el modal
@@ -577,11 +538,8 @@ function savePolygon() {
         return;
     }
 
-    // Convertir las posiciones a coordenadas GeoJSON
-    const coordinates = positions.map(pos => {
-        const cartographic = Cesium.Cartographic.fromCartesian(pos);
-        return [Cesium.Math.toDegrees(cartographic.longitude), Cesium.Math.toDegrees(cartographic.latitude)];
-    });
+    // Convertir las posiciones [lat, lng] a GeoJSON [lng, lat]
+    const coordinates = positions.map(pos => [pos[1], pos[0]]); // [lng, lat]
 
     // Cerrar el polígono (repetir el primer punto al final)
     coordinates.push(coordinates[0]);
@@ -673,29 +631,25 @@ function loadParcels() {
                 tableBody.appendChild(row);
                 
                 // Dibujar parcela en el mapa si tiene geometría
-                if (parcel.geometry && parcel.geometry.coordinates && viewer) {
+                if (parcel.geometry && parcel.geometry.coordinates && map) {
                     try {
-                        const coordinates = parcel.geometry.coordinates[0].map(coord =>
-                            Cesium.Cartesian3.fromDegrees(coord[0], coord[1])
-                        );
-                        // Polígono transparente (solo borde)
-                        viewer.entities.add({
-                            name: props.name || "Parcela sin nombre",
-                            polygon: {
-                                hierarchy: new Cesium.PolygonHierarchy(coordinates),
-                                material: Cesium.Color.TRANSPARENT,
-                                outline: true,
-                                outlineColor: Cesium.Color.BLACK
-                            }
-                        });
-                        // Polyline para borde visible (verde oscuro, grosor 2)
-                        viewer.entities.add({
-                            polyline: {
-                                positions: coordinates.concat([coordinates[0]]),
-                                width: 2,
-                                material: Cesium.Color.fromCssColorString('#145A32') // Verde oscuro
-                            }
-                        });
+                        // Convertir coordenadas GeoJSON [lng, lat] a Leaflet [lat, lng]
+                        const coordinates = parcel.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+                        
+                        // Crear polígono con borde verde oscuro
+                        const polygon = L.polygon(coordinates, {
+                            color: '#145A32', // Verde oscuro
+                            weight: 2,
+                            fillColor: 'transparent',
+                            fillOpacity: 0
+                        }).addTo(map);
+                        
+                        // Agregar popup con nombre
+                        polygon.bindPopup(props.name || "Parcela sin nombre");
+                        
+                        // Guardar referencia en el polígono para identificarlo después
+                        polygon.parcelId = parcel.id;
+                        
                     } catch (error) {
                         console.error("Error dibujando parcela en el mapa:", error);
                     }
@@ -779,54 +733,44 @@ function showWaterStressToggleButton(viewer) {
 }
 
 function flyToParcel(parcelId) {
-    if (!viewerReady || !viewer) {
-        alert("El visor Cesium aún no está listo. Intenta en unos segundos.");
+    if (!mapReady || !map) {
+        alert("El mapa aún no está listo. Intenta en unos segundos.");
         return;
     }
 
-    // Eliminar resaltados previos (polylines amarillas de ancho 4 y verdes de ancho 2)
-    const entitiesToRemove = [];
-    viewer.entities.values.forEach(entity => {
-        if (entity.polyline && entity.polyline.width && entity.polyline.width.getValue) {
-            const width = entity.polyline.width.getValue();
-            let color = null;
-            if (entity.polyline.material && entity.polyline.material.color) {
-                color = entity.polyline.material.color.getValue().toCssColorString();
-            }
-            if (
-                (width === 4 && color === Cesium.Color.YELLOW.toCssColorString()) ||
-                (width === 2 && color === Cesium.Color.fromCssColorString('#145A32').toCssColorString())
-            ) {
-                entitiesToRemove.push(entity);
-            }
+    // Eliminar resaltados previos (polígonos amarillos temporales)
+    map.eachLayer(function (layer) {
+        if (layer.options && layer.options.className === 'highlighted-parcel') {
+            map.removeLayer(layer);
         }
     });
-    entitiesToRemove.forEach(entity => viewer.entities.remove(entity));
 
-    // 1. Obtener la geometría y centrar el mapa como antes
+    // Obtener la geometría y centrar el mapa
     axiosInstance.get(`/parcel/${parcelId}/`)
         .then(async response => {
             const feature = response.data;
             let coordinates = [];
+            
             if (feature.geometry && feature.geometry.coordinates) {
-                coordinates = feature.geometry.coordinates[0].map(coord =>
-                    Cesium.Cartesian3.fromDegrees(coord[0], coord[1])
-                );
+                // Convertir GeoJSON [lng, lat] a Leaflet [lat, lng]
+                coordinates = feature.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
             } else if (feature.geom && feature.geom.coordinates) {
-                coordinates = feature.geom.coordinates[0].map(coord =>
-                    Cesium.Cartesian3.fromDegrees(coord[0], coord[1])
-                );
+                coordinates = feature.geom.coordinates[0].map(coord => [coord[1], coord[0]]);
             } else {
                 console.error("La geometría de la parcela no es válida.");
                 alert("La parcela seleccionada no tiene geometría válida.");
                 return;
             }
+            
             if (coordinates.length < 3) {
                 console.error("La parcela seleccionada no tiene suficientes vértices para formar un polígono válido.");
                 alert("La parcela seleccionada no es válida. Por favor, verifica los datos.");
                 return;
             }
+            
+            // Guardar coordenadas en variable global (para savePolygon si es necesario)
             window.positions = coordinates;
+            
             // Calcular área en hectáreas y mostrar en el cuadro de datos
             let areaHect = 0;
             if (feature.geometry && feature.geometry.coordinates) {
@@ -838,52 +782,36 @@ function flyToParcel(parcelId) {
             if (areaCell) {
                 areaCell.textContent = `${areaHect.toLocaleString(undefined, {maximumFractionDigits: 2})} ha`;
             }
-            // Centrar el mapa en la parcela con vista optimizada
-            const boundingSphere = Cesium.BoundingSphere.fromPoints(coordinates);
             
-            // Calcular una altura óptima basada en el tamaño de la parcela
-            const radius = boundingSphere.radius;
-            const optimalHeight = Math.max(radius * 3, 5000); // Mínimo 5km de altura
-            
-            // Obtener el centro de la parcela
-            const center = boundingSphere.center;
-            const centerCartographic = Cesium.Cartographic.fromCartesian(center);
-            
-            viewer.camera.flyTo({
-                destination: Cesium.Cartesian3.fromRadians(
-                    centerCartographic.longitude,
-                    centerCartographic.latitude,
-                    optimalHeight
-                ),
-                orientation: {
-                    heading: 0.0,
-                    pitch: -Cesium.Math.PI_OVER_TWO, // Vista directa hacia abajo
-                    roll: 0.0
-                },
+            // Centrar el mapa en la parcela con animación
+            const bounds = L.latLngBounds(coordinates);
+            map.flyToBounds(bounds, {
+                padding: [50, 50],
                 duration: 2.5,
-                complete: () => {
-                    viewer.scene.screenSpaceCameraController.enableInputs = true;
-                    console.log(`[FLY_TO_PARCEL] Vista centrada en parcela ${parcelId} a ${optimalHeight}m de altura`);
-                }
+                maxZoom: 16
             });
-            // Resaltar en amarillo temporalmente
-            const highlighted = viewer.entities.add({
-                polyline: {
-                    positions: coordinates.concat([coordinates[0]]),
-                    width: 4,
-                    material: Cesium.Color.YELLOW
-                }
-            });
-            setTimeout(() => {
-                viewer.entities.remove(highlighted);
-                viewer.entities.add({
-                    polyline: {
-                        positions: coordinates.concat([coordinates[0]]),
-                        width: 2,
-                        material: Cesium.Color.fromCssColorString('#145A32')
-                    }
-                });
-            }, 3000);
+            
+            console.log(`[FLY_TO_PARCEL] Vista centrada en parcela ${parcelId}`);
+            
+            // Eliminar cualquier resaltado previo
+            if (window.selectedParcelLayer) {
+                map.removeLayer(window.selectedParcelLayer);
+            }
+            
+            // Crear resaltado amarillo PERMANENTE para la parcela seleccionada
+            window.selectedParcelLayer = L.polygon(coordinates, {
+                color: '#FFFF00', // Amarillo
+                weight: 4,
+                fillColor: '#FFFF00',
+                fillOpacity: 0.3,
+                className: 'selected-parcel-highlight',
+                interactive: false // No interfiere con clics en el mapa
+            }).addTo(map);
+            
+            // Guardar referencia del ID de parcela seleccionada
+            window.selectedParcelId = parcelId;
+            
+            console.log(`[FLY_TO_PARCEL] Parcela ${parcelId} seleccionada y resaltada permanentemente`);
 
             // Actualizar estado global EOSDA
             window.EOSDA_STATE.selectedParcelId = parcelId;
@@ -899,11 +827,9 @@ function flyToParcel(parcelId) {
 
             // Actualizar parcela seleccionada para análisis meteorológico
             if (typeof window.loadMeteorologicalAnalysis === 'function') {
-                // Actualizar la variable global del módulo meteorológico
                 window.currentParcelId = parcelId;
             }
             
-            // Establecer parcela seleccionada para análisis meteorológico
             if (typeof window.setSelectedParcelForMeteoAnalysis === 'function') {
                 window.setSelectedParcelForMeteoAnalysis(parcelId);
             }
@@ -916,7 +842,9 @@ function flyToParcel(parcelId) {
 
             // Actualizar el botón NDVI
             import('./layers.js').then(mod => {
-                mod.showNDVIToggleButton(viewer);
+                mod.showNDVIToggleButton(map);
+            }).catch(err => {
+                console.warn('[FLY_TO_PARCEL] No se pudo cargar layers.js:', err);
             });
         })
         .catch(error => {
@@ -985,17 +913,17 @@ window.deleteParcel = deleteParcel;
 
 // Ejecutar al cargar la página
 document.addEventListener("DOMContentLoaded", () => {
-    // PRIMERO: Verificar que Cesium exista
-    if (typeof Cesium === 'undefined') {
-        console.error('[CESIUM] Cesium no está disponible. Verifica la importación del script.');
+    // PRIMERO: Verificar que Leaflet exista
+    if (typeof L === 'undefined') {
+        console.error('[LEAFLET] Leaflet no está disponible. Verifica la importación del script.');
         
         // Mostrar mensaje al usuario
-        const cesiumContainer = document.getElementById('cesiumContainer');
-        if (cesiumContainer) {
-            cesiumContainer.innerHTML = `
+        const mapContainer = document.getElementById('cesiumContainer');
+        if (mapContainer) {
+            mapContainer.innerHTML = `
                 <div style="color: white; background: #c00; padding: 2em; text-align: center; margin: 2em;">
-                    <h3>⚠️ Error: Cesium no se cargó correctamente</h3>
-                    <p>Verifica que el script de Cesium esté incluido en el HTML.</p>
+                    <h3>⚠️ Error: Leaflet no se cargó correctamente</h3>
+                    <p>Verifica que el script de Leaflet esté incluido en el HTML.</p>
                     <button onclick="location.reload()" style="background: white; color: #c00; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin-top: 10px;">
                         🔄 Recargar página
                     </button>
@@ -1005,8 +933,8 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
     }
     
-    // SEGUNDO: Inicializar Cesium
-    initializeCesium();
+    // SEGUNDO: Inicializar Leaflet
+    initializeLeaflet();
     
     // TERCERO: Resto de inicializaciones
     // Inicializar UX de filtro de imágenes
@@ -1444,7 +1372,7 @@ function getPolygonBounds(coordinates) {
 }
 
 // Botón flotante para mostrar/ocultar imagen NDVI/NDMI cacheada
-function showFloatingImageToggleButton(cacheKey, bounds, viewer) {
+function showFloatingImageToggleButton(cacheKey, bounds, mapInstance) {
     let btn = document.getElementById('floatingImageToggleBtn');
     if (!btn) {
         btn = document.createElement('button');
@@ -1462,40 +1390,56 @@ function showFloatingImageToggleButton(cacheKey, bounds, viewer) {
     btn.onclick = () => {
         visible = !visible;
         if (visible) {
-            showNDVIImageOnCesium(window.EOSDA_IMAGE_CACHE[cacheKey], bounds, viewer);
+            showNDVIImageOnCesium(window.EOSDA_IMAGE_CACHE[cacheKey], bounds, mapInstance);
             btn.textContent = 'Ocultar imagen satelital';
         } else {
-            // Elimina la capa NDVI/NDMI
-            const layers = viewer.imageryLayers;
-            for (let i = layers.length - 1; i >= 0; i--) {
-                const layer = layers.get(i);
-                if (layer._layerName === 'NDVI_RENDERED') {
-                    layers.remove(layer);
+            // Elimina la capa NDVI/NDMI en Leaflet
+            mapInstance.eachLayer(function (layer) {
+                if (layer.options && layer.options.className === 'ndvi-layer') {
+                    mapInstance.removeLayer(layer);
                 }
-            }
+            });
             btn.textContent = 'Mostrar imagen satelital';
         }
     };
     btn.style.display = 'block';
 }
-// Función para mostrar la imagen NDVI/NDMI en Cesium sobre la parcela seleccionada
-function showNDVIImageOnCesium(imageBase64, bounds, viewer) {
+// Función para mostrar la imagen NDVI/NDMI en Leaflet sobre la parcela seleccionada
+function showNDVIImageOnLeaflet(imageBase64, bounds, mapInstance) {
     // Elimina capas NDVI previas
-    const layers = viewer.imageryLayers;
-    for (let i = layers.length - 1; i >= 0; i--) {
-        const layer = layers.get(i);
-        if (layer._layerName === 'NDVI_RENDERED') {
-            layers.remove(layer);
+    mapInstance.eachLayer(function (layer) {
+        if (layer.options && layer.options.className === 'ndvi-layer') {
+            mapInstance.removeLayer(layer);
         }
-    }
-    // Crear un objeto URL para la imagen base64
+    });
+    
+    // Crear URL para la imagen base64
     const imageUrl = `data:image/png;base64,${imageBase64}`;
+    
     // bounds: [west, south, east, north]
-    const ndviLayer = layers.addImageryProvider(new Cesium.SingleTileImageryProvider({
-        url: imageUrl,
-        rectangle: Cesium.Rectangle.fromDegrees(bounds[0], bounds[1], bounds[2], bounds[3])
-    }));
-    ndviLayer._layerName = 'NDVI_RENDERED';
+    // Convertir a formato Leaflet [[south, west], [north, east]]
+    const leafletBounds = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]];
+    
+    // Agregar imagen como overlay con clase identificadora
+    const imageOverlay = L.imageOverlay(imageUrl, leafletBounds, {
+        opacity: 0.7,
+        className: 'ndvi-layer'
+    }).addTo(mapInstance);
+    
+    console.log('[LEAFLET_NDVI] Imagen NDVI/NDMI superpuesta correctamente');
+    
+    return imageOverlay;
+}
+
+// Mantener función antigua para compatibilidad con código existente
+function showNDVIImageOnCesium(imageBase64, bounds, viewerOrMap) {
+    // Si es mapa Leaflet, redirigir a nueva función
+    if (viewerOrMap && viewerOrMap._layersMaxZoom !== undefined) {
+        return showNDVIImageOnLeaflet(imageBase64, bounds, viewerOrMap);
+    }
+    
+    // Si llegamos aquí con Cesium (no debería pasar), log de error
+    console.error('[MIGRATION_ERROR] Cesium no está disponible. Usar Leaflet.');
 }
 
 // Spinner overlay con loader CSS personalizado y mensaje
@@ -1632,14 +1576,14 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
             coords = parcelResp.data.geom.coordinates[0];
         }
         const bounds = getPolygonBounds(coords);
-        showNDVIImageOnCesium(window.EOSDA_IMAGE_CACHE[cacheKey], bounds, viewer);
+        showNDVIImageOnCesium(window.EOSDA_IMAGE_CACHE[cacheKey], bounds, map);
         // Cerrar el modal
         const modal = document.getElementById('eosdaScenesModal');
         if (modal) {
             const bsModal = bootstrap.Modal.getInstance(modal);
             if (bsModal) bsModal.hide();
         }
-        showFloatingImageToggleButton(cacheKey, bounds, viewer);
+        showFloatingImageToggleButton(cacheKey, bounds, map);
         
         // NUEVO: Realizar análisis de colores automáticamente desde cache
         try {
@@ -1730,8 +1674,8 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
                     window.EOSDA_IMAGE_CACHE[cacheKey] = imgData.image_base64;
                     console.log('[CACHE SET] Imagen guardada en cache frontend');
                     
-                    // Mostrar imagen en Cesium
-                    showNDVIImageOnCesium(imgData.image_base64, bounds, viewer);
+                    // Mostrar imagen en Leaflet
+                    showNDVIImageOnCesium(imgData.image_base64, bounds, map);
                     
                     // Cerrar el modal para mostrar el mapa completo
                     const modal = document.getElementById('eosdaScenesModal');
@@ -1741,7 +1685,7 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
                     }
                     
                     // Mostrar botón flotante para mostrar/ocultar imagen cacheada
-                    showFloatingImageToggleButton(cacheKey, bounds, viewer);
+                    showFloatingImageToggleButton(cacheKey, bounds, map);
                     
                     // Realizar análisis de colores automáticamente
                     try {
