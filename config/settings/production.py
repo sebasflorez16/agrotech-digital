@@ -10,11 +10,13 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
     "agrotechcolombia.com",
     "www.agrotechcolombia.com",
+    "site-production-208b.up.railway.app",
     "agrotech-digital-production.up.railway.app",
     ".railway.app",  # Permitir cualquier subdominio de Railway
+    "agrotechcolombia.netlify.app",
+    ".netlify.app",  # Permitir cualquier subdominio de Netlify
     "localhost",
     "127.0.0.1",
-    "https://agrotechcolombia.netlify.app",
 ])
 
 # DATABASES
