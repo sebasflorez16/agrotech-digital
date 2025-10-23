@@ -1,5 +1,5 @@
 # Dockerfile para Django + GDAL + django-tenants en Railway
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 # Variables de entorno para evitar prompts interactivos
 ENV PYTHONUNBUFFERED=1 \
@@ -17,10 +17,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     binutils \
     && rm -rf /var/lib/apt/lists/*
 
-# Configurar variables de entorno para GDAL
+# Configurar variables de entorno para GDAL y PROJ
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal \
     C_INCLUDE_PATH=/usr/include/gdal \
-    GDAL_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/libgdal.so.32
+    GDAL_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/libgdal.so.32 \
+    GDAL_DATA=/usr/share/gdal \
+    PROJ_LIB=/usr/share/proj
 
 WORKDIR /app
 
