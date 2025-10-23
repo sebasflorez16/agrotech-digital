@@ -29,11 +29,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# Mostrar versión de GDAL para debug
+RUN echo "GDAL version instalada:" && gdalinfo --version
+
 # Copiar código de la aplicación
 COPY . .
-
-# Mostrar versión de GDAL instalada en el build (para saber qué versión poner en requirements.txt)
-RUN gdal-config --version
 
 # Script de inicio con retry logic para la base de datos
 RUN echo '#!/bin/bash\n\

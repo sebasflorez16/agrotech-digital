@@ -46,6 +46,7 @@ fonttools==4.58.4
 gdown==5.2.0
 geojson==3.2.0
 geopandas==1.1.1
+GDAL==3.6.0
 gunicorn==21.2.0
 idna==3.10
 ipyevents==2.0.2

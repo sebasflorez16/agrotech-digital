@@ -26,41 +26,26 @@ from urllib.parse import urlparse
 # Intentar obtener DATABASE_URL inmediatamente
 DATABASE_URL = os.environ.get('DATABASE_URL')
 
-if DATABASE_URL and 'localhost' not in DATABASE_URL:
-    # Parsear URL de Railway
-    print(f"✅ Railway DATABASE_URL detectado: {DATABASE_URL[:50]}...")
-    url = urlparse(DATABASE_URL)
-    
-    DATABASES = {
-        "default": {
-            "ENGINE": "django_tenants.postgresql_backend",
-            "NAME": url.path[1:],  # Quitar '/' inicial
-            "USER": url.username,
-            "PASSWORD": url.password,
-            "HOST": url.hostname,
-            "PORT": url.port or 5432,
-            "ATOMIC_REQUESTS": False,  # Importante para django-tenants
-            "CONN_MAX_AGE": 0,  # Desactivar pooling para evitar problemas con schemas
-        }
+if not DATABASE_URL:
+    raise Exception("❌ DATABASE_URL no está definida. Verifica las variables de entorno en Railway.")
+
+# Parsear URL de Railway
+print(f"✅ Railway DATABASE_URL detectado: {DATABASE_URL[:50]}...")
+url = urlparse(DATABASE_URL)
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django_tenants.postgresql_backend",
+        "NAME": url.path[1:],  # Quitar '/' inicial
+        "USER": url.username,
+        "PASSWORD": url.password,
+        "HOST": url.hostname,
+        "PORT": url.port or 5432,
+        "ATOMIC_REQUESTS": False,  # Importante para django-tenants
+        "CONN_MAX_AGE": 0,  # Desactivar pooling para evitar problemas con schemas
     }
-    print(f"✅ DB Config - HOST: {url.hostname}, NAME: {url.path[1:]}")
-    
-else:
-    # Configuración por defecto solo para desarrollo local
-    print("⚠️ DATABASE_URL no encontrado, usando localhost")
-    DATABASES = {
-        "default": {
-            "ENGINE": "django_tenants.postgresql_backend",
-            "NAME": "agrotech",
-            "USER": "postgres",
-            "PASSWORD": "password",
-            "HOST": "localhost",
-            "PORT": "5432",
-            "ATOMIC_REQUESTS": False,
-            "CONN_MAX_AGE": 0,
-        }
-    }
-    
+}
+print(f"✅ DB Config - HOST: {url.hostname}, NAME: {url.path[1:]}")
 
 
 # MIDDLEWARE - Agregar WhiteNoise después de SecurityMiddleware
