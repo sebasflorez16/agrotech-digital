@@ -163,34 +163,20 @@ INSTALLED_APPS = list(SHARED_APPS) + [app for app in TENANT_APPS if app not in S
 
 
 CORS_ALLOW_ALL_ORIGINS = False
+# Permite el envío de cookies/tokens JWT de sesión entre frontend y backend
 CORS_ALLOW_CREDENTIALS = True
-
-# Orígenes permitidos para CORS (desarrollo local + producción)
+# Permitimos solo orígenes locales seguros (React, Django, etc.) para evitar exposición del API a todo el mundo.
+# Usamos expresiones regulares para aceptar subdominios tipo tenant1.localhost:3000 y acceso directo a localhost:3000/8000
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https?://[\w\-]+\.localhost:\d+$",     # tenant1.localhost:3000, tenant1.localhost:8000
-    r"^https?://localhost:\d+$",              # localhost:3000, localhost:8000
-    r"^https://[\w\-]+\.up\.railway\.app$",   # cualquier subdominio de railway
-    r"^https://[\w\-]+\.netlify\.app$",       # cualquier subdominio de netlify
-]
-
-CORS_ALLOWED_ORIGINS = [
-    "https://agrotechcolombia.com",
-    "https://www.agrotechcolombia.com",
+    r"^https?://[\w\-]+\.localhost:3000$",  # Por ejemplo: tenant1.localhost:3000
+    r"^https?://localhost:3000$",             # También acceso directo
+    r"^https?://[\w\-]+\.localhost:8000$",  # Por si acceden directo al backend
+    r"^https://agrotechcolombia\\.com$",  # Backend en Railway
+    r"^https://site-production-208b.up.railway.app$",  # Backend en Railway (sin / al final)
+    r"^https://agrotechcolombia.netlify.app$",  # Frontend estático en Netlify
 ]
 
 # NOTA: No se usa CORS_ALLOW_ALL_ORIGINS=True para evitar riesgos de seguridad y exposición del API key de EOSDA.
-
-# CSRF Trusted Origins para permitir POST requests desde el frontend
-CSRF_TRUSTED_ORIGINS = [
-    "https://agrotechcolombia.com",
-    "https://www.agrotechcolombia.com",
-    "https://agrotechcolombia.netlify.app",
-    "https://*.netlify.app",
-    "https://site-production-208b.up.railway.app",
-    "https://*.railway.app",
-    "http://localhost:3000",
-    "http://localhost:8000",
-]
 
 
 LOGIN_REDIRECT_URL = "https://agrotechcolombia.netlify.app/templates/vertical_base.html"  # Redirige al dashboard del frontend después de login
