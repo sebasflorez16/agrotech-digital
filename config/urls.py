@@ -4,12 +4,9 @@ from django.conf.urls.static import static
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.views import defaults as default_views
-from metrica.template_views import HomeView, home_view
 
 urlpatterns = [
-    # 🔹 Página raíz
-    path('', HomeView.as_view(), name='home'),
-    
+
     # 🔹 Autenticación y Tokens JWT
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
@@ -34,8 +31,8 @@ urlpatterns = [
 
     # 🔹 Módulos principales del sistema
     path("api/RRHH/", include("RRHH.routers")),         # Recursos Humanos para posiciones y departamentos
-    path("api/parcels/", include("parcels.urls")),  # Endpoints personalizados/proxy EOSDA bajo /api/parcels/ (¡PRIMERO para evitar que el router tape rutas manuales!)
-    path("api/parcels/", include("parcels.routers", namespace="parcels")),# Gestión de parcelas
+    path("api/parcels/", include("parcels.urls")),  # Endpoints personalizados/proxy EOSDA
+    path("api/parcels/", include("parcels.routers", namespace="parcels_api")),  # Gestión de parcelas (DRF router, namespace único)
     path("parcels/", include("parcels.urls")),  # Dashboard de parcelas
     path("api/labores/", include("labores.routers", namespace="labores")),  # Gestión de labores agrícolas
     path("api/inventario/", include("inventario.routers")),  # Gestión de inventario y almacenes
