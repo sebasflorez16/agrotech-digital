@@ -18,8 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Configurar variables de entorno para GDAL
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal \
-    C_INCLUDE_PATH=/usr/include/gdal \
-    GDAL_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/libgdal.so
+    C_INCLUDE_PATH=/usr/include/gdal
 
 WORKDIR /app
 
@@ -34,32 +33,19 @@ COPY . .
 # Script de inicio con retry logic para la base de datos
 RUN echo '#!/bin/bash\n\
 set -e\n\
-\n\
-# Verificar que DATABASE_URL esté configurada\n\
-if [ -z "$DATABASE_URL" ]; then\n\
-  echo "ERROR: DATABASE_URL no está configurada"\n\
-  exit 1\n\
-fi\n\
-\n\
 echo "==> Esperando conexión a base de datos..."\n\
-echo "Database URL configurada (oculta por seguridad)"\n\
-\n\
 max_retries=30\n\
 count=0\n\
-\n\
-# Intentar conectar a la base de datos\n\
-until python -c "import os, psycopg2; psycopg2.connect(os.environ['"'"'DATABASE_URL'"'"'])" 2>/dev/null || [ $count -eq $max_retries ]; do\n\
+until python -c "import psycopg2; psycopg2.connect(\"$DATABASE_URL\")" 2>/dev/null || [ $count -eq $max_retries ]; do\n\
   count=$((count+1))\n\
   echo "Intento $count/$max_retries..."\n\
   sleep 2\n\
 done\n\
 \n\
 if [ $count -eq $max_retries ]; then\n\
-  echo "ERROR: No se pudo conectar a la base de datos después de $max_retries intentos"\n\
+  echo "ERROR: No se pudo conectar a la base de datos"\n\
   exit 1\n\
 fi\n\
-\n\
-echo "==> Conexión a base de datos exitosa"\n\
 \n\
 echo "==> Ejecutando migraciones del esquema público..."\n\
 python manage.py migrate_schemas --shared --noinput\n\
