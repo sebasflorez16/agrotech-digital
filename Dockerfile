@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Configurar variables de entorno para GDAL
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal \
     C_INCLUDE_PATH=/usr/include/gdal \
-    GDAL_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/libgdal.so
+    GDAL_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/libgdal.so.32
 
 WORKDIR /app
 
@@ -31,6 +31,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 
 # Copiar código de la aplicación
 COPY . .
+
+# Mostrar versión de GDAL instalada en el build (para saber qué versión poner en requirements.txt)
+RUN gdal-config --version
 
 # Script de inicio con retry logic para la base de datos
 RUN echo '#!/bin/bash\n\
