@@ -192,6 +192,9 @@ ACCOUNT_EMAIL_VERIFICATION = "none"  # Verificación obligatoria se pondra none 
 TENANT_MODEL = "base_agrotech.Client"  # Define el modelo que representa los tenants
 TENANT_DOMAIN_MODEL = "base_agrotech.Domain"  # Define el modelo para los dominios asociados con los tenants
 
+# URLs públicas que NO requieren tenant (healthcheck)
+PUBLIC_SCHEMA_URLCONF = "config.public_urls"
+
 # TEST RUNNER personalizado para ejecutar migrate_schemas en la base de datos de test
 TEST_RUNNER = "config.testrunner.TenantMigrateSchemasTestRunner"
 

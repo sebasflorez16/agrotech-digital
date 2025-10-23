@@ -43,9 +43,6 @@ urlpatterns = [
 
     # 🔹 Recarga en desarrollo (solo para DEBUG)
     path("__reload__/", include("django_browser_reload.urls")),
-
-    # Endpoint de salud para Railway y monitoreo
-    path("health/", lambda request: __import__('django').http.HttpResponse("ok"), name="health"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:
