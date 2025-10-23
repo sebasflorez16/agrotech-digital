@@ -51,6 +51,7 @@ print(f"✅ DB Config - HOST: {url.hostname}, NAME: {url.path[1:]}")
 # MIDDLEWARE - Agregar WhiteNoise después de SecurityMiddleware
 # ------------------------------------------------------------------------------
 MIDDLEWARE = [
+    'config.middleware.HealthCheckMiddleware',  # PRIMERO: Intercepta /health/ para Railway
     'corsheaders.middleware.CorsMiddleware',
     'django_tenants.middleware.main.TenantMainMiddleware',
     "django.middleware.security.SecurityMiddleware",
