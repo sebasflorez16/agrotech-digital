@@ -163,7 +163,6 @@ CSRF_USE_SESSIONS = False  # Usar cookies en lugar de sesiones para CSRF
 # CORS Configuration - Para resolver problemas de peticiones entre dominios
 # ------------------------------------------------------------------------------
 CORS_ALLOWED_ORIGINS = [
-    "https://agrotechcolombia.com",
     "https://www.agrotechcolombia.com", 
     "https://agrotech-digital-production.up.railway.app",
     "https://*.agrotechcolombia.com",  # Para subdominios de clientes
@@ -194,6 +193,7 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://agrotech-digital-production\.up\.railway\.app$",  # Backend en Railway
     r"^https://site-production-208b\.up\.railway\.app$",  # Frontend estático en Railway
     r"^https://agrotechcolombia\.com$",  # Dominio personalizado backend
+    r"^https://agrotechcolombia.netlify.app$",  # Dominio personalizado frontend
 ]
 
 # Redirigir al frontend estático después del login
