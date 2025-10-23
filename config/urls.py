@@ -12,13 +12,10 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path("api/authentication/", include("authentication.urls", namespace="authentication")),
 
-    # 🔹 Plantillas HTML estáticas (necesario para producción)
-    path("templates/", include("metrica.template_urls", namespace="templates")),
-
     # 🔹 Administración
     path("admin/", admin.site.urls),
     # 🔹 API global
-    path("", include("metrica.api_urls")),
+    # path("", include("metrica.api_urls")),
 
     # 🔹 Gestión de usuarios
     path("users/", include("metrica.users.urls", namespace="users")),
