@@ -4,27 +4,48 @@ from django.conf.urls.static import static
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.views import defaults as default_views
-
+from metrica.template_views import HomeView, home_view
 
 urlpatterns = [
-    # 🔹 Autenticación JWT - Solo tu vista custom con CORS
+    # 🔹 Página raíz
+    path('', HomeView.as_view(), name='home'),
+    
+    # 🔹 Autenticación y Tokens JWT
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path("api/authentication/", include("authentication.urls", namespace="authentication")),
 
-    # 🔹 Administración (Solo para backoffice)
-    path("admin/", admin.site.urls),
+    # 🔹 Plantillas HTML estáticas (necesario para producción)
+    path("templates/", include("metrica.template_urls", namespace="templates")),
 
-    # 🔹 APIs principales del sistema
+    # 🔹 Administración
+    path("admin/", admin.site.urls),
+    # 🔹 API global
+    path("", include("metrica.api_urls")),
+
+    # 🔹 Gestión de usuarios
+    path("users/", include("metrica.users.urls", namespace="users")),
+    path("accounts/", include("allauth.urls")),
+
+    # 🔹 Routers para usuarios
     path("users/api/", include("metrica.users.routers")),
+    # los namespaces son importantes para evitar conflictos con el app_name de los routers
+
+
+    # 🔹 Módulos principales del sistema
     path("api/RRHH/", include("RRHH.routers")),         # Recursos Humanos para posiciones y departamentos
     path("api/parcels/", include("parcels.urls")),  # Endpoints personalizados/proxy EOSDA bajo /api/parcels/ (¡PRIMERO para evitar que el router tape rutas manuales!)
     path("api/parcels/", include("parcels.routers", namespace="parcels")),# Gestión de parcelas
+    path("parcels/", include("parcels.urls")),  # Dashboard de parcelas
     path("api/labores/", include("labores.routers", namespace="labores")),  # Gestión de labores agrícolas
     path("api/inventario/", include("inventario.routers")),  # Gestión de inventario y almacenes
+    # Reporte de inventario por almacén (HTML y PDF)
+    path("inventario/", include("inventario.urls")),
     path("api/crop/", include("crop.routers", namespace="crop")),  # Gestión de cultivos
 
-    # 🔹 Allauth (para admin si es necesario)
-    path("accounts/", include("allauth.urls")),
+    # 🔹 Interfaz y páginas
+    path("pages/", include("pages.urls", namespace="pages")),      # Páginas estáticas
+    path("uikit/", include("uikit.urls", namespace="uikit")),      # Componentes UI
 
     # 🔹 Recarga en desarrollo (solo para DEBUG)
     path("__reload__/", include("django_browser_reload.urls")),
