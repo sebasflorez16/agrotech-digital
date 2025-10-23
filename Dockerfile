@@ -26,8 +26,12 @@ WORKDIR /app
 
 # Copiar requirements y instalar dependencias Python
 COPY requirements.txt .
+
+# Instalar pip y numpy primero (para que GDAL lo encuentre al compilar)
 RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir numpy && \
     pip install --no-cache-dir -r requirements.txt
+
 
 # Mostrar versión de GDAL para debug
 RUN echo "GDAL version instalada:" && gdalinfo --version

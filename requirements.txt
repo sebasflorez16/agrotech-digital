@@ -46,6 +46,7 @@ fonttools==4.58.4
 gdown==5.2.0
 geojson==3.2.0
 geopandas==1.1.1
+numpy==2.3.2
 GDAL==3.6.0
 gunicorn==21.2.0
 idna==3.10
@@ -72,7 +73,6 @@ MarkupSafe==3.0.2
 matplotlib==3.10.3
 matplotlib-inline==0.1.7
 narwhals==1.45.0
-numpy==2.3.2
 packaging==23.2
 pandas==2.3.0
 parso==0.8.4
