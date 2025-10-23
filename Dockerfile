@@ -14,11 +14,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     make \
     postgresql-client \
+    binutils \
     && rm -rf /var/lib/apt/lists/*
 
 # Configurar variables de entorno para GDAL
 ENV CPLUS_INCLUDE_PATH=/usr/include/gdal \
-    C_INCLUDE_PATH=/usr/include/gdal
+    C_INCLUDE_PATH=/usr/include/gdal \
+    GDAL_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu/libgdal.so
 
 WORKDIR /app
 
