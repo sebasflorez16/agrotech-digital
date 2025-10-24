@@ -14,7 +14,7 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
     ".railway.app",  # Permitir cualquier subdominio de Railway
     "localhost",
     "127.0.0.1",
-    "https://agrotechcolombia.netlify.app",
+    "agrotechcolombia.netlify.app",  # Sin protocolo https://
 ])
 
 # DATABASES
@@ -164,10 +164,9 @@ CSRF_USE_SESSIONS = False  # Usar cookies en lugar de sesiones para CSRF
 # ------------------------------------------------------------------------------
 CORS_ALLOWED_ORIGINS = [
     "https://www.agrotechcolombia.com", 
+    "https://agrotechcolombia.com", 
     "https://agrotech-digital-production.up.railway.app",
-    "https://*.agrotechcolombia.com",  # Para subdominios de clientes
-    "https://agrotechcolombia.netlify.app",  # ✅ Sin barra final
-    #"https://site-production-208b.up.railway.app",  # Frontend estático en Railway
+    "https://agrotechcolombia.netlify.app",  # ✅ Frontend en Netlify
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -188,12 +187,10 @@ CORS_ALLOW_HEADERS = [
 
 # Configuraciones específicas para frontend estático separado
 # ------------------------------------------------------------------------------
-# Permitir el frontend estático en Railway
+# Regex para permitir subdominios de clientes multi-tenant
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://agrotech-digital-production\.up\.railway\.app$",  # Backend en Railway
-    r"^https://site-production-208b\.up\.railway\.app$",  # Frontend estático en Railway
-    r"^https://agrotechcolombia\.com$",  # Dominio personalizado backend
-    r"^https://agrotechcolombia.netlify.app$",  # Dominio personalizado frontend
+    r"^https://[\w\-]+\.agrotechcolombia\.com$",  # Subdominios de clientes
+    r"^https://[\w\-]+\.railway\.app$",  # Cualquier subdominio de Railway
 ]
 
 # Redirigir al frontend estático después del login
