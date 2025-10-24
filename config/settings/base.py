@@ -140,6 +140,7 @@ SHARED_APPS = [
     "metrica.users.apps.UsersConfig",  
     "inventario",  # Registro de la app de inventario
     "crop",  # Gestión de cultivos
+    "authentication",  # Registro de la app de autenticación
 ]
 
 TENANT_APPS = [

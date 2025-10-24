@@ -9,8 +9,8 @@
 // ============================================
 const CONFIG = {
     BACKEND_URL: 'https://agrotechcolombia.com',
-    LOGIN_URL: 'https://site-production-208b.up.railway.app/templates/authentication/login.html',
-    DASHBOARD_URL: 'https://site-production-208b.up.railway.app/templates/vertical_base.html',
+    LOGIN_URL: 'https://agrotechcolombia.netlify.app/templates/authentication/login.html',
+    DASHBOARD_URL: 'https://agrotechcolombia.netlify.app/templates/vertical_base.html',
     API_VERSION: 'v1',
     DEBUG: false
 };

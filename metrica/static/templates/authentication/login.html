@@ -263,7 +263,7 @@
         // Solo redirigir al dashboard si el token es válido según el backend
         const existingToken = localStorage.getItem("accessToken");
         if (existingToken && existingToken !== "null" && existingToken !== "undefined" && existingToken.trim() !== "") {
-            fetch("https://agrotechcolombia.com/api/authentication/dashboard/", {
+            fetch("https://agrotechcolombia.comdashboard/", {
                 method: "GET",
                 headers: { "Authorization": `Bearer ${existingToken}` }
             })
