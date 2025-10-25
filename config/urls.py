@@ -28,9 +28,13 @@ urlpatterns = [
 
     # 🔹 Módulos principales del sistema
     path("api/RRHH/", include("RRHH.routers")),         # Recursos Humanos para posiciones y departamentos
-    path("api/parcels/", include("parcels.urls")),  # Endpoints personalizados/proxy EOSDA
-    path("api/parcels/", include("parcels.routers", namespace="parcels_api")),  # Gestión de parcelas (DRF router, namespace único)
-    path("parcels/", include("parcels.urls")),  # Dashboard de parcelas
+    
+    # ✅ ORDEN CRÍTICO: Router DRF PRIMERO (CRUD de parcelas)
+    path("api/parcels/", include("parcels.routers")),  # ViewSet con /parcel/, /parcel/<pk>/, etc.
+    
+    # URLs personalizadas DESPUÉS (analytics, weather, proxy EOSDA)
+    path("api/parcels/", include("parcels.urls")),  # Endpoints específicos de EOSDA/Weather
+    path("parcels/", include("parcels.urls")),  # Dashboard de parcelas (templates)
     path("api/labores/", include("labores.routers", namespace="labores")),  # Gestión de labores agrícolas
     path("api/inventario/", include("inventario.routers")),  # Gestión de inventario y almacenes
     # Reporte de inventario por almacén (HTML y PDF)

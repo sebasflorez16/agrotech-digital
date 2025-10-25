@@ -10,10 +10,10 @@
   NODE_VERSION = "18"
 
 # ========================================
-# REDIRECTS - MULTI-TENANT SUPPORT
+# REDIRECTS - ORDEN CRÍTICO
 # ========================================
 
-# 1. Redirigir TODAS las peticiones de API a Railway
+# 1. Redirigir TODAS las peticiones de API a Railway (Backend en Producción)
 # IMPORTANTE: 
 # - force=true: Redirige ANTES de buscar archivos locales
 # - status=200: Proxy transparente (el navegador no ve el redirect)
@@ -23,21 +23,8 @@
   to = "https://agrotechcolombia.com/api/:splat"
   status = 200
   force = true
-  # Headers necesarios para django-tenants
   [redirects.headers]
     X-Forwarded-Proto = "https"
-
-# ========================================
-# REDIRECTS - ORDEN CRÍTICO
-# ========================================
-
-# 1. Redirigir TODAS las peticiones de API a Railway (Backend en Producción)
-# IMPORTANTE: force=true asegura que se redirija ANTES de buscar archivos locales
-[[redirects]]
-  from = "/api/*"
-  to = "https://agrotechcolombia.com/api/:splat"
-  status = 200
-  force = true
 
 # 2. Manejo de 404 - DEBE IR AL FINAL
 [[redirects]]
