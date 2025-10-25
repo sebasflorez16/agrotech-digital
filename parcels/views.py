@@ -161,37 +161,11 @@ class ParcelViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def list(self, request, *args, **kwargs):
-        logger.info(f"[ParcelViewSet] list() - Usuario: {request.user} - Params: {request.query_params}")
         response = super().list(request, *args, **kwargs)
-        logger.info(f"[ParcelViewSet] list() - Respuesta: {response.data}")
         response.data = {
             "cesium_token": settings.CESIUM_ACCESS_TOKEN,
             "parcels": response.data
         }
-        return response
-
-    def retrieve(self, request, *args, **kwargs):
-        logger.info(f"[ParcelViewSet] retrieve() - Usuario: {request.user} - kwargs: {kwargs}")
-        response = super().retrieve(request, *args, **kwargs)
-        logger.info(f"[ParcelViewSet] retrieve() - Respuesta: {response.data}")
-        return response
-
-    def create(self, request, *args, **kwargs):
-        logger.info(f"[ParcelViewSet] create() - Usuario: {request.user} - Data: {request.data}")
-        response = super().create(request, *args, **kwargs)
-        logger.info(f"[ParcelViewSet] create() - Respuesta: {response.data}")
-        return response
-
-    def update(self, request, *args, **kwargs):
-        logger.info(f"[ParcelViewSet] update() - Usuario: {request.user} - Data: {request.data} - kwargs: {kwargs}")
-        response = super().update(request, *args, **kwargs)
-        logger.info(f"[ParcelViewSet] update() - Respuesta: {response.data}")
-        return response
-
-    def destroy(self, request, *args, **kwargs):
-        logger.info(f"[ParcelViewSet] destroy() - Usuario: {request.user} - kwargs: {kwargs}")
-        response = super().destroy(request, *args, **kwargs)
-        logger.info(f"[ParcelViewSet] destroy() - Respuesta: {response.status_code}")
         return response
 
     @action(detail=False, methods=["get"], url_path="summary")

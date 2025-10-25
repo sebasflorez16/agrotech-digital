@@ -5,7 +5,8 @@ from .simple_analytics import SimpleAnalyticsView
 from django.http import JsonResponse
 from .metereological import WeatherForecastView
 
-app_name = "parcels"
+# ELIMINADO: app_name = "parcels" - causaba conflicto con el router DRF
+# El router DRF en parcels.routers no usa app_name, por lo que este tampoco debe usarlo
 
 # Vista simple para debug
 def test_analytics_endpoint(request):
