@@ -21,8 +21,8 @@ urlpatterns = [
     path("api/authentication/", include("authentication.urls")),
     
     # 🔹 Endpoints de parcelas (disponibles en el dominio público)
-    path("api/parcels/", include("parcels.urls")),
-    path("api/parcels/", include("parcels.routers", namespace="parcels_api")),
+    path("api/parcels/", include("parcels.routers")),  # SIN namespace
+    path("api/parcels/", include("parcels.urls")),   
 ]
 
 # Nota: Si recibes un error 404 en el dominio público, probablemente la ruta no está inscrita aquí.
