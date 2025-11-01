@@ -25,6 +25,8 @@ urlpatterns = [
     path("api/parcels/", include("parcels.routers")),  # SIN namespace
     path("api/parcels/", include("parcels.urls")),   
     path("api/parcels/geocode/", GeocodeProxyView.as_view(), name="geocode-proxy"),
+    # Alias para compatibilidad con plugins/librerías que agregan '/search' al endpoint Nominatim
+    path("api/parcels/geocode/search", GeocodeProxyView.as_view(), name="geocode-proxy-search"),
 ]
 
 # Nota: Si recibes un error 404 en el dominio público, probablemente la ruta no está inscrita aquí.
