@@ -2,9 +2,8 @@
 # Optimizado para Leaflet + Esri World Imagery + Railway Backend
 
 [build]
-  # ⚡ La carpeta actual (metrica/static) ya ES la raíz en Netlify
   publish = "."
-  command = "echo 'Desplegando frontend desde static/'"
+  command = "echo 'Desplegando frontend desde metrica/static/'"
 
 [build.environment]
   NODE_VERSION = "18"
@@ -24,7 +23,7 @@
   status = 200
   force = true
   [redirects.headers]
-    X-Forwardedlisto-Proto = "https"
+    X-Forwarded-Proto = "https"
 
 # 2. Manejo de 404 - DEBE IR AL FINAL
 [[redirects]]

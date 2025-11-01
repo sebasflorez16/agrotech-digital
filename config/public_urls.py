@@ -5,6 +5,7 @@ Estas rutas funcionan sin schema de tenant para healthchecks, autenticación, et
 from django.http import HttpResponse
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from parcels.views import GeocodeProxyView
 
 
 def health_check(request):
@@ -23,6 +24,7 @@ urlpatterns = [
     # 🔹 Endpoints de parcelas (disponibles en el dominio público)
     path("api/parcels/", include("parcels.routers")),  # SIN namespace
     path("api/parcels/", include("parcels.urls")),   
+    path("api/parcels/geocode/", GeocodeProxyView.as_view(), name="geocode-proxy"),
 ]
 
 # Nota: Si recibes un error 404 en el dominio público, probablemente la ruta no está inscrita aquí.
