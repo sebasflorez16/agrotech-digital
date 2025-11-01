@@ -1,15 +1,12 @@
 from rest_framework import routers
 from . import views
-from django.urls import path
 
-
-app_name = "parcels"
-
+# Crear el router para DRF
 router = routers.DefaultRouter()
+
+# Registrar el ViewSet de parcelas
+# Esto genera automáticamente: /parcel/, /parcel/<pk>/, etc.
 router.register(r'parcel', views.ParcelViewSet, basename='parcel')
 
-# Obtener las rutas generadas por el router
-generated_urls = router.urls
-
-# Definir nuestras URLs personalizadas
-urlpatterns = generated_urls
+# Exportar las URLs del router
+urlpatterns = router.urls
