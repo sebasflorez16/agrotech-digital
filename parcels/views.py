@@ -1,4 +1,3 @@
-
 # --- IMPORTS ORDENADOS ---
 import logging
 import requests
@@ -1138,7 +1137,7 @@ class EosdaStatisticsTaskStatusView(APIView):
                 }, status=500)
                 
         except requests.exceptions.RequestException as e:
-            logger.error(f"[STATS_TASK_STATUS] Error en petición a EOSDA: {str(e)}")
+            logger.error(f"[STATS_TASK_STATUS] Error en la petición a EOSDA: {str(e)}")
             return Response({"error": f"Error al consultar estado de tarea: {str(e)}"}, status=500)
     
     def _process_statistics_results(self, results):
@@ -2346,3 +2345,33 @@ class ParcelNdviWeatherComparisonView(APIView):
             insights.append(f'{metrics.get("heat_stress_days")} días con temperaturas extremas (>35°C). Implementar medidas de protección.')
         
         return insights
+
+# Geocode Proxy View para Nominatim OSM y evitar el error de cors que ya no admite desde el frontend directamente
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+import requests
+
+class GeocodeProxyView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        query = request.query_params.get('q')
+        if not query:
+            return Response({'error': 'Falta el parámetro de búsqueda (q).'}, status=400)
+        nominatim_url = 'https://nominatim.openstreetmap.org/search'
+        params = {
+            'q': query,
+            'format': 'json',
+            'addressdetails': 1,
+            'limit': 5,
+            'countrycodes': 'co'
+        }
+        try:
+            resp = requests.get(nominatim_url, params=params, headers={
+                'User-Agent': 'AgrotechGeocoder/1.0 (contacto@agrotech.com)'
+            })
+            resp.raise_for_status()
+            return Response(resp.json(), status=200)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)

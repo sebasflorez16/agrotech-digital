@@ -4,6 +4,7 @@ from .analytics_views import EOSDAAnalyticsAPIView
 from .simple_analytics import SimpleAnalyticsView
 from django.http import JsonResponse
 from .metereological import WeatherForecastView
+from .views import GeocodeProxyView
 
 # ELIMINADO: app_name = "parcels" - causaba conflicto con el router DRF
 # El router DRF en parcels.routers no usa app_name, por lo que este tampoco debe usarlo
@@ -48,4 +49,8 @@ urlpatterns = [
     path('weather-forecast/<int:parcel_id>/', WeatherForecastView.as_view(), name='weather_forecast_alt'),
     # Ruta directa extra para evitar posibles conflictos con el router
     path('get-weather-forecast/<int:parcel_id>/', WeatherForecastView.as_view(), name='weather_forecast_direct'),
+]
+
+urlpatterns += [
+    path('geocode/', GeocodeProxyView.as_view(), name='geocode-proxy'),
 ]

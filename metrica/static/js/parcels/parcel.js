@@ -325,7 +325,7 @@ function initializeLeaflet() {
         ).addTo(map);
 
         // 🔍 Agregar control de búsqueda de geocodificación (lupa)
-        // Usando Nominatim (OpenStreetMap) - gratis y sin límites estrictos
+        // Usando el proxy backend para evitar CORS
         if (typeof L.Control.Geocoder !== 'undefined') {
             L.Control.geocoder({
                 defaultMarkGeocode: false,
@@ -333,6 +333,7 @@ function initializeLeaflet() {
                 errorMessage: 'No se encontró la ubicación',
                 position: 'topright',
                 geocoder: L.Control.Geocoder.nominatim({
+                    serviceUrl: BASE_URL + '/geocode/', // Usar proxy backend
                     geocodingQueryParams: {
                         countrycodes: 'co', // Priorizar resultados en Colombia
                         limit: 5
@@ -347,18 +348,16 @@ function initializeLeaflet() {
                     bbox.getSouthWest()
                 ]);
                 map.fitBounds(poly.getBounds());
-                
                 // Agregar marcador temporal en la ubicación encontrada
                 const marker = L.marker(e.geocode.center).addTo(map)
                     .bindPopup(e.geocode.name)
                     .openPopup();
-                
                 // Remover marcador después de 5 segundos
                 setTimeout(() => {
                     map.removeLayer(marker);
                 }, 5000);
             }).addTo(map);
-            console.log('[LEAFLET] Control de búsqueda agregado');
+            console.log('[LEAFLET] Control de búsqueda agregado (proxy backend)');
         } else {
             console.warn('[LEAFLET] Plugin Geocoder no disponible - verifique que el script esté cargado');
         }
