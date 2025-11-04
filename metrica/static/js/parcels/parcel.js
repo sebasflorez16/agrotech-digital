@@ -133,31 +133,11 @@ function renderScenesTable(scenes) {
         }
     }
 
-    // Filtrar escenas con alta cobertura de nubes (>70%)
-    const CLOUD_THRESHOLD = 70;
-    const lowCloudScenes = uniqueScenes.filter(scene => {
-        const cloud = scene.cloudCoverage ?? scene.cloud ?? scene.nubosidad ?? 0;
-        return cloud <= CLOUD_THRESHOLD;
-    });
-    
-    const filteredCount = uniqueScenes.length - lowCloudScenes.length;
-    const finalScenes = lowCloudScenes.length > 0 ? lowCloudScenes : uniqueScenes.slice(0, 5); // Fallback: mostrar las 5 mejores
+    // No aplicar filtro de nubosidad aquí - se hace en showSceneSelectionTable (búsqueda por fechas)
+    // Mostrar todas las escenas únicas ordenadas por fecha
+    const finalScenes = uniqueScenes;
 
-    // Mensaje informativo sobre filtrado
-    let filterMessage = '';
-    if (filteredCount > 0) {
-        if (lowCloudScenes.length > 0) {
-            filterMessage = `<div class="alert alert-info mb-3">
-                <i class="fas fa-info-circle"></i> Se filtraron ${filteredCount} escena(s) con alta cobertura de nubes (>${CLOUD_THRESHOLD}%) para mejorar la calidad del análisis.
-            </div>`;
-        } else {
-            filterMessage = `<div class="alert alert-warning mb-3">
-                <i class="fas fa-exclamation-triangle"></i> Todas las escenas tienen alta cobertura de nubes. Mostrando las 5 mejores disponibles. Los resultados pueden ser menos precisos.
-            </div>`;
-        }
-    }
-
-    let html = `${filterMessage}<table class="table table-striped table-bordered">
+    let html = `<table class="table table-striped table-bordered">
         <thead>
             <tr>
                 <th>Fecha</th>
@@ -174,17 +154,11 @@ function renderScenesTable(scenes) {
                 let cloud = scene.cloudCoverage ?? scene.cloud ?? scene.nubosidad;
                 let cloudText = (typeof cloud === 'number') ? cloud.toFixed(2) : (cloud || 'N/A');
                 
-                // Añadir indicador visual para alta nubosidad
-                let cloudBadge = '';
-                if (typeof cloud === 'number' && cloud > CLOUD_THRESHOLD) {
-                    cloudBadge = ' <span class="badge badge-warning">Alta</span>';
-                }
-                
                 return `
                     <tr>
                         <td>${scene.date || '-'}</td>
                         <td>${scene.view_id || '-'}</td>
-                        <td>${cloudText}${cloudBadge}</td>
+                        <td>${cloudText}</td>
                         <td><button class="btn btn-success btn-sm" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndvi', this)">Ver NDVI</button></td>
                         <td><button class="btn btn-info btn-sm" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndmi', this)">Ver NDMI</button></td>
                         <td>
@@ -310,9 +284,24 @@ function initializeLeaflet() {
             'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
             {
                 attribution: 'Esri, DigitalGlobe, GeoEye, Earthstar Geographics, CNES/Airbus DS, USDA, USGS, AeroGRID, IGN, and the GIS User Community',
-                maxZoom: 19
+                maxZoom: 19 // Permitir máximo zoom posible para Esri
             }
         ).addTo(map);
+
+        // Capa alternativa OpenStreetMap para zoom extremo
+        const osm = L.tileLayer(
+            'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+            {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 21 // OSM soporta zoom muy alto
+            }
+        );
+
+        // Control de capas para alternar entre satélite y OSM
+        L.control.layers({
+            'Satélite Esri': esriSatellite,
+            'OpenStreetMap': osm
+        }).addTo(map);
 
         // Opcional: Agregar capa de etiquetas sobre el satélite para referencia
         const esriLabels = L.tileLayer(
@@ -1173,8 +1162,8 @@ async function showSceneSelectionTable(scenes) {
             }
         }
 
-        // Filtrar escenas con alta cobertura de nubes (>70%)
-        const CLOUD_THRESHOLD = 70;
+        // Filtrar escenas por umbral de cobertura de nubes (≤50%)
+        const CLOUD_THRESHOLD = 50;
         const lowCloudScenes = uniqueScenes.filter(scene => {
             const cloud = scene.cloudCoverage ?? scene.cloud ?? scene.nubosidad ?? 0;
             return cloud <= CLOUD_THRESHOLD;
@@ -1212,21 +1201,40 @@ async function showSceneSelectionTable(scenes) {
         title.style.marginBottom = "18px";
         content.appendChild(title);
 
-        // Mensaje informativo sobre filtrado (igual que en la tabla principal)
+        // Mensaje informativo sobre filtrado - explicación clara para usuarios
         if (filteredCount > 0) {
             const filterMessage = document.createElement("div");
             filterMessage.style.marginBottom = "15px";
-            filterMessage.style.padding = "10px";
-            filterMessage.style.borderRadius = "4px";
+            filterMessage.style.padding = "12px 15px";
+            filterMessage.style.borderRadius = "8px";
+            filterMessage.style.fontSize = "14px";
+            filterMessage.style.lineHeight = "1.5";
             
             if (lowCloudScenes.length > 0) {
                 filterMessage.style.backgroundColor = "#d1ecf1";
                 filterMessage.style.color = "#0c5460";
-                filterMessage.innerHTML = `<i class="fas fa-info-circle"></i> Se filtraron ${filteredCount} escena(s) con alta cobertura de nubes (>${CLOUD_THRESHOLD}%) para mejorar la calidad del análisis.`;
+                filterMessage.style.border = "1px solid #bee5eb";
+                filterMessage.innerHTML = `
+                    <div style="display:flex;align-items:flex-start;gap:10px;">
+                        <i class="fas fa-info-circle" style="font-size:20px;margin-top:2px;"></i>
+                        <div>
+                            <strong>Filtro aplicado:</strong> Se ocultaron ${filteredCount} imagen(es) porque tenían más del 50% del cielo cubierto por nubes.
+                            <br><small>Mostramos solo las imágenes con cielo más despejado para obtener análisis más precisos.</small>
+                        </div>
+                    </div>`;
             } else {
                 filterMessage.style.backgroundColor = "#fff3cd";
                 filterMessage.style.color = "#856404";
-                filterMessage.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Todas las escenas tienen alta cobertura de nubes. Mostrando las 5 mejores disponibles. Los resultados pueden ser menos precisos.`;
+                filterMessage.style.border = "1px solid #ffeeba";
+                filterMessage.innerHTML = `
+                    <div style="display:flex;align-items:flex-start;gap:10px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size:20px;margin-top:2px;"></i>
+                        <div>
+                            <strong>⚠️ Atención:</strong> No hay imágenes satelitales con cielo despejado en este período.
+                            <br>Todas las imágenes disponibles tienen más del 50% del cielo cubierto por nubes, lo que puede afectar la precisión del análisis.
+                            <br><small>💡 <strong>Recomendación:</strong> Intenta seleccionar otro rango de fechas con mejor clima o revisa las imágenes disponibles más abajo.</small>
+                        </div>
+                    </div>`;
             }
             content.appendChild(filterMessage);
         }
@@ -1723,7 +1731,7 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
                 // Intervalo progresivo: empezar rápido, luego más lento
                 const currentInterval = attempts <= 3 ? baseInterval : baseInterval + (attempts * 1000);
                 await new Promise(resolve => setTimeout(resolve, currentInterval));
-            }
+                       }
         }
         
         // Si llegamos aquí, se agotaron los intentos

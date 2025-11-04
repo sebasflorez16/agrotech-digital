@@ -31,13 +31,16 @@ window.obtenerAnalyticsCientifico = async function(viewId, sceneDate) {
             return;
         }
         
-        // Mostrar indicador de carga
-        if (typeof showToast === 'function') {
-            showToast('Obteniendo análisis científico satelital...', 'info');
+        // Mostrar spinner con mensaje informativo
+        if (typeof showSpinner === 'function') {
+            showSpinner('Procesando análisis satelital... Esto puede tomar hasta 15 segundos.');
+        } else if (typeof showToast === 'function') {
+            showToast('🛰️ Procesando análisis satelital...', 'info');
         }
         
         // Verificar que axiosInstance esté disponible
         if (typeof window.axiosInstance === 'undefined') {
+            if (typeof hideSpinner === 'function') hideSpinner();
             const msg = 'Sistema de autenticación no inicializado';
             console.error(`[ANALYTICS_CIENTIFICO] Error: ${msg}`);
             if (typeof showToast === 'function') {
@@ -66,6 +69,11 @@ window.obtenerAnalyticsCientifico = async function(viewId, sceneDate) {
         
         console.log(`[ANALYTICS_CIENTIFICO] Datos obtenidos exitosamente:`, analyticsData);
         
+        // Ocultar spinner
+        if (typeof hideSpinner === 'function') {
+            hideSpinner();
+        }
+        
         // Mostrar modal con análisis científico
         mostrarModalAnalyticsCientifico(analyticsData, sceneDate, viewId);
         
@@ -79,18 +87,50 @@ window.obtenerAnalyticsCientifico = async function(viewId, sceneDate) {
         return analyticsData;
         
     } catch (error) {
+        // Ocultar spinner en caso de error
+        if (typeof hideSpinner === 'function') {
+            hideSpinner();
+        }
+        
         console.error('[ANALYTICS_CIENTIFICO] Error:', error);
+        
+        // Mejorar mensajes de error con información contextual
         let errorMsg = '';
-        if (error && typeof error === 'object') {
+        let userFriendlyMsg = '';
+        
+        if (error.response) {
+            // Error de respuesta del servidor
+            const status = error.response.status;
+            const data = error.response.data;
+            
+            if (status === 503) {
+                userFriendlyMsg = 'El análisis satelital aún se está procesando. Por favor, intenta nuevamente en unos minutos.';
+            } else if (status === 404) {
+                userFriendlyMsg = 'No se encontraron datos de análisis para esta escena.';
+            } else if (status === 500) {
+                userFriendlyMsg = 'Error en el servidor al procesar el análisis. Por favor, contacta al administrador.';
+            } else {
+                userFriendlyMsg = data?.detail || data?.error || `Error del servidor (código ${status})`;
+            }
+            
+            errorMsg = `${userFriendlyMsg} [Status: ${status}]`;
+        } else if (error.request) {
+            // La solicitud se hizo pero no hubo respuesta
+            errorMsg = 'No se pudo conectar con el servidor. Verifica tu conexión a internet.';
+            userFriendlyMsg = errorMsg;
+        } else {
+            // Error en la configuración de la solicitud
             errorMsg = error.message || JSON.stringify(error);
-        } else {
-            errorMsg = String(error);
+            userFriendlyMsg = 'Error al procesar la solicitud de análisis.';
         }
+        
         if (typeof showToast === 'function') {
-            showToast(`❌ Error en análisis científico: ${errorMsg}`, 'error');
+            showToast(`❌ ${userFriendlyMsg}`, 'error');
         } else {
-            alert(`Error en análisis científico: ${errorMsg}`);
+            alert(`Error en análisis científico: ${userFriendlyMsg}`);
         }
+        
+        console.error('[ANALYTICS_CIENTIFICO] Detalle completo del error:', errorMsg);
         throw error;
     }
 };

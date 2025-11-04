@@ -108,7 +108,7 @@
         <div class="brand">
             <a href="#" class="logo">
                 <span>
-                    <img src="../static/images/agrotech solo blanco.png" alt="logo-small" class="logo-sm">
+                    <img src="../images/agrotech solo blanco.png" alt="logo-small" class="logo-sm">
                 </span>
             </a>
         </div>
@@ -126,18 +126,24 @@
     <!-- Mejorar comportamiento táctil en móvil -->
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('[SIDEBAR] DOMContentLoaded');
         const sidebar = document.getElementById('sidebar');
         if (sidebar) {
+            console.log('[SIDEBAR] Sidebar encontrado');
             // Mejorar feedback táctil en móvil
             sidebar.querySelectorAll('a[href]').forEach(function(link) {
+                console.log('[SIDEBAR] Link encontrado:', link.href);
                 link.addEventListener('touchstart', function() {
                     this.style.backgroundColor = '#34495E';
+                    console.log('[SIDEBAR] touchstart en:', this.href);
                 });
-                
                 link.addEventListener('touchend', function() {
                     this.style.backgroundColor = '';
+                    console.log('[SIDEBAR] touchend en:', this.href);
                 });
             });
+        } else {
+            console.warn('[SIDEBAR] Sidebar NO encontrado');
         }
     });
     </script>
