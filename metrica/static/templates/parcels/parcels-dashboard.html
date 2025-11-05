@@ -38,6 +38,15 @@
     <link href="../../css/icons.min.css" rel="stylesheet" type="text/css" />
     <link href="../../css/app.min.css" rel="stylesheet" type="text/css" />
     <link href="../../css/employees.css" rel="stylesheet" type="text/css" />
+    
+    <!-- Google Fonts - Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Diseño Móvil Premium UX/UI - Agrotech -->
+    <link href="../../css/mobile-clean-redesign.css" rel="stylesheet" type="text/css" />
+    
     <!-- Font Awesome for Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <!-- Tabler Icons for Sidebar -->
@@ -100,6 +109,95 @@
         @media (min-width: 992px) {
             .modal-lg {
                 max-width: 800px;
+            }
+        }
+
+        /* ============================================
+           ESTILOS MÓVIL - TOPBAR Y SIDEBAR
+           Solo visible en móvil < 768px
+           ============================================ */
+        @media (max-width: 767px) {
+            /* Topbar móvil claro */
+            .topbar {
+                display: flex !important;
+                align-items: center;
+                justify-content: space-between;
+                padding: 12px 16px;
+                background: linear-gradient(135deg, #FFFFFF 0%, #F8FAFB 100%);
+                border-bottom: 1px solid #E8ECEF;
+                box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 1000;
+                height: 60px;
+            }
+
+            .menu-toggle {
+                background: transparent;
+                border: none;
+                color: #2C3E50;
+                font-size: 24px;
+                cursor: pointer;
+                padding: 8px 12px;
+                border-radius: 8px;
+                transition: all 0.3s ease;
+            }
+
+            .menu-toggle:hover {
+                background: rgba(0, 122, 32, 0.1);
+            }
+
+            .topbar-title {
+                flex: 1;
+                text-align: center;
+                font-weight: 600;
+                color: #007A20;
+            }
+
+            .topbar-actions {
+                display: flex;
+                gap: 8px;
+            }
+
+            /* Ocultar topbar y sidebar de desktop en móvil */
+            #topbar-container,
+            #left-sidebar {
+                display: none !important;
+            }
+
+            /* Ajustar contenido principal */
+            #main-content {
+                padding-top: 70px !important;
+            }
+
+            /* Sidebar overlay */
+            .sidebar-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.5);
+                z-index: 9998;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.3s ease, visibility 0.3s ease;
+            }
+
+            .sidebar-overlay.show {
+                opacity: 1;
+                visibility: visible;
+            }
+        }
+
+        /* Desktop - ocultar elementos móviles */
+        @media (min-width: 768px) {
+            .topbar,
+            #mobile-sidebar,
+            .sidebar-overlay {
+                display: none !important;
             }
         }
     </style>
@@ -273,6 +371,41 @@
     </style>
 </head>
 <body>  
+    <!-- Topbar móvil (solo visible en móvil < 768px) -->
+    <div class="topbar" style="display: none;">
+        <button class="menu-toggle button-menu-mobile" aria-label="Abrir menú" onclick="toggleMobileSidebar()">
+            <i class="fas fa-bars"></i>
+        </button>
+        <div class="topbar-title" style="font-size: 1.1rem; font-weight: 600; color: #007A20;">Parcelas - Agrotech</div>
+        <div class="topbar-actions">
+            <button class="topbar-icon" aria-label="Notificaciones" style="background:none;border:none;color:#2C3E50;">
+                <i class="fas fa-bell"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Sidebar móvil (solo visible en móvil < 768px) -->
+    <div id="mobile-sidebar" class="mobile-sidebar">
+        <div class="brand" style="padding: 32px 0 18px 0; text-align: center; background: linear-gradient(135deg, #FFFFFF, rgba(232, 245, 233, 0.4)); border-bottom: 1px solid #E8ECEF;">
+            <a href="#" class="logo">
+                <span>
+                    <img src="../../images/agrotech solo negro.png" alt="Agrotech" class="logo-sm" style="max-width: 80px; margin: 0 auto; display: block;">
+                </span>
+            </a>
+        </div>
+        <ul class="menu" style="padding: 20px 0; margin: 0; list-style: none;">
+            <li><a href="../vertical_base.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-home" style="font-size: 1.2em; color: #35B835;"></i> Dashboard</a></li>
+            <li><a href="../employees/RRHH-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-user" style="font-size: 1.2em; color: #35B835;"></i> Recursos Humanos</a></li>
+            <li><a href="../inventory/inventario-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-box" style="font-size: 1.2em; color: #35B835;"></i> Inventario</a></li>
+            <li><a href="../configuration/configuracion.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-settings" style="font-size: 1.2em; color: #35B835;"></i> Configuración</a></li>
+            <li><a href="parcels-dashboard.html" class="active" style="display: flex; align-items: center; gap: 10px; color: #007A20; padding: 12px 22px; border-radius: 7px; background: linear-gradient(135deg, rgba(53, 184, 53, 0.15), rgba(0, 122, 32, 0.1)); font-weight: 600; transition: all 0.3s; font-size: 15px;"><i class="ti ti-map" style="font-size: 1.2em; color: #007A20;"></i> Parcelas</a></li>
+            <li><a href="../labors/labor-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-clipboard-list" style="font-size: 1.2em; color: #35B835;"></i> Labores</a></li>
+            <li><a href="../crops/crops-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-plant" style="font-size: 1.2em; color: #35B835;"></i> Cultivos</a></li>
+        </ul>
+    </div>
+
+    <!-- Overlay del sidebar (solo móvil) -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
             
     <div id="left-sidebar"></div>
     <!-- Contenedor del topbar -->
@@ -1221,6 +1354,160 @@
         });
         
 
+    </script>
+
+    <script>
+    // Función global para manejar el menú lateral móvil
+    function toggleMobileSidebar() {
+        const mobileSidebar = document.getElementById('mobile-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        if (mobileSidebar && overlay) {
+            const isOpen = mobileSidebar.classList.contains('show');
+            
+            if (isOpen) {
+                mobileSidebar.classList.remove('show');
+                overlay.classList.remove('show');
+            } else {
+                mobileSidebar.classList.add('show');
+                overlay.classList.add('show');
+            }
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Configurar eventos del menú móvil
+        const overlay = document.getElementById('sidebar-overlay');
+        if (overlay) {
+            overlay.addEventListener('click', toggleMobileSidebar);
+        }
+        
+        // Cerrar menú al hacer clic en los enlaces
+        const mobileSidebar = document.getElementById('mobile-sidebar');
+        if (mobileSidebar) {
+            const links = mobileSidebar.querySelectorAll('a');
+            links.forEach(function(link) {
+                link.addEventListener('click', function() {
+                    toggleMobileSidebar();
+                });
+            });
+        }
+
+        // Mostrar topbar móvil solo en móvil
+        const isMobile = window.innerWidth < 768;
+        const topbar = document.querySelector('.topbar');
+        if (topbar && isMobile) {
+            topbar.style.display = 'flex';
+        }
+
+        // ============================================
+        // AGREGAR DATA-LABELS A LA TABLA PARA MÓVIL
+        // ============================================
+        function addDataLabelsToTable() {
+            const table = document.getElementById('parcelTable');
+            if (!table) return;
+
+            const headers = table.querySelectorAll('thead th');
+            const headerTexts = Array.from(headers).map(h => h.textContent.trim());
+
+            // Observar cambios en la tabla
+            const observer = new MutationObserver(function() {
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(row => {
+                    const cells = row.querySelectorAll('td');
+                    cells.forEach((cell, index) => {
+                        if (headerTexts[index] && !cell.hasAttribute('data-label')) {
+                            cell.setAttribute('data-label', headerTexts[index]);
+                        }
+                    });
+                });
+            });
+
+            observer.observe(table.querySelector('tbody'), {
+                childList: true,
+                subtree: true
+            });
+
+            // Ejecutar una vez al cargar
+            const rows = table.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                cells.forEach((cell, index) => {
+                    if (headerTexts[index]) {
+                        cell.setAttribute('data-label', headerTexts[index]);
+                    }
+                });
+            });
+        }
+
+        addDataLabelsToTable();
+
+        // ============================================
+        // OPTIMIZAR GRÁFICO METEOROLÓGICO PARA MÓVIL
+        // ============================================
+        if (window.innerWidth < 768) {
+            // Interceptar la creación del gráfico Chart.js
+            const originalChart = window.Chart;
+            if (originalChart) {
+                window.Chart = function(ctx, config) {
+                    if (config && config.type === 'line') {
+                        // Optimizaciones para móvil
+                        if (config.options) {
+                            // Reducir densidad de puntos visibles
+                            if (!config.options.elements) config.options.elements = {};
+                            if (!config.options.elements.point) config.options.elements.point = {};
+                            
+                            config.options.elements.point.radius = 0; // Ocultar puntos por defecto
+                            config.options.elements.point.hoverRadius = 6; // Mostrar al hover
+                            config.options.elements.point.hitRadius = 10; // Área de detección grande
+                            
+                            // Líneas más gruesas
+                            if (!config.options.elements.line) config.options.elements.line = {};
+                            config.options.elements.line.borderWidth = 3;
+                            config.options.elements.line.tension = 0.4; // Suavizar líneas
+                            
+                            // Reducir etiquetas del eje X
+                            if (config.options.scales && config.options.scales.x) {
+                                config.options.scales.x.ticks = config.options.scales.x.ticks || {};
+                                config.options.scales.x.ticks.maxTicksLimit = 6; // Máximo 6 etiquetas
+                                config.options.scales.x.ticks.maxRotation = 45;
+                                config.options.scales.x.ticks.minRotation = 45;
+                                config.options.scales.x.ticks.font = { size: 10 };
+                            }
+                            
+                            // Optimizar eje Y
+                            if (config.options.scales && config.options.scales.y) {
+                                config.options.scales.y.ticks = config.options.scales.y.ticks || {};
+                                config.options.scales.y.ticks.maxTicksLimit = 5;
+                                config.options.scales.y.ticks.font = { size: 10 };
+                            }
+                            
+                            // Tooltip mejorado
+                            if (!config.options.plugins) config.options.plugins = {};
+                            if (!config.options.plugins.tooltip) config.options.plugins.tooltip = {};
+                            config.options.plugins.tooltip.mode = 'index';
+                            config.options.plugins.tooltip.intersect = false;
+                            config.options.plugins.tooltip.titleFont = { size: 13, weight: 'bold' };
+                            config.options.plugins.tooltip.bodyFont = { size: 12 };
+                            
+                            // Leyenda más pequeña
+                            if (!config.options.plugins.legend) config.options.plugins.legend = {};
+                            config.options.plugins.legend.labels = config.options.plugins.legend.labels || {};
+                            config.options.plugins.legend.labels.font = { size: 11 };
+                            config.options.plugins.legend.labels.boxWidth = 30;
+                        }
+                    }
+                    return new originalChart(ctx, config);
+                };
+                
+                // Copiar propiedades estáticas
+                Object.setPrototypeOf(window.Chart, originalChart);
+                Object.keys(originalChart).forEach(key => {
+                    window.Chart[key] = originalChart[key];
+                });
+            }
+        }
+    });
     </script>
 
     
