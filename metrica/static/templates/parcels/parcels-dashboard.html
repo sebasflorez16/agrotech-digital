@@ -13,7 +13,7 @@
                    worker-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:; 
                    child-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa Satelital - AgroTech</title>
+    <title>Mapa Satelital - AgroTech Digital</title>
     
     <!-- Leaflet CSS y JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
@@ -33,21 +33,30 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet.fullscreen@latest/Control.FullScreen.css" />
     <script src="https://unpkg.com/leaflet.fullscreen@latest/Control.FullScreen.js"></script>
     
-    <!-- Bootstrap y otros estilos -->
+    <!-- Bootstrap 5.3.2 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" 
+          integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    
+    <!-- Font Awesome 6.4.2 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" 
+          integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" 
+          crossorigin="anonymous" referrerpolicy="no-referrer"/>
+    
+    <!-- Google Fonts - Inter & Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- CSS del proyecto base -->
     <link href="../../css/bootstrap.min.css" rel="stylesheet" type="text/css" />
     <link href="../../css/icons.min.css" rel="stylesheet" type="text/css" />
     <link href="../../css/app.min.css" rel="stylesheet" type="text/css" />
     <link href="../../css/employees.css" rel="stylesheet" type="text/css" />
-    
-    <!-- Google Fonts - Poppins -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Diseño Móvil Premium UX/UI - Agrotech -->
     <link href="../../css/mobile-clean-redesign.css" rel="stylesheet" type="text/css" />
     
-    <!-- Font Awesome for Icons -->
+    <!-- ⭐ SISTEMA NEUMÓRFICO AGROTECH ⭐ -->
+    <link href="../../css/agrotech-neomorphic.css" rel="stylesheet" type="text/css" />
+    
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <!-- Tabler Icons for Sidebar -->
     <link href="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/tabler-sprite.svg" as="image">
@@ -370,7 +379,7 @@
         }
     </style>
 </head>
-<body>  
+<body class="neomorphic-theme">  
     <!-- Topbar móvil (solo visible en móvil < 768px) -->
     <div class="topbar" style="display: none;">
         <button class="menu-toggle button-menu-mobile" aria-label="Abrir menú" onclick="toggleMobileSidebar()">
@@ -1510,7 +1519,8 @@
     });
     </script>
 
-    
+    <!-- ⭐ SISTEMA JAVASCRIPT NEUMÓRFICO AGROTECH ⭐ -->
+    <script src="../../js/agrotech-neomorphic.js"></script>
 
 </body>
 </html>
