@@ -22,7 +22,7 @@
     // Configuración global
     window.AGROTECH_CONFIG = {
         // URLs Base
-        API_BASE: isLocalhost ? 'http://localhost:8000' : 'https://agrotechcolombia.com',
+        API_BASE: isLocalhost ? 'http://localhost:8000' : 'https://agrotech-digital-production.up.railway.app',
         STATIC_BASE: isLocalhost ? 'http://localhost:8080' : 'https://agrotechcolombia.netlify.app',
         
         // Puertos (solo para desarrollo)

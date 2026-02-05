@@ -37,7 +37,7 @@
 # - Preserva headers X-Forwarded-Host para detección de tenant en django-tenants
 [[redirects]]
   from = "/api/*"
-  to = "https://agrotechcolombia.com/api/:splat"
+  to = "https://agrotech-digital-production.up.railway.app/api/:splat"
   status = 200
   force = true
   [redirects.headers]
