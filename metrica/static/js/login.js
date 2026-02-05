@@ -23,7 +23,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         try {
             // POST al backend para autenticación
-            const response = await fetch('https://agrotechcolombia.com/api/authentication/login/', {
+            const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://agrotechcolombia.com';
+            const response = await fetch(`${API_BASE}/api/authentication/login/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

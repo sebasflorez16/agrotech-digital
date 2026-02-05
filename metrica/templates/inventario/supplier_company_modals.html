@@ -1,0 +1,133 @@
+<!-- supplier_company_modals.html - Modales para gestión de empresas y proveedores -->
+
+<!-- Modal Empresa (Company) -->
+<div class="modal fade" id="companyModal" tabindex="-1" aria-labelledby="companyModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-light border-0">
+        <h5 class="modal-title fw-bold" id="companyModalLabel"><i class="fa fa-building"></i> Nueva Empresa</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body py-4">
+        <form id="companyForm">
+          <input type="hidden" id="companyId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="companyName" class="form-label">Nombre</label>
+              <input type="text" class="form-control" id="companyName" required>
+            </div>
+            <div class="col-md-6">
+              <label for="companyRut" class="form-label">RUT/NIT</label>
+              <input type="text" class="form-control" id="companyRut">
+            </div>
+            <div class="col-md-6">
+              <label for="companyAddress" class="form-label">Dirección</label>
+              <input type="text" class="form-control" id="companyAddress">
+            </div>
+            <div class="col-md-6">
+              <label for="companyPhone" class="form-label">Teléfono</label>
+              <input type="text" class="form-control" id="companyPhone">
+            </div>
+            <div class="col-md-6">
+              <label for="companyEmail" class="form-label">Email</label>
+              <input type="email" class="form-control" id="companyEmail">
+            </div>
+            <div class="col-md-6">
+              <label for="companyWebsite" class="form-label">Sitio web</label>
+              <input type="url" class="form-control" id="companyWebsite">
+            </div>
+            <div class="col-md-6">
+              <label for="companyContactPerson" class="form-label">Persona de contacto</label>
+              <input type="text" class="form-control" id="companyContactPerson">
+            </div>
+            <div class="col-md-6">
+              <label for="companyContactPhone" class="form-label">Teléfono de contacto</label>
+              <input type="text" class="form-control" id="companyContactPhone">
+            </div>
+            <div class="col-md-6">
+              <label for="companyContactEmail" class="form-label">Email de contacto</label>
+              <input type="email" class="form-control" id="companyContactEmail">
+            </div>
+            <div class="col-md-12">
+              <label for="companyNotes" class="form-label">Notas</label>
+              <textarea class="form-control" id="companyNotes" rows="2"></textarea>
+            </div>
+          </div>
+          <div class="text-end mt-4">
+            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-success">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Proveedor (Supplier) -->
+<div class="modal fade" id="supplierModal" tabindex="-1" aria-labelledby="supplierModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-light border-0">
+        <h5 class="modal-title fw-bold" id="supplierModalLabel"><i class="fa fa-user-tie"></i> Nuevo Proveedor</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body py-4">
+        <form id="supplierForm">
+          <input type="hidden" id="supplierId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="supplierName" class="form-label">Nombre</label>
+              <input type="text" class="form-control" id="supplierName" required>
+            </div>
+            <div class="col-md-6">
+              <label for="supplierContact" class="form-label">Persona de contacto</label>
+              <input type="text" class="form-control" id="supplierContact">
+            </div>
+            <div class="col-md-6">
+              <label for="supplierPhone" class="form-label">Teléfono</label>
+              <input type="text" class="form-control" id="supplierPhone">
+            </div>
+            <div class="col-md-6">
+              <label for="supplierEmail" class="form-label">Email</label>
+              <input type="email" class="form-control" id="supplierEmail">
+            </div>
+            <div class="col-md-6">
+              <label for="supplierCompany" class="form-label">Empresa</label>
+              <select class="form-select" id="supplierCompany"></select>
+            </div>
+            <div class="col-md-6">
+              <label for="supplierAddress" class="form-label">Dirección</label>
+              <input type="text" class="form-control" id="supplierAddress">
+            </div>
+            <div class="col-md-6">
+              <label for="supplierWebsite" class="form-label">Sitio web</label>
+              <input type="url" class="form-control" id="supplierWebsite">
+            </div>
+            <div class="col-md-6">
+              <label for="supplierTaxId" class="form-label">NIT/RUT</label>
+              <input type="text" class="form-control" id="supplierTaxId">
+            </div>
+            <div class="col-md-6">
+              <label for="supplierIsActive" class="form-label">Activo</label>
+              <select class="form-select" id="supplierIsActive">
+                <option value="true">Sí</option>
+                <option value="false">No</option>
+              </select>
+            </div>
+            <div class="col-md-12">
+              <label for="supplierNotes" class="form-label">Notas</label>
+              <textarea class="form-control" id="supplierNotes" rows="2"></textarea>
+            </div>
+          </div>
+          <div class="text-end mt-4">
+            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-success">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Puedes incluir este archivo en dashboard_inventario.html, supply_list.html y machinery.html -->
+<!-- Ejemplo: {% include 'inventario/supplier_company_modals.html' %} -->

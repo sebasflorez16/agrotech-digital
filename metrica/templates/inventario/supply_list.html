@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insumos | Agrotech</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        body { background: #fff; }
+        .table thead th { background: #e9ecef; }
+        #main-content { margin-top: 110px !important; }
+        .dashboard-nav-btn {
+            border-radius: 8px;
+            border: 1px solid #e3e6f0;
+            background: #fff;
+            color: #2d3748;
+            margin-left: 0.3rem;
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+            transition: background 0.15s, color 0.15s;
+        }
+        .dashboard-nav-btn:hover {
+            background: #f3f6fa;
+            color: #2563eb;
+        }
+        .dashboard-nav-btn .fa { margin-right: 0.4em; }
+    </style>
+</head>
+<body>
+    <div id="topbar-container"></div>
+    <div id="left-sidebar"></div>
+    <button id="mobileToggle" aria-label="Abrir menú lateral" style="position:fixed;top:18px;left:18px;z-index:1100;background:#2C3E50;border:none;border-radius:8px;padding:10px 12px;display:none;box-shadow:0 2px 8px rgba(44,62,80,0.10);color:#fff;">
+        <span style="display:block;width:24px;height:3px;background:#fff;margin:4px 0;border-radius:2px;"></span>
+        <span style="display:block;width:24px;height:3px;background:#fff;margin:4px 0;border-radius:2px;"></span>
+        <span style="display:block;width:24px;height:3px;background:#fff;margin:4px 0;border-radius:2px;"></span>
+    </button>
+    <div id="main-content" class="container mt-5" style="margin-top: 90px;">
+        <h2 class="mb-4"><i class="fa fa-boxes"></i> Gestión de Insumos</h2>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <button class="dashboard-nav-btn" onclick="window.location.href='/templates/inventario/dashboard_inventario.html'">
+                <i class="fa fa-arrow-left"></i> Volver al Dashboard
+            </button>
+            <button class="btn btn-primary d-flex align-items-center gap-2 shadow-sm" id="btnNuevoSupply" data-bs-toggle="modal" data-bs-target="#supplyModal">
+                <i class="fa fa-plus"></i> Nuevo Insumo
+            </button>
+        </div>
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="tablaSupplies">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Subcategoría</th>
+                                <th>Almacén</th>
+                                <th>Cantidad</th>
+                                <th>Valor unitario</th>
+                                <th>Descripción</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Insumos se cargan dinámicamente por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+<!-- Modal Supply -->
+<div class="modal fade" id="supplyModal" tabindex="-1" aria-labelledby="supplyModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-light border-0">
+        <h5 class="modal-title fw-bold" id="supplyModalLabel"><i class="fa fa-flask"></i> <span id="modalTitleText">Nuevo Insumo</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body py-4">
+        <form id="supplyForm">
+          <input type="hidden" id="supplyId">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="nombreSupply" class="form-label">Nombre</label>
+              <input type="text" class="form-control" id="nombreSupply" required>
+            </div>
+            <div class="col-md-6">
+              <label for="proveedoresSupply" class="form-label">Proveedores</label>
+              <select class="form-select" id="proveedoresSupply" multiple required style="height: 120px;"></select>
+              <small class="form-text text-muted">Puede seleccionar uno o varios proveedores.</small>
+            </div>
+            <div class="col-md-3">
+              <label for="valorSupply" class="form-label">Valor unitario</label>
+              <input type="number" class="form-control" id="valorSupply" step="0.01" required>
+            </div>
+            <div class="col-md-3">
+              <label for="unitSupply" class="form-label">Unidad de medida</label>
+              <select class="form-select" id="unitSupply" required onchange="document.getElementById('unitOtherSupply').style.display = this.value === 'otros' ? 'block' : 'none';">
+                <option value="">Seleccione...</option>
+                <option value="litros">Litros</option>
+                <option value="mililitros">Mililitros</option>
+                <option value="galones">Galones</option>
+                <option value="kilos">Kilos</option>
+                <option value="gramos">Gramos</option>
+                <option value="toneladas">Toneladas</option>
+                <option value="libras">Libras</option>
+                <option value="onzas">Onzas</option>
+                <option value="bultos">Bultos</option>
+                <option value="sacos">Sacos</option>
+                <option value="unidades">Unidades</option>
+                <option value="metros">Metros</option>
+                <option value="centímetros">Centímetros</option>
+                <option value="milímetros">Milímetros</option>
+                <option value="hectáreas">Hectáreas</option>
+                <option value="otros">Otros</option>
+              </select>
+              <input type="text" class="form-control mt-2" id="unitOtherSupply" placeholder="Especifique la unidad" style="display:none;" maxlength="30">
+            </div>
+            <div class="col-md-3">
+              <label for="unitAmountSupply" class="form-label">Cantidad de unidad</label>
+              <input type="number" class="form-control" id="unitAmountSupply" step="0.01" min="0" required>
+            </div>
+            <div class="col-md-3">
+              <label for="cantidadSupply" class="form-label">Cantidad (stock)</label>
+              <input type="number" class="form-control" id="cantidadSupply" step="0.01" required>
+            </div>
+            <div class="col-md-6">
+              <label for="almacenSupply" class="form-label">Almacén</label>
+              <select class="form-select" id="almacenSupply" required></select>
+            </div>
+            <div class="col-md-3">
+              <label for="categoriaSupply" class="form-label">Categoría</label>
+              <select class="form-select" id="categoriaSupply" required onchange="loadSubcategoriesSelect('subcategoriaSupply', this.value)">
+                <option value="">Seleccione...</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label for="subcategoriaSupply" class="form-label">Subcategoría</label>
+              <select class="form-select" id="subcategoriaSupply" required style="height: 38px;">
+                <option value="">Seleccione...</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label for="descripcionSupply" class="form-label">Descripción</label>
+              <textarea class="form-control" id="descripcionSupply" rows="2"></textarea>
+            </div>
+            <div class="col-md-6">
+              <label for="notasSupply" class="form-label">Notas</label>
+              <textarea class="form-control" id="notasSupply" rows="2" style="height: 60px;"></textarea>
+            </div>
+            <div class="col-md-3">
+              <label for="imagenSupply" class="form-label">Imagen</label>
+              <input type="file" class="form-control" id="imagenSupply" accept="image/*" style="padding: 6px 8px;">
+            </div>
+            <div class="col-md-3">
+              <label for="adjuntoSupply" class="form-label">Adjunto</label>
+              <input type="file" class="form-control" id="adjuntoSupply" accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*" style="padding: 6px 8px;">
+            </div>
+            </div>
+          </div>
+          <div class="text-end mt-4">
+            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-success">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Modal de verificación para edición/eliminación -->
+<div class="modal fade" id="verifyUserModal" tabindex="-1" aria-labelledby="verifyUserModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-light border-0">
+        <h5 class="modal-title fw-bold" id="verifyUserModalLabel"><i class="fa fa-lock"></i> Verificación de usuario</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <form id="verifyUserForm">
+          <div class="mb-3">
+            <label for="verifyPassword" class="form-label">Confirma tu contraseña para continuar</label>
+            <input type="password" class="form-control" id="verifyPassword" required autocomplete="current-password">
+          </div>
+          <div class="text-end">
+            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Verificar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/static/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/inventario/supply.js"></script>
+<script>
+    function handleResponsiveNav() {
+        const topbar = document.getElementById('topbar-container');
+        const mobileToggle = document.getElementById('mobileToggle');
+        if (window.innerWidth <= 991) {
+            if (topbar) topbar.style.display = 'none';
+            if (mobileToggle) mobileToggle.style.display = 'block';
+        } else {
+            if (topbar) topbar.style.display = 'block';
+            if (mobileToggle) mobileToggle.style.display = 'none';
+        }
+    }
+    window.addEventListener('resize', handleResponsiveNav);
+    window.addEventListener('DOMContentLoaded', handleResponsiveNav);
+</script>
+<script>
+// Renderizado de botones de acción y verificación extra para editar/eliminar
+document.addEventListener('DOMContentLoaded', function() {
+    // Delegación para botones de acción (esto debe estar también en supply.js, aquí solo refuerzo UX)
+    const tabla = document.getElementById('tablaSupplies');
+    if (tabla) {
+        tabla.addEventListener('click', function(e) {
+            if (e.target.closest('.btn-editar-supply')) {
+                e.preventDefault();
+                const btn = e.target.closest('.btn-editar-supply');
+                const supplyId = btn.dataset.id;
+                mostrarModalVerificacion('editar', supplyId);
+            }
+            if (e.target.closest('.btn-eliminar-supply')) {
+                e.preventDefault();
+                const btn = e.target.closest('.btn-eliminar-supply');
+                const supplyId = btn.dataset.id;
+                mostrarModalVerificacion('eliminar', supplyId);
+            }
+        });
+    }
+});
+
+function mostrarModalVerificacion(accion, supplyId) {
+    const modalHtml = `
+    <div class="modal fade" id="verifModal" tabindex="-1" aria-labelledby="verifModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-light border-0">
+            <h5 class="modal-title fw-bold" id="verifModalLabel"><i class="fa fa-lock"></i> Verificación de usuario</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <form id="verifForm">
+              <div class="mb-3">
+                <label for="verifPassword" class="form-label">Por seguridad, ingresa tu contraseña para continuar con la acción de <b>${accion}</b>:</label>
+                <input type="password" class="form-control" id="verifPassword" required autocomplete="current-password">
+                <div class="invalid-feedback" id="verifPasswordFeedback">Contraseña incorrecta. Intenta de nuevo.</div>
+              </div>
+              <div class="text-end">
+                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Verificar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>`;
+    let tempDiv = document.createElement('div');
+    tempDiv.innerHTML = modalHtml;
+    document.body.appendChild(tempDiv.firstElementChild);
+    let verifModal = new bootstrap.Modal(document.getElementById('verifModal'));
+    verifModal.show();
+    const verifForm = document.getElementById('verifForm');
+    const verifPassword = document.getElementById('verifPassword');
+    const feedback = document.getElementById('verifPasswordFeedback');
+    feedback.style.display = 'none';
+    verifForm.onsubmit = function(ev) {
+        ev.preventDefault();
+        verifPassword.classList.remove('is-invalid');
+        feedback.style.display = 'none';
+        // Llamada real al backend para verificar contraseña
+        fetch('/api/verificar-password/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': (document.querySelector('[name=csrfmiddlewaretoken]')||{}).value || ''
+            },
+            body: JSON.stringify({ password: verifPassword.value })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.valido) {
+                verifModal.hide();
+                setTimeout(()=>{
+                    document.getElementById('verifModal').remove();
+                    if (accion === 'editar') {
+                        window.dispatchEvent(new CustomEvent('verificacionExitosaEditar', { detail: { supplyId } }));
+                    } else if (accion === 'eliminar') {
+                        window.dispatchEvent(new CustomEvent('verificacionExitosaEliminar', { detail: { supplyId } }));
+                    }
+                }, 300);
+            } else {
+                verifPassword.classList.add('is-invalid');
+                feedback.style.display = 'block';
+            }
+        })
+        .catch(()=>{
+            verifPassword.classList.add('is-invalid');
+            feedback.style.display = 'block';
+        });
+    };
+    document.getElementById('verifModal').addEventListener('hidden.bs.modal', function() {
+        document.getElementById('verifModal').remove();
+    });
+}
+</script>
+<script type="module">
+    import { loadLayoutComponents } from '/static/js/load_components.js';
+    const components = {
+        "topbar-container": "/templates/partials/horizontal-nav.html",
+        "footer-container": "/templates/partials/footer.html",
+        "left-sidebar": "/templates/partials/left-sidebar.html",
+        "righsidebar": "/templates/partials/right-sidebar.html",
+        "vendorjs": "/templates/partials/vendorjs.html"
+    };
+    loadLayoutComponents(components);
+</script>
+</body>
+</html>

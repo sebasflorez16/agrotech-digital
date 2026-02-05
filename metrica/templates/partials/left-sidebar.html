@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sidebar Responsivo</title>
+    <!-- Estilos inline para evitar problemas de MIME con Railway -->
+    <style>
+        .sidebar {
+            font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+            font-size: 15px;
+            background: #253445;
+            width: 220px;
+            height: 100vh;
+            position: fixed;
+            top: 60px;
+            left: 0;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        
+        .brand {
+            padding: 32px 0 18px 0;
+            text-align: center;
+        }
+        
+        .logo-sm {
+            max-width: 80px;
+            margin: 0 auto;
+            display: block;
+        }
+        
+        .menu {
+            padding: 0 0 10px 0;
+            margin: 0;
+            list-style: none;
+        }
+        
+        .menu li a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #fff;
+            padding: 10px 22px;
+            border-radius: 7px;
+            transition: background 0.15s;
+            font-size: 15px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        
+        .menu li a i {
+            font-size: 1.2em;
+        }
+        
+        .menu li a:hover {
+            background: #34495E;
+        }
+        
+        .menu li a:active {
+            background: #2C3E50;
+        }
+        
+        .menu li a.active {
+            background: #2C3E50;
+            font-weight: 600;
+            letter-spacing: 0.01em;
+            box-shadow: 0 2px 8px rgba(44,62,80,0.07);
+        }
+        
+        @media (max-width: 767px) {
+            .sidebar {
+                width: 100%;
+                height: 100vh;
+            }
+            
+            .menu li a {
+                padding: 15px 25px;
+                font-size: 17px;
+                min-height: 48px;
+            }
+            
+            .menu li a i {
+                font-size: 1.4em;
+                margin-right: 12px;
+            }
+            
+            .brand {
+                padding: 30px 0 20px 0;
+            }
+            
+            .logo-sm {
+                max-width: 80px;
+            }
+            
+            .menu li a:hover, .menu li a:focus {
+                background: #34495E;
+                transform: translateX(5px);
+                transition: all 0.2s ease;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar">
+        <!-- Logo -->
+        <div class="brand">
+            <a href="#" class="logo">
+                <span>
+                    <img src="../images/agrotech solo blanco.png" alt="logo-small" class="logo-sm">
+                </span>
+            </a>
+        </div>
+        <!-- Menú -->
+        <ul class="menu">
+            <li><a href="../vertical_base.html"><i class="ti ti-home"></i> Dashboard</a></li>
+            <li><a href="../employees/RRHH-dashboard.html"><i class="ti ti-user"></i> Recursos Humanos</a></li>
+            <li><a href="../inventario/dashboard_inventario.html"><i class="ti ti-box"></i> Inventario</a></li>
+            <li><a href="../settings.html"><i class="ti ti-settings"></i> Configuración</a></li>
+            <li><a href="parcels/parcels-dashboard.html" class="active"><i class="ti ti-map"></i> Parcelas</a></li>
+            <li><a href="../labores.html"><i class="fa fa-tasks"></i> Labores</a></li>
+            <li><a href="../crop/crop_list.html"><i class="fa fa-tasks"></i> Cultivos</a></li>
+        </ul>
+    </div>
+    <!-- Mejorar comportamiento táctil en móvil -->
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('[SIDEBAR] DOMContentLoaded');
+        const sidebar = document.getElementById('sidebar');
+        if (sidebar) {
+            console.log('[SIDEBAR] Sidebar encontrado');
+            // Mejorar feedback táctil en móvil
+            sidebar.querySelectorAll('a[href]').forEach(function(link) {
+                console.log('[SIDEBAR] Link encontrado:', link.href);
+                link.addEventListener('touchstart', function() {
+                    this.style.backgroundColor = '#34495E';
+                    console.log('[SIDEBAR] touchstart en:', this.href);
+                });
+                link.addEventListener('touchend', function() {
+                    this.style.backgroundColor = '';
+                    console.log('[SIDEBAR] touchend en:', this.href);
+                });
+            });
+        } else {
+            console.warn('[SIDEBAR] Sidebar NO encontrado');
+        }
+    });
+    </script>
+</body>
+</html>

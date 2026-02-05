@@ -9,7 +9,8 @@ document.addEventListener("DOMContentLoaded", () => {
 function fetchUserCount() {
     let token = localStorage.getItem("accessToken");
 
-    fetch(`https://agrotechcolombia.com/api/authentication/dashboard/`, {
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://agrotechcolombia.com';
+    fetch(`${API_BASE}/api/authentication/dashboard/`, {
         method: "GET",
         headers: { "Authorization": `Bearer ${token}` }
     })

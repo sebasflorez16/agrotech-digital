@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Sistema Neumórfico - AgroTech</title>
+    
+    <!-- Bootstrap 5.3.2 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" 
+          integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    
+    <!-- Font Awesome 6.4.2 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" 
+          integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" 
+          crossorigin="anonymous" referrerpolicy="no-referrer"/>
+    
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Sistema Neumórfico -->
+    <link href="../../css/agrotech-neomorphic.css" rel="stylesheet" type="text/css" />
+    
+    <style>
+        /* Prueba inline para verificar que funciona */
+        .test-inline {
+            background: linear-gradient(145deg, #E8F0F8 0%, #F0F8F0 50%, #FFF8F0 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+    </style>
+</head>
+
+<body class="neomorphic-theme">
+    <div class="container mt-5">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="text-gradient-primary text-center mb-4">
+                    <i class="fas fa-seedling"></i> Test Sistema Neumórfico AgroTech
+                </h1>
+                <div class="alert neomorphic alert-info text-center">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Si ves efectos 3D en las tarjetas de abajo, el sistema está funcionando correctamente
+                </div>
+            </div>
+        </div>
+
+        <!-- Test de Cards -->
+        <div class="row mb-4">
+            <div class="col-md-4 mb-3">
+                <div class="card neomorphic">
+                    <div class="card-header">
+                        <h5><i class="fas fa-check-circle text-success"></i> Card Neumórfico</h5>
+                    </div>
+                    <div class="card-body">
+                        <p>Esta card debe tener sombras 3D y efecto hover</p>
+                        <button class="btn neomorphic btn-primary w-100">
+                            <i class="fas fa-hand-pointer"></i> Hover sobre mí
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="stats-card">
+                    <div class="card-body">
+                        <h6 class="text-uppercase text-muted mb-1">
+                            <i class="fas fa-chart-line"></i> Stats Card
+                        </h6>
+                        <h3 class="mb-0 text-dark">1,234</h3>
+                        <small class="text-success">
+                            <i class="fas fa-arrow-up"></i> 12% incremento
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4 mb-3">
+                <div class="stats-card orange">
+                    <div class="card-body">
+                        <h6 class="text-uppercase text-muted mb-1">
+                            <i class="fas fa-exclamation-triangle"></i> Stats Naranja
+                        </h6>
+                        <h3 class="mb-0 text-dark">567</h3>
+                        <small class="text-warning">
+                            <i class="fas fa-minus"></i> Sin cambios
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test de Botones -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card neomorphic">
+                    <div class="card-header">
+                        <h5><i class="fas fa-mouse-pointer"></i> Test de Botones</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex flex-wrap gap-2">
+                            <button class="btn neomorphic btn-primary">
+                                <i class="fas fa-save"></i> Primary
+                            </button>
+                            <button class="btn neomorphic btn-warning">
+                                <i class="fas fa-edit"></i> Warning
+                            </button>
+                            <button class="btn neomorphic btn-success">
+                                <i class="fas fa-check"></i> Success
+                            </button>
+                            <button class="btn neomorphic btn-info">
+                                <i class="fas fa-info"></i> Info
+                            </button>
+                            <button class="btn neomorphic btn-light">
+                                <i class="fas fa-times"></i> Light
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test de Formularios -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card neomorphic">
+                    <div class="card-header">
+                        <h5><i class="fas fa-keyboard"></i> Test de Formularios</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label">Input Neumórfico</label>
+                            <input type="text" class="form-control neomorphic" placeholder="Escribe algo...">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Select Neumórfico</label>
+                            <select class="form-select neomorphic">
+                                <option>Opción 1</option>
+                                <option>Opción 2</option>
+                                <option>Opción 3</option>
+                            </select>
+                        </div>
+                        <button type="button" class="btn neomorphic btn-success w-100">
+                            <i class="fas fa-paper-plane"></i> Enviar
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card neomorphic">
+                    <div class="card-header">
+                        <h5><i class="fas fa-bell"></i> Test JavaScript</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-3">Prueba las funciones de notificaciones:</p>
+                        <div class="d-grid gap-2">
+                            <button onclick="testSuccess()" class="btn neomorphic btn-success">
+                                <i class="fas fa-check-circle"></i> Notificación Success
+                            </button>
+                            <button onclick="testError()" class="btn neomorphic btn-danger">
+                                <i class="fas fa-exclamation-circle"></i> Notificación Error
+                            </button>
+                            <button onclick="testLoading()" class="btn neomorphic btn-info">
+                                <i class="fas fa-spinner"></i> Test Loading
+                            </button>
+                            <button onclick="testConfirm()" class="btn neomorphic btn-warning">
+                                <i class="fas fa-question-circle"></i> Test Confirmación
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test de Tabla -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card neomorphic">
+                    <div class="card-header">
+                        <h5><i class="fas fa-table"></i> Tabla Neumórfica</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table neomorphic">
+                            <thead>
+                                <tr>
+                                    <th><i class="fas fa-hashtag"></i> ID</th>
+                                    <th><i class="fas fa-map"></i> Parcela</th>
+                                    <th><i class="fas fa-ruler-combined"></i> Área</th>
+                                    <th><i class="fas fa-leaf"></i> Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>1</td>
+                                    <td>Parcela Norte</td>
+                                    <td>15.5 ha</td>
+                                    <td><span class="badge neomorphic bg-success">Activo</span></td>
+                                </tr>
+                                <tr>
+                                    <td>2</td>
+                                    <td>Parcela Sur</td>
+                                    <td>23.2 ha</td>
+                                    <td><span class="badge neomorphic bg-warning">Pendiente</span></td>
+                                </tr>
+                                <tr>
+                                    <td>3</td>
+                                    <td>Parcela Este</td>
+                                    <td>18.7 ha</td>
+                                    <td><span class="badge neomorphic bg-success">Activo</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Información del Sistema -->
+        <div class="row">
+            <div class="col-12">
+                <div class="alert neomorphic alert-success">
+                    <h5 class="alert-heading">
+                        <i class="fas fa-check-double"></i> Sistema Verificado
+                    </h5>
+                    <p class="mb-0">
+                        Si ves este diseño con efectos 3D, sombras suaves y gradientes, 
+                        el sistema neumórfico está funcionando correctamente. 
+                        Recarga la página con <kbd>Ctrl + Shift + R</kbd> (Windows) 
+                        o <kbd>Cmd + Shift + R</kbd> (Mac) para limpiar caché.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" 
+            integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" 
+            crossorigin="anonymous"></script>
+    
+    <!-- Sistema JavaScript Neumórfico -->
+    <script src="../../js/agrotech-neomorphic.js"></script>
+
+    <!-- Tests JavaScript -->
+    <script>
+        function testSuccess() {
+            mostrarNotificacion('¡Operación exitosa!', 'success', 5000);
+        }
+
+        function testError() {
+            mostrarNotificacion('Error en la operación', 'error', 5000);
+        }
+
+        function testLoading() {
+            mostrarLoading('Procesando datos...');
+            setTimeout(() => {
+                ocultarLoading();
+                mostrarNotificacion('Proceso completado', 'success');
+            }, 3000);
+        }
+
+        function testConfirm() {
+            confirmarAccion(
+                '¿Confirmar acción?',
+                'Esta es una prueba del sistema de confirmación neumórfico',
+                function() {
+                    mostrarNotificacion('Acción confirmada', 'success');
+                },
+                function() {
+                    mostrarNotificacion('Acción cancelada', 'info');
+                }
+            );
+        }
+
+        // Mensaje de bienvenida
+        setTimeout(() => {
+            mostrarNotificacion('Sistema Neumórfico Cargado Correctamente ✨', 'success', 6000);
+        }, 500);
+    </script>
+</body>
+</html>

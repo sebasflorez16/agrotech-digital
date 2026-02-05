@@ -128,3 +128,30 @@ whiteboxgui==2.3.0
 widgetsnbextension==4.0.14
 xyzservices==2025.4.0
 zopfli==0.2.3.post1
+
+# Testing Dependencies
+# ------------------------------------------------------------------------------
+pytest==8.3.4
+pytest-django==4.9.0
+pytest-cov==6.0.0
+pytest-xdist==3.6.1
+pytest-mock==3.14.0
+factory-boy==3.3.1
+faker==33.1.0
+coverage[toml]==7.6.9
+
+# API Documentation
+# ------------------------------------------------------------------------------
+drf-spectacular==0.28.0
+drf-spectacular[sidecar]==0.28.0
+
+# Monitoring & Logging
+# ------------------------------------------------------------------------------
+python-json-logger==3.2.1
+sentry-sdk==2.19.2
+
+# === Billing y Pagos ===
+mercadopago==2.2.3
+geoip2==4.8.0
+reportlab==4.2.5
+Pillow==11.0.0

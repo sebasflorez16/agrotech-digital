@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Almacenes | Agrotech</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        body { background: #fff; }
+        .table thead th { background: #e9ecef; }
+        #main-content { margin-top: 110px !important; }
+        .dashboard-nav-btn {
+            border-radius: 8px;
+            border: 1px solid #e3e6f0;
+            background: #fff;
+            color: #2d3748;
+            margin-left: 0.3rem;
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+            transition: background 0.15s, color 0.15s;
+        }
+        .dashboard-nav-btn:hover {
+            background: #f3f6fa;
+            color: #2563eb;
+        }
+        .dashboard-nav-btn .fa { margin-right: 0.4em; }
+    </style>
+</head>
+<body>
+    <div id="topbar-container"></div>
+    <div id="left-sidebar"></div>
+    <div id="main-content" class="container mt-5" style="margin-top: 90px;">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="mb-0"><i class="fa fa-warehouse"></i> Gestión de Almacenes</h2>
+            <button class="btn btn-outline-secondary d-flex align-items-center gap-2" onclick="window.location.href='/templates/inventario/dashboard_inventario.html'">
+                <i class="fa fa-arrow-left"></i> Volver al Inventario
+            </button>
+        </div>
+        <div class="d-flex justify-content-end mb-3">
+            <button class="btn btn-primary d-flex align-items-center gap-2 shadow-sm" id="btnNuevoAlmacen" data-bs-toggle="modal" data-bs-target="#almacenModal">
+                <i class="fa fa-plus"></i> Nuevo Almacén
+            </button>
+        </div>
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0" id="tablaAlmacenes">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Dirección</th>
+                                <th>Ubicación</th>
+                                <th>Descripción</th>
+                                <th>Activo</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Almacenes se cargan dinámicamente por JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal Almacén -->
+    <div class="modal fade" id="almacenModal" tabindex="-1" aria-labelledby="almacenModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-light border-0">
+            <h5 class="modal-title fw-bold" id="almacenModalLabel"><i class="fa fa-warehouse"></i> <span id="modalTitleAlmacen">Nuevo Almacén</span></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body py-4">
+            <form id="almacenForm">
+              <input type="hidden" id="almacenId">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="nombreAlmacen" class="form-label">Nombre</label>
+                  <input type="text" class="form-control" id="nombreAlmacen" required>
+                </div>
+                <div class="col-md-6">
+                  <label for="direccionAlmacen" class="form-label">Dirección</label>
+                  <input type="text" class="form-control" id="direccionAlmacen">
+                </div>
+                <div class="col-md-6">
+                  <label for="ubicacionAlmacen" class="form-label">Ubicación</label>
+                  <input type="text" class="form-control" id="ubicacionAlmacen">
+                </div>
+                <div class="col-md-6">
+                  <label for="descripcionAlmacen" class="form-label">Descripción</label>
+                  <input type="text" class="form-control" id="descripcionAlmacen">
+                </div>
+                <div class="col-md-6">
+                  <label for="activoAlmacen" class="form-label">Activo</label>
+                  <select class="form-select" id="activoAlmacen">
+                    <option value="true">Sí</option>
+                    <option value="false">No</option>
+                  </select>
+                </div>
+              </div>
+              <div class="text-end mt-4">
+                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success">Guardar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Modal Detalle Almacén -->
+    <div class="modal fade" id="detalleAlmacenModal" tabindex="-1" aria-labelledby="detalleAlmacenModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header bg-light border-0">
+            <h5 class="modal-title fw-bold" id="detalleAlmacenModalLabel"><i class="fa fa-warehouse"></i> Detalle de almacén</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body py-4" id="detalleAlmacenBody">
+            <!-- Aquí se insertan los datos del almacén -->
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/inventario/almacenes.js"></script>
+    <script>
+    
+    </script>
+    <script type="module">
+        import { loadLayoutComponents } from '/static/js/load_components.js';
+        const components = {
+            "topbar-container": "/templates/partials/horizontal-nav.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "righsidebar": "/templates/partials/right-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
+        };
+        loadLayoutComponents(components);
+    </script>
+    <!-- Eliminado script duplicado de detalle, ahora todo el detalle se gestiona desde almacenes.js -->
+</body>
+</html>

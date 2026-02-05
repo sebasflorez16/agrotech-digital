@@ -1,0 +1,46 @@
+{% load static i18n %}
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <title>
+      {% block title %}{% endblock title %} - Admin & Dashboard Template
+    </title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <meta
+      content="Premium Multipurpose Admin & Dashboard Template"
+      name="description"
+    />
+    <meta content="" name="author" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <!-- App favicon -->
+    <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}" />
+
+    {% block extra_css %} {% endblock %} {% include "partials/head-css.html" %}
+  </head>
+
+  <body id="body" {% block body_extra %} {% endblock %}>
+
+    {% block page_content %}{% endblock %} 
+
+    {% block javascript %} 
+      {% include "partials/vendorjs.html" %} 
+
+      {% block extra_javascript %}
+      
+        <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+        <script src="{% static 'js/utils/api-utils.js' %}"></script>
+        <script src="{% static 'js/auth/dev-auth-helper.js' %}"></script>
+        <script src="{% static 'js/app.js' %}"></script>
+        <script src="{% static 'js/dashboard.js' %}"></script>
+        <script src="{% static 'js/dashboard-parcels-summary.js' %}"></script>
+
+
+      {% endblock %}
+    {% endblock javascript %}
+  </body>
+</html>

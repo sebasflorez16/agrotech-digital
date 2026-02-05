@@ -18,6 +18,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from .models import Parcel
+from billing.decorators import check_eosda_limit
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class WeatherForecastView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @check_eosda_limit
     def get(self, request, parcel_id):
         """
         GET /api/parcels/parcel/<parcel_id>/weather-forecast/

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Recursos Humanos</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/employees.css" rel="stylesheet" type="text/css" />
+<body>
+    <div class="container mt-4">
+        <h2>Gestión de Departamentos y Posiciones</h2>
+        
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">Crear Nuevo</button>
+        
+        <table class="table mt-3">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nombre</th>
+                    <th>Tipo</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="dataTable">
+                <!-- Datos cargados dinámicamente -->
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Modal para Crear -->
+    <div class="modal fade" id="addModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Crear Nuevo</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="createForm">
+                        <label>Nombre:</label>
+                        <input type="text" id="nameInput" class="form-control" required>
+                        <label>Tipo:</label>
+                        <select id="typeSelect" class="form-control">
+                            <option value="departamento">Departamento</option>
+                            <option value="posicion">Posición</option>
+                        </select>
+                        <button type="submit" class="btn btn-success mt-3">Guardar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para Eliminar -->
+    <div class="modal fade" id="deleteModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Eliminar</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>¿Estás seguro de que deseas eliminar este elemento?</p>
+                    <button id="confirmDelete" class="btn btn-danger">Eliminar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/axios.min.js"></script>
+    <script src="/static/js/list-handler.js"></script>
+</body>
+</html>

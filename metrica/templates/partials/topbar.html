@@ -1,0 +1,60 @@
+
+<div class="topbar">            
+    <!-- Navbar -->
+    <nav class="navbar-custom" id="navbar-custom">    
+        <ul class="list-unstyled topbar-nav float-end mb-0">
+            <<li class="dropdown">
+                <a class="nav-link dropdown-toggle arrow-none nav-icon" data-bs-toggle="dropdown" href="#" role="button"
+                aria-haspopup="false" aria-expanded="false">
+                <img src="{% static 'images/flags/colombia_flag.jpg' %}" alt="" class="thumb-xxs rounded-circle">
+            </a>
+                div class="dropdown-menu">
+                    <a class="dropdown-item" href="#"><img src="{% static 'images/flags/colombia_flag.jpg' %}" alt="" height="15" class="me-2">Colmbia</a>
+                    <a class="dropdown-item" href="#"><img src="{% static 'images/flags/spain_flag.jpg' %}" alt="" height="15" class="me-2">Spanish</a>
+                    <a class="dropdown-item" href="#"><img src="{% static 'images/flags/germany_flag.jpg' %}" alt="" height="15" class="me-2">German</a>
+                    <a class="dropdown-item" href="#"><img src="{% static 'images/flags/french_flag.jpg' %}" alt="" height="15" class="me-2">French</a>
+                </div>
+            </li>
+            
+
+            <li class="dropdown">
+                <a class="nav-link dropdown-toggle nav-user" data-bs-toggle="dropdown" href="#" role="button"
+                    aria-haspopup="false" aria-expanded="false">
+                    <div class="d-flex align-items-center">
+                        <img src="{{ user.image.url }}" alt="profile-user" class="rounded-circle thumb-sm">
+                        
+                    </div>
+                </a>
+                <div class="dropdown-menu dropdown-menu-end">
+                    <a class="dropdown-item" href="{% url 'users:users-detail' user.pk %}"><i class="ti ti-user font-16 me-1 align-text-bottom"></i> Perfil</a>
+                    <!--<a class="dropdown-item" href="#"><i class="ti ti-settings font-16 me-1 align-text-bottom"></i> Settings</a> -->
+                    <div class="dropdown-divider mb-0"></div>
+                    <a class="dropdown-item" href="{% url 'account_logout' %}"><i class="ti ti-power font-16 me-1 align-text-bottom"></i> Logout</a>
+                </div>
+            </li><!--end topbar-profile-->
+            <!--<li class="notification-list">
+                <a class="nav-link arrow-none nav-icon offcanvas-btn" href="#" data-bs-toggle="offcanvas" data-bs-target="#Appearance" role="button" aria-controls="Rightbar">
+                    <i class="ti ti-settings ti-spin"></i>
+                </a>
+            </li>   -->
+        </ul><!--end topbar-nav-->
+
+        <ul class="list-unstyled topbar-nav mb-0">                        
+            <li>
+                <button class="nav-link button-menu-mobile nav-icon" id="togglemenu">
+                    <i class="ti ti-menu-2"></i>
+                </button>
+            </li> 
+            <!--<li class="hide-phone app-search">
+                <form role="search" action="#" method="get">
+                    <input type="search" name="search" class="form-control top-search mb-0" placeholder="Type text...">
+                    <button type="submit"><i class="ti ti-search"></i></button>
+                </form>
+            </li> -->                       
+        </ul>
+    </nav>
+    <!-- end navbar-->
+</div>
+<!-- Top Bar End -->
+
+<script src="/static/js/data-users.js"></script>

@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facturación - AgroTech Digital</title>
+    
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="../images/agrotech solo negro.png">
+    
+    <!-- Liquid Glass Design System -->
+    <link rel="stylesheet" href="../css/liquid-glass-system.css">
+    
+    <!-- 🌍 Configuración global (debe cargarse primero) -->
+    <script src="../js/config.js"></script>
+    
+    <!-- Tabler Icons -->
+    <link rel="stylesheet" href="https://unpkg.com/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    
+    <!-- Chart.js for usage graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            overflow-x: hidden;
+        }
+        
+        .dashboard-layout {
+            display: flex;
+            min-height: 100vh;
+        }
+        
+        /* Sidebar - mismo que dashboard.html */
+        .sidebar {
+            width: 280px;
+            background: var(--glass-white);
+            backdrop-filter: var(--glass-blur);
+            border-right: 1px solid var(--glass-border);
+            padding: var(--space-xl) var(--space-lg);
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 100;
+        }
+        
+        .logo-container {
+            text-align: center;
+            margin-bottom: var(--space-2xl);
+        }
+        
+        .logo-container img {
+            max-width: 120px;
+            filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1));
+        }
+        
+        .brand-name {
+            font-size: 1.25rem;
+            font-weight: var(--font-weight-bold);
+            margin-top: var(--space-sm);
+            background: linear-gradient(135deg, var(--agrotech-primary) 0%, var(--agrotech-primary-dark) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .nav-section {
+            margin-bottom: var(--space-lg);
+        }
+        
+        .nav-section-title {
+            font-size: 0.75rem;
+            font-weight: var(--font-weight-semibold);
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: var(--space-sm);
+            padding: 0 var(--space-md);
+        }
+        
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            margin-left: 280px;
+            padding: var(--space-2xl);
+        }
+        
+        .page-header {
+            margin-bottom: var(--space-2xl);
+        }
+        
+        .page-header h1 {
+            font-size: 2rem;
+            font-weight: var(--font-weight-bold);
+            margin-bottom: var(--space-xs);
+        }
+        
+        .page-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        
+        /* Usage Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: var(--space-lg);
+            margin-bottom: var(--space-2xl);
+        }
+        
+        .metric-card {
+            background: var(--glass-white);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+        }
+        
+        .metric-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: var(--space-md);
+        }
+        
+        .metric-title {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-weight: var(--font-weight-medium);
+        }
+        
+        .metric-value {
+            font-size: 2rem;
+            font-weight: var(--font-weight-bold);
+            margin-bottom: var(--space-xs);
+        }
+        
+        .metric-limit {
+            font-size: 0.875rem;
+            color: var(--text-tertiary);
+        }
+        
+        /* Charts */
+        .chart-container {
+            background: var(--glass-white);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-lg);
+            margin-bottom: var(--space-lg);
+        }
+        
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: var(--space-lg);
+        }
+        
+        .chart-header h2 {
+            font-size: 1.25rem;
+            font-weight: var(--font-weight-semibold);
+        }
+        
+        /* Invoice Preview */
+        .invoice-card {
+            background: var(--glass-white);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-lg);
+            padding: var(--space-xl);
+        }
+        
+        .invoice-header {
+            border-bottom: 1px solid var(--glass-border);
+            padding-bottom: var(--space-lg);
+            margin-bottom: var(--space-lg);
+        }
+        
+        .invoice-line {
+            display: flex;
+            justify-content: space-between;
+            padding: var(--space-md) 0;
+            border-bottom: 1px solid var(--glass-dark);
+        }
+        
+        .invoice-line:last-child {
+            border-bottom: none;
+        }
+        
+        .invoice-total {
+            background: linear-gradient(135deg, rgba(47, 179, 68, 0.1) 0%, rgba(47, 179, 68, 0.05) 100%);
+            padding: var(--space-lg);
+            border-radius: var(--radius-md);
+            margin-top: var(--space-lg);
+        }
+        
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+            
+            .main-content {
+                margin-left: 0;
+                padding: var(--space-lg);
+            }
+            
+            .metrics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="logo-container">
+                <img src="../images/agrotech solo negro.png" alt="AgroTech">
+                <div class="brand-name">AgroTech</div>
+            </div>
+            
+            <nav>
+                <div class="nav-section">
+                    <div class="nav-section-title">Principal</div>
+                    <a href="dashboard.html" class="nav-item-glass">
+                        <i class="ti ti-home"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="http://localhost:8080/templates/parcels/parcels-dashboard.html" class="nav-item-glass">
+                        <i class="ti ti-map"></i>
+                        <span>Parcelas</span>
+                    </a>
+                    <a href="http://localhost:8080/templates/crop/crop_list.html" class="nav-item-glass">
+                        <i class="ti ti-plant"></i>
+                        <span>Cultivos</span>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">Gestión</div>
+                    <a href="http://localhost:8080/templates/inventory/inventario-dashboard.html" class="nav-item-glass">
+                        <i class="ti ti-box"></i>
+                        <span>Inventario</span>
+                    </a>
+                    <a href="http://localhost:8080/templates/employees/RRHH-dashboard.html" class="nav-item-glass">
+                        <i class="ti ti-users"></i>
+                        <span>Empleados</span>
+                    </a>
+                    <a href="http://localhost:8080/templates/labores/labores-dashboard.html" class="nav-item-glass">
+                        <i class="ti ti-checkbox"></i>
+                        <span>Labores</span>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">Suscripción</div>
+                    <a href="billing.html" class="nav-item-glass active">
+                        <i class="ti ti-credit-card"></i>
+                        <span>Facturación</span>
+                    </a>
+                    <a href="billing.html" class="nav-item-glass">
+                        <i class="ti ti-chart-bar"></i>
+                        <span>Uso & Límites</span>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <div class="nav-section-title">Cuenta</div>
+                    <a href="http://localhost:8080/templates/pages/profile.html" class="nav-item-glass">
+                        <i class="ti ti-settings"></i>
+                        <span>Configuración</span>
+                    </a>
+                    <a href="#" class="nav-item-glass" onclick="logout()">
+                        <i class="ti ti-logout"></i>
+                        <span>Cerrar Sesión</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Page Header -->
+            <div class="page-header">
+                <h1>Facturación y Uso</h1>
+                <p class="page-subtitle">Monitorea tu consumo y gestiona tu suscripción</p>
+            </div>
+            
+            <!-- Usage Metrics -->
+            <div class="metrics-grid" id="metricsGrid">
+                <!-- Se llena dinámicamente con JavaScript -->
+            </div>
+            
+            <!-- Usage History Chart -->
+            <div class="chart-container">
+                <div class="chart-header">
+                    <h2>Historial de Uso - Análisis EOSDA</h2>
+                    <select class="input-glass" style="width: auto;" id="monthsSelect">
+                        <option value="3">Últimos 3 meses</option>
+                        <option value="6" selected>Últimos 6 meses</option>
+                        <option value="12">Últimos 12 meses</option>
+                    </select>
+                </div>
+                <canvas id="usageChart" height="100"></canvas>
+            </div>
+            
+            <!-- Current Invoice -->
+            <div class="invoice-card" id="invoiceCard">
+                <div class="invoice-header">
+                    <h2 style="font-size: 1.5rem; margin-bottom: var(--space-xs);">Factura Actual</h2>
+                    <p style="color: var(--text-secondary); font-size: 0.875rem;" id="invoicePeriod">Cargando...</p>
+                </div>
+                
+                <div id="invoiceLines">
+                    <!-- Se llena dinámicamente -->
+                </div>
+                
+                <div class="invoice-total">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--space-xs);">Total a Pagar</div>
+                            <div style="font-size: 2rem; font-weight: var(--font-weight-bold);" id="invoiceTotal">$0 COP</div>
+                        </div>
+                        <button class="btn-glass-primary" onclick="processPayment()" style="padding: var(--space-md) var(--space-xl);">
+                            <i class="ti ti-credit-card"></i>
+                            Pagar Ahora
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="../js/billing-liquid.js"></script>
+</body>
+</html>

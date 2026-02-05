@@ -10,7 +10,8 @@ function fetchAndRenderUserProfile() {
     }
 
     // Apuntar al backend correcto, no al frontend
-    const endpoint = `https://agrotechcolombia.com/users/api/profile-utils/`;
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://agrotechcolombia.com';
+    const endpoint = `${API_BASE}/users/api/profile-utils/`;
 
     fetch(endpoint, { 
         method: 'GET',

@@ -1,0 +1,334 @@
+/* 
+ * 🍎 AGROTECH LIQUID GLASS DESIGN SYSTEM
+ * Apple-inspired glassmorphism for agricultural platform
+ * Based on: https://dribbble.com/shots/26174948
+ */
+
+:root {
+    /* 🎨 Color Palette - AgroTech Green + Apple Neutrals */
+    --agrotech-primary: #2FB344;
+    --agrotech-primary-dark: #1E7A2E;
+    --agrotech-primary-light: #4ADE5E;
+    --agrotech-accent: #FF9F0A;
+    
+    /* Apple Grays */
+    --glass-white: rgba(255, 255, 255, 0.7);
+    --glass-light: rgba(255, 255, 255, 0.5);
+    --glass-medium: rgba(255, 255, 255, 0.3);
+    --glass-dark: rgba(0, 0, 0, 0.05);
+    
+    --text-primary: #1D1D1F;
+    --text-secondary: #6E6E73;
+    --text-tertiary: #86868B;
+    
+    --bg-primary: #F5F5F7;
+    --bg-secondary: #FAFAFA;
+    --bg-gradient: linear-gradient(135deg, #F5F5F7 0%, #E8E8ED 100%);
+    
+    /* 🌊 Glass Effects */
+    --glass-blur: blur(40px);
+    --glass-blur-light: blur(20px);
+    --glass-border: rgba(255, 255, 255, 0.5);
+    
+    /* 🎭 Shadows */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+    --shadow-glass: 0 8px 32px rgba(31, 38, 135, 0.15);
+    
+    /* 📏 Spacing */
+    --space-xs: 8px;
+    --space-sm: 12px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+    --space-2xl: 48px;
+    
+    /* 🔘 Border Radius */
+    --radius-sm: 12px;
+    --radius-md: 16px;
+    --radius-lg: 24px;
+    --radius-xl: 32px;
+    --radius-full: 9999px;
+    
+    /* 📝 Typography */
+    --font-primary: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+}
+
+/* 🌍 Global Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-primary);
+    background: var(--bg-gradient);
+    background-attachment: fixed;
+    color: var(--text-primary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* 🪟 Glass Card Component */
+.glass-card {
+    background: var(--glass-white);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    box-shadow: var(--shadow-glass);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.glass-card-compact {
+    padding: var(--space-md);
+    border-radius: var(--radius-md);
+}
+
+.glass-card-elevated {
+    background: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.15);
+}
+
+/* 🎯 Primary Button */
+.btn-glass {
+    background: var(--glass-white);
+    backdrop-filter: var(--glass-blur-light);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-full);
+    padding: var(--space-sm) var(--space-lg);
+    font-weight: var(--font-weight-medium);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-glass:hover {
+    background: rgba(255, 255, 255, 0.9);
+    transform: scale(1.02);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-glass-primary {
+    background: linear-gradient(135deg, var(--agrotech-primary) 0%, var(--agrotech-primary-dark) 100%);
+    color: white;
+    border: none;
+}
+
+.btn-glass-primary:hover {
+    background: linear-gradient(135deg, var(--agrotech-primary-light) 0%, var(--agrotech-primary) 100%);
+    box-shadow: 0 8px 24px rgba(47, 179, 68, 0.3);
+}
+
+/* 📊 Stat Card */
+.stat-card {
+    background: var(--glass-white);
+    backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: var(--font-weight-bold);
+    background: linear-gradient(135deg, var(--agrotech-primary) 0%, var(--agrotech-primary-dark) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: var(--space-xs);
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    font-weight: var(--font-weight-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* 🔔 Alert Badge */
+.alert-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    background: var(--glass-white);
+    backdrop-filter: var(--glass-blur-light);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-full);
+    padding: var(--space-xs) var(--space-md);
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-medium);
+}
+
+.alert-badge.warning {
+    background: rgba(255, 159, 10, 0.15);
+    border-color: rgba(255, 159, 10, 0.3);
+    color: #D97706;
+}
+
+.alert-badge.success {
+    background: rgba(47, 179, 68, 0.15);
+    border-color: rgba(47, 179, 68, 0.3);
+    color: var(--agrotech-primary-dark);
+}
+
+.alert-badge.danger {
+    background: rgba(255, 59, 48, 0.15);
+    border-color: rgba(255, 59, 48, 0.3);
+    color: #DC2626;
+}
+
+/* 📝 Input Fields */
+.input-glass {
+    background: var(--glass-white);
+    backdrop-filter: var(--glass-blur-light);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-sm) var(--space-md);
+    font-family: var(--font-primary);
+    font-size: 1rem;
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.input-glass:focus {
+    outline: none;
+    border-color: var(--agrotech-primary);
+    box-shadow: 0 0 0 3px rgba(47, 179, 68, 0.1);
+    background: rgba(255, 255, 255, 0.95);
+}
+
+/* 🎨 Progress Bar */
+.progress-glass {
+    background: var(--glass-medium);
+    border-radius: var(--radius-full);
+    height: 8px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-glass-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--agrotech-primary) 0%, var(--agrotech-primary-light) 100%);
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+}
+
+.progress-glass-bar.warning {
+    background: linear-gradient(90deg, #FF9F0A 0%, #FFB340 100%);
+}
+
+.progress-glass-bar.danger {
+    background: linear-gradient(90deg, #FF3B30 0%, #FF6259 100%);
+}
+
+/* 🧭 Sidebar Navigation */
+.sidebar-glass {
+    background: var(--glass-white);
+    backdrop-filter: var(--glass-blur);
+    border-right: 1px solid var(--glass-border);
+    padding: var(--space-lg);
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 280px;
+    overflow-y: auto;
+}
+
+.nav-item-glass {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: var(--space-md) var(--space-lg);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: var(--font-weight-medium);
+    transition: all 0.2s ease;
+    margin-bottom: var(--space-xs);
+}
+
+.nav-item-glass:hover {
+    background: var(--glass-light);
+    transform: translateX(4px);
+}
+
+.nav-item-glass.active {
+    background: linear-gradient(135deg, rgba(47, 179, 68, 0.15) 0%, rgba(47, 179, 68, 0.05) 100%);
+    color: var(--agrotech-primary-dark);
+    font-weight: var(--font-weight-semibold);
+}
+
+/* 📱 Responsive */
+@media (max-width: 768px) {
+    .glass-card {
+        padding: var(--space-md);
+        border-radius: var(--radius-md);
+    }
+    
+    .sidebar-glass {
+        width: 100%;
+        height: auto;
+        position: relative;
+    }
+    
+    .stat-value {
+        font-size: 2rem;
+    }
+}
+
+/* 🌊 Animations */
+@keyframes glass-shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+}
+
+.glass-shimmer {
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.3) 50%,
+        transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: glass-shimmer 2s infinite;
+}
+
+/* 🎯 Utility Classes */
+.text-gradient-primary {
+    background: linear-gradient(135deg, var(--agrotech-primary) 0%, var(--agrotech-primary-dark) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.bg-glass-white { background: var(--glass-white); }
+.bg-glass-light { background: var(--glass-light); }
+.bg-glass-medium { background: var(--glass-medium); }
+
+.blur-light { backdrop-filter: var(--glass-blur-light); }
+.blur-strong { backdrop-filter: var(--glass-blur); }

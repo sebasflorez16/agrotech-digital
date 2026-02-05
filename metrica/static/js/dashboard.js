@@ -30,7 +30,7 @@ function checkAuth() {
 
     //Validar si el token es realmente válido llamando a una API protegida
     const dashboardUrl = window.ApiUrls ? window.ApiUrls.auth() + '/dashboard/' : 
-                        `https://agrotechcolombia.com/api/authentication/dashboard/`;
+                        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://agrotechcolombia.com') + '/api/authentication/dashboard/';
     
     fetch(dashboardUrl, {
         method: "GET",

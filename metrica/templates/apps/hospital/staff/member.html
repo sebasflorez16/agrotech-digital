@@ -1,0 +1,130 @@
+{% extends 'vertical_base.html' %}
+
+{% load static %}
+
+{% block title %}Add Member{% endblock %}
+
+{% block page_content %}
+<div class="container-fluid">
+    <!-- Page-Title -->
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="page-title-box">
+                <div class="float-end">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="#">Metrica</a></li>
+                        <li class="breadcrumb-item"><a href="#">Hospital</a></li>
+                        <li class="breadcrumb-item active">Add Member</li>
+                    </ol>
+                </div>
+                <h4 class="page-title">Add Member</h4>
+            </div>
+        </div>
+    </div>
+    <!-- End Page Title -->
+
+    <!-- Form Section -->
+    <div class="row">
+        <div class="col-12 col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data" action="{% url 'users:users-create' %}">
+                        {% csrf_token %}
+                        
+                        <!-- Profile Picture -->
+                        <div class="form-group text-center mb-4">
+                            <img 
+                                src="{% if form.instance.image %}{{ form.instance.image.url }}{% else %}{% static 'images/users/user-vector.png' %}{% endif %}" 
+                                alt="Foto de perfil" 
+                                class="thumb-lg rounded-circle mb-3">
+                            <label class="btn btn-de-primary btn-sm text-light">
+                                Cambiar Foto de Perfil
+                                <input type="file" name="image" id="id_image" hidden>
+                            </label>
+                        </div>
+
+                        <!-- Basic Information -->
+                        <div class="form-group row mb-3">
+                            <div class="col-md-6">
+                                <label for="name">Nombre</label>
+                                <input type="text" placeholder="Nombre" class="form-control" name="name" id="name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="last_name">Apellido</label>
+                                <input type="text" placeholder="Apellido" class="form-control" name="last_name" id="last_name" required>
+                            </div>
+                        </div>
+
+                        <!-- Account Details -->
+                        <div class="form-group row mb-3">
+                            <div class="col-md-6">
+                                <label for="username">Nombre de Usuario</label>
+                                <input type="text" placeholder="Username" class="form-control" name="username" id="username" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="email">Correo Electrónico</label>
+                                <input type="email" placeholder="Email" class="form-control" name="email" id="email" required>
+                            </div>
+                        </div>
+
+                        <!-- Contact Information -->
+                        <div class="form-group row mb-3">
+                            <div class="col-md-6">
+                                <label for="phone">Teléfono</label>
+                                <input type="text" placeholder="Teléfono" class="form-control" name="phone" id="phone" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="address">Dirección</label>
+                                <input type="text" placeholder="Dirección" class="form-control" name="address" id="address">
+                            </div>
+                        </div>
+
+                        <!-- Employment Information -->
+                        <div class="form-group row mb-3">
+                            <div class="col-md-6">
+                                <label for="is_staff">¿Es Staff?</label>
+                                <select class="form-control" name="is_staff" id="is_staff">
+                                    <option value="True">Sí</option>
+                                    <option value="False">No</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="is_active">¿Está Activo?</label>
+                                <select class="form-control" name="is_active" id="is_active">
+                                    <option value="True">Sí</option>
+                                    <option value="False">No</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Timestamps -->
+                        <div class="form-group row mb-3">
+                            <div class="col-md-6">
+                                <label for="created_on">Fecha de Creación</label>
+                                <input type="date" class="form-control" name="created_on" id="created_on">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="modified_on">Última Modificación</label>
+                                <input type="date" class="form-control" name="modified_on" id="modified_on">
+                            </div>
+                        </div>
+
+                        <!-- About Me -->
+                        <div class="form-group mb-4">
+                            <label for="about_me">Acerca de Mí</label>
+                            <textarea rows="5" placeholder="Escribe algo sobre ti..." class="form-control" name="about_me" id="about_me"></textarea>
+                        </div>
+
+                        <!-- Form Actions -->
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-de-primary btn-sm text-light px-4">Guardar</button>
+                            <a href="#" class="btn btn-de-danger btn-sm text-light px-4">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- End Form Section -->
+</div>
+{% endblock %}

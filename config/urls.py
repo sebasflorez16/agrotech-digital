@@ -41,6 +41,9 @@ urlpatterns = [
     path("inventario/", include("inventario.urls")),
     path("api/crop/", include("crop.routers", namespace="crop")),  # Gestión de cultivos
 
+    # 🔹 Billing y Suscripciones
+    path("billing/", include("billing.urls", namespace="billing")),  # Sistema de facturación
+
     # 🔹 Interfaz y páginas
     path("pages/", include("pages.urls", namespace="pages")),      # Páginas estáticas
     path("uikit/", include("uikit.urls", namespace="uikit")),      # Componentes UI

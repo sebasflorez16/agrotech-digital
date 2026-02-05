@@ -1,0 +1,106 @@
+{% extends 'vertical_base.html' %}
+
+{% load static %}
+
+{% block title %}All Staff{% endblock %}
+
+{% block page_content %}
+
+<div class="container-fluid">
+    <!-- Page-Title -->
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="page-title-box">
+                <div class="float-end">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="#">Metrica</a>
+                        </li><!--end nav-item-->
+                        <li class="breadcrumb-item"><a href="#">Hospital</a>
+                        </li><!--end nav-item-->
+                        <li class="breadcrumb-item active">All Staff</li>
+                    </ol>
+                </div>
+                <h4 class="page-title">Listado de Usuarios</h4>
+            </div><!--end page-title-box-->
+        </div><!--end col-->
+    </div>
+    <!-- end page title end breadcrumb -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead class="thead-light">
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Nombre</th>
+                                    <th>ID</th>
+                                    <th>Estado</th>
+                                    <th>Teléfono</th>
+                                    <th>Ingreso</th>
+                                    <th>Cargo</th>
+                                    <th class="text-right">Action</th>
+                                </tr><!--end tr-->
+                            </thead>
+
+                            <tbody>
+                                {% for user in users_list %}
+                                <tr>
+                                    <td>
+                                        {% if user.image %}
+                                    <img src="{{ user.image.url }}" alt="" class="thumb-lg rounded me-2">
+                                        {% else %}
+                                    <img src="{% static 'images/users/user-4.jpg' %}" alt="" class="thumb-lg rounded me-2">
+                                        {% endif %}
+                                            {{ user.get_full_name|default:user.username }}
+                                        </a>
+                                    </td>
+                                    <td>{{user.name}} {{user.last_name}}</td>
+                                    <td>{{user.id}}</td>
+                                    <td>{{user.is_active|yesno:"Activo,Inactivo"}}</td>
+                                    <td>{{user.phone}}</td>
+                                    <td>{{user.created_on}}</td>
+                                    <td>{{user.role}}</td>
+                                    <td class="text-right">
+                                        <a href="{% url 'users:users-edit' pk=user.id %}"><i
+                                                class="las la-pen text-secondary font-16"></i></a>
+                                        <a href="#"><i class="las la-trash-alt text-secondary font-16"></i></a>
+                                    </td>
+                                </tr><!--end tr-->
+                                <!--end tr-->
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <a href="{% url 'users:users-create' %}" class="btn btn-de-secondary btn-sm px-4">+ Agregar usuario nuevo</a>
+                        </div><!--end col-->
+                        <div class="col-auto">
+                            <nav aria-label="...">
+                                <ul class="pagination pagination-sm mb-0">
+                                    <li class="page-item disabled">
+                                        <a class="page-link" href="#" tabindex="-1">Previous</a>
+                                    </li>
+                                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="#">2 <span class="sr-only">(current)</span></a>
+                                    </li>
+                                    <li class="page-item"><a class="page-link" href="#">3</a></li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="#">Next</a>
+                                    </li>
+                                </ul><!--end pagination-->
+                            </nav><!--end nav-->
+                        </div> <!--end col-->
+                    </div><!--end row-->
+                </div><!--end card-body-->
+            </div><!--end card-->
+        </div> <!--end col-->
+    </div><!--end row-->
+
+
+</div><!-- container -->
+
+{% endblock %}

@@ -10,8 +10,9 @@
  * @returns {string} URL completa del backend
  */
 function getBackendUrl(apiPath = '', port = 8000) {
-    // URL fija del backend en Railway
-    const baseUrl = 'https://agrotechcolombia.com';
+    // Detectar si estamos en localhost o producción
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const baseUrl = isLocalhost ? `http://localhost:${port}` : 'https://agrotechcolombia.com';
     
     // Agregar path si se proporciona
     if (apiPath) {

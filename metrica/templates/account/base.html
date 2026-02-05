@@ -1,0 +1,49 @@
+{% load static i18n %}
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <title>
+      {% block title %}{% endblock title %}Agrotech
+    </title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <meta
+      content="Premium Multipurpose Admin & Dashboard Template"
+      name="description"
+    />
+    <meta content="" name="author" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <!-- App favicon -->
+    <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}" />
+
+    {% block extra_css %} {% endblock %} {% include "partials/head-css.html" %}
+    
+    <!-- CSS responsivo personalizado para autenticación -->
+    <link href="{% static 'css/auth-responsive.css' %}" rel="stylesheet" type="text/css" />
+  </head>
+
+  <body id="body" {% block body_extra %} {% endblock %}>
+
+    {% block page_content %}{% endblock %} 
+
+
+    {% block extra_javascript %}
+    <script>
+      console.log("Inline script loaded");
+  
+      document.addEventListener("DOMContentLoaded", () => {
+          console.log("DOM fully loaded and parsed");
+      });
+  </script>
+    {% endblock %}
+    {% block extra_javascript %}
+    {% include "partials/vendorjs.html" %}
+    <script src="{% static 'js/app.js' %}"></script>
+    {% endblock %}
+
+  </body>
+</html>

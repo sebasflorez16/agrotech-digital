@@ -336,10 +336,12 @@ from rest_framework.response import Response
 from django.conf import settings
 import requests
 import json
+from billing.decorators import check_eosda_limit
 
 class EosdaScenesView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @check_eosda_limit
     def post(self, request):
         """
         POST /api/parcels/eosda-scenes/
@@ -352,7 +354,7 @@ class EosdaScenesView(APIView):
         if not field_id:
             return Response({"error": "Falta el parámetro field_id."}, status=400)
         
-        # Verificar cache de escenas por field_id (cache por 10 minutos)
+        # Verificar cache de escenas por field_id (cache por 6 horas - escenas no cambian rápido)
         cache_key = f"eosda_scenes_{field_id}"
         cached_data = cache.get(cache_key)
         if cached_data:
@@ -404,9 +406,9 @@ class EosdaScenesView(APIView):
                 print(f"Escenas recibidas de EOSDA (GET): {scenes}")
                 logger.info(f"Escenas recibidas de EOSDA (GET): {scenes}")
                 
-                # Guardar en cache por 10 minutos
+                # Guardar en cache por 6 horas (escenas disponibles no cambian frecuentemente)
                 response_data = {"request_id": request_id, "scenes": scenes}
-                cache.set(cache_key, response_data, 600)  # 10 minutos
+                cache.set(cache_key, response_data, 21600)  # 6 horas
                 logger.info(f"[CACHE SET] Escenas guardadas en cache para field_id: {field_id}")
                 
                 return Response(response_data, status=200)
@@ -416,9 +418,9 @@ class EosdaScenesView(APIView):
                 print(f"Escenas recibidas de EOSDA (POST directo): {scenes}")
                 logger.info(f"Escenas recibidas de EOSDA (POST directo): {scenes}")
                 
-                # Guardar en cache por 10 minutos
+                # Guardar en cache por 6 horas
                 response_data = {"request_id": None, "scenes": scenes}
-                cache.set(cache_key, response_data, 600)  # 10 minutos
+                cache.set(cache_key, response_data, 21600)  # 6 horas
                 logger.info(f"[CACHE SET] Escenas guardadas en cache para field_id: {field_id}")
                 
                 return Response(response_data, status=200)
@@ -429,6 +431,7 @@ class EosdaScenesView(APIView):
 class EosdaImageView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @check_eosda_limit
     def post(self, request):
         """
         POST /api/parcels/eosda-image/
@@ -501,27 +504,40 @@ class EosdaImageView(APIView):
 class EosdaImageResultView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @check_eosda_limit
     def get(self, request):
         """
         GET /api/parcels/eosda-image-result/?field_id=...&request_id=...
         Retorna: { "image_base64": "..." }
         
-        OPTIMIZACIÓN: Cache de imágenes por request_id para evitar downloads duplicados
+        OPTIMIZACIÓN: Cache dual de imágenes (por request_id y por field+view+type) para evitar downloads duplicados
         """
         import base64
         field_id = request.query_params.get("field_id")
         request_id = request.query_params.get("request_id")
-        logger.info(f"[EOSDA_IMAGE_RESULT] Params recibidos: field_id={field_id}, request_id={request_id}")
+        index_type = request.query_params.get("type", "ndvi")
+        view_id = request.query_params.get("view_id", "")
+        logger.info(f"[EOSDA_IMAGE_RESULT] Params recibidos: field_id={field_id}, request_id={request_id}, type={index_type}")
         if not field_id or not request_id:
             logger.error(f"[EOSDA_IMAGE_RESULT] Parámetros inválidos: field_id={field_id}, request_id={request_id}")
             return Response({"error": "Parámetros inválidos."}, status=400)
         
-        # Verificar cache de imagen por request_id (cache por 1 hora)
+        # Verificar cache dual: por request_id Y por combinación field+view+type (cache por 1 hora)
         image_cache_key = f"eosda_image_{request_id}"
+        composite_cache_key = f"eosda_image_composite_{field_id}_{view_id}_{index_type}"
+        
+        # Intentar cache por request_id primero
         cached_image = cache.get(image_cache_key)
         if cached_image:
-            logger.info(f"[CACHE HIT] Imagen encontrada en cache para request_id: {request_id}")
+            logger.info(f"[CACHE HIT] Imagen encontrada en cache por request_id: {request_id}")
             return Response({"image_base64": cached_image}, status=200)
+        
+        # Intentar cache composite si view_id disponible
+        if view_id:
+            cached_image = cache.get(composite_cache_key)
+            if cached_image:
+                logger.info(f"[CACHE HIT] Imagen encontrada en cache composite: {composite_cache_key}")
+                return Response({"image_base64": cached_image}, status=200)
         
         eosda_url = f"https://api-connect.eos.com/field-imagery/{field_id}/{request_id}"
         headers = {
@@ -538,9 +554,11 @@ class EosdaImageResultView(APIView):
                 try:
                     image_base64 = base64.b64encode(response.content).decode('utf-8')
                     logger.info(f"[EOSDA_IMAGE_RESULT] Imagen recibida y convertida a base64.")
-                    # Guardar imagen en cache por 1 hora
-                    cache.set(image_cache_key, image_base64, 3600)  # 1 hora
-                    logger.info(f"[CACHE SET] Imagen guardada en cache para request_id: {request_id}")
+                    # Guardar imagen en cache dual por 1 hora
+                    cache.set(image_cache_key, image_base64, 3600)  # Por request_id
+                    if view_id:
+                        cache.set(composite_cache_key, image_base64, 3600)  # Por field+view+type
+                    logger.info(f"[CACHE SET] Imagen guardada en cache dual para request_id: {request_id}")
                     return Response({"image_base64": image_base64}, status=200)
                 except Exception as e:
                     logger.error(f"[EOSDA_IMAGE_RESULT] Error al convertir imagen a base64: {e}")
@@ -573,9 +591,11 @@ class EosdaImageResultView(APIView):
                 try:
                     image_base64 = base64.b64encode(response.content).decode('utf-8')
                     logger.info(f"[EOSDA_IMAGE_RESULT] Imagen binaria detectada y convertida a base64.")
-                    # Guardar imagen en cache por 1 hora
-                    cache.set(image_cache_key, image_base64, 3600)  # 1 hora
-                    logger.info(f"[CACHE SET] Imagen binaria guardada en cache para request_id: {request_id}")
+                    # Guardar imagen en cache dual por 1 hora
+                    cache.set(image_cache_key, image_base64, 3600)  # Por request_id
+                    if view_id:
+                        cache.set(composite_cache_key, image_base64, 3600)  # Por field+view+type
+                    logger.info(f"[CACHE SET] Imagen binaria guardada en cache dual para request_id: {request_id}")
                     return Response({"image_base64": image_base64}, status=200)
                 except Exception as e:
                     logger.error(f"[EOSDA_IMAGE_RESULT] Error al convertir binario a base64: {e}")
@@ -592,6 +612,7 @@ class EosdaImageResultView(APIView):
 class EosdaSceneAnalyticsView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @check_eosda_limit
     def post(self, request):
         """
         POST /api/parcels/eosda-scene-analytics/
@@ -599,7 +620,7 @@ class EosdaSceneAnalyticsView(APIView):
             "field_id": "string",
             "view_id": "string", 
             "scene_date": "YYYY-MM-DD",
-            "indices": ["ndvi", "ndmi", "evi"]  # opcional, por defecto todos
+            "indices": ["ndvi"]  # opcional, por defecto solo NDVI para optimizar requests
         }
         
         Retorna: {
@@ -628,7 +649,7 @@ class EosdaSceneAnalyticsView(APIView):
         valid_indices = ["ndvi", "ndmi", "evi", "lai", "fpar", "fcover"]
         indices = [idx for idx in indices if idx in valid_indices]
         if not indices:
-            indices = ["ndvi", "ndmi", "evi"]  # valores por defecto
+            indices = ["ndvi"]  # Por defecto solo NDVI para optimizar requests (usuario puede solicitar más explícitamente)
         
         # Verificar cache de analytics por combinación field_id+view_id+date (cache por 2 horas)
         cache_key = f"eosda_analytics_{field_id}_{view_id}_{scene_date}"
@@ -791,6 +812,7 @@ class EosdaAdvancedStatisticsView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @check_eosda_limit
     def post(self, request):
         """
         POST /api/parcels/eosda-advanced-statistics/
@@ -1276,6 +1298,7 @@ class ParcelHistoricalIndicesView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @check_eosda_limit
     def get(self, request, parcel_id):
         """
         GET /api/parcels/parcel/<parcel_id>/historical-indices/
@@ -1527,6 +1550,7 @@ class ParcelNdviWeatherComparisonView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    @check_eosda_limit
     def get(self, request, parcel_id):
         """
         GET /api/parcels/parcel/<parcel_id>/ndvi-weather-comparison/

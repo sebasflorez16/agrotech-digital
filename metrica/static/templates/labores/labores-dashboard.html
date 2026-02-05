@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Labores | Agrotech</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        body { background: #f8fafc; }
+        .table thead th { background: #e9ecef; }
+    </style>
+</head>
+<body>
+
+    <div id="left-sidebar"></div>
+    <!-- Contenedor del topbar -->
+    <div id="topbar-container"></div>
+
+    <div id="main-content" class="container mt-5" style="margin-top: 90px;">
+        <h2 class="mb-4"><i class="fa fa-tasks"></i> Labores Agrícolas</h2>
+        <div class="mb-3 text-end">
+            <button class="btn btn-primary" onclick="window.location.href='/templates/vertical_base.html'">
+                <i class="fa fa-arrow-left"></i> Volver al Dashboard
+            </button>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#laborModal" id="btnNuevaLabor">
+                <i class="fa fa-plus"></i> Nueva Labor
+            </button>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Tipo</th>
+                            <th>Estado</th>
+                            <th>Fecha Programada</th>
+                            <th>Fecha Realizada</th>
+                            <th>Parcelas</th>
+                            <th>Responsables</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="labores-tbody">
+                        <!-- Las labores se cargan aquí dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Modal para crear/editar labor -->
+    <div class="modal fade" id="laborModal" tabindex="-1" aria-labelledby="laborModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="laborModalLabel">Nueva Labor</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+          </div>
+          <div class="modal-body">
+            <form id="laborForm">
+              <input type="hidden" id="laborId">
+              <div class="mb-3">
+                <label for="nombreLabor" class="form-label">Nombre</label>
+                <input type="text" class="form-control" id="nombreLabor" required>
+              </div>
+              <div class="mb-3">
+                <label for="tipoLabor" class="form-label">Tipo</label>
+                <select class="form-select" id="tipoLabor" required>
+                  <option value="">Selecciona un tipo</option>
+                  <option value="siembra">Siembra</option>
+                  <option value="fertilizacion">Fertilización</option>
+                  <option value="riego">Riego</option>
+                  <option value="cosecha">Cosecha</option>
+                  <option value="aplicacion">Aplicación de fitosanitarios</option>
+                  <option value="otra">Otra</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="estadoLabor" class="form-label">Estado</label>
+                <select class="form-select" id="estadoLabor" required>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="en_progreso">En progreso</option>
+                  <option value="completada">Completada</option>
+                  <option value="cancelada">Cancelada</option>
+                </select>
+              </div>
+              <div class="mb-3">
+                <label for="fechaProgramada" class="form-label">Fecha Programada</label>
+                <input type="date" class="form-control" id="fechaProgramada" required>
+              </div>
+              <div class="mb-3">
+                <label for="fechaRealizada" class="form-label">Fecha Realizada</label>
+                <input type="date" class="form-control" id="fechaRealizada">
+              </div>
+              <!-- Parcelas: ahora solo se asignan labores desde la vista de parcela, no desde aquí -->
+              <div class="mb-3">
+                <label for="responsablesLabor" class="form-label">Responsables (opcional)</label>
+                <select class="form-select" id="responsablesLabor" multiple></select>
+                <div class="form-text">Puedes dejar vacío si no deseas asignar encargado(s) ahora.</div>
+              </div>
+              <div class="text-end">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-success">Guardar</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qs/dist/qs.js"></script>
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/tasks/labores.js"></script>
+    <script src="/static/js/tasks/labores-modal.js"></script>
+
+    <script type="module">
+        import { loadLayoutComponents } from '/static/js/load_components.js';
+        const components = {
+            "topbar-container": "/templates/partials/horizontal-nav.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "righsidebar": "/templates/partials/right-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
+        };
+        loadLayoutComponents(components);
+    </script>
+
+</body>
+</html>

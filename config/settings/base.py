@@ -2,11 +2,9 @@
 Base settings to build other settings files upon.
 """
 
-import os
-os.environ["GDAL_LIBRARY_PATH"] = "/opt/homebrew/opt/gdal/lib/libgdal.dylib"
-os.environ["GEOS_LIBRARY_PATH"] = "/opt/homebrew/opt/geos/lib/libgeos_c.dylib"
 from pathlib import Path
 import environ
+import os
 
 ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 # metrica/
@@ -141,6 +139,7 @@ SHARED_APPS = [
     "inventario",  # Registro de la app de inventario
     "crop",  # Gestión de cultivos
     "authentication",  # Registro de la app de autenticación
+    "billing",  # Sistema de facturación y suscripciones
 ]
 
 TENANT_APPS = [
@@ -440,4 +439,23 @@ LOGGING['loggers']['eosda']['level'] = 'DEBUG'
 LOGGING['loggers']['eosda']['handlers'] = ['console', 'file']
 LOGGING['loggers']['eosda']['propagate'] = False
 
+
+# BILLING CONFIGURATION
+# ------------------------------------------------------------------------------
+# MercadoPago (Colombia - COP)
+MERCADOPAGO_ACCESS_TOKEN = env('MERCADOPAGO_ACCESS_TOKEN', default='')
+MERCADOPAGO_PUBLIC_KEY = env('MERCADOPAGO_PUBLIC_KEY', default='')
+MERCADOPAGO_WEBHOOK_SECRET = env('MERCADOPAGO_WEBHOOK_SECRET', default='')
+
+# Paddle (Internacional - USD)
+PADDLE_VENDOR_ID = env('PADDLE_VENDOR_ID', default='')
+PADDLE_API_KEY = env('PADDLE_API_KEY', default='')
+PADDLE_PUBLIC_KEY = env('PADDLE_PUBLIC_KEY', default='')
+PADDLE_SANDBOX = env.bool('PADDLE_SANDBOX', default=True)  # True para testing
+
+# Default country para billing (cuando no se puede detectar)
+DEFAULT_COUNTRY = 'CO'  # Colombia por defecto
+
+# URL del sitio para billing callbacks
+SITE_URL = env('SITE_URL', default='http://localhost:8000')
 

@@ -8,7 +8,7 @@
 // CONFIGURATION
 // ============================================
 const CONFIG = {
-    BACKEND_URL: 'https://agrotechcolombia.com',
+    BACKEND_URL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://agrotechcolombia.com',
     LOGIN_URL: 'https://agrotechcolombia.netlify.app/templates/authentication/login.html',
     DASHBOARD_URL: 'https://agrotechcolombia.netlify.app/templates/vertical_base.html',
     API_VERSION: 'v1',

@@ -11,8 +11,9 @@ from django.conf import settings
 from django.core.cache import cache
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated
 from datetime import datetime, timedelta
+from billing.decorators import check_eosda_limit
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +29,14 @@ class EOSDAAnalyticsAPIView(APIView):
     
     Retorna: Datos científicos 100% reales de EOSDA con interpretación agronómica
     """
-    permission_classes = [AllowAny]  # Temporal para debugging
+    permission_classes = [IsAuthenticated]
     
+    @check_eosda_limit
     def get(self, request):
         """GET method para compatibilidad"""
         return self._handle_analytics_request(request, request.GET)
     
+    @check_eosda_limit
     def post(self, request):
         """POST method - método principal"""
         return self._handle_analytics_request(request, request.data)
