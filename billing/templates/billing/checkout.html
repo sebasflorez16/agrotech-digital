@@ -1,575 +1,563 @@
 {% extends 'billing/base_billing.html' %}
 {% load static %}
 
-{% block title %}Checkout - {{ plan.name }} - AgroTech Digital{% endblock %}
+{% block title %}Checkout - AgroTech Digital{% endblock %}
+{% block nav_planes_active %}active{% endblock %}
 
-{% block content %}
+{% block extra_css %}
 <style>
-.checkout-container {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 2rem;
+/* ══════ CHECKOUT — Apple Dark Style ══════ */
+.checkout-layout {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 32px;
+    padding: 80px 0 60px;
+    align-items: start;
 }
 
-.checkout-header {
-    text-align: center;
-    margin-bottom: 3rem;
+.checkout-main h1 {
+    font-size: clamp(28px, 4vw, 40px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--texto-claro);
+    margin-bottom: 8px;
 }
 
-.checkout-header h1 {
-    font-size: 2rem;
-    font-weight: 700;
-    color: #1a1f26;
+.checkout-main .subtitle {
+    color: var(--gris-400);
+    font-size: 16px;
+    margin-bottom: 40px;
 }
 
+/* Steps */
 .checkout-steps {
     display: flex;
-    justify-content: center;
-    gap: 2rem;
-    margin-bottom: 2rem;
+    gap: 8px;
+    margin-bottom: 40px;
 }
 
-.checkout-step {
+.step {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    color: #adb5bd;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gris-600);
 }
 
-.checkout-step.active {
-    color: #007A20;
-}
+.step.active { color: var(--verde-claro); }
+.step.completed { color: var(--gris-200); }
 
-.checkout-step.completed {
-    color: #35B835;
-}
-
-.step-number {
-    width: 30px;
-    height: 30px;
+.step-num {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 50%;
-    background: #e9ecef;
+    background: var(--gris-800);
+    font-size: 12px;
+    font-weight: 700;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.step.active .step-num {
+    background: var(--verde-claro);
+    color: #000;
+    border-color: var(--verde-claro);
+}
+
+.step-divider {
+    width: 32px;
+    height: 1px;
+    background: rgba(255, 255, 255, 0.08);
+    align-self: center;
+}
+
+/* Form Cards */
+.form-card {
+    background: var(--gris-950);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+    margin-bottom: 20px;
+}
+
+.form-card h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--texto-claro);
     display: flex;
     align-items: center;
-    justify-content: center;
+    gap: 10px;
+}
+
+.form-card h3 i {
+    color: var(--verde-claro);
+    font-size: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-size: 13px;
     font-weight: 600;
-    font-size: 0.9rem;
+    color: var(--gris-200);
+    margin-bottom: 8px;
+    letter-spacing: 0.02em;
 }
 
-.checkout-step.active .step-number {
-    background: #007A20;
-    color: #fff;
-}
-
-.checkout-step.completed .step-number {
-    background: #35B835;
-    color: #fff;
-}
-
-/* Order Summary */
-.order-summary {
-    background: #fff;
-    border-radius: 16px;
-    padding: 2rem;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    position: sticky;
-    top: 2rem;
-}
-
-.order-summary h3 {
-    font-size: 1.25rem;
-    font-weight: 700;
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 2px solid #f1f3f5;
-}
-
-.order-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 0;
-}
-
-.order-item.total {
-    border-top: 2px solid #007A20;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    font-weight: 700;
-    font-size: 1.2rem;
-}
-
-.plan-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: linear-gradient(135deg, rgba(0,122,32,0.1), rgba(53,184,53,0.1));
-    padding: 0.75rem 1rem;
+.form-input {
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--gris-900);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 12px;
-    margin-bottom: 1rem;
+    color: var(--texto-claro);
+    font-size: 15px;
+    font-family: 'Inter', sans-serif;
+    transition: var(--transition-smooth);
+    outline: none;
+    box-sizing: border-box;
 }
 
-.plan-badge i {
-    color: #007A20;
-    font-size: 1.5rem;
+.form-input:focus {
+    border-color: var(--verde-claro);
+    box-shadow: 0 0 0 3px rgba(52, 199, 89, 0.15);
 }
 
-.plan-badge-info h4 {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
+.form-input::placeholder {
+    color: var(--gris-600);
 }
 
-.plan-badge-info small {
-    color: #6c757d;
-}
-
-/* Payment Form */
-.payment-form {
-    background: #fff;
-    border-radius: 16px;
-    padding: 2rem;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-}
-
-.payment-form h3 {
-    font-size: 1.25rem;
-    font-weight: 700;
-    margin-bottom: 1.5rem;
-}
-
+/* Payment Method */
 .payment-method {
     display: flex;
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.payment-option {
-    flex: 1;
-    padding: 1.5rem;
-    border: 2px solid #e9ecef;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 20px;
+    background: var(--gris-900);
+    border: 1px solid rgba(52, 199, 89, 0.2);
     border-radius: 12px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
+    cursor: default;
 }
 
-.payment-option:hover {
-    border-color: #007A20;
+.payment-logo {
+    height: 32px;
+    object-fit: contain;
 }
 
-.payment-option.selected {
-    border-color: #007A20;
-    background: rgba(0,122,32,0.05);
-}
-
-.payment-option img {
-    height: 40px;
-    margin-bottom: 0.5rem;
-}
-
-.payment-option span {
-    display: block;
-    font-weight: 500;
-    font-size: 0.9rem;
-}
-
-/* Features included */
-.features-summary {
-    background: #f8f9fa;
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-top: 1.5rem;
-}
-
-.features-summary h5 {
-    font-size: 0.9rem;
+.payment-info h4 {
+    font-size: 14px;
     font-weight: 600;
-    margin-bottom: 1rem;
-    color: #495057;
+    margin: 0 0 2px;
+    color: var(--texto-claro);
 }
 
-.features-summary ul {
-    list-style: none;
-    padding: 0;
+.payment-info p {
+    font-size: 12px;
+    color: var(--gris-400);
     margin: 0;
 }
 
-.features-summary li {
-    padding: 0.5rem 0;
-    font-size: 0.9rem;
+.payment-check {
+    margin-left: auto;
+    color: var(--verde-claro);
+    font-size: 18px;
+}
+
+/* Checkbox */
+.terms-label {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.features-summary li i {
-    color: #35B835;
-}
-
-/* Security badges */
-.security-badges {
-    display: flex;
-    justify-content: center;
-    gap: 2rem;
-    margin-top: 2rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid #e9ecef;
-}
-
-.security-badge {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #6c757d;
-    font-size: 0.85rem;
-}
-
-.security-badge i {
-    color: #007A20;
-}
-
-/* Submit button */
-.btn-checkout {
-    width: 100%;
-    padding: 1rem 2rem;
-    background: linear-gradient(135deg, #007A20, #35B835);
-    border: none;
-    border-radius: 12px;
-    color: #fff;
-    font-size: 1.1rem;
-    font-weight: 600;
+    align-items: flex-start;
+    gap: 10px;
     cursor: pointer;
-    transition: all 0.3s ease;
+    font-size: 13px;
+    color: var(--gris-400);
+    line-height: 1.5;
+    margin-top: 20px;
+}
+
+.terms-label input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    background: var(--gris-900);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    cursor: pointer;
+    position: relative;
+    transition: var(--transition-smooth);
+    margin-top: 1px;
+}
+
+.terms-label input[type="checkbox"]:checked {
+    background: var(--verde-claro);
+    border-color: var(--verde-claro);
+}
+
+.terms-label input[type="checkbox"]:checked::after {
+    content: '✓';
+    position: absolute;
+    color: #000;
+    font-size: 14px;
+    font-weight: 700;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.terms-label a {
+    color: var(--verde-claro);
+    text-decoration: none;
+}
+
+/* Submit */
+.btn-checkout {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.75rem;
+    gap: 10px;
+    width: 100%;
+    padding: 16px;
+    background: var(--verde-claro);
+    color: #000;
+    border: none;
+    border-radius: 980px;
+    font-size: 16px;
+    font-weight: 700;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: var(--transition-smooth);
+    margin-top: 24px;
 }
 
 .btn-checkout:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 10px 30px rgba(0,122,32,0.3);
+    background: var(--verde-accent);
+    box-shadow: 0 8px 24px rgba(52, 199, 89, 0.3);
+    transform: scale(1.01);
 }
 
 .btn-checkout:disabled {
-    background: #adb5bd;
+    background: var(--gris-800);
+    color: var(--gris-600);
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
 }
 
-/* Loading state */
+/* Sidebar — Order Summary */
+.order-summary {
+    background: var(--gris-950);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-xl);
+    padding: 36px;
+    position: sticky;
+    top: 100px;
+}
+
+.order-summary h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    color: var(--texto-claro);
+}
+
+.order-plan {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    margin-bottom: 20px;
+}
+
+.plan-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(52, 199, 89, 0.15), rgba(52, 199, 89, 0.05));
+    border-radius: 14px;
+    font-size: 22px;
+    color: var(--verde-claro);
+}
+
+.plan-label h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0 0 2px;
+    color: var(--texto-claro);
+}
+
+.plan-label span {
+    font-size: 13px;
+    color: var(--gris-400);
+}
+
+.order-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 14px;
+    color: var(--gris-400);
+}
+
+.order-row.total {
+    padding-top: 16px;
+    margin-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--texto-claro);
+}
+
+.order-total-price {
+    color: var(--verde-claro);
+}
+
+.secure-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 24px;
+    font-size: 12px;
+    color: var(--gris-600);
+}
+
+.secure-badge i {
+    color: var(--verde-claro);
+}
+
+/* Loading overlay */
 .loading-overlay {
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255,255,255,0.9);
-    display: none;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
     flex-direction: column;
-    gap: 1rem;
+    gap: 20px;
 }
 
-.loading-overlay.active {
+.loading-overlay.show {
     display: flex;
 }
 
-/* Guarantee */
-.guarantee-box {
-    background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-top: 1.5rem;
-    text-align: center;
+.loading-spinner {
+    width: 48px;
+    height: 48px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--verde-claro);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
 }
 
-.guarantee-box i {
-    font-size: 2rem;
-    color: #007A20;
-    margin-bottom: 0.5rem;
+.loading-text {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--texto-claro);
 }
 
-.guarantee-box h5 {
-    font-weight: 600;
-    margin-bottom: 0.25rem;
-}
+@keyframes spin { to { transform: rotate(360deg); } }
 
-.guarantee-box p {
-    margin: 0;
-    color: #6c757d;
-    font-size: 0.9rem;
+/* Responsive */
+@media (max-width: 860px) {
+    .checkout-layout {
+        grid-template-columns: 1fr;
+    }
+    .order-summary {
+        position: static;
+        order: -1;
+    }
 }
 </style>
+{% endblock %}
 
+{% block content %}
+<!-- Loading Overlay -->
 <div class="loading-overlay" id="loadingOverlay">
-    <div class="spinner-border text-success" style="width: 3rem; height: 3rem;" role="status">
-        <span class="visually-hidden">Procesando...</span>
-    </div>
-    <p class="h5 text-muted">Redirigiendo a MercadoPago...</p>
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Redirigiendo a MercadoPago...</div>
 </div>
 
-<div class="checkout-container">
-    <!-- Header -->
-    <div class="checkout-header">
-        <h1>
-            <i class="fas fa-shopping-cart me-2 text-success"></i>
-            Completar Suscripción
-        </h1>
-        
-        <!-- Steps -->
-        <div class="checkout-steps">
-            <div class="checkout-step completed">
-                <span class="step-number"><i class="fas fa-check"></i></span>
-                <span>Seleccionar Plan</span>
-            </div>
-            <div class="checkout-step active">
-                <span class="step-number">2</span>
-                <span>Confirmar y Pagar</span>
-            </div>
-            <div class="checkout-step">
-                <span class="step-number">3</span>
-                <span>¡Listo!</span>
-            </div>
-        </div>
-    </div>
+<div class="container">
+    <div class="checkout-layout">
+        <!-- Main -->
+        <div class="checkout-main">
+            <h1>Finalizar compra</h1>
+            <p class="subtitle">Estás a un paso de potenciar tu agricultura.</p>
 
-    <div class="row g-4">
-        <!-- Payment Form -->
-        <div class="col-lg-7">
-            <div class="payment-form">
-                <h3>
-                    <i class="fas fa-credit-card me-2 text-success"></i>
-                    Método de Pago
-                </h3>
-                
+            <!-- Steps -->
+            <div class="checkout-steps">
+                <div class="step completed"><span class="step-num">✓</span> Plan</div>
+                <div class="step-divider"></div>
+                <div class="step active"><span class="step-num">2</span> Datos</div>
+                <div class="step-divider"></div>
+                <div class="step"><span class="step-num">3</span> Pago</div>
+            </div>
+
+            <!-- Email -->
+            <div class="form-card">
+                <h3><i class="ti ti-mail"></i> Datos de contacto</h3>
+                <div class="form-group">
+                    <label for="payerEmail">Correo Electrónico</label>
+                    <input type="email" class="form-input" id="payerEmail" placeholder="correo@ejemplo.com" required autocomplete="email">
+                </div>
+            </div>
+
+            <!-- Payment Method -->
+            <div class="form-card">
+                <h3><i class="ti ti-shield-lock"></i> Método de Pago</h3>
                 <div class="payment-method">
-                    <div class="payment-option selected" data-method="mercadopago">
-                        <img src="https://http2.mlstatic.com/frontend-assets/mp-web-navigation/ui-navigation/5.21.22/mercadopago/logo__large@2x.png" alt="MercadoPago">
-                        <span>MercadoPago</span>
-                        <small class="text-muted">Tarjetas, PSE, Efectivo</small>
+                    <img src="https://http2.mlstatic.com/frontend-assets/mp-web-navigation/badge.svg" alt="MercadoPago" class="payment-logo" onerror="this.style.display='none'">
+                    <div class="payment-info">
+                        <h4>MercadoPago</h4>
+                        <p>Tarjeta de crédito, débito, PSE y más</p>
                     </div>
-                </div>
-
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Serás redirigido a MercadoPago para completar el pago de forma segura.
-                </div>
-
-                <!-- Email -->
-                <div class="mb-3">
-                    <label for="payerEmail" class="form-label fw-semibold">
-                        <i class="fas fa-envelope me-1 text-success"></i> Tu correo electrónico
-                    </label>
-                    <input type="email" class="form-control form-control-lg" id="payerEmail" 
-                           placeholder="tu@email.com" required
-                           style="border-radius: 12px; border: 2px solid #e9ecef; padding: 0.75rem 1rem;">
-                    <div class="form-text">Recibirás la confirmación y facturas en este correo.</div>
+                    <span class="payment-check">✓</span>
                 </div>
 
                 <!-- Terms -->
-                <div class="form-check mb-3">
-                    <input class="form-check-input" type="checkbox" id="acceptTerms" required>
-                    <label class="form-check-label" for="acceptTerms">
-                        Acepto los <a href="#" class="text-success">Términos y Condiciones</a> y la 
-                        <a href="#" class="text-success">Política de Privacidad</a>
-                    </label>
-                </div>
-
-                <button class="btn-checkout" id="checkoutBtn" disabled>
-                    <i class="fas fa-lock"></i>
-                    <span>Continuar al Pago Seguro</span>
-                    <i class="fas fa-arrow-right"></i>
-                </button>
-
-                <!-- Security badges -->
-                <div class="security-badges">
-                    <div class="security-badge">
-                        <i class="fas fa-shield-alt"></i>
-                        <span>Pago 100% Seguro</span>
-                    </div>
-                    <div class="security-badge">
-                        <i class="fas fa-lock"></i>
-                        <span>Cifrado SSL</span>
-                    </div>
-                    <div class="security-badge">
-                        <i class="fas fa-undo"></i>
-                        <span>Cancela cuando quieras</span>
-                    </div>
-                </div>
+                <label class="terms-label">
+                    <input type="checkbox" id="termsCheck">
+                    <span>Acepto los <a href="#">Términos y Condiciones</a> y la <a href="#">Política de Privacidad</a> de AgroTech Digital</span>
+                </label>
             </div>
+
+            <!-- Submit Button -->
+            <button class="btn-checkout" id="btnCheckout" disabled>
+                <i class="ti ti-lock"></i>
+                <span>Proceder al pago seguro</span>
+            </button>
         </div>
 
-        <!-- Order Summary -->
-        <div class="col-lg-5">
-            <div class="order-summary">
-                <h3>
-                    <i class="fas fa-receipt me-2 text-success"></i>
-                    Resumen del Pedido
-                </h3>
-
-                <div class="plan-badge">
-                    <i class="fas fa-tractor"></i>
-                    <div class="plan-badge-info">
-                        <h4 id="planName">Cargando...</h4>
-                        <small id="billingCycle">Mensual</small>
-                    </div>
-                </div>
-
-                <div class="order-item">
-                    <span>Suscripción</span>
-                    <span id="planPrice">$0</span>
-                </div>
-                
-                <div class="order-item" id="discountRow" style="display: none;">
-                    <span class="text-success">Descuento anual (20%)</span>
-                    <span class="text-success" id="discountAmount">-$0</span>
-                </div>
-
-                <div class="order-item total">
-                    <span>Total</span>
-                    <span id="totalPrice">$0 COP</span>
-                </div>
-
-                <div class="features-summary">
-                    <h5><i class="fas fa-check-circle me-2 text-success"></i> Incluido en tu plan:</h5>
-                    <ul id="featuresList">
-                        <li><i class="fas fa-check"></i> Cargando características...</li>
-                    </ul>
-                </div>
-
-                <div class="guarantee-box">
-                    <i class="fas fa-medal"></i>
-                    <h5>Garantía de 14 días</h5>
-                    <p>Si no estás satisfecho, te devolvemos tu dinero sin preguntas.</p>
+        <!-- Order Summary Sidebar -->
+        <aside class="order-summary">
+            <h3>Resumen del Pedido</h3>
+            <div class="order-plan">
+                <div class="plan-icon"><i class="ti ti-rocket"></i></div>
+                <div class="plan-label">
+                    <h4 id="summaryPlanName">—</h4>
+                    <span id="summaryCycle">—</span>
                 </div>
             </div>
-        </div>
+            <div class="order-row">
+                <span>Plan</span>
+                <span id="summaryPlanPrice">$0</span>
+            </div>
+            <div class="order-row">
+                <span>Impuestos</span>
+                <span>Incluidos</span>
+            </div>
+            <div class="order-row total">
+                <span>Total</span>
+                <span class="order-total-price" id="summaryTotal">$0</span>
+            </div>
+            <div class="secure-badge">
+                <i class="ti ti-lock"></i> Pago 100% seguro y encriptado
+            </div>
+        </aside>
     </div>
 </div>
+{% endblock %}
 
+{% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const planTier = window.location.pathname.split('/').filter(p => p).pop();
-    const billingCycle = urlParams.get('cycle') || 'monthly';
-    
-    const checkoutBtn = document.getElementById('checkoutBtn');
-    const acceptTerms = document.getElementById('acceptTerms');
-    const payerEmail = document.getElementById('payerEmail');
-    const loadingOverlay = document.getElementById('loadingOverlay');
+    const path = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+    const tierMatch = path.match(/checkout\/([\w]+)\/?/);
+    const planTier = tierMatch ? tierMatch[1] : 'basic';
+    const billingCycle = params.get('cycle') || 'monthly';
 
-    // Enable button when terms accepted AND email valid
-    function updateButtonState() {
-        const emailValid = payerEmail.value && payerEmail.checkValidity();
-        checkoutBtn.disabled = !(acceptTerms.checked && emailValid);
+    const emailInput = document.getElementById('payerEmail');
+    const termsCheck = document.getElementById('termsCheck');
+    const btnCheckout = document.getElementById('btnCheckout');
+
+    // Enable/disable button
+    function checkValid() {
+        const emailOk = emailInput.value.includes('@') && emailInput.value.includes('.');
+        btnCheckout.disabled = !(emailOk && termsCheck.checked);
     }
-    
-    acceptTerms.addEventListener('change', updateButtonState);
-    payerEmail.addEventListener('input', updateButtonState);
+    emailInput.addEventListener('input', checkValid);
+    termsCheck.addEventListener('change', checkValid);
 
-    // Fetch plan details
-    async function fetchPlanDetails() {
+    // Load plan info
+    async function loadPlan() {
         try {
-            const response = await fetch(`/billing/api/plans/${planTier}/`);
-            if (!response.ok) throw new Error('Plan not found');
-            
-            const plan = await response.json();
-            updateOrderSummary(plan);
-        } catch (error) {
-            console.error('Error:', error);
-            alert('Error cargando el plan. Por favor intenta de nuevo.');
-            window.location.href = '/billing/planes/';
-        }
+            const r = await fetch('/billing/api/plans/');
+            const plans = await r.json();
+            const plan = plans.find(p => p.tier === planTier);
+            if (!plan) return;
+
+            const isYearly = billingCycle === 'yearly';
+            const price = isYearly ? plan.yearly_discount.yearly_price_cop : parseFloat(plan.price_cop);
+            const fmt = n => '$' + new Intl.NumberFormat('es-CO').format(n);
+
+            document.getElementById('summaryPlanName').textContent = plan.name;
+            document.getElementById('summaryCycle').textContent = isYearly ? 'Facturación anual' : 'Facturación mensual';
+            document.getElementById('summaryPlanPrice').textContent = fmt(price);
+            document.getElementById('summaryTotal').textContent = fmt(price);
+        } catch(e) { console.error('Error cargando plan', e); }
     }
 
-    function updateOrderSummary(plan) {
-        const isYearly = billingCycle === 'yearly';
-        const monthlyPrice = parseFloat(plan.price_cop);
-        const yearlyPrice = plan.yearly_discount.yearly_price_cop;
-        const savings = plan.yearly_discount.savings_cop;
-        
-        const price = isYearly ? yearlyPrice : monthlyPrice;
-        const period = isYearly ? '/año' : '/mes';
-        
-        document.getElementById('planName').textContent = plan.name;
-        document.getElementById('billingCycle').textContent = isYearly ? 'Pago Anual' : 'Pago Mensual';
-        document.getElementById('planPrice').textContent = `$${new Intl.NumberFormat('es-CO').format(monthlyPrice * (isYearly ? 12 : 1))}`;
-        
-        if (isYearly && savings > 0) {
-            document.getElementById('discountRow').style.display = 'flex';
-            document.getElementById('discountAmount').textContent = `-$${new Intl.NumberFormat('es-CO').format(savings)}`;
-        }
-        
-        document.getElementById('totalPrice').textContent = `$${new Intl.NumberFormat('es-CO').format(price)} COP${period}`;
-
-        // Features
-        const featuresList = document.getElementById('featuresList');
-        featuresList.innerHTML = `
-            <li><i class="fas fa-check"></i> ${plan.limits.hectares} hectáreas</li>
-            <li><i class="fas fa-check"></i> ${plan.limits.eosda_requests} análisis satelitales/mes</li>
-            <li><i class="fas fa-check"></i> ${plan.limits.users} usuarios</li>
-            <li><i class="fas fa-check"></i> ${plan.limits.parcels} parcelas</li>
-            <li><i class="fas fa-check"></i> 14 días de prueba gratis</li>
-        `;
-    }
-
-    // Handle checkout
-    checkoutBtn.addEventListener('click', async function() {
-        if (!acceptTerms.checked || !payerEmail.checkValidity()) return;
-        
-        this.disabled = true;
-        loadingOverlay.classList.add('active');
+    // Submit
+    btnCheckout.addEventListener('click', async function() {
+        btnCheckout.disabled = true;
+        document.getElementById('loadingOverlay').classList.add('show');
 
         try {
-            const response = await fetch('/billing/api/create-checkout/', {
+            const res = await fetch('/billing/api/create-checkout/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': getCookie('csrftoken')
+                    'X-CSRFToken': getCookie('csrftoken'),
                 },
                 body: JSON.stringify({
                     plan_tier: planTier,
                     billing_cycle: billingCycle,
-                    payer_email: payerEmail.value.trim()
+                    payer_email: emailInput.value.trim(),
                 })
             });
-
-            const data = await response.json();
-
+            const data = await res.json();
             if (data.checkout_url) {
                 window.location.href = data.checkout_url;
-            } else if (data.error) {
-                throw new Error(data.error);
+            } else {
+                throw new Error(data.error || 'Error al crear el checkout');
             }
-        } catch (error) {
-            console.error('Error:', error);
-            loadingOverlay.classList.remove('active');
-            this.disabled = false;
-            alert('Error al procesar. Por favor intenta de nuevo.');
+        } catch (e) {
+            document.getElementById('loadingOverlay').classList.remove('show');
+            btnCheckout.disabled = false;
+            alert('Error: ' + e.message);
         }
     });
 
     function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
+        let v = null;
+        document.cookie.split(';').forEach(c => {
+            c = c.trim();
+            if (c.startsWith(name + '=')) v = decodeURIComponent(c.substring(name.length + 1));
+        });
+        return v;
     }
 
-    fetchPlanDetails();
+    loadPlan();
 });
 </script>
-{% endblock content %}
+{% endblock %}
