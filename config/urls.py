@@ -10,7 +10,7 @@ urlpatterns = [
     # 🔹 Autenticación y Tokens JWT
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path("api/authentication/", include("authentication.urls", namespace="authentication")),
+    path("api/auth/", include("authentication.urls", namespace="authentication")),
 
     # 🔹 Administración
     path("admin/", admin.site.urls),
@@ -49,7 +49,6 @@ urlpatterns = [
     path("uikit/", include("uikit.urls", namespace="uikit")),      # Componentes UI
 
     # 🔹 Recarga en desarrollo (solo para DEBUG)
-    path("__reload__/", include("django_browser_reload.urls")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.DEBUG:

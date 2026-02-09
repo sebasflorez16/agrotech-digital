@@ -1,0 +1,238 @@
+{% extends 'billing/base_billing.html' %}
+{% load static %}
+
+{% block title %}Pago Cancelado - AgroTech Digital{% endblock %}
+
+{% block content %}
+<style>
+.cancel-container {
+    max-width: 600px;
+    margin: 4rem auto;
+    text-align: center;
+    padding: 2rem;
+}
+
+.cancel-icon {
+    width: 120px;
+    height: 120px;
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 2rem;
+}
+
+.cancel-icon i {
+    font-size: 4rem;
+    color: #fff;
+}
+
+.cancel-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #fd7e14;
+    margin-bottom: 1rem;
+}
+
+.cancel-message {
+    font-size: 1.1rem;
+    color: #6c757d;
+    margin-bottom: 2rem;
+}
+
+.help-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    margin-bottom: 2rem;
+    text-align: left;
+}
+
+.help-card h4 {
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: #1a1f26;
+}
+
+.help-option {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+}
+
+.help-option:hover {
+    border-color: #007A20;
+    background: rgba(0,122,32,0.05);
+}
+
+.help-option i {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, rgba(0,122,32,0.1), rgba(53,184,53,0.1));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    color: #007A20;
+}
+
+.help-option-content h5 {
+    margin: 0 0 0.25rem 0;
+    font-weight: 600;
+}
+
+.help-option-content p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn-retry {
+    background: linear-gradient(135deg, #007A20, #35B835);
+    border: none;
+    color: #fff;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.btn-retry:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0,122,32,0.3);
+    color: #fff;
+}
+
+.btn-explore {
+    background: transparent;
+    border: 2px solid #007A20;
+    color: #007A20;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.btn-explore:hover {
+    background: #007A20;
+    color: #fff;
+}
+
+.free-trial-banner {
+    background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+    border-radius: 16px;
+    padding: 1.5rem 2rem;
+    margin-top: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.free-trial-banner i {
+    font-size: 2.5rem;
+    color: #007A20;
+}
+
+.free-trial-banner-content {
+    text-align: left;
+}
+
+.free-trial-banner-content h5 {
+    margin: 0 0 0.25rem 0;
+    font-weight: 600;
+}
+
+.free-trial-banner-content p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+</style>
+
+<div class="cancel-container">
+    <div class="cancel-icon">
+        <i class="fas fa-times"></i>
+    </div>
+    
+    <h1 class="cancel-title">Pago Cancelado</h1>
+    <p class="cancel-message">
+        No te preocupes, no se ha realizado ningún cargo. 
+        Tu proceso de pago ha sido cancelado.
+    </p>
+    
+    <div class="help-card">
+        <h4><i class="fas fa-question-circle me-2 text-success"></i> ¿Necesitas ayuda?</h4>
+        
+        <a href="/billing/planes/" class="help-option">
+            <i class="fas fa-sync-alt"></i>
+            <div class="help-option-content">
+                <h5>Cambiar de Plan</h5>
+                <p>Explora otros planes que se ajusten a tu presupuesto</p>
+            </div>
+        </a>
+        
+        <a href="#" class="help-option">
+            <i class="fas fa-comments"></i>
+            <div class="help-option-content">
+                <h5>Contactar Soporte</h5>
+                <p>Estamos aquí para ayudarte con cualquier duda</p>
+            </div>
+        </a>
+        
+        <a href="#" class="help-option">
+            <i class="fas fa-book"></i>
+            <div class="help-option-content">
+                <h5>Ver Documentación</h5>
+                <p>Conoce más sobre nuestras funcionalidades</p>
+            </div>
+        </a>
+    </div>
+    
+    <div class="action-buttons">
+        <a href="/billing/planes/" class="btn-retry">
+            <i class="fas fa-redo"></i>
+            Intentar de Nuevo
+        </a>
+        <a href="/app/parcelas/" class="btn-explore">
+            <i class="fas fa-home"></i>
+            Ir al Dashboard
+        </a>
+    </div>
+    
+    <div class="free-trial-banner">
+        <i class="fas fa-gift"></i>
+        <div class="free-trial-banner-content">
+            <h5>¿Sabías que tienes 14 días de prueba gratis?</h5>
+            <p>Prueba todas las funcionalidades sin compromiso. Cancela cuando quieras.</p>
+        </div>
+    </div>
+</div>
+{% endblock content %}

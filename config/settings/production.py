@@ -61,6 +61,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",  
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "billing.middleware.SubscriptionLimitMiddleware",  # Verificar suscripción activa
     "allauth.account.middleware.AccountMiddleware",  # Requerido por django-allauth
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.common.BrokenLinkEmailsMiddleware",
@@ -143,6 +144,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://agrotech-digital-production.up.railway.app",
     "https://*.agrotechcolombia.com",  # Para subdominios de clientes
     "https://*.railway.app",
+    "https://agrotechcolombia.netlify.app",  # Frontend Netlify empresa
+    "https://frontend-cliente-agrotech.netlify.app",  # Frontend Netlify cliente
 ]
 
 # Cookie settings for multi-tenant
@@ -167,6 +170,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://agrotechcolombia.com", 
     "https://agrotech-digital-production.up.railway.app",
     "https://agrotechcolombia.netlify.app",  # ✅ Frontend en Netlify
+    "https://frontend-cliente-agrotech.netlify.app",  # ✅ Frontend landing
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -192,6 +196,9 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://[\w\-]+\.agrotechcolombia\.com$",  # Subdominios de clientes
     r"^https://[\w\-]+\.railway\.app$",  # Cualquier subdominio de Railway
 ]
+
+# URL del sitio para callbacks de pagos (MercadoPago back_url)
+SITE_URL = env('SITE_URL', default='https://agrotech-digital-production.up.railway.app')
 
 # Redirigir al frontend estático después del login
 LOGIN_REDIRECT_URL = "https://agrotechcolombia.netlify.app/templates/vertical_base.html"
@@ -219,6 +226,9 @@ DEFAULT_FROM_EMAIL = env(
 )
 SERVER_EMAIL = env("SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
 EMAIL_SUBJECT_PREFIX = env("EMAIL_SUBJECT_PREFIX", default="[AgroTech] ")
+
+# Verificación de email obligatoria en producción
+ACCOUNT_EMAIL_VERIFICATION = "mandatory"
 
 # Admin notification emails
 ADMINS = [

@@ -1,0 +1,645 @@
+{% extends 'billing/base_billing.html' %}
+{% load static %}
+
+{% block title %}Planes y Precios - AgroTech Digital{% endblock %}
+
+{% block nav_planes_active %}active{% endblock %}
+
+{% block content %}
+<style>
+/* ===== PRICING STYLES ===== */
+.pricing-header {
+    background: linear-gradient(135deg, #007A20 0%, #35B835 50%, #2d8f2d 100%);
+    padding: 3rem 0;
+    margin: -1.5rem -1.5rem 2rem -1.5rem;
+    border-radius: 0;
+}
+
+.pricing-title {
+    color: #fff;
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.pricing-subtitle {
+    color: rgba(255,255,255,0.9);
+    font-size: 1.1rem;
+}
+
+/* Toggle Mensual/Anual */
+.billing-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin: 2rem 0;
+}
+
+.billing-toggle span {
+    font-weight: 500;
+    color: #6c757d;
+    transition: all 0.3s ease;
+}
+
+.billing-toggle span.active {
+    color: #007A20;
+    font-weight: 600;
+}
+
+.toggle-switch {
+    position: relative;
+    width: 60px;
+    height: 30px;
+    background: #e9ecef;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.toggle-switch.active {
+    background: #007A20;
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 24px;
+    height: 24px;
+    background: #fff;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.toggle-switch.active::after {
+    left: 33px;
+}
+
+.save-badge {
+    background: #E85C2B;
+    color: #fff;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Pricing Cards */
+.pricing-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 2rem;
+    height: 100%;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+    position: relative;
+    overflow: hidden;
+}
+
+.pricing-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 60px rgba(0,122,32,0.15);
+}
+
+.pricing-card.featured {
+    border-color: #007A20;
+    transform: scale(1.05);
+}
+
+.pricing-card.featured:hover {
+    transform: scale(1.05) translateY(-10px);
+}
+
+.popular-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background: linear-gradient(135deg, #E85C2B, #ff7b4d);
+    color: #fff;
+    padding: 0.5rem 1.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    border-radius: 0 20px 0 20px;
+}
+
+.plan-icon {
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(135deg, rgba(0,122,32,0.1), rgba(53,184,53,0.1));
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.plan-icon i {
+    font-size: 2rem;
+    color: #007A20;
+}
+
+.plan-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1a1f26;
+    margin-bottom: 0.5rem;
+}
+
+.plan-description {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+}
+
+.plan-price {
+    margin-bottom: 1.5rem;
+}
+
+.price-amount {
+    font-size: 3rem;
+    font-weight: 800;
+    color: #007A20;
+    line-height: 1;
+}
+
+.price-currency {
+    font-size: 1.5rem;
+    font-weight: 600;
+    vertical-align: top;
+}
+
+.price-period {
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.price-yearly {
+    display: none;
+}
+
+.yearly-active .price-monthly {
+    display: none;
+}
+
+.yearly-active .price-yearly {
+    display: block;
+}
+
+/* Features List */
+.features-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 2rem 0;
+}
+
+.features-list li {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f1f3f5;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.features-list li:last-child {
+    border-bottom: none;
+}
+
+.features-list li i {
+    font-size: 1.1rem;
+}
+
+.features-list li i.fa-check-circle {
+    color: #35B835;
+}
+
+.features-list li i.fa-times-circle {
+    color: #dc3545;
+}
+
+.features-list li.disabled {
+    color: #adb5bd;
+    text-decoration: line-through;
+}
+
+/* Limit badges */
+.limit-badge {
+    background: #f8f9fa;
+    padding: 0.25rem 0.5rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #495057;
+    margin-left: auto;
+}
+
+/* CTA Button */
+.btn-plan {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.btn-plan-primary {
+    background: linear-gradient(135deg, #007A20, #35B835);
+    border: none;
+    color: #fff;
+}
+
+.btn-plan-primary:hover {
+    background: linear-gradient(135deg, #006018, #2d8f2d);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0,122,32,0.3);
+    color: #fff;
+}
+
+.btn-plan-outline {
+    background: transparent;
+    border: 2px solid #007A20;
+    color: #007A20;
+}
+
+.btn-plan-outline:hover {
+    background: #007A20;
+    color: #fff;
+}
+
+/* Current Plan Badge */
+.current-plan-badge {
+    background: #e8f5e9;
+    color: #007A20;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-weight: 600;
+    display: inline-block;
+    margin-bottom: 1rem;
+}
+
+/* Comparison Table */
+.comparison-section {
+    margin-top: 4rem;
+    padding-top: 3rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.comparison-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.comparison-table th,
+.comparison-table td {
+    padding: 1rem;
+    text-align: center;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.comparison-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+}
+
+.comparison-table td:first-child {
+    text-align: left;
+    font-weight: 500;
+}
+
+.comparison-table .fa-check {
+    color: #35B835;
+    font-size: 1.2rem;
+}
+
+.comparison-table .fa-times {
+    color: #dc3545;
+    font-size: 1.2rem;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .pricing-card.featured {
+        transform: scale(1);
+    }
+    
+    .pricing-card.featured:hover {
+        transform: translateY(-10px);
+    }
+}
+
+/* Dark mode support */
+[data-bs-theme="dark"] .pricing-card {
+    background: #1a1f26;
+    border-color: #2d3540;
+}
+
+[data-bs-theme="dark"] .plan-name {
+    color: #fff;
+}
+
+[data-bs-theme="dark"] .features-list li {
+    border-bottom-color: #2d3540;
+}
+</style>
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="pricing-header text-center">
+        <h1 class="pricing-title">
+            <i class="fas fa-seedling me-2"></i>
+            Planes para tu Agronegocio
+        </h1>
+        <p class="pricing-subtitle">
+            Elige el plan perfecto para gestionar tus parcelas con tecnología satelital
+        </p>
+    </div>
+
+    <!-- Billing Toggle -->
+    <div class="billing-toggle">
+        <span class="toggle-monthly active">Mensual</span>
+        <div class="toggle-switch" id="billingToggle"></div>
+        <span class="toggle-yearly">Anual</span>
+        <span class="save-badge">Ahorra 20%</span>
+    </div>
+
+    <!-- Pricing Cards -->
+    <div class="row g-4 justify-content-center" id="pricingCards">
+        <!-- Loading state -->
+        <div class="col-12 text-center py-5">
+            <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Cargando planes...</span>
+            </div>
+            <p class="mt-3 text-muted">Cargando planes disponibles...</p>
+        </div>
+    </div>
+
+    <!-- Features Comparison -->
+    <div class="comparison-section">
+        <h3 class="text-center mb-4">
+            <i class="fas fa-balance-scale me-2 text-success"></i>
+            Comparación de Características
+        </h3>
+        
+        <div class="table-responsive">
+            <table class="comparison-table">
+                <thead>
+                    <tr>
+                        <th>Característica</th>
+                        <th>Explorador</th>
+                        <th>Agricultor</th>
+                        <th>Empresarial</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><i class="fas fa-map-marked-alt me-2 text-success"></i> Límite de Hectáreas</td>
+                        <td>50 ha</td>
+                        <td>300 ha</td>
+                        <td>1,000 ha</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-satellite me-2 text-success"></i> Análisis Satelitales/mes</td>
+                        <td>10</td>
+                        <td>100</td>
+                        <td>500</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-users me-2 text-success"></i> Usuarios</td>
+                        <td>1</td>
+                        <td>3</td>
+                        <td>10</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-th-large me-2 text-success"></i> Parcelas</td>
+                        <td>3</td>
+                        <td>10</td>
+                        <td>50</td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-chart-line me-2 text-success"></i> Análisis Básico (NDVI)</td>
+                        <td><i class="fas fa-check"></i></td>
+                        <td><i class="fas fa-check"></i></td>
+                        <td><i class="fas fa-check"></i></td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-tint me-2 text-success"></i> Análisis de Estrés Hídrico</td>
+                        <td><i class="fas fa-times"></i></td>
+                        <td><i class="fas fa-check"></i></td>
+                        <td><i class="fas fa-check"></i></td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-cloud-sun me-2 text-success"></i> Pronóstico Climático</td>
+                        <td><i class="fas fa-times"></i></td>
+                        <td><i class="fas fa-check"></i></td>
+                        <td><i class="fas fa-check"></i></td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-code me-2 text-success"></i> Acceso API</td>
+                        <td><i class="fas fa-times"></i></td>
+                        <td><i class="fas fa-times"></i></td>
+                        <td><i class="fas fa-check"></i></td>
+                    </tr>
+                    <tr>
+                        <td><i class="fas fa-headset me-2 text-success"></i> Soporte Prioritario</td>
+                        <td><i class="fas fa-times"></i></td>
+                        <td><i class="fas fa-check"></i></td>
+                        <td><i class="fas fa-check"></i></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- FAQ Section -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <h3 class="text-center mb-4">
+                <i class="fas fa-question-circle me-2 text-success"></i>
+                Preguntas Frecuentes
+            </h3>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="fw-bold"><i class="fas fa-credit-card me-2 text-success"></i> ¿Qué métodos de pago aceptan?</h6>
+                    <p class="text-muted mb-0">Aceptamos tarjetas de crédito/débito, PSE y otros métodos locales a través de MercadoPago para Colombia.</p>
+                </div>
+            </div>
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="fw-bold"><i class="fas fa-sync me-2 text-success"></i> ¿Puedo cambiar de plan?</h6>
+                    <p class="text-muted mb-0">Sí, puedes mejorar tu plan en cualquier momento. El cambio se aplica inmediatamente.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="fw-bold"><i class="fas fa-undo me-2 text-success"></i> ¿Puedo cancelar en cualquier momento?</h6>
+                    <p class="text-muted mb-0">Sí, puedes cancelar tu suscripción cuando quieras. No hay contratos ni compromisos.</p>
+                </div>
+            </div>
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h6 class="fw-bold"><i class="fas fa-gift me-2 text-success"></i> ¿Hay período de prueba?</h6>
+                    <p class="text-muted mb-0">Todos los planes pagos incluyen 14 días de prueba gratis. Cancela antes si no estás satisfecho.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggle = document.getElementById('billingToggle');
+    const monthlyLabel = document.querySelector('.toggle-monthly');
+    const yearlyLabel = document.querySelector('.toggle-yearly');
+    const cardsContainer = document.getElementById('pricingCards');
+    let isYearly = false;
+    let plansData = [];
+
+    // Toggle billing cycle
+    toggle.addEventListener('click', function() {
+        isYearly = !isYearly;
+        this.classList.toggle('active', isYearly);
+        monthlyLabel.classList.toggle('active', !isYearly);
+        yearlyLabel.classList.toggle('active', isYearly);
+        renderPricingCards();
+    });
+
+    // Fetch plans from API
+    async function fetchPlans() {
+        try {
+            const response = await fetch('/billing/api/plans/');
+            plansData = await response.json();
+            renderPricingCards();
+        } catch (error) {
+            console.error('Error fetching plans:', error);
+            cardsContainer.innerHTML = `
+                <div class="col-12 text-center py-5">
+                    <i class="fas fa-exclamation-triangle text-warning fa-3x mb-3"></i>
+                    <p class="text-muted">Error cargando planes. Por favor recarga la página.</p>
+                </div>
+            `;
+        }
+    }
+
+    // Render pricing cards
+    function renderPricingCards() {
+        const iconMap = {
+            'free': 'fa-leaf',
+            'basic': 'fa-tractor',
+            'pro': 'fa-building'
+        };
+
+        let html = '';
+        
+        plansData.forEach((plan, index) => {
+            const isFeatured = plan.tier === 'basic';
+            const price = isYearly ? plan.yearly_discount.yearly_price_cop : parseFloat(plan.price_cop);
+            const priceFormatted = new Intl.NumberFormat('es-CO').format(price);
+            const period = isYearly ? '/año' : '/mes';
+            const savings = isYearly && plan.yearly_discount.savings_cop > 0 
+                ? `<span class="text-success small">Ahorras $${new Intl.NumberFormat('es-CO').format(plan.yearly_discount.savings_cop)}</span>` 
+                : '';
+
+            html += `
+                <div class="col-lg-4 col-md-6">
+                    <div class="pricing-card ${isFeatured ? 'featured' : ''}">
+                        ${isFeatured ? '<div class="popular-badge">Más Popular</div>' : ''}
+                        
+                        <div class="plan-icon">
+                            <i class="fas ${iconMap[plan.tier] || 'fa-star'}"></i>
+                        </div>
+                        
+                        <h3 class="plan-name">${plan.name}</h3>
+                        <p class="plan-description">${plan.description}</p>
+                        
+                        <div class="plan-price">
+                            ${plan.tier === 'free' ? `
+                                <span class="price-amount">Gratis</span>
+                            ` : `
+                                <span class="price-currency">$</span>
+                                <span class="price-amount">${priceFormatted}</span>
+                                <span class="price-period">${period}</span>
+                                <br>${savings}
+                            `}
+                        </div>
+                        
+                        <ul class="features-list">
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                Hasta ${plan.limits.hectares} hectáreas
+                                <span class="limit-badge">${plan.limits.hectares} ha</span>
+                            </li>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                ${plan.limits.eosda_requests} análisis satelitales/mes
+                                <span class="limit-badge">${plan.limits.eosda_requests}</span>
+                            </li>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                ${plan.limits.users} usuario${plan.limits.users > 1 ? 's' : ''}
+                            </li>
+                            <li>
+                                <i class="fas fa-check-circle"></i>
+                                ${plan.limits.parcels} parcela${plan.limits.parcels > 1 ? 's' : ''}
+                            </li>
+                            ${plan.features_included.map(f => `
+                                <li>
+                                    <i class="fas fa-check-circle"></i>
+                                    ${formatFeature(f)}
+                                </li>
+                            `).join('')}
+                            ${plan.features_excluded.map(f => `
+                                <li class="disabled">
+                                    <i class="fas fa-times-circle"></i>
+                                    ${formatFeature(f)}
+                                </li>
+                            `).join('')}
+                        </ul>
+                        
+                        ${plan.tier === 'free' ? `
+                            <button class="btn btn-plan btn-plan-outline" disabled>
+                                Plan Actual
+                            </button>
+                        ` : `
+                            <button class="btn btn-plan btn-plan-primary" onclick="selectPlan('${plan.tier}', ${isYearly})">
+                                <i class="fas fa-rocket me-2"></i>
+                                Comenzar Ahora
+                            </button>
+                        `}
+                    </div>
+                </div>
+            `;
+        });
+
+        cardsContainer.innerHTML = html;
+    }
+
+    function formatFeature(feature) {
+        const featureMap = {
+            'basic_analytics': 'Análisis básico (NDVI)',
+            'advanced_analytics': 'Análisis avanzado',
+            'weather_forecast': 'Pronóstico climático',
+            'api_access': 'Acceso a API'
+        };
+        return featureMap[feature] || feature;
+    }
+
+    // Select plan and go to checkout
+    window.selectPlan = function(tier, yearly) {
+        const billingCycle = yearly ? 'yearly' : 'monthly';
+        window.location.href = `/billing/checkout/${tier}/?cycle=${billingCycle}`;
+    };
+
+    // Initialize
+    fetchPlans();
+});
+</script>
+{% endblock content %}

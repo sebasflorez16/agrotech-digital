@@ -59,11 +59,11 @@ LOCALE_PATHS = [str(ROOT_DIR / "locale")]
 DATABASES = {
     'default': {
         'ENGINE': 'django_tenants.postgresql_backend',
-        'NAME': "agrotech",
-        'USER': "postgres",
-        'PASSWORD': "guibsonsid.16",
-        'HOST': "localhost",
-        'PORT': "5432",
+        'NAME': env('DB_NAME', default='agrotech'),
+        'USER': env('DB_USER', default='postgres'),
+        'PASSWORD': env('DB_PASSWORD', default=''),
+        'HOST': env('DB_HOST', default='localhost'),
+        'PORT': env('DB_PORT', default='5432'),
         'ATOMIC_REQUESTS': True,
     }
 }
@@ -131,7 +131,6 @@ SHARED_APPS = [
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
-    "django_browser_reload",
     # "leaflet",  # Deshabilitado para evitar dependencias GIS
     
     # Tus aplicaciones locales que deben ser accesibles por todos los tenants
@@ -174,6 +173,7 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https://agrotechcolombia\\.com$",  # Backend en Railway
     r"^https://site-production-208b.up.railway.app$",  # Backend en Railway (sin / al final)
     r"^https://agrotechcolombia.netlify.app$",  # Frontend estático en Netlify
+    r"^https://frontend-cliente-agrotech\.netlify\.app$",  # Frontend landing en Netlify
 ]
 
 # NOTA: No se usa CORS_ALLOW_ALL_ORIGINS=True para evitar riesgos de seguridad y exposición del API key de EOSDA.
@@ -185,7 +185,7 @@ ACCOUNT_LOGOUT_REDIRECT_URL = "/authentication/login/"  # Redirige al login desp
 
 # Configuraciones adicionales (opcional)
 #ACCOUNT_EMAIL_REQUIRED = True
-ACCOUNT_EMAIL_VERIFICATION = "none"  # Verificación obligatoria se pondra none para el desarrollo
+ACCOUNT_EMAIL_VERIFICATION = "optional"  # 'optional' para desarrollo, 'mandatory' en producción
 #ACCOUNT_AUTHENTICATED_LOGIN_REDIRECTS = True  # Redirigir después del login
 
 # django-tenants settings
@@ -255,7 +255,6 @@ MIDDLEWARE = [
     "django.middleware.common.BrokenLinkEmailsMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "allauth.account.middleware.AccountMiddleware",
-    "django_browser_reload.middleware.BrowserReloadMiddleware",
 ]
 
 
@@ -393,18 +392,27 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '30/minute',
+        'user': '120/minute',
+    },
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=160),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 
-MIDDLEWARE.insert(1, "django.middleware.common.CommonMiddleware")
+# Middleware de suscripción se inserta dinámicamente
+# (se activa en production.py)
 
 
 # LOGGING para mostrar todos los logs en consola

@@ -18,6 +18,13 @@ ALLOWED_HOSTS = ["*"]
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
+# CSRF - Trust ngrok domain for development
+CSRF_TRUSTED_ORIGINS = [
+    "https://unmellifluous-benton-emotional.ngrok-free.dev",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+
 # CACHES
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#caches
@@ -43,6 +50,15 @@ INTERNAL_IPS = ["127.0.0.1", "10.0.2.2"]
 # ------------------------------------------------------------------------------
 # https://django-extensions.readthedocs.io/en/latest/installation_instructions.html#configuration
 INSTALLED_APPS += ["django_extensions"]  # noqa F405
+
+# django-browser-reload (deshabilitado temporalmente)
+# ------------------------------------------------------------------------------
+# try:
+#     import django_browser_reload  # noqa F401
+#     INSTALLED_APPS += ["django_browser_reload"]  # noqa F405
+#     MIDDLEWARE += ["django_browser_reload.middleware.BrowserReloadMiddleware"]  # noqa F405
+# except ImportError:
+#     pass
 
 # GDAL Configuration for macOS (Homebrew)
 # ------------------------------------------------------------------------------

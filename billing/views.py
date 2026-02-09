@@ -8,6 +8,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.utils import timezone
 from django.db.models import Sum
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 from datetime import timedelta
 from .models import Plan, Subscription, Invoice, UsageMetrics, BillingEvent
 from .gateways import PaymentGatewayFactory, get_gateway_for_user
@@ -15,6 +21,8 @@ from .serializers import (
     PlanSerializer, SubscriptionSerializer, InvoiceSerializer,
     UsageMetricsSerializer, CreateSubscriptionSerializer
 )
+import mercadopago
+import json
 import logging
 
 logger = logging.getLogger(__name__)
@@ -826,3 +834,297 @@ def current_invoice_preview(request):
             ]
         }
     })
+
+
+# ==========================================
+# CHECKOUT SUCCESS/CANCEL VIEWS
+# ==========================================
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def checkout_success_view(request):
+    """
+    Página de éxito después de completar el checkout.
+    
+    GET /billing/success/?session_id=xxx
+    
+    Esta página se muestra después de que el usuario completa el pago
+    en MercadoPago o Paddle. Los webhooks actualizarán la suscripción.
+    """
+    session_id = request.GET.get('session_id')
+    collection_id = request.GET.get('collection_id')  # MercadoPago
+    external_reference = request.GET.get('external_reference')  # MercadoPago
+    
+    logger.info(f"Checkout success: session={session_id}, collection={collection_id}, ref={external_reference}")
+    
+    return Response({
+        'status': 'success',
+        'message': '¡Pago procesado exitosamente!',
+        'details': {
+            'title': 'Bienvenido a AgroTech Digital',
+            'description': 'Tu suscripción está siendo activada. En unos segundos tendrás acceso a todas las funcionalidades.',
+            'next_steps': [
+                'Revisa tu correo electrónico para la confirmación',
+                'Tu suscripción estará activa en menos de 1 minuto',
+                'Accede al dashboard para comenzar a usar la plataforma'
+            ]
+        },
+        'redirect_url': '/dashboard/',
+        'check_status_url': '/billing/api/status/'
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def checkout_cancel_view(request):
+    """
+    Página de cancelación de checkout.
+    
+    GET /billing/cancel/
+    
+    Se muestra cuando el usuario cancela el proceso de pago.
+    """
+    reason = request.GET.get('reason', 'user_cancelled')
+    
+    return Response({
+        'status': 'cancelled',
+        'message': 'Proceso de pago cancelado',
+        'reason': reason,
+        'details': {
+            'title': 'Pago no completado',
+            'description': 'Has cancelado el proceso de pago. No se realizó ningún cargo.',
+            'options': [
+                'Puedes intentar nuevamente cuando quieras',
+                'Tu plan actual permanece sin cambios',
+                'Contacta soporte si tuviste algún problema'
+            ]
+        },
+        'retry_url': '/pricing/',
+        'support_url': '/support/'
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def subscription_status_view(request):
+    """
+    Estado actual de la suscripción para polling desde el frontend.
+    
+    GET /billing/api/status/
+    
+    El frontend puede llamar a este endpoint periódicamente para verificar
+    si la suscripción se activó después del checkout.
+    """
+    tenant = getattr(request, 'tenant', None)
+    
+    if not tenant:
+        return Response({
+            'error': 'No tenant found'
+        }, status=400)
+    
+    try:
+        subscription = tenant.subscription
+        
+        # Obtener métricas actuales
+        metrics = UsageMetrics.get_or_create_current(tenant)
+        
+        return Response({
+            'has_subscription': True,
+            'status': subscription.status,
+            'is_active': subscription.status in ['active', 'trialing'],
+            'plan': {
+                'name': subscription.plan.name,
+                'tier': subscription.plan.tier,
+                'price_cop': float(subscription.plan.price_cop),
+                'price_usd': float(subscription.plan.price_usd)
+            },
+            'billing_cycle': subscription.billing_cycle,
+            'current_period': {
+                'start': subscription.current_period_start.isoformat() if subscription.current_period_start else None,
+                'end': subscription.current_period_end.isoformat() if subscription.current_period_end else None,
+                'days_remaining': subscription.days_until_renewal()
+            },
+            'trial': {
+                'is_trial': subscription.status == 'trialing',
+                'trial_end': subscription.trial_end.isoformat() if subscription.trial_end else None,
+                'is_expired': subscription.is_trial_expired()
+            },
+            'limits': {
+                'hectares': {
+                    'used': round(metrics.hectares_used, 2),
+                    'limit': subscription.plan.get_limit('hectares'),
+                    'percentage': round((metrics.hectares_used / max(subscription.plan.get_limit('hectares') or 1, 1)) * 100, 1)
+                },
+                'eosda_requests': {
+                    'used': metrics.eosda_requests,
+                    'limit': subscription.plan.get_limit('eosda_requests'),
+                    'percentage': round((metrics.eosda_requests / max(subscription.plan.get_limit('eosda_requests') or 1, 1)) * 100, 1)
+                },
+                'users': {
+                    'used': metrics.users_count,
+                    'limit': subscription.plan.get_limit('users'),
+                    'percentage': round((metrics.users_count / max(subscription.plan.get_limit('users') or 1, 1)) * 100, 1)
+                },
+                'parcels': {
+                    'used': metrics.parcels_count,
+                    'limit': subscription.plan.get_limit('parcels'),
+                    'percentage': round((metrics.parcels_count / max(subscription.plan.get_limit('parcels') or 1, 1)) * 100, 1)
+                }
+            },
+            'payment_gateway': subscription.payment_gateway,
+            'auto_renew': subscription.auto_renew,
+            'cancel_at_period_end': subscription.cancel_at_period_end
+        })
+    
+    except Subscription.DoesNotExist:
+        return Response({
+            'has_subscription': False,
+            'status': 'none',
+            'is_active': False,
+            'message': 'No tienes una suscripción activa',
+            'upgrade_url': '/pricing/'
+        })
+
+
+# =============================================================================
+# VISTAS DE PÁGINAS HTML
+# =============================================================================
+
+def pricing_page_view(request):
+    """
+    Página de planes y precios.
+    
+    GET /billing/planes/
+    """
+    return render(request, 'billing/pricing.html')
+
+
+def checkout_page_view(request, plan_tier):
+    """
+    Página de checkout para un plan específico.
+    
+    GET /billing/checkout/<plan_tier>/
+    """
+    plan = get_object_or_404(Plan, tier=plan_tier, is_active=True)
+    billing_cycle = request.GET.get('cycle', 'monthly')
+    
+    return render(request, 'billing/checkout.html', {
+        'plan': plan,
+        'billing_cycle': billing_cycle
+    })
+
+
+def success_page_view(request):
+    """
+    Página de éxito después del pago.
+    
+    GET /billing/success/
+    """
+    return render(request, 'billing/success.html')
+
+
+def cancel_page_view(request):
+    """
+    Página de cancelación de pago.
+    
+    GET /billing/cancel/
+    """
+    return render(request, 'billing/cancel.html')
+
+
+@login_required
+def subscription_page_view(request):
+    """
+    Dashboard de suscripción del usuario.
+    
+    GET /billing/mi-suscripcion/
+    """
+    return render(request, 'billing/subscription.html')
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def create_checkout_view(request):
+    """
+    Crear sesión de checkout y redirigir a MercadoPago.
+    
+    POST /billing/api/create-checkout/
+    Body: {"plan_tier": "basic", "billing_cycle": "monthly"}
+    """
+    try:
+        data = json.loads(request.body)
+        plan_tier = data.get('plan_tier')
+        billing_cycle = data.get('billing_cycle', 'monthly')
+        
+        if not plan_tier:
+            return JsonResponse({'error': 'plan_tier is required'}, status=400)
+        
+        # Obtener el plan
+        try:
+            plan = Plan.objects.get(tier=plan_tier, is_active=True)
+        except Plan.DoesNotExist:
+            return JsonResponse({'error': 'Plan no encontrado'}, status=404)
+        
+        # Calcular precio
+        if billing_cycle == 'yearly':
+            price = float(plan.price_cop) * 12 * 0.8  # 20% descuento
+            frequency = 12
+            frequency_type = 'months'
+        else:
+            price = float(plan.price_cop)
+            frequency = 1
+            frequency_type = 'months'
+        
+        # Obtener email del payer
+        payer_email = data.get('payer_email', '')
+        if not payer_email and request.user.is_authenticated:
+            payer_email = request.user.email
+        if not payer_email:
+            return JsonResponse({'error': 'Se requiere un email para continuar'}, status=400)
+        
+        # Crear suscripción en MercadoPago
+        sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
+        
+        # URL base para callbacks (Railway en prod, ngrok en dev)
+        site_url = getattr(settings, 'SITE_URL', 'https://agrotech-digital-production.up.railway.app')
+        # MercadoPago requiere URL pública (no localhost)
+        if 'localhost' in site_url or '127.0.0.1' in site_url:
+            site_url = 'https://agrotech-digital-production.up.railway.app'
+        
+        preapproval_data = {
+            'reason': f'AgroTech Digital - {plan.name}',
+            'auto_recurring': {
+                'frequency': frequency,
+                'frequency_type': frequency_type,
+                'transaction_amount': int(price),
+                'currency_id': 'COP'
+            },
+            'back_url': f'{site_url}/billing/success/',
+            'payer_email': payer_email,
+            'external_reference': f'plan_{plan_tier}_{billing_cycle}'
+        }
+        
+        result = sdk.preapproval().create(preapproval_data)
+        
+        if result['status'] == 201:
+            checkout_url = result['response'].get('init_point')
+            preapproval_id = result['response'].get('id')
+            
+            logger.info(f"Checkout creado: {preapproval_id} para plan {plan_tier}")
+            
+            return JsonResponse({
+                'success': True,
+                'checkout_url': checkout_url,
+                'preapproval_id': preapproval_id
+            })
+        else:
+            logger.error(f"Error creando checkout: {result}")
+            return JsonResponse({
+                'error': result.get('response', {}).get('message', 'Error creando checkout')
+            }, status=400)
+            
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        logger.exception(f"Error en create_checkout: {e}")
+        return JsonResponse({'error': str(e)}, status=500)

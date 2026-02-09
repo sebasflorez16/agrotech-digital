@@ -1,0 +1,663 @@
+{% extends 'billing/base_billing.html' %}
+{% load static %}
+
+{% block title %}Mi Suscripción - AgroTech Digital{% endblock %}
+
+{% block content %}
+<style>
+.subscription-header {
+    background: linear-gradient(135deg, #007A20 0%, #35B835 50%, #2d8f2d 100%);
+    padding: 2rem;
+    border-radius: 20px;
+    color: #fff;
+    margin-bottom: 2rem;
+}
+
+.subscription-header h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+
+.plan-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.plan-status-badge.active {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+}
+
+.plan-status-badge.trial {
+    background: #ffc107;
+    color: #000;
+}
+
+.plan-status-badge.cancelled {
+    background: #dc3545;
+    color: #fff;
+}
+
+/* Cards */
+.subscription-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    height: 100%;
+}
+
+.subscription-card h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.subscription-card h3 i {
+    color: #007A20;
+}
+
+/* Usage Stats */
+.usage-stat {
+    margin-bottom: 1.5rem;
+}
+
+.usage-stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.usage-stat-label {
+    font-weight: 500;
+    color: #495057;
+}
+
+.usage-stat-value {
+    font-weight: 600;
+    color: #1a1f26;
+}
+
+.progress {
+    height: 10px;
+    border-radius: 5px;
+    background: #e9ecef;
+}
+
+.progress-bar {
+    border-radius: 5px;
+    transition: width 0.5s ease;
+}
+
+.progress-bar.low {
+    background: linear-gradient(135deg, #35B835, #007A20);
+}
+
+.progress-bar.medium {
+    background: linear-gradient(135deg, #ffc107, #fd7e14);
+}
+
+.progress-bar.high {
+    background: linear-gradient(135deg, #dc3545, #b02a37);
+}
+
+/* Plan Details */
+.plan-detail-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f1f3f5;
+}
+
+.plan-detail-item:last-child {
+    border-bottom: none;
+}
+
+.plan-detail-icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, rgba(0,122,32,0.1), rgba(53,184,53,0.1));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 1rem;
+}
+
+.plan-detail-icon i {
+    color: #007A20;
+}
+
+.plan-detail-content {
+    flex: 1;
+}
+
+.plan-detail-content h5 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.plan-detail-content span {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+/* Invoice List */
+.invoice-item {
+    display: flex;
+    align-items: center;
+    padding: 1rem;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    margin-bottom: 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.invoice-item:hover {
+    border-color: #007A20;
+    background: rgba(0,122,32,0.02);
+}
+
+.invoice-date {
+    flex: 1;
+}
+
+.invoice-date h5 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.invoice-date span {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.invoice-amount {
+    font-weight: 700;
+    color: #007A20;
+    margin-right: 1rem;
+}
+
+.invoice-status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.invoice-status.paid {
+    background: #e8f5e9;
+    color: #007A20;
+}
+
+.invoice-status.pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+/* Actions */
+.action-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    background: #fff;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    color: inherit;
+    width: 100%;
+    margin-bottom: 0.75rem;
+}
+
+.action-btn:hover {
+    border-color: #007A20;
+    background: rgba(0,122,32,0.02);
+}
+
+.action-btn i {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, rgba(0,122,32,0.1), rgba(53,184,53,0.1));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #007A20;
+}
+
+.action-btn span {
+    font-weight: 600;
+}
+
+.action-btn.danger {
+    border-color: #dc3545;
+}
+
+.action-btn.danger i {
+    background: rgba(220,53,69,0.1);
+    color: #dc3545;
+}
+
+.action-btn.danger:hover {
+    background: rgba(220,53,69,0.05);
+}
+
+/* Renewal Alert */
+.renewal-alert {
+    background: linear-gradient(135deg, #fff3cd, #ffeeba);
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.renewal-alert i {
+    font-size: 1.5rem;
+    color: #856404;
+}
+
+.renewal-alert-content h5 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #856404;
+}
+
+.renewal-alert-content p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #856404;
+}
+
+/* Empty state */
+.no-subscription {
+    text-align: center;
+    padding: 4rem 2rem;
+}
+
+.no-subscription i {
+    font-size: 4rem;
+    color: #adb5bd;
+    margin-bottom: 1.5rem;
+}
+
+.no-subscription h3 {
+    color: #495057;
+    margin-bottom: 1rem;
+}
+
+.no-subscription p {
+    color: #6c757d;
+    margin-bottom: 2rem;
+}
+
+.btn-upgrade {
+    background: linear-gradient(135deg, #007A20, #35B835);
+    border: none;
+    color: #fff;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.btn-upgrade:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0,122,32,0.3);
+    color: #fff;
+}
+</style>
+
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="subscription-header" id="subscriptionHeader">
+        <div class="d-flex justify-content-between align-items-start flex-wrap">
+            <div>
+                <h1 id="currentPlanName">
+                    <i class="fas fa-crown me-2"></i>
+                    Cargando...
+                </h1>
+                <p class="mb-2 opacity-75" id="planDescription">Cargando información de tu suscripción...</p>
+            </div>
+            <div class="plan-status-badge active" id="statusBadge">
+                <i class="fas fa-check-circle"></i>
+                <span>Activa</span>
+            </div>
+        </div>
+        <div class="mt-3">
+            <span class="opacity-75">Próxima facturación:</span>
+            <strong id="nextBillingDate">-</strong>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Usage Stats -->
+        <div class="col-lg-8">
+            <div class="subscription-card">
+                <h3><i class="fas fa-chart-pie"></i> Uso del Plan</h3>
+                
+                <div id="usageStats">
+                    <div class="usage-stat">
+                        <div class="usage-stat-header">
+                            <span class="usage-stat-label"><i class="fas fa-map-marked-alt me-2"></i> Hectáreas</span>
+                            <span class="usage-stat-value" id="hectaresUsage">0 / 0</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar low" id="hectaresProgress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="usage-stat">
+                        <div class="usage-stat-header">
+                            <span class="usage-stat-label"><i class="fas fa-satellite me-2"></i> Análisis Satelitales</span>
+                            <span class="usage-stat-value" id="eosdaUsage">0 / 0</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar low" id="eosdaProgress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="usage-stat">
+                        <div class="usage-stat-header">
+                            <span class="usage-stat-label"><i class="fas fa-th-large me-2"></i> Parcelas</span>
+                            <span class="usage-stat-value" id="parcelsUsage">0 / 0</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar low" id="parcelsProgress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="usage-stat">
+                        <div class="usage-stat-header">
+                            <span class="usage-stat-label"><i class="fas fa-users me-2"></i> Usuarios</span>
+                            <span class="usage-stat-value" id="usersUsage">0 / 0</span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar low" id="usersProgress" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Invoices -->
+            <div class="subscription-card mt-4">
+                <h3><i class="fas fa-file-invoice"></i> Historial de Facturas</h3>
+                
+                <div id="invoicesList">
+                    <p class="text-muted text-center py-3">Cargando facturas...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Plan Details -->
+            <div class="subscription-card mb-4">
+                <h3><i class="fas fa-info-circle"></i> Detalles del Plan</h3>
+                
+                <div id="planDetails">
+                    <div class="plan-detail-item">
+                        <div class="plan-detail-icon">
+                            <i class="fas fa-tag"></i>
+                        </div>
+                        <div class="plan-detail-content">
+                            <h5>Precio</h5>
+                            <span id="planPrice">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="plan-detail-item">
+                        <div class="plan-detail-icon">
+                            <i class="fas fa-calendar-alt"></i>
+                        </div>
+                        <div class="plan-detail-content">
+                            <h5>Ciclo de Facturación</h5>
+                            <span id="billingCycle">-</span>
+                        </div>
+                    </div>
+                    
+                    <div class="plan-detail-item">
+                        <div class="plan-detail-icon">
+                            <i class="fas fa-credit-card"></i>
+                        </div>
+                        <div class="plan-detail-content">
+                            <h5>Método de Pago</h5>
+                            <span id="paymentMethod">MercadoPago</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="subscription-card">
+                <h3><i class="fas fa-cog"></i> Acciones</h3>
+                
+                <a href="/billing/planes/" class="action-btn">
+                    <i class="fas fa-arrow-up"></i>
+                    <span>Mejorar Plan</span>
+                </a>
+                
+                <a href="#" class="action-btn" id="updatePaymentBtn">
+                    <i class="fas fa-credit-card"></i>
+                    <span>Actualizar Método de Pago</span>
+                </a>
+                
+                <a href="#" class="action-btn danger" id="cancelSubscriptionBtn">
+                    <i class="fas fa-times-circle"></i>
+                    <span>Cancelar Suscripción</span>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h5 class="modal-title"><i class="fas fa-exclamation-triangle text-warning me-2"></i> Cancelar Suscripción</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>¿Estás seguro de que deseas cancelar tu suscripción?</p>
+                <ul class="text-muted">
+                    <li>Perderás acceso a las funcionalidades premium</li>
+                    <li>Tus datos se conservarán por 30 días</li>
+                    <li>Puedes reactivar en cualquier momento</li>
+                </ul>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Mantener Suscripción</button>
+                <button type="button" class="btn btn-danger" id="confirmCancelBtn">
+                    <i class="fas fa-times me-2"></i> Cancelar Suscripción
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    loadSubscriptionData();
+    
+    // Cancel subscription modal
+    document.getElementById('cancelSubscriptionBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        const modal = new bootstrap.Modal(document.getElementById('cancelModal'));
+        modal.show();
+    });
+    
+    document.getElementById('confirmCancelBtn').addEventListener('click', async function() {
+        try {
+            const response = await fetch('/billing/api/subscription/cancel_subscription/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            });
+            
+            if (response.ok) {
+                alert('Suscripción cancelada exitosamente');
+                location.reload();
+            } else {
+                throw new Error('Error cancelando suscripción');
+            }
+        } catch (error) {
+            alert('Error: ' + error.message);
+        }
+    });
+    
+    async function loadSubscriptionData() {
+        try {
+            // Load subscription status
+            const statusResponse = await fetch('/billing/api/status/');
+            if (statusResponse.ok) {
+                const status = await statusResponse.json();
+                updateUI(status);
+            }
+            
+            // Load usage
+            const usageResponse = await fetch('/billing/api/usage/dashboard/');
+            if (usageResponse.ok) {
+                const usage = await usageResponse.json();
+                updateUsage(usage);
+            }
+            
+            // Load invoices
+            const invoicesResponse = await fetch('/billing/api/invoices/');
+            if (invoicesResponse.ok) {
+                const invoices = await invoicesResponse.json();
+                updateInvoices(invoices);
+            }
+        } catch (error) {
+            console.error('Error loading subscription data:', error);
+        }
+    }
+    
+    function updateUI(status) {
+        document.getElementById('currentPlanName').innerHTML = `<i class="fas fa-crown me-2"></i> ${status.plan_name || 'Plan Gratuito'}`;
+        document.getElementById('planDescription').textContent = status.description || 'Gestiona tus parcelas con tecnología satelital';
+        
+        if (status.next_billing_date) {
+            const date = new Date(status.next_billing_date);
+            document.getElementById('nextBillingDate').textContent = date.toLocaleDateString('es-CO', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+        
+        document.getElementById('planPrice').textContent = status.price || '-';
+        document.getElementById('billingCycle').textContent = status.billing_cycle === 'yearly' ? 'Anual' : 'Mensual';
+        
+        // Update status badge
+        const badge = document.getElementById('statusBadge');
+        if (status.status === 'active') {
+            badge.className = 'plan-status-badge active';
+            badge.innerHTML = '<i class="fas fa-check-circle"></i><span>Activa</span>';
+        } else if (status.status === 'trial') {
+            badge.className = 'plan-status-badge trial';
+            badge.innerHTML = '<i class="fas fa-clock"></i><span>Prueba</span>';
+        } else if (status.status === 'cancelled') {
+            badge.className = 'plan-status-badge cancelled';
+            badge.innerHTML = '<i class="fas fa-times-circle"></i><span>Cancelada</span>';
+        }
+    }
+    
+    function updateUsage(usage) {
+        // Hectares
+        updateProgressBar('hectares', usage.hectares_used || 0, usage.hectares_limit || 50);
+        
+        // EOSDA requests
+        updateProgressBar('eosda', usage.eosda_requests_used || 0, usage.eosda_requests_limit || 10);
+        
+        // Parcels
+        updateProgressBar('parcels', usage.parcels_used || 0, usage.parcels_limit || 3);
+        
+        // Users
+        updateProgressBar('users', usage.users_used || 1, usage.users_limit || 1);
+    }
+    
+    function updateProgressBar(type, used, limit) {
+        const percentage = Math.min((used / limit) * 100, 100);
+        const usageEl = document.getElementById(`${type}Usage`);
+        const progressEl = document.getElementById(`${type}Progress`);
+        
+        if (usageEl) usageEl.textContent = `${used} / ${limit}`;
+        if (progressEl) {
+            progressEl.style.width = percentage + '%';
+            progressEl.className = 'progress-bar ' + getProgressClass(percentage);
+        }
+    }
+    
+    function getProgressClass(percentage) {
+        if (percentage < 50) return 'low';
+        if (percentage < 80) return 'medium';
+        return 'high';
+    }
+    
+    function updateInvoices(invoices) {
+        const container = document.getElementById('invoicesList');
+        
+        if (!invoices.length) {
+            container.innerHTML = `
+                <div class="text-center py-4 text-muted">
+                    <i class="fas fa-file-invoice fa-2x mb-2"></i>
+                    <p class="mb-0">No hay facturas todavía</p>
+                </div>
+            `;
+            return;
+        }
+        
+        container.innerHTML = invoices.slice(0, 5).map(invoice => `
+            <div class="invoice-item">
+                <div class="invoice-date">
+                    <h5>${new Date(invoice.created_at).toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })}</h5>
+                    <span>${invoice.invoice_number || 'INV-' + invoice.id}</span>
+                </div>
+                <div class="invoice-amount">$${new Intl.NumberFormat('es-CO').format(invoice.amount)}</div>
+                <span class="invoice-status ${invoice.status}">${invoice.status === 'paid' ? 'Pagada' : 'Pendiente'}</span>
+            </div>
+        `).join('');
+    }
+    
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+});
+</script>
+{% endblock content %}

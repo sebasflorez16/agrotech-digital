@@ -1,6 +1,6 @@
 """
 URLs públicas que NO requieren tenant.
-Estas rutas funcionan sin schema de tenant para healthchecks, autenticación, etc.
+Estas rutas funcionan sin schema de tenant para healthchecks, autenticación y registro.
 """
 from django.http import HttpResponse
 from django.urls import path, include
@@ -18,5 +18,10 @@ urlpatterns = [
     # 🔹 Autenticación JWT - NO requiere tenant
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path("api/authentication/", include("authentication.urls")),
+    
+    # 🔹 Auth completo (register, login, me) - NO requiere tenant
+    path("api/auth/", include("authentication.urls")),
+    
+    # 🔹 Billing público (planes, webhooks) - NO requiere tenant
+    path("billing/", include("billing.urls", namespace="billing")),
 ]

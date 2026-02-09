@@ -13,8 +13,9 @@ import hmac
 from typing import Dict, Any
 from django.conf import settings
 from django.utils import timezone
+from django.db import transaction
 from .gateways import PaymentGateway, PaymentGatewayFactory
-from .models import Subscription, Invoice, BillingEvent, Payment
+from .models import Subscription, Invoice, BillingEvent
 from datetime import timedelta
 import logging
 
@@ -205,21 +206,83 @@ class MercadoPagoGateway(PaymentGateway):
         """
         Verificar la firma del webhook de MercadoPago.
         
-        MercadoPago envía header x-signature para validar autenticidad.
+        MercadoPago envía los headers:
+        - x-signature: "ts=<ts>,v1=<hash>"
+        - x-request-id: ID único del request
+        
+        Documentación:
+        https://www.mercadopago.com.co/developers/es/docs/your-integrations/notifications/webhooks
+        
+        SEGURIDAD: En producción, RECHAZA webhooks si no hay secret configurado.
         """
-        # TODO: Implementar validación de firma
-        # Por ahora retornamos True, pero en producción DEBE validarse
+        webhook_secret = getattr(settings, 'MERCADOPAGO_WEBHOOK_SECRET', '')
+        is_production = not getattr(settings, 'DEBUG', True)
         
-        # signature = request.META.get('HTTP_X_SIGNATURE')
-        # request_id = request.META.get('HTTP_X_REQUEST_ID')
+        # FAIL-SAFE: En producción sin secret, RECHAZAR
+        if not webhook_secret:
+            if is_production:
+                logger.error(
+                    "MERCADOPAGO_WEBHOOK_SECRET no configurado en producción. "
+                    "Webhook RECHAZADO por seguridad. Configure la variable de entorno."
+                )
+                return False
+            else:
+                logger.warning(
+                    "MERCADOPAGO_WEBHOOK_SECRET no configurado en desarrollo. "
+                    "Webhook aceptado SIN verificación. Configúralo para producción."
+                )
+                return True
         
-        # if not signature or not request_id:
-        #     return False
+        signature_header = request.META.get('HTTP_X_SIGNATURE', '')
+        request_id = request.META.get('HTTP_X_REQUEST_ID', '')
         
-        # # Validar según documentación de MercadoPago
-        # # https://www.mercadopago.com.co/developers/es/docs/your-integrations/notifications/webhooks
+        if not signature_header or not request_id:
+            logger.warning("Webhook MercadoPago sin headers x-signature o x-request-id")
+            return False
         
-        return True
+        try:
+            # Parsear "ts=<timestamp>,v1=<hash>" del header x-signature
+            parts = {}
+            for part in signature_header.split(','):
+                key_value = part.split('=', 1)
+                if len(key_value) == 2:
+                    parts[key_value[0].strip()] = key_value[1].strip()
+            
+            ts = parts.get('ts')
+            received_hash = parts.get('v1')
+            
+            if not ts or not received_hash:
+                logger.warning("Formato de x-signature inválido")
+                return False
+            
+            # Obtener el data.id del body
+            data = request.data if hasattr(request, 'data') else {}
+            data_id = data.get('data', {}).get('id', '')
+            
+            # Construir el manifest: "id:<data_id>;request-id:<request_id>;ts:<ts>;"
+            manifest = f"id:{data_id};request-id:{request_id};ts:{ts};"
+            
+            # Calcular HMAC-SHA256
+            expected_hash = hmac.new(
+                webhook_secret.encode('utf-8'),
+                manifest.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            
+            # Comparación segura contra timing attacks
+            is_valid = hmac.compare_digest(expected_hash, received_hash)
+            
+            if not is_valid:
+                logger.warning(
+                    f"Firma MercadoPago inválida. "
+                    f"Expected: {expected_hash[:16]}... Got: {received_hash[:16]}..."
+                )
+            
+            return is_valid
+            
+        except Exception as e:
+            logger.exception(f"Error verificando firma MercadoPago: {str(e)}")
+            return False
     
     def _handle_payment_webhook(self, data) -> Dict[str, Any]:
         """
@@ -295,65 +358,97 @@ class MercadoPagoGateway(PaymentGateway):
     
     def _process_successful_payment(self, payment_data):
         """
-        Procesar pago exitoso.
+        Procesar pago exitoso con transacción atómica.
+        
+        SEGURIDAD: Usa transaction.atomic para garantizar consistencia.
+        Si falla cualquier operación, se revierte todo.
         """
         external_reference = payment_data.get('external_reference')
         
         try:
-            # Buscar factura asociada
-            invoice = Invoice.objects.get(invoice_number=external_reference)
-            
-            # Marcar como pagada
-            invoice.mark_as_paid(
-                payment_method='mercadopago',
-                payment_id=payment_data['id']
-            )
-            
-            # Activar/renovar suscripción si aplica
-            if invoice.subscription:
-                subscription = invoice.subscription
+            with transaction.atomic():
+                # Buscar factura asociada con lock
+                invoice = Invoice.objects.select_for_update().get(
+                    invoice_number=external_reference
+                )
                 
-                if subscription.status == 'trialing':
-                    subscription.status = 'active'
+                # Marcar como pagada
+                invoice.mark_as_paid(
+                    payment_method='mercadopago',
+                    payment_id=payment_data['id']
+                )
                 
-                # Extender período
-                subscription.current_period_start = timezone.now()
-                subscription.current_period_end = timezone.now() + timedelta(days=30)
-                subscription.save()
-                
-                logger.info(f"Suscripción {subscription.id} renovada tras pago exitoso")
+                # Activar/renovar suscripción si aplica
+                if invoice.subscription:
+                    subscription = Subscription.objects.select_for_update().get(
+                        pk=invoice.subscription.pk
+                    )
+                    
+                    if subscription.status == 'trialing':
+                        subscription.status = 'active'
+                    
+                    # Extender período
+                    subscription.current_period_start = timezone.now()
+                    subscription.current_period_end = timezone.now() + timedelta(days=30)
+                    subscription.save()
+                    
+                    # Registrar evento de pago exitoso
+                    BillingEvent.objects.create(
+                        tenant=subscription.tenant,
+                        subscription=subscription,
+                        event_type='invoice.paid',
+                        event_data={
+                            'invoice_number': invoice.invoice_number,
+                            'payment_id': payment_data['id'],
+                            'amount': payment_data.get('transaction_amount'),
+                            'gateway': 'mercadopago'
+                        },
+                        external_event_id=str(payment_data['id'])
+                    )
+                    
+                    logger.info(f"Suscripción {subscription.id} renovada tras pago exitoso")
         
         except Invoice.DoesNotExist:
             logger.warning(f"Factura con referencia {external_reference} no encontrada")
     
     def _process_failed_payment(self, payment_data):
         """
-        Procesar pago fallido.
+        Procesar pago fallido con transacción atómica.
+        
+        SEGURIDAD: Usa transaction.atomic para garantizar consistencia.
         """
         external_reference = payment_data.get('external_reference')
         
         try:
-            invoice = Invoice.objects.get(invoice_number=external_reference)
-            subscription = invoice.subscription
-            
-            if subscription:
-                # Marcar como pago vencido
-                subscription.status = 'past_due'
-                subscription.save()
-                
-                # Registrar evento
-                BillingEvent.objects.create(
-                    tenant=subscription.tenant,
-                    subscription=subscription,
-                    event_type='invoice.payment_failed',
-                    event_data={
-                        'invoice_number': invoice.invoice_number,
-                        'payment_id': payment_data['id'],
-                        'status_detail': payment_data.get('status_detail')
-                    }
+            with transaction.atomic():
+                invoice = Invoice.objects.select_for_update().get(
+                    invoice_number=external_reference
                 )
+                subscription = invoice.subscription
                 
-                logger.warning(f"Pago fallido para suscripción {subscription.id}")
+                if subscription:
+                    subscription = Subscription.objects.select_for_update().get(
+                        pk=subscription.pk
+                    )
+                    
+                    # Marcar como pago vencido
+                    subscription.status = 'past_due'
+                    subscription.save()
+                    
+                    # Registrar evento
+                    BillingEvent.objects.create(
+                        tenant=subscription.tenant,
+                        subscription=subscription,
+                        event_type='invoice.payment_failed',
+                        event_data={
+                            'invoice_number': invoice.invoice_number,
+                            'payment_id': payment_data['id'],
+                            'status_detail': payment_data.get('status_detail')
+                        },
+                        external_event_id=str(payment_data['id'])
+                    )
+                    
+                    logger.warning(f"Pago fallido para suscripción {subscription.id}")
         
         except Invoice.DoesNotExist:
             logger.warning(f"Factura con referencia {external_reference} no encontrada")

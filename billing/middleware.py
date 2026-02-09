@@ -27,15 +27,14 @@ class SubscriptionLimitMiddleware(MiddlewareMixin):
     EXCLUDED_PATHS = [
         '/health/',
         '/admin/',
-        '/api/auth/login/',
-        '/api/auth/register/',
-        '/api/auth/password-reset/',
-        '/billing/webhook/',
-        '/billing/subscribe/',
-        '/billing/plans/',
+        '/api/auth/',           # Login, registro, me
+        '/api/token/',          # JWT token endpoints
+        '/billing/api/plans/',  # Consultar planes (público)
+        '/billing/webhooks/',   # Webhooks de pasarelas
         '/static/',
         '/media/',
         '__debug__',
+        '__reload__',
     ]
     
     def process_request(self, request):

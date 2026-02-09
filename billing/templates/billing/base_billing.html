@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <title>{% block title %}AgroTech Digital{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    
+    <!-- Bootstrap 5.3.2 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" 
+          integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    
+    <!-- Font Awesome 6.4.2 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" 
+          integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" 
+          crossorigin="anonymous" referrerpolicy="no-referrer"/>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Tabler Icons -->
+    <link href="https://unpkg.com/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet" />
+
+    <style>
+        :root {
+            --agrotech-dark-green: #007A20;
+            --agrotech-bright-green: #35B835;
+            --agrotech-orange: #E85C2B;
+            --dark-bg: #0F1419;
+            --dark-card: #1A1F26;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f0f2f5;
+            color: #1a1f26;
+            min-height: 100vh;
+        }
+        
+        /* ===== NAVBAR ===== */
+        .billing-navbar {
+            background: linear-gradient(135deg, #0F1419 0%, #1A1F26 100%);
+            padding: 0.75rem 0;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.3);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .billing-navbar .navbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+        }
+        
+        .billing-navbar .brand-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--agrotech-dark-green), var(--agrotech-bright-green));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.2rem;
+        }
+        
+        .billing-navbar .brand-text {
+            color: #fff;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 1.25rem;
+        }
+        
+        .billing-navbar .brand-text span {
+            color: var(--agrotech-bright-green);
+        }
+        
+        .billing-navbar .nav-link {
+            color: rgba(255,255,255,0.7) !important;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+        
+        .billing-navbar .nav-link:hover,
+        .billing-navbar .nav-link.active {
+            color: var(--agrotech-bright-green) !important;
+        }
+        
+        .btn-nav-login {
+            background: transparent;
+            border: 2px solid var(--agrotech-bright-green);
+            color: var(--agrotech-bright-green) !important;
+            border-radius: 10px;
+            padding: 0.4rem 1.25rem !important;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-nav-login:hover {
+            background: var(--agrotech-bright-green);
+            color: #fff !important;
+        }
+        
+        .btn-nav-trial {
+            background: linear-gradient(135deg, var(--agrotech-dark-green), var(--agrotech-bright-green));
+            color: #fff !important;
+            border: none;
+            border-radius: 10px;
+            padding: 0.4rem 1.25rem !important;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-nav-trial:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0,122,32,0.4);
+        }
+        
+        /* ===== FOOTER ===== */
+        .billing-footer {
+            background: var(--dark-bg);
+            color: rgba(255,255,255,0.6);
+            padding: 2rem 0;
+            margin-top: 3rem;
+        }
+        
+        .billing-footer a {
+            color: var(--agrotech-bright-green);
+            text-decoration: none;
+        }
+        
+        .billing-footer a:hover {
+            color: #fff;
+        }
+        
+        /* ===== UTILIDADES ===== */
+        .text-agrotech { color: var(--agrotech-dark-green); }
+        .bg-agrotech { background: var(--agrotech-dark-green); }
+        .text-agrotech-bright { color: var(--agrotech-bright-green); }
+        .text-agrotech-orange { color: var(--agrotech-orange); }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="billing-navbar">
+        <div class="container">
+            <div class="d-flex justify-content-between align-items-center">
+                <a href="/billing/planes/" class="navbar-brand">
+                    <div class="brand-icon">
+                        <i class="fa-solid fa-seedling"></i>
+                    </div>
+                    <div class="brand-text">Agro<span>Tech</span> Digital</div>
+                </a>
+                <div class="d-flex align-items-center gap-3">
+                    <a href="/billing/planes/" class="nav-link d-none d-md-inline {% block nav_planes_active %}{% endblock %}">Planes</a>
+                    <a href="/billing/mi-suscripcion/" class="nav-link d-none d-md-inline">Mi Suscripción</a>
+                    {% block nav_extra %}
+                    <a href="/templates/authentication/login.html" class="nav-link btn-nav-login">
+                        <i class="fa-solid fa-right-to-bracket me-1"></i> Ingresar
+                    </a>
+                    <a href="/billing/planes/" class="nav-link btn-nav-trial d-none d-sm-inline">
+                        <i class="fa-solid fa-rocket me-1"></i> Prueba Gratis
+                    </a>
+                    {% endblock %}
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="billing-footer">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <h6 class="text-white fw-bold mb-2">
+                        <i class="fa-solid fa-seedling text-agrotech-bright me-1"></i> AgroTech Digital
+                    </h6>
+                    <p class="small mb-0">Tecnología satelital para el agro colombiano. Monitoreo inteligente de cultivos.</p>
+                </div>
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <h6 class="text-white fw-bold mb-2">Enlaces</h6>
+                    <div class="d-flex flex-column gap-1">
+                        <a href="/billing/planes/" class="small">Planes y Precios</a>
+                        <a href="#" class="small">Términos de Servicio</a>
+                        <a href="#" class="small">Política de Privacidad</a>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="text-white fw-bold mb-2">Soporte</h6>
+                    <div class="d-flex flex-column gap-1">
+                        <a href="mailto:soporte@agrotech.com.co" class="small">
+                            <i class="fa-solid fa-envelope me-1"></i> soporte@agrotech.com.co
+                        </a>
+                        <a href="https://wa.me/573001234567" class="small">
+                            <i class="fa-brands fa-whatsapp me-1"></i> WhatsApp Soporte
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <hr class="my-3" style="border-color: rgba(255,255,255,0.1);">
+            <div class="text-center small">
+                © 2026 AgroTech Digital. Todos los derechos reservados. 
+                <span class="ms-2">🇨🇴 Hecho en Colombia</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" 
+            integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

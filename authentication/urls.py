@@ -1,10 +1,19 @@
-from django.urls import path
+"""
+URLs de autenticación para AgroTech Digital SaaS.
 
-from .views import LoginView
- 
-app_name = "authentication" 
+Endpoints:
+- POST /api/auth/register/  → Registro completo
+- POST /api/auth/login/     → Login con JWT
+- GET  /api/auth/me/        → Datos del usuario autenticado
+"""
+
+from django.urls import path
+from .views import RegisterView, LoginView, MeView
+
+app_name = "authentication"
 
 urlpatterns = [
-  # 🔹 Solo API endpoints - Sin vistas tradicionales HTML
-  path("login/", LoginView.as_view(), name="api_login"),  # Vista de API para JWT
+    path("register/", RegisterView.as_view(), name="register"),
+    path("login/", LoginView.as_view(), name="login"),
+    path("me/", MeView.as_view(), name="me"),
 ]

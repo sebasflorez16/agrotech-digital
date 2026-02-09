@@ -1,0 +1,575 @@
+{% extends 'billing/base_billing.html' %}
+{% load static %}
+
+{% block title %}Checkout - {{ plan.name }} - AgroTech Digital{% endblock %}
+
+{% block content %}
+<style>
+.checkout-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.checkout-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.checkout-header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a1f26;
+}
+
+.checkout-steps {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-bottom: 2rem;
+}
+
+.checkout-step {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #adb5bd;
+}
+
+.checkout-step.active {
+    color: #007A20;
+}
+
+.checkout-step.completed {
+    color: #35B835;
+}
+
+.step-number {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #e9ecef;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.checkout-step.active .step-number {
+    background: #007A20;
+    color: #fff;
+}
+
+.checkout-step.completed .step-number {
+    background: #35B835;
+    color: #fff;
+}
+
+/* Order Summary */
+.order-summary {
+    background: #fff;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+    position: sticky;
+    top: 2rem;
+}
+
+.order-summary h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid #f1f3f5;
+}
+
+.order-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+}
+
+.order-item.total {
+    border-top: 2px solid #007A20;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    font-weight: 700;
+    font-size: 1.2rem;
+}
+
+.plan-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: linear-gradient(135deg, rgba(0,122,32,0.1), rgba(53,184,53,0.1));
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+}
+
+.plan-badge i {
+    color: #007A20;
+    font-size: 1.5rem;
+}
+
+.plan-badge-info h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.plan-badge-info small {
+    color: #6c757d;
+}
+
+/* Payment Form */
+.payment-form {
+    background: #fff;
+    border-radius: 16px;
+    padding: 2rem;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+.payment-form h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+}
+
+.payment-method {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.payment-option {
+    flex: 1;
+    padding: 1.5rem;
+    border: 2px solid #e9ecef;
+    border-radius: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.payment-option:hover {
+    border-color: #007A20;
+}
+
+.payment-option.selected {
+    border-color: #007A20;
+    background: rgba(0,122,32,0.05);
+}
+
+.payment-option img {
+    height: 40px;
+    margin-bottom: 0.5rem;
+}
+
+.payment-option span {
+    display: block;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+/* Features included */
+.features-summary {
+    background: #f8f9fa;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.features-summary h5 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #495057;
+}
+
+.features-summary ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.features-summary li {
+    padding: 0.5rem 0;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.features-summary li i {
+    color: #35B835;
+}
+
+/* Security badges */
+.security-badges {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.security-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.security-badge i {
+    color: #007A20;
+}
+
+/* Submit button */
+.btn-checkout {
+    width: 100%;
+    padding: 1rem 2rem;
+    background: linear-gradient(135deg, #007A20, #35B835);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.btn-checkout:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(0,122,32,0.3);
+}
+
+.btn-checkout:disabled {
+    background: #adb5bd;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Loading state */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255,255,255,0.9);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.loading-overlay.active {
+    display: flex;
+}
+
+/* Guarantee */
+.guarantee-box {
+    background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+    text-align: center;
+}
+
+.guarantee-box i {
+    font-size: 2rem;
+    color: #007A20;
+    margin-bottom: 0.5rem;
+}
+
+.guarantee-box h5 {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.guarantee-box p {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+</style>
+
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="spinner-border text-success" style="width: 3rem; height: 3rem;" role="status">
+        <span class="visually-hidden">Procesando...</span>
+    </div>
+    <p class="h5 text-muted">Redirigiendo a MercadoPago...</p>
+</div>
+
+<div class="checkout-container">
+    <!-- Header -->
+    <div class="checkout-header">
+        <h1>
+            <i class="fas fa-shopping-cart me-2 text-success"></i>
+            Completar Suscripción
+        </h1>
+        
+        <!-- Steps -->
+        <div class="checkout-steps">
+            <div class="checkout-step completed">
+                <span class="step-number"><i class="fas fa-check"></i></span>
+                <span>Seleccionar Plan</span>
+            </div>
+            <div class="checkout-step active">
+                <span class="step-number">2</span>
+                <span>Confirmar y Pagar</span>
+            </div>
+            <div class="checkout-step">
+                <span class="step-number">3</span>
+                <span>¡Listo!</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Payment Form -->
+        <div class="col-lg-7">
+            <div class="payment-form">
+                <h3>
+                    <i class="fas fa-credit-card me-2 text-success"></i>
+                    Método de Pago
+                </h3>
+                
+                <div class="payment-method">
+                    <div class="payment-option selected" data-method="mercadopago">
+                        <img src="https://http2.mlstatic.com/frontend-assets/mp-web-navigation/ui-navigation/5.21.22/mercadopago/logo__large@2x.png" alt="MercadoPago">
+                        <span>MercadoPago</span>
+                        <small class="text-muted">Tarjetas, PSE, Efectivo</small>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Serás redirigido a MercadoPago para completar el pago de forma segura.
+                </div>
+
+                <!-- Email -->
+                <div class="mb-3">
+                    <label for="payerEmail" class="form-label fw-semibold">
+                        <i class="fas fa-envelope me-1 text-success"></i> Tu correo electrónico
+                    </label>
+                    <input type="email" class="form-control form-control-lg" id="payerEmail" 
+                           placeholder="tu@email.com" required
+                           style="border-radius: 12px; border: 2px solid #e9ecef; padding: 0.75rem 1rem;">
+                    <div class="form-text">Recibirás la confirmación y facturas en este correo.</div>
+                </div>
+
+                <!-- Terms -->
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="acceptTerms" required>
+                    <label class="form-check-label" for="acceptTerms">
+                        Acepto los <a href="#" class="text-success">Términos y Condiciones</a> y la 
+                        <a href="#" class="text-success">Política de Privacidad</a>
+                    </label>
+                </div>
+
+                <button class="btn-checkout" id="checkoutBtn" disabled>
+                    <i class="fas fa-lock"></i>
+                    <span>Continuar al Pago Seguro</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+
+                <!-- Security badges -->
+                <div class="security-badges">
+                    <div class="security-badge">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Pago 100% Seguro</span>
+                    </div>
+                    <div class="security-badge">
+                        <i class="fas fa-lock"></i>
+                        <span>Cifrado SSL</span>
+                    </div>
+                    <div class="security-badge">
+                        <i class="fas fa-undo"></i>
+                        <span>Cancela cuando quieras</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Summary -->
+        <div class="col-lg-5">
+            <div class="order-summary">
+                <h3>
+                    <i class="fas fa-receipt me-2 text-success"></i>
+                    Resumen del Pedido
+                </h3>
+
+                <div class="plan-badge">
+                    <i class="fas fa-tractor"></i>
+                    <div class="plan-badge-info">
+                        <h4 id="planName">Cargando...</h4>
+                        <small id="billingCycle">Mensual</small>
+                    </div>
+                </div>
+
+                <div class="order-item">
+                    <span>Suscripción</span>
+                    <span id="planPrice">$0</span>
+                </div>
+                
+                <div class="order-item" id="discountRow" style="display: none;">
+                    <span class="text-success">Descuento anual (20%)</span>
+                    <span class="text-success" id="discountAmount">-$0</span>
+                </div>
+
+                <div class="order-item total">
+                    <span>Total</span>
+                    <span id="totalPrice">$0 COP</span>
+                </div>
+
+                <div class="features-summary">
+                    <h5><i class="fas fa-check-circle me-2 text-success"></i> Incluido en tu plan:</h5>
+                    <ul id="featuresList">
+                        <li><i class="fas fa-check"></i> Cargando características...</li>
+                    </ul>
+                </div>
+
+                <div class="guarantee-box">
+                    <i class="fas fa-medal"></i>
+                    <h5>Garantía de 14 días</h5>
+                    <p>Si no estás satisfecho, te devolvemos tu dinero sin preguntas.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const planTier = window.location.pathname.split('/').filter(p => p).pop();
+    const billingCycle = urlParams.get('cycle') || 'monthly';
+    
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    const acceptTerms = document.getElementById('acceptTerms');
+    const payerEmail = document.getElementById('payerEmail');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+
+    // Enable button when terms accepted AND email valid
+    function updateButtonState() {
+        const emailValid = payerEmail.value && payerEmail.checkValidity();
+        checkoutBtn.disabled = !(acceptTerms.checked && emailValid);
+    }
+    
+    acceptTerms.addEventListener('change', updateButtonState);
+    payerEmail.addEventListener('input', updateButtonState);
+
+    // Fetch plan details
+    async function fetchPlanDetails() {
+        try {
+            const response = await fetch(`/billing/api/plans/${planTier}/`);
+            if (!response.ok) throw new Error('Plan not found');
+            
+            const plan = await response.json();
+            updateOrderSummary(plan);
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Error cargando el plan. Por favor intenta de nuevo.');
+            window.location.href = '/billing/planes/';
+        }
+    }
+
+    function updateOrderSummary(plan) {
+        const isYearly = billingCycle === 'yearly';
+        const monthlyPrice = parseFloat(plan.price_cop);
+        const yearlyPrice = plan.yearly_discount.yearly_price_cop;
+        const savings = plan.yearly_discount.savings_cop;
+        
+        const price = isYearly ? yearlyPrice : monthlyPrice;
+        const period = isYearly ? '/año' : '/mes';
+        
+        document.getElementById('planName').textContent = plan.name;
+        document.getElementById('billingCycle').textContent = isYearly ? 'Pago Anual' : 'Pago Mensual';
+        document.getElementById('planPrice').textContent = `$${new Intl.NumberFormat('es-CO').format(monthlyPrice * (isYearly ? 12 : 1))}`;
+        
+        if (isYearly && savings > 0) {
+            document.getElementById('discountRow').style.display = 'flex';
+            document.getElementById('discountAmount').textContent = `-$${new Intl.NumberFormat('es-CO').format(savings)}`;
+        }
+        
+        document.getElementById('totalPrice').textContent = `$${new Intl.NumberFormat('es-CO').format(price)} COP${period}`;
+
+        // Features
+        const featuresList = document.getElementById('featuresList');
+        featuresList.innerHTML = `
+            <li><i class="fas fa-check"></i> ${plan.limits.hectares} hectáreas</li>
+            <li><i class="fas fa-check"></i> ${plan.limits.eosda_requests} análisis satelitales/mes</li>
+            <li><i class="fas fa-check"></i> ${plan.limits.users} usuarios</li>
+            <li><i class="fas fa-check"></i> ${plan.limits.parcels} parcelas</li>
+            <li><i class="fas fa-check"></i> 14 días de prueba gratis</li>
+        `;
+    }
+
+    // Handle checkout
+    checkoutBtn.addEventListener('click', async function() {
+        if (!acceptTerms.checked || !payerEmail.checkValidity()) return;
+        
+        this.disabled = true;
+        loadingOverlay.classList.add('active');
+
+        try {
+            const response = await fetch('/billing/api/create-checkout/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    plan_tier: planTier,
+                    billing_cycle: billingCycle,
+                    payer_email: payerEmail.value.trim()
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.checkout_url) {
+                window.location.href = data.checkout_url;
+            } else if (data.error) {
+                throw new Error(data.error);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            loadingOverlay.classList.remove('active');
+            this.disabled = false;
+            alert('Error al procesar. Por favor intenta de nuevo.');
+        }
+    });
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    fetchPlanDetails();
+});
+</script>
+{% endblock content %}

@@ -10,12 +10,14 @@ Paddle actúa como Merchant of Record:
 
 import requests
 import hashlib
+import hmac
 import json
 from typing import Dict, Any
 from urllib.parse import urlencode
 from collections import OrderedDict
 from django.conf import settings
 from django.utils import timezone
+from django.db import transaction
 from .gateways import PaymentGateway, PaymentGatewayFactory
 from .models import Subscription, Invoice, BillingEvent
 from datetime import timedelta
@@ -231,35 +233,180 @@ class PaddleGateway(PaymentGateway):
         """
         Verificar la firma del webhook de Paddle.
         
-        Paddle envía firma p_signature para validación.
+        Paddle Classic envía p_signature (RSA-SHA1) en cada webhook.
+        Paddle Billing (v2) envía Paddle-Signature header (HMAC-SHA256 con H1 scheme).
+        
+        Documentación:
+        - Classic: https://developer.paddle.com/webhook-reference/verifying-webhooks
+        - Billing: https://developer.paddle.com/webhooks/signature-verification
+        """
+        # Intentar Paddle Billing (v2) primero, luego Classic
+        paddle_signature = request.META.get('HTTP_PADDLE_SIGNATURE', '')
+        
+        if paddle_signature:
+            return self._verify_paddle_billing_signature(request, paddle_signature)
+        else:
+            return self._verify_paddle_classic_signature(request)
+    
+    def _verify_paddle_billing_signature(self, request, signature_header: str) -> bool:
+        """
+        Verificar firma de Paddle Billing (v2) usando HMAC-SHA256.
+        
+        Header format: "ts=<timestamp>;h1=<hash>"
+        
+        SEGURIDAD: En producción, RECHAZA webhooks si no hay secret configurado.
+        """
+        webhook_secret = getattr(settings, 'PADDLE_WEBHOOK_SECRET', '')
+        is_production = not getattr(settings, 'DEBUG', True)
+        
+        # FAIL-SAFE: En producción sin secret, RECHAZAR
+        if not webhook_secret:
+            if is_production:
+                logger.error(
+                    "PADDLE_WEBHOOK_SECRET no configurado en producción. "
+                    "Webhook RECHAZADO por seguridad. Configure la variable de entorno."
+                )
+                return False
+            else:
+                logger.warning(
+                    "PADDLE_WEBHOOK_SECRET no configurado en desarrollo. "
+                    "Webhook aceptado SIN verificación. Configúralo para producción."
+                )
+                return True
+        
+        try:
+            # Parsear ts y h1 del header
+            parts = {}
+            for part in signature_header.split(';'):
+                key_value = part.split('=', 1)
+                if len(key_value) == 2:
+                    parts[key_value[0].strip()] = key_value[1].strip()
+            
+            ts = parts.get('ts')
+            received_hash = parts.get('h1')
+            
+            if not ts or not received_hash:
+                logger.warning("Formato de Paddle-Signature inválido")
+                return False
+            
+            # Obtener body raw
+            raw_body = request.body.decode('utf-8') if isinstance(request.body, bytes) else request.body
+            
+            # Construir signed payload: "ts:body"
+            signed_payload = f"{ts}:{raw_body}"
+            
+            # Calcular HMAC-SHA256
+            expected_hash = hmac.new(
+                webhook_secret.encode('utf-8'),
+                signed_payload.encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            
+            is_valid = hmac.compare_digest(expected_hash, received_hash)
+            
+            if not is_valid:
+                logger.warning("Firma Paddle Billing inválida")
+            
+            return is_valid
+            
+        except Exception as e:
+            logger.exception(f"Error verificando firma Paddle Billing: {str(e)}")
+            return False
+    
+    def _verify_paddle_classic_signature(self, request) -> bool:
+        """
+        Verificar firma de Paddle Classic usando RSA-SHA1 + phpserialize.
+        
+        Paddle Classic envía p_signature en el body POST.
+        Requiere la public key de Paddle para verificar.
         """
         try:
-            # Obtener datos
+            import base64
+            
             data = request.POST.dict() if hasattr(request.POST, 'dict') else dict(request.POST)
             signature = data.pop('p_signature', None)
             
             if not signature:
+                logger.warning("Webhook Paddle Classic sin p_signature")
                 return False
+            
+            if not self.public_key:
+                is_production = not getattr(settings, 'DEBUG', True)
+                if is_production:
+                    logger.error(
+                        "PADDLE_PUBLIC_KEY no configurado en producción. "
+                        "Webhook RECHAZADO por seguridad. Configure la variable de entorno."
+                    )
+                    return False
+                else:
+                    logger.warning(
+                        "PADDLE_PUBLIC_KEY no configurado en desarrollo. "
+                        "Webhook aceptado SIN verificación. Configúralo para producción."
+                    )
+                    return True
             
             # Ordenar datos alfabéticamente
             sorted_data = OrderedDict(sorted(data.items()))
             
-            # Serializar datos (formato específico de Paddle)
-            serialized = self._serialize_paddle_data(sorted_data)
+            # Serializar en formato PHP (Paddle usa PHP serialize)
+            serialized = self._php_serialize(sorted_data)
             
-            # Verificar firma con la public key
-            # TODO: Implementar verificación con RSA public key
-            # Por ahora, retornamos True pero DEBE implementarse en producción
-            
-            return True
-        
+            # Verificar firma RSA-SHA1
+            try:
+                from cryptography.hazmat.primitives import hashes, serialization
+                from cryptography.hazmat.primitives.asymmetric import padding
+                
+                # Cargar public key
+                public_key = serialization.load_pem_public_key(
+                    self.public_key.encode('utf-8')
+                )
+                
+                # Decodificar firma base64
+                decoded_signature = base64.b64decode(signature)
+                
+                # Verificar
+                public_key.verify(
+                    decoded_signature,
+                    serialized.encode('utf-8'),
+                    padding.PKCS1v15(),
+                    hashes.SHA1(),
+                )
+                return True
+                
+            except ImportError:
+                logger.warning(
+                    "cryptography no instalado. "
+                    "Instálalo con: pip install cryptography. "
+                    "Webhook aceptado SIN verificación RSA."
+                )
+                return True
+            except Exception as verify_error:
+                logger.warning(f"Firma Paddle Classic inválida: {verify_error}")
+                return False
+                
         except Exception as e:
-            logger.exception(f"Error verificando firma Paddle: {str(e)}")
+            logger.exception(f"Error verificando firma Paddle Classic: {str(e)}")
             return False
+    
+    def _php_serialize(self, data: dict) -> str:
+        """
+        Serializar dict al formato PHP serialize que Paddle usa.
+        Implementación simplificada para los tipos que Paddle envía.
+        """
+        parts = []
+        for key, value in data.items():
+            key_serialized = f's:{len(str(key))}:"{key}"'
+            if isinstance(value, (int, float)):
+                val_serialized = f'i:{value}' if isinstance(value, int) else f'd:{value}'
+            else:
+                value = str(value)
+                val_serialized = f's:{len(value)}:"{value}"'
+            parts.append(f'{key_serialized};{val_serialized};')
+        return f'a:{len(data)}:{{{"".join(parts)}}}'
     
     def _serialize_paddle_data(self, data):
         """
-        Serializar datos según el formato de Paddle.
+        Serializar datos según el formato de Paddle (legacy).
         """
         parts = []
         for key, value in data.items():
@@ -395,43 +542,67 @@ class PaddleGateway(PaymentGateway):
     
     def _handle_payment_succeeded(self, data) -> Dict[str, Any]:
         """
-        Manejar pago exitoso.
+        Manejar pago exitoso con transacción atómica.
+        
+        SEGURIDAD: Usa transaction.atomic para garantizar consistencia.
+        Si falla cualquier operación, se revierte todo.
         """
         try:
             subscription_id = data.get('subscription_id')
+            order_id = data.get('order_id')
             
-            subscription = Subscription.objects.get(
-                external_subscription_id=subscription_id,
-                payment_gateway='paddle'
-            )
+            # Idempotencia: verificar si ya procesamos este evento
+            if order_id and BillingEvent.objects.filter(external_event_id=str(order_id)).exists():
+                logger.info(f"Evento Paddle {order_id} ya procesado - ignorando duplicado")
+                return {'status': 'ok', 'message': 'Already processed'}
             
-            # Crear factura (Paddle ya generó su propia factura)
-            invoice = Invoice.objects.create(
-                tenant=subscription.tenant,
-                subscription=subscription,
-                subtotal=float(data.get('sale_gross', 0)),
-                tax_amount=float(data.get('payment_tax', 0)),
-                total=float(data.get('sale_gross', 0)),
-                currency='USD',
-                status='paid',
-                invoice_date=timezone.now().date(),
-                due_date=timezone.now().date(),
-                paid_at=timezone.now(),
-                paddle_payment_id=data.get('order_id'),
-                line_items=[{
-                    'description': subscription.plan.name,
-                    'quantity': 1,
-                    'amount': float(data.get('sale_gross', 0))
-                }]
-            )
-            
-            # Renovar suscripción
-            subscription.status = 'active'
-            subscription.current_period_start = timezone.now()
-            subscription.current_period_end = timezone.now() + timedelta(days=30)
-            subscription.save()
-            
-            logger.info(f"Pago Paddle exitoso para suscripción {subscription.id}")
+            with transaction.atomic():
+                subscription = Subscription.objects.select_for_update().get(
+                    external_subscription_id=subscription_id,
+                    payment_gateway='paddle'
+                )
+                
+                # Crear factura (Paddle ya generó su propia factura)
+                invoice = Invoice.objects.create(
+                    tenant=subscription.tenant,
+                    subscription=subscription,
+                    subtotal=float(data.get('sale_gross', 0)),
+                    tax_amount=float(data.get('payment_tax', 0)),
+                    total=float(data.get('sale_gross', 0)),
+                    currency='USD',
+                    status='paid',
+                    invoice_date=timezone.now().date(),
+                    due_date=timezone.now().date(),
+                    paid_at=timezone.now(),
+                    paddle_payment_id=order_id,
+                    line_items=[{
+                        'description': subscription.plan.name,
+                        'quantity': 1,
+                        'amount': float(data.get('sale_gross', 0))
+                    }]
+                )
+                
+                # Renovar suscripción
+                subscription.status = 'active'
+                subscription.current_period_start = timezone.now()
+                subscription.current_period_end = timezone.now() + timedelta(days=30)
+                subscription.save()
+                
+                # Registrar evento para idempotencia
+                BillingEvent.objects.create(
+                    tenant=subscription.tenant,
+                    subscription=subscription,
+                    event_type='invoice.paid',
+                    event_data={
+                        'invoice_number': invoice.invoice_number,
+                        'order_id': order_id,
+                        'amount': float(data.get('sale_gross', 0)),
+                        'gateway': 'paddle'
+                    },
+                    external_event_id=str(order_id) if order_id else None
+                )
+                
+                logger.info(f"Pago Paddle exitoso para suscripción {subscription.id}")
             
             return {'status': 'ok'}
         
@@ -444,33 +615,36 @@ class PaddleGateway(PaymentGateway):
     
     def _handle_payment_failed(self, data) -> Dict[str, Any]:
         """
-        Manejar pago fallido.
+        Manejar pago fallido con transacción atómica.
+        
+        SEGURIDAD: Usa transaction.atomic para garantizar consistencia.
         """
         try:
             subscription_id = data.get('subscription_id')
             
-            subscription = Subscription.objects.get(
-                external_subscription_id=subscription_id,
-                payment_gateway='paddle'
-            )
-            
-            # Marcar como pago vencido
-            subscription.status = 'past_due'
-            subscription.save()
-            
-            # Registrar evento
-            BillingEvent.objects.create(
-                tenant=subscription.tenant,
-                subscription=subscription,
-                event_type='invoice.payment_failed',
-                event_data={
-                    'amount': data.get('amount'),
-                    'currency': data.get('currency'),
-                    'next_retry_date': data.get('next_retry_date')
-                }
-            )
-            
-            logger.warning(f"Pago Paddle fallido para suscripción {subscription.id}")
+            with transaction.atomic():
+                subscription = Subscription.objects.select_for_update().get(
+                    external_subscription_id=subscription_id,
+                    payment_gateway='paddle'
+                )
+                
+                # Marcar como pago vencido
+                subscription.status = 'past_due'
+                subscription.save()
+                
+                # Registrar evento
+                BillingEvent.objects.create(
+                    tenant=subscription.tenant,
+                    subscription=subscription,
+                    event_type='invoice.payment_failed',
+                    event_data={
+                        'amount': data.get('amount'),
+                        'currency': data.get('currency'),
+                        'next_retry_date': data.get('next_retry_date')
+                    }
+                )
+                
+                logger.warning(f"Pago Paddle fallido para suscripción {subscription.id}")
             
             return {'status': 'ok'}
         

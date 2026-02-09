@@ -16,7 +16,21 @@ router.register(r'usage', views.UsageMetricsViewSet, basename='usage')
 app_name = 'billing'
 
 urlpatterns = [
-    # API endpoints
+    # ============== PÁGINAS HTML ==============
+    # Página de planes/pricing
+    path('planes/', views.pricing_page_view, name='pricing_page'),
+    
+    # Checkout
+    path('checkout/<str:plan_tier>/', views.checkout_page_view, name='checkout_page'),
+    
+    # Resultado del pago
+    path('success/', views.success_page_view, name='checkout_success'),
+    path('cancel/', views.cancel_page_view, name='checkout_cancel'),
+    
+    # Dashboard de suscripción del usuario
+    path('mi-suscripcion/', views.subscription_page_view, name='subscription_page'),
+    
+    # ============== API ENDPOINTS ==============
     path('api/', include(router.urls)),
     
     # Dashboard de métricas
@@ -24,7 +38,13 @@ urlpatterns = [
     path('api/usage/history/', views.usage_history_view, name='usage_history'),
     path('api/invoice/current/', views.current_invoice_preview, name='current_invoice'),
     
-    # Webhooks (sin autenticación)
+    # Estado de suscripción para frontend
+    path('api/status/', views.subscription_status_view, name='subscription_status'),
+    
+    # Crear checkout (redirige a MercadoPago)
+    path('api/create-checkout/', views.create_checkout_view, name='create_checkout'),
+    
+    # ============== WEBHOOKS ==============
     path('webhooks/mercadopago/', webhooks.mercadopago_webhook, name='webhook_mercadopago'),
     path('webhooks/paddle/', webhooks.paddle_webhook, name='webhook_paddle'),
 ]

@@ -10,11 +10,17 @@ User = get_user_model()
 
 @pytest.fixture(scope='session')
 def django_db_setup():
-    """Setup de base de datos para tests."""
-    settings.DATABASES['default'] = {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:',
-    }
+    """
+    Setup de base de datos para tests.
+    
+    Para tests de integración con django-tenants se usa la BD PostgreSQL real.
+    El conftest NO sobrescribe DATABASES para mantener la config del settings
+    (django_tenants.postgresql_backend → PostgreSQL local).
+    
+    Los tests unitarios que no usan BD (marcados @pytest.mark.unit) no
+    necesitan esta fixture en absoluto.
+    """
+    pass
 
 
 @pytest.fixture

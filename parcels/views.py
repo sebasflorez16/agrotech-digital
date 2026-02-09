@@ -140,6 +140,7 @@ class ParcelScenesByDateView(APIView):
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
+from django.db.models import Sum
 from .models import Parcel, ParcelSceneCache
 from .serializers import ParcelSerializer
 from rest_framework.decorators import action, api_view, permission_classes
@@ -153,12 +154,159 @@ import json
 logger = logging.getLogger(__name__)
 
 
-
 class ParcelViewSet(viewsets.ModelViewSet):
-    # Solo mostrar parcelas no eliminadas por defecto
+    """
+    ViewSet para gestión de parcelas con verificación ESTRICTA de límites de hectáreas.
+    
+    Los límites se verifican contra el plan de suscripción del tenant antes de
+    permitir crear o actualizar parcelas.
+    """
     queryset = Parcel.objects.filter(is_deleted=False)
     serializer_class = ParcelSerializer
     permission_classes = [IsAuthenticated]
+
+    def _get_current_hectares(self, exclude_parcel_id=None):
+        """Calcula el total de hectáreas actuales del tenant."""
+        qs = Parcel.objects.filter(is_deleted=False)
+        if exclude_parcel_id:
+            qs = qs.exclude(pk=exclude_parcel_id)
+        
+        total = 0
+        for parcel in qs:
+            total += parcel.area_hectares() or 0
+        return total
+
+    def _calculate_parcel_area(self, geom_data):
+        """Calcula el área en hectáreas de un polígono GeoJSON."""
+        if not geom_data or not isinstance(geom_data, dict):
+            return 0
+        
+        import math
+        def polygon_area(coords):
+            if not coords or len(coords) < 3:
+                return 0
+            area = 0.0
+            for i in range(len(coords)):
+                x1, y1 = coords[i]
+                x2, y2 = coords[(i + 1) % len(coords)]
+                area += x1 * y2 - x2 * y1
+            return abs(area) / 2.0 * 111320 * 111320
+        
+        coordinates = geom_data.get('coordinates', [[]])
+        if not coordinates or not isinstance(coordinates, list) or len(coordinates) == 0:
+            return 0
+        coords = coordinates[0] if coordinates else []
+        area_m2 = polygon_area(coords)
+        return area_m2 / 10000.0
+
+    def _verify_hectare_limit(self, request, new_hectares, exclude_parcel_id=None):
+        """
+        Verifica que la operación no exceda el límite de hectáreas del plan.
+        
+        Returns:
+            tuple: (is_allowed: bool, error_response: Response or None)
+        """
+        subscription = getattr(request, 'subscription', None)
+        
+        if not subscription:
+            logger.warning("Intento de crear parcela sin suscripción activa")
+            return False, Response({
+                'error': 'No tienes una suscripción activa',
+                'code': 'no_subscription',
+                'message': 'Debes tener un plan activo para crear o modificar parcelas.',
+                'upgrade_url': '/billing/plans/'
+            }, status=402)
+        
+        current_hectares = self._get_current_hectares(exclude_parcel_id)
+        total_hectares = current_hectares + new_hectares
+        
+        is_within, limit = subscription.check_limit('hectares', total_hectares)
+        
+        if not is_within:
+            logger.warning(
+                f"Límite de hectáreas excedido: tenant={getattr(request, 'tenant', 'unknown')}, "
+                f"current={current_hectares:.2f}, new={new_hectares:.2f}, limit={limit}"
+            )
+            return False, Response({
+                'error': 'Límite de hectáreas excedido',
+                'code': 'hectares_limit_exceeded',
+                'current': round(current_hectares, 2),
+                'new': round(new_hectares, 2),
+                'total': round(total_hectares, 2),
+                'limit': limit,
+                'plan': subscription.plan.name,
+                'message': f'Tu plan {subscription.plan.name} permite hasta {limit} hectáreas. '
+                           f'Actualmente tienes {current_hectares:.2f} ha registradas. '
+                           f'Al agregar {new_hectares:.2f} ha superarías el límite permitido.',
+                'suggestions': [
+                    'Mejora a un plan con más hectáreas disponibles',
+                    'Elimina parcelas que ya no uses para liberar espacio',
+                    'Reduce el tamaño de la parcela que intentas crear'
+                ],
+                'upgrade_url': '/billing/upgrade/'
+            }, status=403)
+        
+        # Actualizar métricas de uso
+        try:
+            from billing.models import UsageMetrics
+            tenant = getattr(request, 'tenant', None)
+            if tenant:
+                metrics = UsageMetrics.get_or_create_current(tenant)
+                metrics.hectares_used = total_hectares
+                metrics.save()
+        except Exception as e:
+            logger.warning(f"No se pudo actualizar métricas de hectáreas: {e}")
+        
+        return True, None
+
+    def create(self, request, *args, **kwargs):
+        """
+        Crea una nueva parcela verificando ESTRICTAMENTE el límite de hectáreas.
+        """
+        geom_data = request.data.get('geom')
+        new_hectares = self._calculate_parcel_area(geom_data)
+        
+        is_allowed, error_response = self._verify_hectare_limit(request, new_hectares)
+        if not is_allowed:
+            return error_response
+        
+        logger.info(f"Creando parcela de {new_hectares:.2f} ha - Límite verificado OK")
+        return super().create(request, *args, **kwargs)
+
+    def update(self, request, *args, **kwargs):
+        """
+        Actualiza una parcela verificando que el nuevo tamaño no exceda el límite.
+        """
+        instance = self.get_object()
+        geom_data = request.data.get('geom', instance.geom)
+        new_hectares = self._calculate_parcel_area(geom_data)
+        
+        # Excluimos la parcela actual del cálculo ya que la estamos actualizando
+        is_allowed, error_response = self._verify_hectare_limit(
+            request, new_hectares, exclude_parcel_id=instance.pk
+        )
+        if not is_allowed:
+            return error_response
+        
+        logger.info(f"Actualizando parcela {instance.pk} a {new_hectares:.2f} ha - Límite verificado OK")
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        """
+        Actualización parcial con verificación de límites si se modifica el geometría.
+        """
+        if 'geom' in request.data:
+            instance = self.get_object()
+            geom_data = request.data.get('geom')
+            new_hectares = self._calculate_parcel_area(geom_data)
+            
+            is_allowed, error_response = self._verify_hectare_limit(
+                request, new_hectares, exclude_parcel_id=instance.pk
+            )
+            if not is_allowed:
+                return error_response
+        
+        return super().partial_update(request, *args, **kwargs)
 
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
@@ -227,11 +375,45 @@ class ParcelViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="ndvi-historical")
     def ndvi_historical(self, request):
-        logger.debug(f"Request data: {request.data}")
         """
         Endpoint para obtener los promedios mensuales de NDVI de una parcela usando EOSDA.
         Recibe un polígono (GeoJSON) y un rango de fechas (start_date, end_date).
+        
+        PROTEGIDO: Verifica límite de requests EOSDA antes de procesar.
         """
+        # === VERIFICACIÓN DE LÍMITE EOSDA ===
+        from billing.models import UsageMetrics
+        subscription = getattr(request, 'subscription', None)
+        tenant = getattr(request, 'tenant', None)
+        
+        if not subscription:
+            return Response({
+                'error': 'No tienes una suscripción activa',
+                'code': 'no_subscription'
+            }, status=402)
+        
+        if tenant:
+            metrics = UsageMetrics.get_or_create_current(tenant)
+            is_within, limit = subscription.check_limit('eosda_requests', metrics.eosda_requests + 1)
+            
+            if not is_within:
+                from django.utils import timezone
+                now = timezone.now()
+                next_month = now.replace(day=1) + timezone.timedelta(days=32)
+                reset_date = next_month.replace(day=1)
+                
+                return Response({
+                    'error': 'Límite de análisis satelitales excedido',
+                    'code': 'eosda_limit_exceeded',
+                    'used': metrics.eosda_requests,
+                    'limit': limit,
+                    'plan': subscription.plan.name,
+                    'reset_date': reset_date.strftime('%Y-%m-%d'),
+                    'upgrade_url': '/billing/upgrade/'
+                }, status=429)
+        # === FIN VERIFICACIÓN ===
+        
+        logger.debug(f"Request data: {request.data}")
         polygon = request.data.get("polygon")
         start_date = request.data.get("start_date")
         end_date = request.data.get("end_date")
@@ -256,6 +438,14 @@ class ParcelViewSet(viewsets.ModelViewSet):
             response = requests.post(eosda_url, json=payload, headers=headers)
             response.raise_for_status()
             ndvi_data = response.json()
+            
+            # Incrementar contador de requests EOSDA tras éxito
+            if tenant:
+                metrics.eosda_requests += 1
+                metrics.save()
+                metrics.calculate_overages()
+                logger.info(f"EOSDA NDVI request #{metrics.eosda_requests} para tenant {tenant.schema_name}")
+                
         except requests.exceptions.RequestException as e:
             return Response({"error": f"Error al conectar con EOSDA: {str(e)}"}, status=500)
 
@@ -263,11 +453,45 @@ class ParcelViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"], url_path="water-stress-historical")
     def water_stress_historical(self, request):
-        logger.debug(f"Request data: {request.data}")
         """
         Endpoint para obtener los promedios mensuales de estrés hídrico de una parcela usando EOSDA.
         Recibe un polígono (GeoJSON) y un rango de fechas (start_date, end_date).
+        
+        PROTEGIDO: Verifica límite de requests EOSDA antes de procesar.
         """
+        # === VERIFICACIÓN DE LÍMITE EOSDA ===
+        from billing.models import UsageMetrics
+        subscription = getattr(request, 'subscription', None)
+        tenant = getattr(request, 'tenant', None)
+        
+        if not subscription:
+            return Response({
+                'error': 'No tienes una suscripción activa',
+                'code': 'no_subscription'
+            }, status=402)
+        
+        if tenant:
+            metrics = UsageMetrics.get_or_create_current(tenant)
+            is_within, limit = subscription.check_limit('eosda_requests', metrics.eosda_requests + 1)
+            
+            if not is_within:
+                from django.utils import timezone
+                now = timezone.now()
+                next_month = now.replace(day=1) + timezone.timedelta(days=32)
+                reset_date = next_month.replace(day=1)
+                
+                return Response({
+                    'error': 'Límite de análisis satelitales excedido',
+                    'code': 'eosda_limit_exceeded',
+                    'used': metrics.eosda_requests,
+                    'limit': limit,
+                    'plan': subscription.plan.name,
+                    'reset_date': reset_date.strftime('%Y-%m-%d'),
+                    'upgrade_url': '/billing/upgrade/'
+                }, status=429)
+        # === FIN VERIFICACIÓN ===
+        
+        logger.debug(f"Request data: {request.data}")
         polygon = request.data.get("polygon")
         start_date = request.data.get("start_date")
         end_date = request.data.get("end_date")
@@ -292,6 +516,14 @@ class ParcelViewSet(viewsets.ModelViewSet):
             response = requests.post(eosda_url, json=payload, headers=headers)
             response.raise_for_status()
             ndmi_data = response.json()
+            
+            # Incrementar contador de requests EOSDA tras éxito
+            if tenant:
+                metrics.eosda_requests += 1
+                metrics.save()
+                metrics.calculate_overages()
+                logger.info(f"EOSDA NDMI request #{metrics.eosda_requests} para tenant {tenant.schema_name}")
+                
         except requests.exceptions.RequestException as e:
             return Response({"error": f"Error al conectar con EOSDA: {str(e)}"}, status=500)
 
