@@ -44,6 +44,9 @@ urlpatterns = [
     # Crear checkout (redirige a MercadoPago)
     path('api/create-checkout/', views.create_checkout_view, name='create_checkout'),
     
+    # Confirmar pago y crear tenant (llamado desde success page o webhook)
+    path('api/confirm-payment/', views.confirm_payment_create_tenant, name='confirm_payment'),
+    
     # ============== WEBHOOKS ==============
     path('webhooks/mercadopago/', webhooks.mercadopago_webhook, name='webhook_mercadopago'),
     path('webhooks/paddle/', webhooks.paddle_webhook, name='webhook_paddle'),

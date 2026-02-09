@@ -17,6 +17,7 @@ from django.conf import settings
 from datetime import timedelta
 from .models import Plan, Subscription, Invoice, UsageMetrics, BillingEvent
 from .gateways import PaymentGatewayFactory, get_gateway_for_user
+from .tenant_service import TenantService
 from .serializers import (
     PlanSerializer, SubscriptionSerializer, InvoiceSerializer,
     UsageMetricsSerializer, CreateSubscriptionSerializer
@@ -1049,12 +1050,19 @@ def create_checkout_view(request):
     Crear sesión de checkout y redirigir a MercadoPago.
     
     POST /billing/api/create-checkout/
-    Body: {"plan_tier": "basic", "billing_cycle": "monthly"}
+    Body: {"plan_tier": "basic", "billing_cycle": "monthly", "payer_email": "...", "tenant_name": "..."}
+    
+    Flujo:
+    1. Recibe datos del plan y email
+    2. Crea preapproval en MercadoPago
+    3. Devuelve checkout_url para redirigir al usuario
+    4. Cuando MercadoPago confirma pago → webhook crea el tenant automáticamente
     """
     try:
         data = json.loads(request.body)
         plan_tier = data.get('plan_tier')
         billing_cycle = data.get('billing_cycle', 'monthly')
+        tenant_name = data.get('tenant_name', '')
         
         if not plan_tier:
             return JsonResponse({'error': 'plan_tier is required'}, status=400)
@@ -1065,7 +1073,32 @@ def create_checkout_view(request):
         except Plan.DoesNotExist:
             return JsonResponse({'error': 'Plan no encontrado'}, status=404)
         
-        # Calcular precio
+        # Plan gratuito: crear tenant directamente sin pasar por MercadoPago
+        if plan_tier == 'free':
+            payer_email = data.get('payer_email', '')
+            if not tenant_name:
+                tenant_name = payer_email.split('@')[0] if payer_email else 'finca_nueva'
+            
+            result = TenantService.create_tenant_for_subscription(
+                tenant_name=tenant_name,
+                plan_tier='free',
+                payer_email=payer_email,
+                payment_gateway='manual',
+            )
+            
+            if result['success']:
+                return JsonResponse({
+                    'success': True,
+                    'plan': 'free',
+                    'tenant_created': True,
+                    'schema_name': result['schema_name'],
+                    'domain': result['domain'],
+                    'message': 'Trial gratuito activado. Tu finca está lista.',
+                })
+            else:
+                return JsonResponse({'error': result.get('error', 'Error creando tenant')}, status=500)
+        
+        # Calcular precio para planes pagos
         if billing_cycle == 'yearly':
             price = float(plan.price_cop) * 12 * 0.8  # 20% descuento
             frequency = 12
@@ -1082,14 +1115,26 @@ def create_checkout_view(request):
         if not payer_email:
             return JsonResponse({'error': 'Se requiere un email para continuar'}, status=400)
         
+        # Nombre del tenant (para crear después del pago)
+        if not tenant_name:
+            tenant_name = payer_email.split('@')[0]
+        
         # Crear suscripción en MercadoPago
         sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
         
-        # URL base para callbacks (Railway en prod, ngrok en dev)
+        # URL base para callbacks
         site_url = getattr(settings, 'SITE_URL', 'https://agrotech-digital-production.up.railway.app')
-        # MercadoPago requiere URL pública (no localhost)
         if 'localhost' in site_url or '127.0.0.1' in site_url:
             site_url = 'https://agrotech-digital-production.up.railway.app'
+        
+        # Frontend URL para redirección después del pago
+        frontend_url = getattr(
+            settings, 'FRONTEND_URL',
+            'https://frontend-cliente-agrotech.netlify.app'
+        )
+        
+        # external_reference incluye toda la info necesaria para crear el tenant
+        external_ref = f"plan_{plan_tier}_{billing_cycle}__email_{payer_email}__tenant_{tenant_name}"
         
         preapproval_data = {
             'reason': f'AgroTech Digital - {plan.name}',
@@ -1099,9 +1144,9 @@ def create_checkout_view(request):
                 'transaction_amount': int(price),
                 'currency_id': 'COP'
             },
-            'back_url': f'{site_url}/billing/success/',
+            'back_url': f'{frontend_url}/templates/billing/success.html?plan={plan_tier}&cycle={billing_cycle}',
             'payer_email': payer_email,
-            'external_reference': f'plan_{plan_tier}_{billing_cycle}'
+            'external_reference': external_ref,
         }
         
         result = sdk.preapproval().create(preapproval_data)
@@ -1110,12 +1155,12 @@ def create_checkout_view(request):
             checkout_url = result['response'].get('init_point')
             preapproval_id = result['response'].get('id')
             
-            logger.info(f"Checkout creado: {preapproval_id} para plan {plan_tier}")
+            logger.info(f"Checkout creado: {preapproval_id} para plan {plan_tier} email={payer_email}")
             
             return JsonResponse({
                 'success': True,
                 'checkout_url': checkout_url,
-                'preapproval_id': preapproval_id
+                'preapproval_id': preapproval_id,
             })
         else:
             logger.error(f"Error creando checkout: {result}")
@@ -1127,4 +1172,111 @@ def create_checkout_view(request):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
         logger.exception(f"Error en create_checkout: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def confirm_payment_create_tenant(request):
+    """
+    Confirmar pago exitoso y crear tenant automáticamente.
+    
+    POST /billing/api/confirm-payment/
+    Body: {
+        "preapproval_id": "...",
+        "plan_tier": "basic",
+        "billing_cycle": "monthly",
+        "payer_email": "user@example.com",
+        "tenant_name": "Mi Finca"   (opcional)
+    }
+    
+    Flujo:
+    1. Verifica con MercadoPago que el preapproval esté authorized/pending
+    2. Crea tenant + schema + dominio + suscripción
+    3. Devuelve datos del tenant creado
+    
+    SEGURIDAD: Verificación doble — solo crea si MercadoPago confirma.
+    Idempotente — si el tenant ya existe para ese preapproval_id, devuelve ok.
+    """
+    try:
+        data = json.loads(request.body)
+        preapproval_id = data.get('preapproval_id', '')
+        plan_tier = data.get('plan_tier', 'basic')
+        billing_cycle = data.get('billing_cycle', 'monthly')
+        payer_email = data.get('payer_email', '')
+        tenant_name = data.get('tenant_name', '')
+        
+        if not payer_email:
+            return JsonResponse({'error': 'payer_email requerido'}, status=400)
+        
+        # Idempotencia: si ya existe una suscripción con ese preapproval_id, retornar ok
+        if preapproval_id:
+            existing = Subscription.objects.filter(
+                external_subscription_id=preapproval_id
+            ).select_related('tenant').first()
+            
+            if existing:
+                return JsonResponse({
+                    'success': True,
+                    'already_exists': True,
+                    'tenant_name': existing.tenant.name,
+                    'schema_name': existing.tenant.schema_name,
+                    'plan': existing.plan.tier,
+                    'status': existing.status,
+                })
+        
+        # Verificar con MercadoPago (si hay preapproval_id)
+        mp_verified = False
+        if preapproval_id:
+            try:
+                sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
+                result = sdk.preapproval().get(preapproval_id)
+                if result['status'] == 200:
+                    mp_status = result['response'].get('status', '')
+                    if mp_status in ['authorized', 'pending']:
+                        mp_verified = True
+                        logger.info(f"MercadoPago verificado: {preapproval_id} status={mp_status}")
+                    else:
+                        logger.warning(f"MercadoPago status inesperado: {mp_status} para {preapproval_id}")
+            except Exception as e:
+                logger.warning(f"No se pudo verificar con MercadoPago: {e}")
+        
+        # Generar nombre del tenant si no se proporcionó
+        if not tenant_name:
+            tenant_name = payer_email.split('@')[0].replace('.', '_').replace('-', '_')
+        
+        # Crear tenant con el servicio
+        result = TenantService.create_tenant_for_subscription(
+            tenant_name=tenant_name,
+            plan_tier=plan_tier,
+            billing_cycle=billing_cycle,
+            payer_email=payer_email,
+            external_subscription_id=preapproval_id,
+            payment_gateway='mercadopago' if preapproval_id else 'manual',
+        )
+        
+        if result['success']:
+            logger.info(
+                f"✅ Tenant creado post-pago: {tenant_name} plan={plan_tier} "
+                f"mp_verified={mp_verified} preapproval={preapproval_id}"
+            )
+            return JsonResponse({
+                'success': True,
+                'tenant_name': result['tenant'].name,
+                'schema_name': result['schema_name'],
+                'domain': result['domain'],
+                'plan': plan_tier,
+                'status': result['status'],
+                'paid_until': result['paid_until'],
+                'mp_verified': mp_verified,
+            })
+        else:
+            return JsonResponse({
+                'error': result.get('error', 'Error creando tenant')
+            }, status=500)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        logger.exception(f"Error en confirm_payment_create_tenant: {e}")
         return JsonResponse({'error': str(e)}, status=500)

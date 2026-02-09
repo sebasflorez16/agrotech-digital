@@ -1,5 +1,9 @@
 """
-Django signals para el app de billing
+Django signals para el app de billing.
+
+NOTA: La creación de suscripciones ahora se maneja principalmente
+via TenantService (billing/tenant_service.py). Esta señal solo actúa
+como fallback para tenants creados directamente desde admin o shell.
 """
 
 from django.db.models.signals import post_save
@@ -13,10 +17,21 @@ from datetime import timedelta
 @receiver(post_save, sender=Client)
 def create_free_subscription_for_new_tenant(sender, instance, created, **kwargs):
     """
-    Cuando se crea un nuevo tenant, automáticamente se le asigna el plan FREE
-    y se inicia un período de trial.
+    Cuando se crea un nuevo tenant manualmente (admin/shell),
+    asigna plan FREE si no tiene suscripción.
+    
+    Si el tenant se creó via TenantService, ya tendrá suscripción
+    y este signal no hace nada.
     """
     if created:
+        # Verificar si ya tiene suscripción (creada por TenantService)
+        if Subscription.objects.filter(tenant=instance).exists():
+            return
+        
+        # Skip para tenant público
+        if instance.schema_name == 'public':
+            return
+        
         try:
             # Obtener el plan FREE
             free_plan = Plan.objects.get(tier='free', is_active=True)
@@ -45,7 +60,8 @@ def create_free_subscription_for_new_tenant(sender, instance, created, **kwargs)
                 event_data={
                     'plan': free_plan.tier,
                     'trial_days': free_plan.trial_days,
-                    'trial_end': trial_end.isoformat()
+                    'trial_end': trial_end.isoformat(),
+                    'created_via': 'signal_fallback',
                 }
             )
             

@@ -200,6 +200,9 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 # URL del sitio para callbacks de pagos (MercadoPago back_url)
 SITE_URL = env('SITE_URL', default='https://agrotech-digital-production.up.railway.app')
 
+# URL del frontend estático (Netlify) para redirecciones post-pago
+FRONTEND_URL = env('FRONTEND_URL', default='https://frontend-cliente-agrotech.netlify.app')
+
 # Redirigir al frontend estático después del login
 LOGIN_REDIRECT_URL = "https://agrotechcolombia.netlify.app/templates/vertical_base.html"
 

@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.db import transaction
 from .gateways import PaymentGateway, PaymentGatewayFactory
 from .models import Subscription, Invoice, BillingEvent
+from .tenant_service import TenantService
 from datetime import timedelta
 import logging
 
@@ -313,28 +314,32 @@ class MercadoPagoGateway(PaymentGateway):
     def _handle_subscription_webhook(self, data) -> Dict[str, Any]:
         """
         Manejar webhook de suscripción.
+        
+        Si la suscripción se activa (authorized) y no existe tenant → crearlo.
+        Si la suscripción se cancela → desactivar tenant.
         """
         preapproval_id = data.get('data', {}).get('id')
         
         if not preapproval_id:
             return {'status': 'error', 'error': 'No subscription ID'}
         
-        # Consultar detalles de la suscripción
+        # Consultar detalles de la suscripción en MercadoPago
         sub_info = self.sdk.preapproval().get(preapproval_id)
         
         if sub_info['status'] != 200:
             return {'status': 'error', 'error': 'Subscription not found'}
         
         subscription_data = sub_info['response']
+        mp_status = subscription_data.get('status')
+        external_ref = subscription_data.get('external_reference', '')
+        payer_email = subscription_data.get('payer_email', '')
         
-        # Actualizar suscripción en BD
+        # Intentar actualizar suscripción existente
         try:
             subscription = Subscription.objects.get(
                 external_subscription_id=preapproval_id,
                 payment_gateway='mercadopago'
             )
-            
-            mp_status = subscription_data.get('status')
             
             # Mapear estados de MercadoPago a nuestros estados
             status_mapping = {
@@ -346,13 +351,63 @@ class MercadoPagoGateway(PaymentGateway):
             new_status = status_mapping.get(mp_status, subscription.status)
             
             if new_status != subscription.status:
+                old_status = subscription.status
                 subscription.status = new_status
                 subscription.save()
                 
-                logger.info(f"Suscripción {subscription.id} actualizada a estado {new_status}")
+                logger.info(f"Suscripción {subscription.id} actualizada: {old_status} → {new_status}")
+                
+                # Si se cancela, desactivar tenant
+                if new_status == 'canceled':
+                    TenantService.deactivate_tenant(
+                        subscription.tenant,
+                        reason='mercadopago_cancelled'
+                    )
         
         except Subscription.DoesNotExist:
-            logger.warning(f"Suscripción MercadoPago {preapproval_id} no encontrada en BD")
+            # No existe suscripción local — crear tenant si MercadoPago dice authorized
+            if mp_status in ['authorized', 'pending']:
+                logger.info(
+                    f"Webhook: suscripción {preapproval_id} authorized sin tenant local. "
+                    f"Creando tenant automáticamente..."
+                )
+                
+                # Parsear external_reference para extraer plan y email
+                plan_tier = 'basic'
+                billing_cycle = 'monthly'
+                tenant_name = ''
+                
+                if external_ref:
+                    # Formato: plan_basic_monthly__email_user@x.com__tenant_Mi Finca
+                    parts = external_ref.split('__')
+                    for part in parts:
+                        if part.startswith('plan_'):
+                            plan_parts = part.replace('plan_', '').rsplit('_', 1)
+                            if len(plan_parts) == 2:
+                                plan_tier, billing_cycle = plan_parts
+                        elif part.startswith('email_'):
+                            payer_email = payer_email or part.replace('email_', '')
+                        elif part.startswith('tenant_'):
+                            tenant_name = part.replace('tenant_', '')
+                
+                if not tenant_name:
+                    tenant_name = payer_email.split('@')[0] if payer_email else 'nuevo_tenant'
+                
+                result = TenantService.create_tenant_for_subscription(
+                    tenant_name=tenant_name,
+                    plan_tier=plan_tier,
+                    billing_cycle=billing_cycle,
+                    payer_email=payer_email,
+                    external_subscription_id=preapproval_id,
+                    payment_gateway='mercadopago',
+                )
+                
+                if result['success']:
+                    logger.info(f"✅ Tenant creado via webhook: {tenant_name}")
+                else:
+                    logger.error(f"❌ Error creando tenant via webhook: {result.get('error')}")
+            else:
+                logger.warning(f"Suscripción MercadoPago {preapproval_id} no encontrada en BD (status={mp_status})")
         
         return {'status': 'ok'}
     
