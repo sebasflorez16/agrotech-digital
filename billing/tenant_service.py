@@ -118,38 +118,51 @@ class TenantService:
             trial_end = None
             period_end = now + timedelta(days=period_days)
 
-        # 4. Crear Client (tenant) — auto_create_schema=True migrará el schema
-        tenant = Client.objects.create(
-            name=tenant_name,
-            schema_name=schema_name,
-            paid_until=paid_until,
-            on_trial=(plan_tier == 'free'),
-        )
-
-        # 5. Crear dominio para el tenant
+        # 4. Crear o recuperar Client (tenant)
         if not domain_name:
             domain_name = f"{schema_name}.agrotechcolombia.com"
-        Domain.objects.create(
+
+        tenant, tenant_created = Client.objects.get_or_create(
+            schema_name=schema_name,
+            defaults={
+                'name': tenant_name,
+                'paid_until': paid_until,
+                'on_trial': (plan_tier == 'free'),
+            },
+        )
+        if not tenant_created:
+            # Tenant ya existía — actualizar datos
+            tenant.name = tenant_name
+            tenant.paid_until = paid_until
+            tenant.on_trial = (plan_tier == 'free')
+            tenant.save()
+
+        # 5. Crear dominio si no existe
+        Domain.objects.get_or_create(
             domain=domain_name,
-            tenant=tenant,
-            is_primary=True,
+            defaults={
+                'tenant': tenant,
+                'is_primary': True,
+            },
         )
 
-        # 6. Crear suscripción
-        subscription = Subscription.objects.create(
+        # 6. Crear o actualizar suscripción
+        subscription, sub_created = Subscription.objects.update_or_create(
             tenant=tenant,
-            plan=plan,
-            payment_gateway=payment_gateway,
-            external_subscription_id=external_subscription_id or '',
-            status=status,
-            billing_cycle=billing_cycle,
-            current_period_start=now,
-            current_period_end=period_end,
-            trial_end=trial_end,
-            auto_renew=(plan_tier != 'free'),
-            metadata={
-                'payer_email': payer_email,
-                'created_via': 'tenant_service',
+            defaults={
+                'plan': plan,
+                'payment_gateway': payment_gateway,
+                'external_subscription_id': external_subscription_id or '',
+                'status': status,
+                'billing_cycle': billing_cycle,
+                'current_period_start': now,
+                'current_period_end': period_end,
+                'trial_end': trial_end,
+                'auto_renew': (plan_tier != 'free'),
+                'metadata': {
+                    'payer_email': payer_email,
+                    'created_via': 'tenant_service',
+                },
             },
         )
 

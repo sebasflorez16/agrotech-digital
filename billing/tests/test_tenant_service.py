@@ -100,9 +100,9 @@ class TestTenantServiceCreateMocked:
 
         mock_tenant = Mock()
         mock_tenant.schema_name = 'finca_test'
-        MockClient.objects.create.return_value = mock_tenant
-
-        MockSub.objects.create.return_value = Mock()
+        MockClient.objects.get_or_create.return_value = (mock_tenant, True)
+        MockDomain.objects.get_or_create.return_value = (Mock(), True)
+        MockSub.objects.update_or_create.return_value = (Mock(), True)
 
         result = TenantService.create_tenant_for_subscription(
             tenant_name='Finca Test',
@@ -112,9 +112,9 @@ class TestTenantServiceCreateMocked:
 
         assert result['success'] is True
         assert result['status'] == 'trialing'
-        MockClient.objects.create.assert_called_once()
-        MockDomain.objects.create.assert_called_once()
-        MockSub.objects.create.assert_called_once()
+        MockClient.objects.get_or_create.assert_called_once()
+        MockDomain.objects.get_or_create.assert_called_once()
+        MockSub.objects.update_or_create.assert_called_once()
 
     @patch('billing.tenant_service.BillingEvent')
     @patch('billing.tenant_service.Subscription')
@@ -130,8 +130,9 @@ class TestTenantServiceCreateMocked:
 
         mock_tenant = Mock()
         mock_tenant.schema_name = 'finca_pro'
-        MockClient.objects.create.return_value = mock_tenant
-        MockSub.objects.create.return_value = Mock()
+        MockClient.objects.get_or_create.return_value = (mock_tenant, True)
+        MockDomain.objects.get_or_create.return_value = (Mock(), True)
+        MockSub.objects.update_or_create.return_value = (Mock(), True)
 
         result = TenantService.create_tenant_for_subscription(
             tenant_name='Finca Pro',
@@ -175,8 +176,9 @@ class TestTenantServiceCreateMocked:
 
         mock_tenant = Mock()
         mock_tenant.schema_name = 'finca_yearly'
-        MockClient.objects.create.return_value = mock_tenant
-        MockSub.objects.create.return_value = Mock()
+        MockClient.objects.get_or_create.return_value = (mock_tenant, True)
+        MockDomain.objects.get_or_create.return_value = (Mock(), True)
+        MockSub.objects.update_or_create.return_value = (Mock(), True)
 
         result = TenantService.create_tenant_for_subscription(
             tenant_name='Finca Yearly',
@@ -185,8 +187,8 @@ class TestTenantServiceCreateMocked:
         )
 
         assert result['success'] is True
-        create_call = MockClient.objects.create.call_args
-        paid_until = create_call.kwargs['paid_until']
+        create_call = MockClient.objects.get_or_create.call_args
+        paid_until = create_call.kwargs['defaults']['paid_until']
         days_diff = (paid_until - timezone.now().date()).days
         assert 360 <= days_diff <= 370
 
@@ -207,8 +209,9 @@ class TestTenantServiceCreateMocked:
 
         mock_tenant = Mock()
         mock_tenant.schema_name = 'finca_test_1'
-        MockClient.objects.create.return_value = mock_tenant
-        MockSub.objects.create.return_value = Mock()
+        MockClient.objects.get_or_create.return_value = (mock_tenant, True)
+        MockDomain.objects.get_or_create.return_value = (Mock(), True)
+        MockSub.objects.update_or_create.return_value = (Mock(), True)
 
         result = TenantService.create_tenant_for_subscription(
             tenant_name='Finca Test',
@@ -216,8 +219,8 @@ class TestTenantServiceCreateMocked:
         )
 
         assert result['success'] is True
-        create_call = MockClient.objects.create.call_args
-        schema = create_call.kwargs['schema_name']
+        create_call = MockClient.objects.get_or_create.call_args
+        schema = create_call.kwargs.get('schema_name') or create_call[1].get('schema_name', '')
         assert schema == 'finca_test_1'
 
 
