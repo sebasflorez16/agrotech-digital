@@ -1,0 +1,59 @@
+# Git
+.git
+.gitignore
+
+# Base de datos local
+db.sqlite3
+*.sqlite3
+
+# Python cache
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Logs
+logs/
+logfile
+*.log
+
+# Archivos de documentación
+*.md
+
+# Scripts de desarrollo/test
+scripts/
+test_*.py
+check_*.py
+crear_*.py
+fix_*.py
+generate_*.py
+configurar_*.py
+revisar_*.py
+railway_env_setup.py
+conftest.py
+pytest.ini
+test_checkout.sh
+
+# Frontend / Node
+node_modules/
+bun.lockb
+package.json
+gulpfile.js
+
+# Static files pre-compilados (se generan en build)
+staticfiles/
+
+# Archivos grandes innecesarios para el build
+metrica/static/images/products/
+metrica/static/images/users/
+metrica/static/images/flags/
+metrica/static/images/companies/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Railway config redundante
+.railwayignore
