@@ -23,15 +23,29 @@ Reglas de negocio:
 
 import logging
 import re
+import secrets
+import string
 from datetime import timedelta
 from django.db import connection, transaction
+from django.conf import settings
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from django.utils import timezone
-from django_tenants.utils import schema_exists
+from django.contrib.auth import get_user_model
+from django_tenants.utils import schema_exists, schema_context
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from base_agrotech.models import Client, Domain
 from .models import Subscription, Plan, BillingEvent
 
 logger = logging.getLogger(__name__)
+User = get_user_model()
+
+
+def _generate_password(length=12):
+    """Generar contraseña segura aleatoria."""
+    chars = string.ascii_letters + string.digits + '!@#$%'
+    return ''.join(secrets.choice(chars) for _ in range(length))
 
 
 def _slugify_schema(name: str) -> str:
@@ -62,6 +76,11 @@ class TenantService:
         payer_email: str = '',
         external_subscription_id: str | None = None,
         payment_gateway: str = 'manual',
+        # Parámetros para crear usuario admin
+        username: str | None = None,
+        password: str | None = None,
+        user_name: str = '',
+        user_last_name: str = '',
     ) -> dict:
         """
         Crear un nuevo tenant con su suscripción asociada.
@@ -182,9 +201,59 @@ class TenantService:
             },
         )
 
+        # 8. Crear usuario admin dentro del schema del tenant
+        user = None
+        tokens = None
+        auto_generated_password = False
+
+        if username and payer_email:
+            # Si no se provee password, generar uno automáticamente
+            if not password:
+                password = _generate_password()
+                auto_generated_password = True
+
+            with schema_context(schema_name):
+                user, user_created = User.objects.get_or_create(
+                    username=username,
+                    defaults={
+                        'email': payer_email,
+                        'name': user_name or tenant_name,
+                        'last_name': user_last_name or '',
+                        'is_active': True,
+                        'is_staff': True,
+                        'role': 'admin',
+                    },
+                )
+                if user_created:
+                    user.set_password(password)
+                    user.save()
+                    logger.info(f"Admin user creado: {username} en schema {schema_name}")
+                else:
+                    logger.info(f"Admin user ya existía: {username} en schema {schema_name}")
+                    auto_generated_password = False  # No devolver password de usuario existente
+
+            # Generar JWT tokens para auto-login
+            try:
+                refresh = RefreshToken.for_user(user)
+                tokens = {
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
+                }
+            except Exception as e:
+                logger.warning(f"No se pudieron generar tokens JWT: {e}")
+
+            # Enviar email de bienvenida
+            TenantService._send_welcome_email(
+                email=payer_email,
+                username=username,
+                password=password if auto_generated_password else None,
+                tenant_name=tenant_name,
+                plan_tier=plan_tier,
+            )
+
         logger.info(
             f"✅ Tenant creado: {tenant_name} (schema={schema_name}) "
-            f"plan={plan_tier} status={status}"
+            f"plan={plan_tier} status={status} user={username or 'N/A'}"
         )
 
         return {
@@ -195,7 +264,142 @@ class TenantService:
             'domain': domain_name,
             'status': status,
             'paid_until': paid_until.isoformat(),
+            'user': user,
+            'tokens': tokens,
+            'username': username,
         }
+
+    # ──────────────────────────────────────────────
+    #  EMAIL DE BIENVENIDA
+    # ──────────────────────────────────────────────
+
+    @staticmethod
+    def _send_welcome_email(
+        email: str,
+        username: str,
+        password: str | None,
+        tenant_name: str,
+        plan_tier: str,
+    ):
+        """Enviar email de bienvenida con credenciales de acceso."""
+        try:
+            frontend_url = getattr(
+                settings, 'FRONTEND_URL',
+                'https://frontend-cliente-agrotech.netlify.app'
+            )
+            login_url = f"{frontend_url}/templates/authentication/login.html"
+
+            plan_names = {
+                'free': 'Explorador (Trial 14 días)',
+                'basic': 'Agricultor',
+                'pro': 'Empresarial',
+                'enterprise': 'Enterprise',
+            }
+            plan_display = plan_names.get(plan_tier, plan_tier)
+
+            # Construir mensaje
+            subject = f"🌱 Bienvenido a AgroTech Digital - Tu cuenta está lista"
+
+            password_section = ""
+            if password:
+                password_section = f"""
+Tu contraseña temporal: {password}
+⚠️ Te recomendamos cambiarla después de iniciar sesión.
+"""
+            else:
+                password_section = """
+Usa la contraseña que configuraste durante el registro.
+"""
+
+            message = f"""
+¡Hola {username}!
+
+¡Bienvenido a AgroTech Digital! Tu espacio de trabajo "{tenant_name}" está listo.
+
+═══════════════════════════════════════
+  DATOS DE ACCESO
+═══════════════════════════════════════
+
+🔗 Iniciar sesión: {login_url}
+👤 Usuario: {username}
+📧 Email: {email}
+{password_section}
+📋 Plan: {plan_display}
+🏡 Finca/Empresa: {tenant_name}
+
+═══════════════════════════════════════
+  PRÓXIMOS PASOS
+═══════════════════════════════════════
+
+1. Inicia sesión en la plataforma
+2. Configura tus parcelas y cultivos
+3. Ejecuta tu primer análisis satelital NDVI
+
+Si tienes alguna pregunta, contáctanos en info@agrotechdigital.com
+
+¡Éxito con tus cultivos! 🌾
+El equipo de AgroTech Digital
+"""
+
+            html_message = f"""
+<div style="font-family: 'Inter', -apple-system, sans-serif; max-width: 600px; margin: 0 auto; background: #f8f9fa;">
+    <div style="background: linear-gradient(135deg, #2FB344 0%, #1a7a2e 100%); padding: 40px 30px; text-align: center; border-radius: 12px 12px 0 0;">
+        <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 800;">🌱 AgroTech Digital</h1>
+        <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0; font-size: 16px;">Tu cuenta está lista</p>
+    </div>
+
+    <div style="background: white; padding: 30px; border-radius: 0 0 12px 12px;">
+        <h2 style="color: #1a1a1a; margin: 0 0 20px;">¡Hola {username}!</h2>
+        <p style="color: #4a4a4a; line-height: 1.6;">
+            Tu espacio de trabajo <strong>"{tenant_name}"</strong> ha sido creado exitosamente.
+        </p>
+
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 24px; margin: 24px 0;">
+            <h3 style="color: #166534; margin: 0 0 16px; font-size: 16px;">🔐 Datos de acceso</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="color: #6b7280; padding: 6px 0;">Usuario:</td><td style="font-weight: 600; color: #1a1a1a;">{username}</td></tr>
+                <tr><td style="color: #6b7280; padding: 6px 0;">Email:</td><td style="font-weight: 600; color: #1a1a1a;">{email}</td></tr>
+                <tr><td style="color: #6b7280; padding: 6px 0;">Plan:</td><td style="font-weight: 600; color: #1a1a1a;">{plan_display}</td></tr>
+                {"<tr><td style='color: #6b7280; padding: 6px 0;'>Contraseña:</td><td style='font-weight: 600; color: #dc2626;'>" + password + "</td></tr>" if password else ""}
+            </table>
+        </div>
+
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{login_url}" style="display: inline-block; background: linear-gradient(135deg, #2FB344, #1a7a2e); color: white; text-decoration: none; padding: 14px 36px; border-radius: 50px; font-weight: 700; font-size: 16px;">
+                Iniciar Sesión →
+            </a>
+        </div>
+
+        <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 24px;">
+            <h3 style="color: #1a1a1a; font-size: 15px; margin: 0 0 12px;">📋 Próximos pasos</h3>
+            <ol style="color: #4a4a4a; line-height: 2; padding-left: 20px; margin: 0;">
+                <li>Inicia sesión en la plataforma</li>
+                <li>Configura tus parcelas y cultivos</li>
+                <li>Ejecuta tu primer análisis satelital NDVI</li>
+            </ol>
+        </div>
+    </div>
+
+    <div style="text-align: center; padding: 20px; color: #9ca3af; font-size: 13px;">
+        <p>AgroTech Digital — Agricultura de Precisión</p>
+        <p>info@agrotechdigital.com</p>
+    </div>
+</div>
+"""
+
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@agrotechdigital.com'),
+                recipient_list=[email],
+                html_message=html_message,
+                fail_silently=True,
+            )
+            logger.info(f"📧 Email de bienvenida enviado a {email}")
+
+        except Exception as e:
+            # No bloquear el flujo si el email falla
+            logger.warning(f"No se pudo enviar email de bienvenida a {email}: {e}")
 
     # ──────────────────────────────────────────────
     #  DESACTIVAR TENANT (plan pago sin renovar)

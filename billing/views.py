@@ -1063,6 +1063,8 @@ def create_checkout_view(request):
         plan_tier = data.get('plan_tier')
         billing_cycle = data.get('billing_cycle', 'monthly')
         tenant_name = data.get('tenant_name', '')
+        username = data.get('username', '')
+        password = data.get('password', '')
         
         if not plan_tier:
             return JsonResponse({'error': 'plan_tier is required'}, status=400)
@@ -1073,28 +1075,41 @@ def create_checkout_view(request):
         except Plan.DoesNotExist:
             return JsonResponse({'error': 'Plan no encontrado'}, status=404)
         
-        # Plan gratuito: crear tenant directamente sin pasar por MercadoPago
+        # Plan gratuito: crear tenant + usuario directamente sin pasar por MercadoPago
         if plan_tier == 'free':
             payer_email = data.get('payer_email', '')
             if not tenant_name:
                 tenant_name = payer_email.split('@')[0] if payer_email else 'finca_nueva'
+            
+            # Generar username si no se proporcionó
+            if not username:
+                username = payer_email.split('@')[0].replace('.', '_').replace('-', '_') if payer_email else 'admin'
             
             result = TenantService.create_tenant_for_subscription(
                 tenant_name=tenant_name,
                 plan_tier='free',
                 payer_email=payer_email,
                 payment_gateway='manual',
+                username=username,
+                password=password or None,
+                user_name=data.get('user_name', ''),
+                user_last_name=data.get('user_last_name', ''),
             )
             
             if result['success']:
-                return JsonResponse({
+                response_data = {
                     'success': True,
                     'plan': 'free',
                     'tenant_created': True,
                     'schema_name': result['schema_name'],
                     'domain': result['domain'],
+                    'username': result.get('username', username),
                     'message': 'Trial gratuito activado. Tu finca está lista.',
-                })
+                }
+                # Incluir tokens JWT para auto-login
+                if result.get('tokens'):
+                    response_data['tokens'] = result['tokens']
+                return JsonResponse(response_data)
             else:
                 return JsonResponse({'error': result.get('error', 'Error creando tenant')}, status=500)
         
@@ -1134,7 +1149,9 @@ def create_checkout_view(request):
         )
         
         # external_reference incluye toda la info necesaria para crear el tenant
-        external_ref = f"plan_{plan_tier}_{billing_cycle}__email_{payer_email}__tenant_{tenant_name}"
+        # Codificar username para poder crear el usuario al confirmar pago
+        ext_username = username or payer_email.split('@')[0].replace('.', '_').replace('-', '_')
+        external_ref = f"plan_{plan_tier}_{billing_cycle}__email_{payer_email}__tenant_{tenant_name}__user_{ext_username}"
         
         preapproval_data = {
             'reason': f'AgroTech Digital - {plan.name}',
@@ -1245,7 +1262,14 @@ def confirm_payment_create_tenant(request):
         if not tenant_name:
             tenant_name = payer_email.split('@')[0].replace('.', '_').replace('-', '_')
         
-        # Crear tenant con el servicio
+        # Extraer username del request o del external_reference
+        username = data.get('username', '')
+        password = data.get('password', '')
+        
+        if not username:
+            username = payer_email.split('@')[0].replace('.', '_').replace('-', '_')
+        
+        # Crear tenant + usuario con el servicio
         result = TenantService.create_tenant_for_subscription(
             tenant_name=tenant_name,
             plan_tier=plan_tier,
@@ -1253,6 +1277,10 @@ def confirm_payment_create_tenant(request):
             payer_email=payer_email,
             external_subscription_id=preapproval_id,
             payment_gateway='mercadopago' if preapproval_id else 'manual',
+            username=username,
+            password=password or None,  # None = auto-generate + email
+            user_name=data.get('user_name', ''),
+            user_last_name=data.get('user_last_name', ''),
         )
         
         if result['success']:
@@ -1260,7 +1288,7 @@ def confirm_payment_create_tenant(request):
                 f"✅ Tenant creado post-pago: {tenant_name} plan={plan_tier} "
                 f"mp_verified={mp_verified} preapproval={preapproval_id}"
             )
-            return JsonResponse({
+            response_data = {
                 'success': True,
                 'tenant_name': result['tenant'].name,
                 'schema_name': result['schema_name'],
@@ -1269,7 +1297,12 @@ def confirm_payment_create_tenant(request):
                 'status': result['status'],
                 'paid_until': result['paid_until'],
                 'mp_verified': mp_verified,
-            })
+                'username': result.get('username', username),
+            }
+            # Incluir tokens JWT para auto-login
+            if result.get('tokens'):
+                response_data['tokens'] = result['tokens']
+            return JsonResponse(response_data)
         else:
             return JsonResponse({
                 'error': result.get('error', 'Error creando tenant')
