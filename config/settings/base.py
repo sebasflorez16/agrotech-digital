@@ -244,7 +244,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
-    'django_tenants.middleware.main.TenantMainMiddleware',
+    'config.middleware.SmartTenantMiddleware',  # Reemplaza TenantMainMiddleware: fuerza public en billing/auth
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",

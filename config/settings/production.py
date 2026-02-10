@@ -53,7 +53,7 @@ print(f"✅ DB Config - HOST: {url.hostname}, NAME: {url.path[1:]}")
 MIDDLEWARE = [
     'config.middleware.HealthCheckMiddleware',  # PRIMERO: Intercepta /health/ para Railway
     'corsheaders.middleware.CorsMiddleware',
-    'django_tenants.middleware.main.TenantMainMiddleware',
+    'config.middleware.SmartTenantMiddleware',  # Reemplaza TenantMainMiddleware: fuerza public en billing/auth
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",  # Para servir archivos estáticos
     "django.contrib.sessions.middleware.SessionMiddleware",
