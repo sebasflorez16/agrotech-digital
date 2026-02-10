@@ -65,6 +65,12 @@ python manage.py migrate_schemas --shared --noinput\n\
 echo "==> Ejecutando migraciones de tenants..."\n\
 python manage.py migrate_schemas --noinput\n\
 \n\
+echo "==> Cargando planes de suscripción..."\n\
+python manage.py seed_plans\n\
+\n\
+echo "==> Recolectando archivos estáticos..."\n\
+python manage.py collectstatic --noinput 2>/dev/null || true\n\
+\n\
 echo "==> Iniciando servidor Gunicorn..."\n\
 exec gunicorn config.wsgi:application \\\n\
   --bind 0.0.0.0:$PORT \\\n\
