@@ -82,6 +82,11 @@ ROOT_URLCONF = "config.urls"
 # https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
 WSGI_APPLICATION = "config.wsgi.application"
 
+# CRÍTICO para django-tenants con proxy (Netlify/Railway):
+# Permite que Django use el header X-Forwarded-Host del proxy para resolver el tenant.
+# Sin esto, el backend siempre vería "localhost" como host y resolvería al tenant public.
+USE_X_FORWARDED_HOST = True
+
 
 
 

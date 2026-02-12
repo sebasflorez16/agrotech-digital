@@ -86,28 +86,48 @@ class Parcel(models.Model):
             try:
                 from django.conf import settings
                 import requests
-                eosda_api_url = getattr(settings, "EOSDA_API_URL", "https://api-connect.eos.com/field-management")
+                
                 api_key = getattr(settings, "EOSDA_API_KEY", None)
                 if not api_key:
                     raise Exception("No se encontró EOSDA_API_KEY en settings")
-                # Construir el payload según el formato requerido por EOSDA
+                
+                # Endpoint correcto para EOSDA API Connect Field Management
+                # Documentación: https://doc.eos.com/docs/field-management-api/field-management/
+                eosda_api_url = "https://api-connect.eos.com/field-management"
+                
+                # Construir el payload según el formato requerido por EOSDA API Connect
                 payload = {
                     "type": "Feature",
                     "properties": {
                         "name": self.name or "Campo sin nombre",
-                        # Puedes agregar aquí más propiedades si lo deseas
                     },
                     "geometry": self.geom
                 }
-                # Enviar el API key como parámetro de URL
-                url = f"{eosda_api_url}?api_key={api_key}"
-                headers = {"Content-Type": "application/json"}
-                resp = requests.post(url, json=payload, headers=headers, timeout=15)
+                
+                # Usar header x-api-key para autenticación
+                headers = {
+                    "Content-Type": "application/json",
+                    "x-api-key": api_key
+                }
+                
+                print(f"[EOSDA] Creando campo en EOSDA: {self.name}")
+                resp = requests.post(eosda_api_url, json=payload, headers=headers, timeout=30)
+                
+                print(f"[EOSDA] Respuesta: {resp.status_code} - {resp.text[:500]}")
+                
                 if resp.status_code in (200, 201):
                     data = resp.json()
-                    self.eosda_id = str(data.get("id") or data.get("field_id") or data.get("_id"))
+                    # El ID puede venir en diferentes formatos según la versión de la API
+                    new_eosda_id = data.get("id") or data.get("field_id") or data.get("_id") or data.get("fieldId")
+                    if new_eosda_id:
+                        self.eosda_id = str(new_eosda_id)
+                        print(f"[EOSDA] Campo creado exitosamente con ID: {self.eosda_id}")
+                    else:
+                        print(f"[EOSDA] Respuesta sin ID: {data}")
+                elif resp.status_code == 402:
+                    print(f"[EOSDA] Límite de API excedido. No se pudo crear el campo.")
                 else:
-                    raise Exception(f"Error al crear campo en EOSDA: {resp.status_code} {resp.text}")
+                    print(f"[EOSDA] Error al crear campo: {resp.status_code} - {resp.text[:200]}")
             except Exception as e:
                 print(f"[EOSDA] Error al crear campo en EOSDA: {e}")
         super().save(*args, **kwargs)

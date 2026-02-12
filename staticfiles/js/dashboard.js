@@ -24,13 +24,13 @@ function checkAuth() {
 
     if (!token) {
         console.warn("⚠️ No hay token, redirigiendo al login...");
-        window.location.href = "/templates/authentication/login.html";
+        window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
         return;
     }
 
     //Validar si el token es realmente válido llamando a una API protegida
     const dashboardUrl = window.ApiUrls ? window.ApiUrls.auth() + '/dashboard/' : 
-                        `${window.location.origin}/api/authentication/dashboard/`;
+                        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://agrotechcolombia.com') + '/api/authentication/dashboard/';
     
     fetch(dashboardUrl, {
         method: "GET",
@@ -38,20 +38,26 @@ function checkAuth() {
     })
     .then(response => {
         console.log("Respuesta del servidor:", response.status);
-        
-        if (!response.ok) {
+        if (response.status === 401) {
+            // Token inválido o expirado: redirige al login y limpia tokens
             console.error("Token inválido o expirado, redirigiendo al login...");
             localStorage.removeItem("accessToken");
             localStorage.removeItem("refreshToken");
-            window.location.href = "/templates/authentication/login.html";
-        } else {
-            console.log("Token válido, cargando dashboard...");
-            loadDashboardData();
+            window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
+            throw new Error("No autorizado, redirigiendo al login.");
         }
+        if (!response.ok) {
+            // Otro error (no autenticación): solo mostrar en consola
+            console.error("Error al verificar autenticación:", response.statusText);
+            return;
+        }
+        // Token válido
+        console.log("Token válido, cargando dashboard...");
+        loadDashboardData();
     })
     .catch(error => {
         console.error("Error al verificar autenticación:", error);
-        window.location.href = "/templates/authentication/login.html";
+        // No redirigir automáticamente en otros errores
     });
 }
 
@@ -64,7 +70,7 @@ function checkAuth() {
 function logout() {
     localStorage.removeItem("accessToken");
     localStorage.removeItem("refreshToken");
-    window.location.href = "/authentication/login.html";
+    window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
 }
 
 // Botón para ir a la gestión de labores

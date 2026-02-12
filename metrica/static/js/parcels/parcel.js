@@ -56,8 +56,8 @@ window.mostrarModalEscenasEOSDA = async function(parcelId) {
             return;
         }
         // Actualizar el estado global EOSDA para asegurar que esté disponible
-        window.EOSDA_STATE.selectedParcelId = parcelId;
-        window.EOSDA_STATE.selectedEosdaId = eosda_id;
+        window.AGROTECH_STATE.selectedParcelId = parcelId;
+        window.AGROTECH_STATE.selectedSatelliteId = eosda_id;
     } catch (err) {
         document.getElementById('eosdaScenesTableContainer').innerHTML = '<div class="alert alert-danger">Error al obtener la parcela.</div>';
         return;
@@ -145,6 +145,7 @@ function renderScenesTable(scenes) {
                 <th>Nubosidad (%)</th>
                 <th>NDVI</th>
                 <th>NDMI</th>
+                <th>SAVI</th>
                 <th>Analytics</th>
             </tr>
         </thead>
@@ -161,6 +162,7 @@ function renderScenesTable(scenes) {
                         <td>${cloudText}</td>
                         <td><button class="btn btn-success btn-sm" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndvi', this)">Ver NDVI</button></td>
                         <td><button class="btn btn-info btn-sm" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndmi', this)">Ver NDMI</button></td>
+                        <td><button class="btn btn-secondary btn-sm" style="background: linear-gradient(135deg, #8B4513, #228B22); border: none;" onclick="procesarImagenEOSDA('${scene.view_id}', 'savi', this)">Ver SAVI</button></td>
                         <td>
                             <button class="btn btn-warning btn-sm" onclick="obtenerAnalyticsEscena('${scene.view_id}', '${scene.date}')">📊 Stats</button>
                         </td>
@@ -203,9 +205,9 @@ export async function buscarEscenas(parcelId, viewer) {
   // Si necesitas mostrar NDVI, hazlo directamente desde el botón o el flujo principal.
 }
 // Estado global centralizado para EOSDA
-window.EOSDA_STATE = {
+window.AGROTECH_STATE = {
   selectedParcelId: null,
-  selectedEosdaId: null,
+  selectedSatelliteId: null,
   selectedScene: null, // NDVI
   selectedSceneNDMI: null, // NDMI
   ndviActive: false,
@@ -223,13 +225,32 @@ window.EOSDA_SCENES_CACHE = window.EOSDA_SCENES_CACHE || {};
 window.clearEOSDACache = function() {
     window.EOSDA_IMAGE_CACHE = {};
     window.EOSDA_SCENES_CACHE = {};
-    window.EOSDA_STATE.requestIds = {};
+    window.AGROTECH_STATE.requestIds = {};
     console.log('[CACHE CLEARED] Cache de EOSDA limpiado');
 };
 
-// BASE_URL usa rutas relativas para aprovechar los redirects de Netlify
-// Netlify redirige /api/* → https://agrotechcolombia.com/api/* preservando el tenant
-const BASE_URL = window.ApiUrls ? window.ApiUrls.parcels() : '/api/parcels';
+// BASE_URL: Detectar correctamente el backend en desarrollo local
+// En localhost, el frontend puede estar en puerto diferente (8080, 3000) que el backend (8000)
+function getBaseUrl() {
+    // Si ApiUrls está disponible, usarlo
+    if (window.ApiUrls) {
+        return window.ApiUrls.parcels();
+    }
+    
+    // Detectar si estamos en localhost/desarrollo
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    
+    if (isLocalhost) {
+        // En desarrollo local, el backend Django está en puerto 8000
+        return 'http://localhost:8000/api/parcels';
+    }
+    
+    // En producción (Netlify), usar rutas relativas que el proxy redirige
+    return '/api/parcels';
+}
+
+const BASE_URL = getBaseUrl();
+console.log('[PARCEL.JS] BASE_URL configurado:', BASE_URL);
 
 // Variables globales
 let axiosInstance; // Declarar axiosInstance como global
@@ -271,7 +292,7 @@ function initializeLeaflet() {
         window.axiosInstance = axiosInstance;
 
         // Inicializar el mapa Leaflet centrado en Colombia
-        map = L.map('cesiumContainer', {
+        map = L.map('mapContainer', {
             center: [4.6097, -74.0817], // Colombia
             zoom: 6,
             zoomControl: true,
@@ -383,7 +404,7 @@ function initializeLeaflet() {
         console.error('[LEAFLET] Error durante inicialización:', error);
         
         // Mostrar mensaje amigable al usuario
-        const mapContainer = document.getElementById('cesiumContainer');
+        const mapContainer = document.getElementById('mapContainer');
         if (mapContainer) {
             mapContainer.innerHTML = `
                 <div style="color: white; background: #c00; padding: 2em; text-align: center; margin: 2em;">
@@ -600,6 +621,17 @@ function loadParcels() {
             data.forEach(parcel => {
                 const props = parcel.properties || parcel;
                 const row = document.createElement("tr");
+                
+                // Agregar data-parcel-id para identificar la fila
+                row.setAttribute('data-parcel-id', parcel.id);
+                
+                // Agregar evento de click para seleccionar parcela
+                row.addEventListener('click', function(e) {
+                    // No activar si se hizo click en un botón
+                    if (e.target.closest('button')) return;
+                    selectParcel(parcel);
+                });
+                
                 row.innerHTML = `
                     <td>${props.name || "Sin nombre"}</td>
                     <td>${props.description || "Sin descripción"}</td>
@@ -638,6 +670,11 @@ function loadParcels() {
                         // Guardar referencia en el polígono para identificarlo después
                         polygon.parcelId = parcel.id;
                         
+                        // Agregar evento de click al polígono para seleccionar
+                        polygon.on('click', function() {
+                            selectParcel(parcel);
+                        });
+                        
                     } catch (error) {
                         console.error("Error dibujando parcela en el mapa:", error);
                     }
@@ -650,7 +687,55 @@ function loadParcels() {
         });
 }
 
-import { showErrorToast, showInfoToast, showNDVIToggleButton, showNDMIToggleButton, showSceneSelectionModal } from "./layers.js";
+/**
+ * Selecciona una parcela y actualiza el estado global
+ * @param {Object} parcel - Datos de la parcela
+ */
+function selectParcel(parcel) {
+    console.log('[SELECT_PARCEL] Seleccionando parcela:', parcel.id, parcel.name);
+    
+    // Actualizar estado global
+    window.AGROTECH_STATE.selectedParcelId = parcel.id;
+    window.AGROTECH_STATE.selectedSatelliteId = parcel.eosda_id || null;
+    
+    // Calcular área si hay geometría
+    let areaHectares = 0;
+    if (parcel.geometry && parcel.geometry.coordinates) {
+        areaHectares = polygonAreaHectares(parcel.geometry.coordinates[0]);
+    } else if (parcel.geom && parcel.geom.coordinates) {
+        areaHectares = polygonAreaHectares(parcel.geom.coordinates[0]);
+    }
+    
+    // Crear objeto con datos de la parcela para la UI
+    const parcelData = {
+        id: parcel.id,
+        name: parcel.name || parcel.properties?.name || 'Sin nombre',
+        area_hectares: areaHectares,
+        eosda_id: parcel.eosda_id
+    };
+    
+    // Actualizar UI usando la función global si existe
+    if (typeof window.updateSelectedParcelBanner === 'function') {
+        window.updateSelectedParcelBanner(parcelData);
+    }
+    
+    // Highlight en la tabla
+    document.querySelectorAll('#parcelTable tbody tr').forEach(row => {
+        row.classList.remove('table-success', 'selected-parcel');
+    });
+    const selectedRow = document.querySelector(`#parcelTable tbody tr[data-parcel-id="${parcel.id}"]`);
+    if (selectedRow) {
+        selectedRow.classList.add('table-success', 'selected-parcel');
+    }
+    
+    // Toast de confirmación
+    if (typeof showInfoToast === 'function') {
+        showInfoToast(`📍 Parcela "${parcelData.name}" seleccionada`);
+    }
+}
+window.selectParcel = selectParcel;
+
+import { showErrorToast, showInfoToast, showWarningToast, showNDVIToggleButton, showNDMIToggleButton, showSceneSelectionModal } from "./layers.js";
 
 // Calcula el área de un polígono en coordenadas [lon, lat] (GeoJSON) en metros cuadrados
 function polygonAreaHectares(coords) {
@@ -802,11 +887,11 @@ function flyToParcel(parcelId) {
             console.log(`[FLY_TO_PARCEL] Parcela ${parcelId} seleccionada y resaltada permanentemente`);
 
             // Actualizar estado global EOSDA
-            window.EOSDA_STATE.selectedParcelId = parcelId;
-            window.EOSDA_STATE.selectedEosdaId = feature.eosda_id || null;
-            window.EOSDA_STATE.selectedScene = null;
-            window.EOSDA_STATE.ndviActive = false;
-            window.EOSDA_STATE.requestIds = {};
+            window.AGROTECH_STATE.selectedParcelId = parcelId;
+            window.AGROTECH_STATE.selectedSatelliteId = feature.eosda_id || null;
+            window.AGROTECH_STATE.selectedScene = null;
+            window.AGROTECH_STATE.ndviActive = false;
+            window.AGROTECH_STATE.requestIds = {};
 
             // Establecer parcela seleccionada para gráfico histórico
             if (typeof window.setSelectedParcelForChart === 'function') {
@@ -906,7 +991,7 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error('[LEAFLET] Leaflet no está disponible. Verifica la importación del script.');
         
         // Mostrar mensaje al usuario
-        const mapContainer = document.getElementById('cesiumContainer');
+        const mapContainer = document.getElementById('mapContainer');
         if (mapContainer) {
             mapContainer.innerHTML = `
                 <div style="color: white; background: #c00; padding: 2em; text-align: center; margin: 2em;">
@@ -958,7 +1043,7 @@ function setupImageFilterUX() {
     }
     // Deshabilitar el botón hasta que todo esté seleccionado
     function updateButtonState() {
-        const parcelaSeleccionada = !!window.EOSDA_STATE.selectedParcelId;
+        const parcelaSeleccionada = !!window.AGROTECH_STATE.selectedParcelId;
         const fechasValidas = fechaInicio.value && fechaFin.value;
         btnEscenas.disabled = !(parcelaSeleccionada && fechasValidas);
     }
@@ -969,7 +1054,7 @@ function setupImageFilterUX() {
     // Acción de búsqueda con alertas UX
     if (btnEscenas) {
         btnEscenas.onclick = async function() {
-            const parcelaSeleccionada = !!window.EOSDA_STATE.selectedParcelId;
+            const parcelaSeleccionada = !!window.AGROTECH_STATE.selectedParcelId;
             const fechasValidas = fechaInicio.value && fechaFin.value;
             if (!parcelaSeleccionada && !fechasValidas) {
                 showErrorToast("Debes seleccionar primero una parcela y el rango de fechas.");
@@ -983,7 +1068,7 @@ function setupImageFilterUX() {
                 showErrorToast("Selecciona el rango de fechas antes de buscar escenas satelitales.");
                 return;
             }
-            const parcelId = window.EOSDA_STATE.selectedParcelId;
+            const parcelId = window.AGROTECH_STATE.selectedParcelId;
             const startDate = fechaInicio.value;
             const endDate = fechaFin.value;
             await buscarEscenasPorRango(parcelId, startDate, endDate);
@@ -994,14 +1079,14 @@ function setupImageFilterUX() {
     const btnAnalisisMeteorologico = document.getElementById("analisisMeteorologicoBtn");
     if (btnAnalisisMeteorologico) {
         btnAnalisisMeteorologico.onclick = function() {
-            const parcelaSeleccionada = !!window.EOSDA_STATE.selectedParcelId;
+            const parcelaSeleccionada = !!window.AGROTECH_STATE.selectedParcelId;
             
             if (!parcelaSeleccionada) {
                 showErrorToast("Selecciona primero una parcela para ver el análisis meteorológico.");
                 return;
             }
             
-            const parcelId = window.EOSDA_STATE.selectedParcelId;
+            const parcelId = window.AGROTECH_STATE.selectedParcelId;
             
             // Mostrar la sección de análisis meteorológico
             const meteorologicalSection = document.getElementById("meteorologicalAnalysisSection");
@@ -1009,7 +1094,7 @@ function setupImageFilterUX() {
                 meteorologicalSection.style.display = "block";
                 
                 // Actualizar explícitamente el estado global antes de llamar a la función
-            window.EOSDA_STATE.selectedParcelId = parcelId;
+            window.AGROTECH_STATE.selectedParcelId = parcelId;
             console.log('[PARCEL] Parcela seleccionada actualizada en estado global:', parcelId);
             
             // Llamar a la función de carga de análisis meteorológico si está disponible
@@ -1056,7 +1141,7 @@ async function buscarEscenasPorRango(parcelId, startDate, endDate) {
             console.error('[EOSDA_LIMIT_ERROR] Límite de requests excedido:', errorData);
             
             showErrorToast(
-                "⚠️ EOSDA API: Límite de consultas excedido. " +
+                "⚠️ API satelital: Límite de consultas excedido. " +
                 "Se ha alcanzado el límite mensual de la API de imágenes satelitales. " +
                 "Contacte al administrador del sistema.",
                 { duration: 10000 } // Toast más largo para este error crítico
@@ -1065,12 +1150,12 @@ async function buscarEscenasPorRango(parcelId, startDate, endDate) {
             // Mostrar modal con más información
             if (confirm(
                 "❌ LÍMITE DE API EOSDA EXCEDIDO\n\n" +
-                "Se ha alcanzado el límite mensual de consultas a EOSDA API Connect.\n" +
+                "Se ha alcanzado el límite mensual de consultas a API satelital Connect.\n" +
                 "• Límite: 1000 requests/mes\n" +
                 "• Estado: Excedido\n\n" +
                 "¿Desea contactar al administrador?"
             )) {
-                window.open('mailto:admin@agrotech.com?subject=Límite EOSDA API Excedido&body=Se necesita renovar el plan de EOSDA API Connect');
+                window.open('mailto:admin@agrotech.com?subject=Límite API satelital Excedido&body=Se necesita renovar el plan de API satelital Connect');
             }
             return;
         }
@@ -1090,7 +1175,7 @@ async function buscarEscenasPorRango(parcelId, startDate, endDate) {
             // Mostrar modal con información técnica
             if (confirm(
                 "❌ CAMPO NO ENCONTRADO EN EOSDA\n\n" +
-                `El campo con ID ${errorData.field_id} no existe en EOSDA API Connect.\n\n` +
+                `El campo con ID ${errorData.field_id} no existe en API satelital Connect.\n\n` +
                 "Posibles causas:\n" +
                 "• El campo no está registrado en EOSDA\n" +
                 "• Cambio de API key\n" +
@@ -1172,101 +1257,131 @@ async function showSceneSelectionTable(scenes) {
         const filteredCount = uniqueScenes.length - lowCloudScenes.length;
         const finalScenes = lowCloudScenes.length > 0 ? lowCloudScenes : uniqueScenes.slice(0, 5); // Fallback: mostrar las 5 mejores
 
-        // Crear modal
+        // Crear modal con estilo neomórfico mejorado
         const modal = document.createElement("div");
         modal.id = "sceneSelectionModal";
-        modal.style.position = "fixed";
-        modal.style.top = "0";
-        modal.style.left = "0";
-        modal.style.width = "100vw";
-        modal.style.height = "100vh";
-        modal.style.background = "rgba(79, 227, 5, 0.05)";
-        modal.style.zIndex = "9999";
-        modal.style.display = "flex";
-        modal.style.alignItems = "center";
-        modal.style.justifyContent = "center";
-
-        // Contenido del modal
-        const content = document.createElement("div");
-        content.style.background = "#fff";
-        content.style.padding = "32px";
-        content.style.borderRadius = "12px";
-        content.style.boxShadow = "0 2px 16px rgba(0,0,0,0.2)";
-        content.style.maxWidth = "600px";
-        content.style.width = "100%";
-
-        // Título
-        const title = document.createElement("h3");
-        title.textContent = "Selecciona la escena satelital a visualizar";
-        title.style.marginBottom = "12px";
-        content.appendChild(title);
-
-        // Mensaje explicativo sobre nubosidad
-        const infoBox = document.createElement("div");
-        infoBox.style.marginBottom = "18px";
-        infoBox.style.padding = "10px 12px";
-        infoBox.style.borderRadius = "6px";
-        infoBox.style.backgroundColor = "#e7f3ff";
-        infoBox.style.border = "1px solid #b3d9ff";
-        infoBox.style.fontSize = "13px";
-        infoBox.style.lineHeight = "1.5";
-        infoBox.innerHTML = `
-            <strong>💡 Importante sobre la nubosidad:</strong><br>
-            Las nubes bloquean la vista del satélite y hacen que los análisis (NDVI, NDMI) sean inexactos.<br>
-            <strong>Recomendación:</strong> Selecciona escenas con <strong>menos del 30% de nubes</strong> para obtener datos precisos.
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease;
         `;
-        content.appendChild(infoBox);
 
-        // Mensaje informativo sobre filtrado - explicación clara para usuarios
+        // Contenido del modal con diseño profesional
+        const content = document.createElement("div");
+        content.style.cssText = `
+            background: linear-gradient(145deg, #ffffff, #f5f7fa);
+            padding: 0;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.1);
+            max-width: 750px;
+            width: 95%;
+            max-height: 85vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        `;
+
+        // Header del modal
+        const header = document.createElement("div");
+        header.style.cssText = `
+            background: linear-gradient(135deg, #2E7D32, #4CAF50);
+            padding: 20px 28px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+        header.innerHTML = `
+            <div>
+                <h4 style="margin:0;font-weight:700;font-size:18px;">�️ Imágenes Satelitales Disponibles</h4>
+                <p style="margin:5px 0 0;font-size:13px;opacity:0.9;">${finalScenes.length} escenas encontradas</p>
+            </div>
+            <button id="closeSceneModal" style="background:rgba(255,255,255,0.2);border:none;color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        content.appendChild(header);
+
+        // Cuerpo con scroll
+        const body = document.createElement("div");
+        body.style.cssText = `
+            padding: 20px 28px;
+            overflow-y: auto;
+            flex: 1;
+            max-height: calc(85vh - 140px);
+        `;
+
+        // Mensaje informativo sobre nubosidad
+        const infoBox = document.createElement("div");
+        infoBox.style.cssText = `
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            border-left: 4px solid #2196F3;
+            font-size: 13px;
+            line-height: 1.5;
+        `;
+        infoBox.innerHTML = `
+            <strong>💡 Sobre la nubosidad:</strong> Las imágenes con <span style="color:#28a745;font-weight:600;">menos del 30% de nubes</span> 
+            proporcionan análisis más precisos. Las marcadas en rojo tienen alta nubosidad.
+        `;
+        body.appendChild(infoBox);
+
+        // Mensaje informativo sobre filtrado
         if (filteredCount > 0) {
             const filterMessage = document.createElement("div");
-            filterMessage.style.marginBottom = "15px";
-            filterMessage.style.padding = "12px 15px";
-            filterMessage.style.borderRadius = "8px";
-            filterMessage.style.fontSize = "14px";
-            filterMessage.style.lineHeight = "1.5";
-            
-            if (lowCloudScenes.length > 0) {
-                filterMessage.style.backgroundColor = "#d1ecf1";
-                filterMessage.style.color = "#0c5460";
-                filterMessage.style.border = "1px solid #bee5eb";
-                filterMessage.innerHTML = `
-                    <div style="display:flex;align-items:flex-start;gap:10px;">
-                        <i class="fas fa-info-circle" style="font-size:20px;margin-top:2px;"></i>
-                        <div>
-                            <strong>Filtro aplicado:</strong> Se ocultaron ${filteredCount} imagen(es) porque tenían más del 75% del cielo cubierto por nubes.
-                            <br><small>Mostramos solo las imágenes con cielo más despejado para obtener análisis más precisos.</small>
-                        </div>
-                    </div>`;
-            } else {
-                filterMessage.style.backgroundColor = "#fff3cd";
-                filterMessage.style.color = "#856404";
-                filterMessage.style.border = "1px solid #ffeeba";
-                filterMessage.innerHTML = `
-                    <div style="display:flex;align-items:flex-start;gap:10px;">
-                        <i class="fas fa-exclamation-triangle" style="font-size:20px;margin-top:2px;"></i>
-                        <div>
-                            <strong>⚠️ Atención:</strong> No hay imágenes satelitales con cielo despejado en este período.
-                            <br>Todas las imágenes disponibles tienen más del 75% del cielo cubierto por nubes, lo que <strong>afectará significativamente</strong> la precisión del análisis.
-                            <br><small>💡 <strong>Recomendación:</strong> Intenta seleccionar otro rango de fechas con mejor clima. Las escenas con más del 50% de nubes tienen datos poco confiables.</small>
-                        </div>
-                    </div>`;
-            }
-            content.appendChild(filterMessage);
+            filterMessage.style.cssText = `
+                margin-bottom: 16px;
+                padding: 12px 16px;
+                border-radius: 12px;
+                font-size: 13px;
+                ${lowCloudScenes.length > 0 
+                    ? 'background: #d1ecf1; color: #0c5460; border-left: 4px solid #17a2b8;' 
+                    : 'background: #fff3cd; color: #856404; border-left: 4px solid #ffc107;'}
+            `;
+            filterMessage.innerHTML = lowCloudScenes.length > 0
+                ? `<i class="fas fa-filter"></i> Se ocultaron ${filteredCount} imagen(es) con más del 75% de nubes.`
+                : `<i class="fas fa-exclamation-triangle"></i> <strong>Atención:</strong> Todas las imágenes tienen alta nubosidad. Considera otro rango de fechas.`;
+            body.appendChild(filterMessage);
         }
 
-        // Tabla con botones NDVI y NDMI y porcentaje de nubosidad
+        // Tabla con diseño glassmorphism mejorado
+        const tableContainer = document.createElement("div");
+        tableContainer.style.cssText = `
+            border-radius: 16px;
+            overflow: hidden;
+            background: rgba(255,255,255,0.6);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05),
+                        inset 0 1px 1px rgba(255,255,255,0.8);
+            border: 1px solid rgba(255,255,255,0.5);
+        `;
+        
         const table = document.createElement("table");
-        table.style.width = "100%";
-        table.style.borderCollapse = "collapse";
+        table.style.cssText = `
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        `;
         table.innerHTML = `
             <thead>
-                <tr style="background:#f5f5f5">
-                    <th style="padding:8px;border-bottom:1px solid #ccc">Fecha</th>
-                    <th style="padding:8px;border-bottom:1px solid #ccc">Cobertura de nubes (%)</th>
-                    <th style="padding:8px;border-bottom:1px solid #ccc">NDVI</th>
-                    <th style="padding:8px;border-bottom:1px solid #ccc">NDMI</th>
-                    <th style="padding:8px;border-bottom:1px solid #ccc">Analytics</th>
+                <tr style="background: linear-gradient(135deg, rgba(46,125,50,0.1), rgba(76,175,80,0.05));">
+                    <th style="padding:16px 14px;text-align:left;font-weight:700;color:#2E7D32;border-bottom:2px solid rgba(46,125,50,0.2);font-size:13px;">📅 Fecha</th>
+                    <th style="padding:16px 14px;text-align:center;font-weight:700;color:#2E7D32;border-bottom:2px solid rgba(46,125,50,0.2);font-size:13px;">☁️ Nubes</th>
+                    <th style="padding:16px 14px;text-align:center;font-weight:700;color:#2E7D32;border-bottom:2px solid rgba(46,125,50,0.2);font-size:13px;">🌱 NDVI</th>
+                    <th style="padding:16px 14px;text-align:center;font-weight:700;color:#2E7D32;border-bottom:2px solid rgba(46,125,50,0.2);font-size:13px;">💧 NDMI</th>
+                    <th style="padding:16px 14px;text-align:center;font-weight:700;color:#2E7D32;border-bottom:2px solid rgba(46,125,50,0.2);font-size:13px;">🌿 SAVI</th>
+                    <th style="padding:16px 14px;text-align:center;font-weight:700;color:#2E7D32;border-bottom:2px solid rgba(46,125,50,0.2);font-size:13px;">📊 Stats</th>
                 </tr>
             </thead>
             <tbody>
@@ -1274,56 +1389,97 @@ async function showSceneSelectionTable(scenes) {
                     let cloud = scene.cloudCoverage ?? scene.cloud ?? scene.nubosidad;
                     let cloudText = (typeof cloud === 'number') ? cloud.toFixed(1) : (cloud ? cloud : '-');
                     
-                    // Badge visual por nivel de nubosidad
-                    let cloudBadge = '';
-                    let rowStyle = '';
+                    // Badge y estilo por nivel de nubosidad
+                    let cloudBadge = '', rowBg = '';
                     if (typeof cloud === 'number') {
                         if (cloud <= 30) {
-                            cloudBadge = ' <span class="badge" style="background:#28a745;color:#fff;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">✓ Óptima</span>';
-                            rowStyle = 'background:#f0fff4;'; // Verde claro
+                            cloudBadge = '<span style="background:linear-gradient(135deg,#28a745,#20c997);color:#fff;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(40,167,69,0.3);">✓ Óptima</span>';
+                            rowBg = 'background:rgba(240,255,244,0.7);';
                         } else if (cloud <= 50) {
-                            cloudBadge = ' <span class="badge" style="background:#ffc107;color:#000;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">⚠ Aceptable</span>';
-                            rowStyle = 'background:#fffbf0;'; // Amarillo claro
+                            cloudBadge = '<span style="background:linear-gradient(135deg,#ffc107,#ffca2c);color:#000;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(255,193,7,0.3);">⚠ Aceptable</span>';
+                            rowBg = 'background:rgba(255,251,240,0.7);';
                         } else {
-                            cloudBadge = ' <span class="badge" style="background:#dc3545;color:#fff;padding:3px 8px;border-radius:12px;font-size:11px;font-weight:600;">✗ No recomendada</span>';
-                            rowStyle = 'background:#fff5f5;'; // Rojo claro
+                            cloudBadge = '<span style="background:linear-gradient(135deg,#dc3545,#c82333);color:#fff;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(220,53,69,0.3);">✗ No recomendada</span>';
+                            rowBg = 'background:rgba(255,245,245,0.7);';
                         }
                     }
                     
-                    console.log('[SCENE_ROW]', { scene, viewId: scene.view_id, date: scene.date, idx });
+                    const dateFormatted = scene.date ? new Date(scene.date).toLocaleDateString('es-ES', { 
+                        weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' 
+                    }) : '-';
+                    
                     return `
-                        <tr style="${rowStyle}">
-                            <td style="padding:8px;border-bottom:1px solid #eee">${scene.date ? scene.date.split('T')[0] : '-'}</td>
-                            <td style="padding:8px;border-bottom:1px solid #eee">${cloudText}%${cloudBadge}</td>
-                            <td style="padding:8px;border-bottom:1px solid #eee">
-                                <button class="btn btn-sm btn-success" data-ndvi-idx="${idx}">Ver NDVI</button>
+                        <tr style="${rowBg} transition: all 0.3s ease;" 
+                            onmouseover="this.style.background='rgba(232,245,233,0.9)';this.style.transform='scale(1.01)'" 
+                            onmouseout="this.style.background='${rowBg.replace('background:', '').replace(';', '') || 'transparent'}';this.style.transform='scale(1)'">
+                            <td style="padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);font-weight:600;color:#333;">${dateFormatted}</td>
+                            <td style="padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);text-align:center;">
+                                <div style="font-weight:600;color:#555;">${cloudText}%</div>
+                                <div style="margin-top:6px;">${cloudBadge}</div>
                             </td>
-                            <td style="padding:8px;border-bottom:1px solid #eee">
-                                <button class="btn btn-sm btn-info" data-ndmi-idx="${idx}">Ver NDMI</button>
+                            <td style="padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);text-align:center;">
+                                <button class="btn btn-sm" data-ndvi-idx="${idx}" style="background:linear-gradient(135deg,#4CAF50,#2E7D32);color:white;border:none;padding:10px 18px;border-radius:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 15px rgba(76,175,80,0.3);transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(76,175,80,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(76,175,80,0.3)'">
+                                    <i class="fas fa-leaf"></i> Ver
+                                </button>
                             </td>
-                            <td style="padding:8px;border-bottom:1px solid #eee">
-                                <button class="btn btn-sm btn-warning" onclick="obtenerAnalyticsEscena('${scene.view_id}', '${scene.date}')">📊 Stats</button>
+                            <td style="padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);text-align:center;">
+                                <button class="btn btn-sm" data-ndmi-idx="${idx}" style="background:linear-gradient(135deg,#2196F3,#1565C0);color:white;border:none;padding:10px 18px;border-radius:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 15px rgba(33,150,243,0.3);transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(33,150,243,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(33,150,243,0.3)'">
+                                    <i class="fas fa-tint"></i> Ver
+                                </button>
+                            </td>
+                            <td style="padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);text-align:center;">
+                                <button class="btn btn-sm" data-savi-idx="${idx}" style="background:linear-gradient(135deg,#8B4513,#228B22);color:white;border:none;padding:10px 18px;border-radius:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 15px rgba(139,69,19,0.3);transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(139,69,19,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(139,69,19,0.3)'">
+                                    <i class="fas fa-seedling"></i> Ver
+                                </button>
+                            </td>
+                            <td style="padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);text-align:center;">
+                                <button class="btn btn-sm" onclick="obtenerAnalyticsEscena('${scene.view_id}', '${scene.date}')" style="background:linear-gradient(135deg,#FF9800,#F57C00);color:white;border:none;padding:10px 18px;border-radius:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 15px rgba(255,152,0,0.3);transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(255,152,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(255,152,0,0.3)'">
+                                    <i class="fas fa-chart-bar"></i>
+                                </button>
                             </td>
                         </tr>
                     `;
                 }).join('')}
             </tbody>
         `;
-        content.appendChild(table);
+        tableContainer.appendChild(table);
+        body.appendChild(tableContainer);
 
-        // Botón cerrar
-        const closeBtn = document.createElement("button");
-        closeBtn.textContent = "Cerrar";
-        closeBtn.className = "btn btn-secondary";
-        closeBtn.style.marginTop = "18px";
-        closeBtn.onclick = () => {
-            modal.remove();
-            resolve({ ndvi: null, ndmi: null });
-        };
-        content.appendChild(closeBtn);
+        content.appendChild(body);
+
+        // Footer
+        const footer = document.createElement("div");
+        footer.style.cssText = `
+            padding: 16px 28px;
+            background: #f8f9fa;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+        footer.innerHTML = `
+            <span style="font-size:12px;color:#666;">
+                <i class="fas fa-info-circle"></i> Los datos provienen de satélites Sentinel-2 via EOSDA
+            </span>
+            <button id="closeSceneModalFooter" class="btn" style="background:#6c757d;color:white;border:none;padding:10px 24px;border-radius:8px;font-weight:500;cursor:pointer;">
+                Cerrar
+            </button>
+        `;
+        content.appendChild(footer);
 
         modal.appendChild(content);
         document.body.appendChild(modal);
+
+        // Cerrar modal
+        const closeModal = () => {
+            modal.style.animation = 'fadeOut 0.2s ease';
+            setTimeout(() => modal.remove(), 150);
+            resolve({ ndvi: null, ndmi: null });
+        };
+        
+        document.getElementById('closeSceneModal').onclick = closeModal;
+        document.getElementById('closeSceneModalFooter').onclick = closeModal;
+        modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 
         // Manejar click en NDVI (usar finalScenes en lugar de scenes)
         table.querySelectorAll('button[data-ndvi-idx]').forEach(btn => {
@@ -1340,7 +1496,7 @@ async function showSceneSelectionTable(scenes) {
                     const result = await window.verImagenEscenaEOSDA(scene.view_id || scene.id, 'ndvi', scene.date);
                     if (result && result.success) {
                         modal.remove();
-                        resolve({ ndvi: true, ndmi: false });
+                        resolve({ ndvi: true, ndmi: false, savi: false });
                     }
                 } finally {
                     // Rehabilitar botones si aún existe el modal
@@ -1348,9 +1504,11 @@ async function showSceneSelectionTable(scenes) {
                         modalButtons.forEach(b => {
                             b.disabled = false;
                             if (b.getAttribute('data-ndvi-idx')) {
-                                b.innerHTML = 'Ver NDVI';
+                                b.innerHTML = '<i class="fas fa-leaf"></i> Ver';
                             } else if (b.getAttribute('data-ndmi-idx')) {
-                                b.innerHTML = 'Ver NDMI';
+                                b.innerHTML = '<i class="fas fa-tint"></i> Ver';
+                            } else if (b.getAttribute('data-savi-idx')) {
+                                b.innerHTML = '<i class="fas fa-seedling"></i> Ver';
                             }
                         });
                     }
@@ -1372,7 +1530,7 @@ async function showSceneSelectionTable(scenes) {
                     const result = await window.verImagenEscenaEOSDA(scene.view_id || scene.id, 'ndmi', scene.date);
                     if (result && result.success) {
                         modal.remove();
-                        resolve({ ndvi: false, ndmi: true });
+                        resolve({ ndvi: false, ndmi: true, savi: false });
                     }
                 } finally {
                     // Rehabilitar botones si aún existe el modal
@@ -1380,9 +1538,46 @@ async function showSceneSelectionTable(scenes) {
                         modalButtons.forEach(b => {
                             b.disabled = false;
                             if (b.getAttribute('data-ndvi-idx')) {
-                                b.innerHTML = 'Ver NDVI';
+                                b.innerHTML = '<i class="fas fa-leaf"></i> Ver';
                             } else if (b.getAttribute('data-ndmi-idx')) {
-                                b.innerHTML = 'Ver NDMI';
+                                b.innerHTML = '<i class="fas fa-tint"></i> Ver';
+                            } else if (b.getAttribute('data-savi-idx')) {
+                                b.innerHTML = '<i class="fas fa-seedling"></i> Ver';
+                            }
+                        });
+                    }
+                }
+            };
+        });
+        
+        // Manejar click en SAVI (usar finalScenes en lugar de scenes)
+        table.querySelectorAll('button[data-savi-idx]').forEach(btn => {
+            btn.onclick = async () => {
+                const idx = btn.getAttribute('data-savi-idx');
+                const scene = finalScenes[idx]; // Usar finalScenes filtradas
+                
+                // Deshabilitar todos los botones del modal durante procesamiento
+                const modalButtons = modal.querySelectorAll('button');
+                modalButtons.forEach(b => b.disabled = true);
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                
+                try {
+                    const result = await window.verImagenEscenaEOSDA(scene.view_id || scene.id, 'savi', scene.date);
+                    if (result && result.success) {
+                        modal.remove();
+                        resolve({ ndvi: false, ndmi: false, savi: true });
+                    }
+                } finally {
+                    // Rehabilitar botones si aún existe el modal
+                    if (document.body.contains(modal)) {
+                        modalButtons.forEach(b => {
+                            b.disabled = false;
+                            if (b.getAttribute('data-ndvi-idx')) {
+                                b.innerHTML = '<i class="fas fa-leaf"></i> Ver';
+                            } else if (b.getAttribute('data-ndmi-idx')) {
+                                b.innerHTML = '<i class="fas fa-tint"></i> Ver';
+                            } else if (b.getAttribute('data-savi-idx')) {
+                                b.innerHTML = '<i class="fas fa-seedling"></i> Ver';
                             }
                         });
                     }
@@ -1423,7 +1618,7 @@ function showFloatingImageToggleButton(cacheKey, bounds, mapInstance) {
     btn.onclick = () => {
         visible = !visible;
         if (visible) {
-            showNDVIImageOnCesium(window.EOSDA_IMAGE_CACHE[cacheKey], bounds, mapInstance);
+            showNDVIImageOnMap(window.EOSDA_IMAGE_CACHE[cacheKey], bounds, mapInstance);
             btn.textContent = 'Ocultar imagen satelital';
         } else {
             // Elimina la capa NDVI/NDMI en Leaflet
@@ -1446,6 +1641,15 @@ function showNDVIImageOnLeaflet(imageBase64, bounds, mapInstance) {
         }
     });
     
+    // Crear un pane personalizado para imágenes de índices si no existe
+    // Esto asegura que la imagen se renderice sin mezcla con otras capas
+    if (!mapInstance.getPane('ndviPane')) {
+        const ndviPane = mapInstance.createPane('ndviPane');
+        ndviPane.style.zIndex = 450; // Entre overlay (400) y marker (600)
+        ndviPane.style.mixBlendMode = 'normal';
+        ndviPane.style.isolation = 'isolate';
+    }
+    
     // Crear URL para la imagen base64
     const imageUrl = `data:image/png;base64,${imageBase64}`;
     
@@ -1453,19 +1657,32 @@ function showNDVIImageOnLeaflet(imageBase64, bounds, mapInstance) {
     // Convertir a formato Leaflet [[south, west], [north, east]]
     const leafletBounds = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]];
     
-    // Agregar imagen como overlay con clase identificadora
+    // Agregar imagen como overlay con clase identificadora y pane aislado
+    // Opacidad aumentada a 0.85 para mejor visibilidad de colores reales
     const imageOverlay = L.imageOverlay(imageUrl, leafletBounds, {
-        opacity: 0.7,
-        className: 'ndvi-layer'
+        opacity: 0.85,
+        className: 'ndvi-layer',
+        pane: 'ndviPane',
+        interactive: false // No necesita interacción del mouse
     }).addTo(mapInstance);
     
-    console.log('[LEAFLET_NDVI] Imagen NDVI/NDMI superpuesta correctamente');
+    // Forzar estilos en el elemento de imagen para evitar filtros heredados
+    imageOverlay.on('load', function() {
+        const imgElement = this.getElement();
+        if (imgElement) {
+            imgElement.style.mixBlendMode = 'normal';
+            imgElement.style.filter = 'none';
+            imgElement.style.isolation = 'isolate';
+        }
+    });
+    
+    console.log('[LEAFLET_NDVI] Imagen NDVI/NDMI superpuesta correctamente con pane aislado');
     
     return imageOverlay;
 }
 
 // Mantener función antigua para compatibilidad con código existente
-function showNDVIImageOnCesium(imageBase64, bounds, viewerOrMap) {
+function showNDVIImageOnMap(imageBase64, bounds, viewerOrMap) {
     // Si es mapa Leaflet, redirigir a nueva función
     if (viewerOrMap && viewerOrMap._layersMaxZoom !== undefined) {
         return showNDVIImageOnLeaflet(imageBase64, bounds, viewerOrMap);
@@ -1573,6 +1790,8 @@ window.procesarImagenEOSDA = async function(viewId, tipo, buttonElement = null) 
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
         } else if (btn.innerHTML.includes('Ver NDMI')) {
             btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+        } else if (btn.innerHTML.includes('Ver SAVI')) {
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
         }
     });
     
@@ -1592,8 +1811,8 @@ window.procesarImagenEOSDA = async function(viewId, tipo, buttonElement = null) 
 // --- IMAGEN EOSDA: Procesamiento principal ---
 window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
     const token = localStorage.getItem("accessToken");
-    const fieldId = window.EOSDA_STATE.selectedEosdaId;
-    const parcelId = window.EOSDA_STATE.selectedParcelId;
+    const fieldId = window.AGROTECH_STATE.selectedSatelliteId;
+    const parcelId = window.AGROTECH_STATE.selectedParcelId;
     
     if (!fieldId) {
         alert("No se encontró el field_id de EOSDA para la parcela seleccionada.");
@@ -1613,7 +1832,7 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
             coords = parcelResp.data.geom.coordinates[0];
         }
         const bounds = getPolygonBounds(coords);
-        showNDVIImageOnCesium(window.EOSDA_IMAGE_CACHE[cacheKey], bounds, map);
+        showNDVIImageOnMap(window.EOSDA_IMAGE_CACHE[cacheKey], bounds, map);
         // Cerrar el modal
         const modal = document.getElementById('eosdaScenesModal');
         if (modal) {
@@ -1640,7 +1859,7 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
     try {
         // OPTIMIZACIÓN: Verificar cache de request_id primero
         const requestIdCacheKey = `request_${fieldId}_${viewId}_${tipo}`;
-        let requestId = window.EOSDA_STATE.requestIds[requestIdCacheKey];
+        let requestId = window.AGROTECH_STATE.requestIds[requestIdCacheKey];
         
         if (!requestId) {
             // Paso 1: Solicitar el request_id para la imagen
@@ -1669,18 +1888,28 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
             
             requestId = data.request_id;
             // Guardar request_id en cache
-            window.EOSDA_STATE.requestIds[requestIdCacheKey] = requestId;
+            window.AGROTECH_STATE.requestIds[requestIdCacheKey] = requestId;
             console.log('[CACHE SET] request_id guardado en cache frontend:', requestId);
         } else {
             console.log('[CACHE HIT] request_id encontrado en cache frontend:', requestId);
         }
         
-        // Paso 2: Polling automático para obtener la imagen (SIN mensajes al usuario)
-        const maxAttempts = 10; // Aumentar intentos para mejor experiencia
-        const baseInterval = 3000; // Intervalo base de 3s
+        // Paso 2: Polling automático para obtener la imagen (SIN mensajes de error al usuario)
+        const maxAttempts = 15; // Más intentos para imágenes que toman tiempo
+        const baseInterval = 4000; // Intervalo base de 4s
+        
+        // Mensajes amigables que rotan durante el procesamiento
+        const processingMessages = [
+            `🛰️ Procesando imagen ${tipo.toUpperCase()}...`,
+            `📡 Descargando datos satelitales...`,
+            `🔄 El satélite está generando la imagen...`,
+            `⏳ Esto puede tomar 1-2 minutos...`,
+            `🌍 Procesando análisis espectral...`,
+            `📊 Casi listo, preparando visualización...`
+        ];
         let attempts = 0;
         
-        showSpinner(`Procesando imagen ${tipo.toUpperCase()}... (puede tomar 1-2 minutos)`);
+        showSpinner(processingMessages[0]);
         
         while (attempts < maxAttempts) {
             try {
@@ -1712,7 +1941,7 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
                     console.log('[CACHE SET] Imagen guardada en cache frontend');
                     
                     // Mostrar imagen en Leaflet
-                    showNDVIImageOnCesium(imgData.image_base64, bounds, map);
+                    showNDVIImageOnMap(imgData.image_base64, bounds, map);
                     
                     // Cerrar el modal para mostrar el mapa completo
                     const modal = document.getElementById('eosdaScenesModal');
@@ -1737,10 +1966,26 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
                     return { success: true };
                     
                 } else if (imgData.error) {
-                    // Error específico del backend
-                    hideSpinner();
-                    showErrorToast(`❌ Error procesando imagen: ${imgData.error}`);
-                    return { success: false };
+                    // Verificar si es un error temporal (imagen en proceso) vs error permanente
+                    const errorMsg = imgData.error.toLowerCase();
+                    const isTemporaryError = (
+                        imgResp.status === 202 || 
+                        errorMsg.includes('proceso') || 
+                        errorMsg.includes('processing') ||
+                        errorMsg.includes('intenta nuevamente') ||
+                        errorMsg.includes('try again')
+                    );
+                    
+                    if (isTemporaryError) {
+                        // Error temporal - continuar polling sin mostrar error
+                        console.log(`[POLLING] Imagen en proceso: ${imgData.error}`);
+                        // Continuar con el siguiente intento
+                    } else {
+                        // Error permanente - mostrar al usuario
+                        hideSpinner();
+                        showErrorToast(`❌ Error procesando imagen: ${imgData.error}`);
+                        return { success: false };
+                    }
                 }
                 
                 // La imagen aún se está procesando - continuar polling SIN molestar al usuario
@@ -1754,27 +1999,25 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
             attempts++;
             
             if (attempts < maxAttempts) {
-                // Actualizar mensaje del spinner para mostrar progreso
-                const progress = Math.round((attempts / maxAttempts) * 100);
-                showSpinner(`Procesando imagen ${tipo.toUpperCase()}... ${progress}% (${attempts}/${maxAttempts})`);
+                // Actualizar mensaje del spinner con mensajes amigables rotativos
+                const messageIndex = Math.min(attempts, processingMessages.length - 1);
+                const timeElapsed = Math.round((attempts * baseInterval) / 1000);
+                showSpinner(`${processingMessages[messageIndex]} (${timeElapsed}s)`);
                 
                 // Intervalo progresivo: empezar rápido, luego más lento
-                const currentInterval = attempts <= 3 ? baseInterval : baseInterval + (attempts * 1000);
+                const currentInterval = attempts <= 3 ? baseInterval : baseInterval + (attempts * 500);
                 await new Promise(resolve => setTimeout(resolve, currentInterval));
-                       }
+            }
         }
         
-        // Si llegamos aquí, se agotaron los intentos
+        // Si llegamos aquí, se agotaron los intentos - mostrar mensaje amigable, NO error
         hideSpinner();
-        showErrorToast(
-            `⏰ La imagen ${tipo.toUpperCase()} está tomando más tiempo del esperado.\n` +
-            `Esto puede deberse a:\n` +
-            `• Alta demanda en el servidor EOSDA\n` +
-            `• Imagen de alta resolución\n` +
-            `• Problemas temporales de conectividad\n\n` +
-            `💡 Sugerencia: Intenta nuevamente en unos minutos.`
+        showWarningToast(
+            `⏳ La imagen ${tipo.toUpperCase()} aún está siendo procesada por el satélite.\n\n` +
+            `💡 Sugerencia: Espera unos segundos e intenta nuevamente. ` +
+            `Las imágenes satelitales pueden tomar hasta 2-3 minutos en generarse.`
         );
-        return { success: false };
+        return { success: false, reason: 'timeout' };
         
     } catch (error) {
         hideSpinner();
@@ -1784,16 +2027,50 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
     }
 };
 
-// --- NDVI/NDMI: Visualización y análisis de porcentajes ---
+// --- NDVI/NDMI/SAVI: Visualización y análisis de porcentajes ---
 window.mostrarImagenNDVIConAnalisis = async function(imageSrc, tipo = 'ndvi', sceneDate = null) {
     try {
-        // Importar análisis dinámicamente
-        const { analyzeImageByColor, analyzeImageByColorAdvanced, NDVI_COLOR_DEFINITIONS, NDMI_COLOR_DEFINITIONS, updateColorLegendInDOM } = await import('./analysis.js');
+        // Importar análisis dinámicamente (incluye nuevas funciones de interpretación)
+        const { 
+            analyzeImageByColor, 
+            analyzeImageByColorAdvanced, 
+            NDVI_COLOR_DEFINITIONS, 
+            NDMI_COLOR_DEFINITIONS, 
+            SAVI_COLOR_DEFINITIONS, 
+            INTERPRETACIONES_INDICES, 
+            updateColorLegendInDOM,
+            generarInterpretacionProfesional,
+            generarHTMLInterpretacion
+        } = await import('./analysis.js');
         
         // Seleccionar definiciones de colores según el tipo
-        const colorDefinitions = tipo === 'ndvi' ? NDVI_COLOR_DEFINITIONS : NDMI_COLOR_DEFINITIONS;
-        const title = tipo === 'ndvi' ? '🌱 Análisis NDVI' : '💧 Análisis NDMI';
+        let colorDefinitions;
+        let title;
+        switch (tipo.toLowerCase()) {
+            case 'ndvi':
+                colorDefinitions = NDVI_COLOR_DEFINITIONS;
+                title = '🌱 Análisis NDVI';
+                break;
+            case 'ndmi':
+                colorDefinitions = NDMI_COLOR_DEFINITIONS;
+                title = '💧 Análisis NDMI';
+                break;
+            case 'savi':
+                colorDefinitions = SAVI_COLOR_DEFINITIONS;
+                title = '🌿 Análisis SAVI';
+                break;
+            default:
+                colorDefinitions = NDVI_COLOR_DEFINITIONS;
+                title = `📊 Análisis ${tipo.toUpperCase()}`;
+        }
         
+        // Validación: asegurarse de que colorDefinitions existe
+        if (!colorDefinitions || !Array.isArray(colorDefinitions) || colorDefinitions.length === 0) {
+            console.warn(`[IMAGE_ANALYSIS] colorDefinitions para ${tipo} no encontradas, usando NDVI por defecto`);
+            colorDefinitions = NDVI_COLOR_DEFINITIONS;
+        }
+        
+        console.log(`[IMAGE_ANALYSIS] Definiciones de color para ${tipo}:`, colorDefinitions);
         console.log(`[IMAGE_ANALYSIS] Iniciando análisis ${tipo.toUpperCase()}...`);
         
         // Mostrar imagen en el dashboard
@@ -1825,17 +2102,28 @@ window.mostrarImagenNDVIConAnalisis = async function(imageSrc, tipo = 'ndvi', sc
         
         try {
             // Primero intentar análisis avanzado que incluye fallback dinámico
-            const analysisResult = await analyzeImageByColorAdvanced(imageSrc, colorDefinitions);
+            // Pasar el tipo de índice para que el análisis dinámico use nombres apropiados
+            const analysisResult = await analyzeImageByColorAdvanced(imageSrc, colorDefinitions, tipo.toLowerCase());
             console.log(`[IMAGE_ANALYSIS] Resultado del análisis:`, analysisResult);
             
             if (analysisResult && analysisResult.success) {
-                // Añadir información de color a los resultados
-                const resultsWithColors = analysisResult.results.map((result, index) => ({
-                    ...result,
-                    color: colorDefinitions[index]?.rgb || [128, 128, 128]
-                }));
+                // Normalizar resultados para tener un formato consistente
+                const resultsWithColors = analysisResult.results.map((result, index) => {
+                    // Para análisis dinámico, usar el color detectado; para predefinido, usar las definiciones
+                    const colorArray = result.rgb || result.color || colorDefinitions[index]?.rgb || [128, 128, 128];
+                    
+                    return {
+                        name: result.name || `Categoría ${index + 1}`,
+                        label: result.name || `Categoría ${index + 1}`, // Compatibilidad
+                        color: colorArray,
+                        rgb: colorArray,
+                        count: result.count || 0,
+                        percent: parseFloat(result.percent) || 0,
+                        percentage: parseFloat(result.percent) || 0 // Compatibilidad
+                    };
+                });
                 
-                console.log(`[IMAGE_ANALYSIS] Resultados con colores:`, resultsWithColors);
+                console.log(`[IMAGE_ANALYSIS] Resultados normalizados:`, resultsWithColors);
                 
                 // Actualizar leyenda en el contenedor principal
                 if (dashboardBox) {
@@ -1874,60 +2162,483 @@ window.mostrarImagenNDVIConAnalisis = async function(imageSrc, tipo = 'ndvi', sc
                     const resultsContainer = document.createElement('div');
                     resultsContainer.id = 'imageAnalysisResults';
                     resultsContainer.style.display = 'grid';
-                    resultsContainer.style.gridTemplateColumns = 'repeat(auto-fill, minmax(120px, 1fr))';
-                    resultsContainer.style.gap = '8px';
+                    resultsContainer.style.gridTemplateColumns = 'repeat(auto-fill, minmax(140px, 1fr))';
+                    resultsContainer.style.gap = '10px';
                     legendContainer.appendChild(resultsContainer);
                     
-                    // Añadir tarjetas de resultados
+                    // Función para determinar si el texto debe ser claro u oscuro según el fondo
+                    const getContrastColor = (r, g, b) => {
+                        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+                        return luminance > 0.5 ? '#333333' : '#ffffff';
+                    };
+                    
+                    // 📚 Diccionario de explicaciones para cada categoría según el índice
+                    const getCategoryExplanation = (categoryName, indexType) => {
+                        // Explicaciones específicas organizadas por índice
+                        const explanationsByIndex = {
+                            ndvi: {
+                                'Vegetación Muy Densa': {
+                                    titulo: '🌳 Vegetación Muy Densa',
+                                    descripcion: 'Zona con la máxima actividad de clorofila detectada. Las plantas están realizando fotosíntesis intensamente.',
+                                    significado: 'Tu cultivo está en excelente estado de salud. Alta densidad de hojas verdes y activas indica óptimo desarrollo vegetativo y potencial de rendimiento máximo.'
+                                },
+                                'Vegetación Densa': {
+                                    titulo: '🌿 Vegetación Densa',
+                                    descripcion: 'Cobertura vegetal abundante con alta concentración de clorofila activa en las hojas.',
+                                    significado: 'Buen estado general del cultivo. Las plantas están saludables con buena capacidad fotosintética, aunque hay margen para alcanzar el óptimo.'
+                                },
+                                'Vegetación Moderada': {
+                                    titulo: '🌱 Vegetación Moderada',
+                                    descripcion: 'Presencia vegetal media, típica de cultivos en etapa de crecimiento o con espaciamiento entre plantas.',
+                                    significado: 'Si el cultivo es joven, es normal. En cultivos maduros puede indicar que las plantas no han alcanzado su máximo desarrollo o hay espacios sin vegetación.'
+                                },
+                                'Vegetación Escasa': {
+                                    titulo: '🍂 Vegetación Escasa',
+                                    descripcion: 'Poca actividad de clorofila detectada. Baja densidad o vigor de la vegetación en esta zona.',
+                                    significado: 'Posible señal de alerta. Puede indicar plantas estresadas, enfermas, con deficiencia nutricional o en etapa muy temprana de desarrollo.'
+                                },
+                                'Estrés Severo': {
+                                    titulo: '⚠️ Estrés Crítico',
+                                    descripcion: 'Casi nula actividad fotosintética. La vegetación muestra signos graves de deterioro o muerte.',
+                                    significado: 'Las plantas en esta zona están en peligro o ya murieron. Requiere atención urgente: puede ser sequía extrema, enfermedad, plagas o daño físico.'
+                                },
+                                'Suelo Desnudo': {
+                                    titulo: '🟤 Suelo sin Vegetación',
+                                    descripcion: 'No se detecta clorofila. El satélite ve principalmente suelo, rocas o superficies inertes.',
+                                    significado: 'Área sin plantas activas. Puede ser suelo preparado para siembra, caminos, construcciones, o zonas donde falló la germinación.'
+                                }
+                            },
+                            ndmi: {
+                                'Muy Húmedo': {
+                                    titulo: '💧 Saturación de Agua',
+                                    descripcion: 'Alto contenido de agua en la vegetación y posiblemente en el suelo. Las hojas están completamente hidratadas.',
+                                    significado: 'Indica riego reciente, lluvia o posible encharcamiento. Si persiste, podría favorecer hongos y enfermedades de raíz por exceso de humedad.'
+                                },
+                                'Húmedo': {
+                                    titulo: '💦 Bien Hidratado',
+                                    descripcion: 'Las plantas tienen buen contenido de agua en sus tejidos. Condiciones hídricas favorables.',
+                                    significado: 'Estado hídrico óptimo. Las plantas tienen suficiente agua para sus funciones vitales sin estar saturadas. Condiciones ideales para el crecimiento.'
+                                },
+                                'Humedad Normal': {
+                                    titulo: '✅ Humedad Adecuada',
+                                    descripcion: 'Contenido de agua balanceado en la vegetación. Ni exceso ni déficit evidente.',
+                                    significado: 'Las plantas mantienen un equilibrio hídrico saludable. Están absorbiendo y utilizando agua de manera eficiente.'
+                                },
+                                'Humedad Moderada': {
+                                    titulo: '🌡️ Humedad Media',
+                                    descripcion: 'Nivel de agua en las plantas aceptable pero no óptimo. Posible inicio de reducción hídrica.',
+                                    significado: 'Las plantas aún tienen agua disponible pero conviene vigilar. En climas calurosos o secos, podrían necesitar riego preventivo pronto.'
+                                },
+                                'Humedad Baja': {
+                                    titulo: '⚡ Inicio de Estrés Hídrico',
+                                    descripcion: 'Las plantas comienzan a perder agua más rápido de lo que la absorben. Primeros signos de déficit.',
+                                    significado: 'Señal de advertencia temprana. Las plantas están empezando a sufrir por falta de agua. Es el momento ideal para regar antes de que el daño sea mayor.'
+                                },
+                                'Seco': {
+                                    titulo: '🏜️ Déficit Hídrico',
+                                    descripcion: 'Bajo contenido de agua en los tejidos vegetales. Las plantas están deshidratándose.',
+                                    significado: 'Estrés hídrico evidente. Las plantas están cerrando estomas y reduciendo fotosíntesis para conservar agua. Afecta directamente el rendimiento.'
+                                },
+                                'Muy Seco': {
+                                    titulo: '🚨 Estrés Hídrico Severo',
+                                    descripcion: 'Contenido de agua críticamente bajo. Las plantas están en riesgo de daño irreversible.',
+                                    significado: 'Situación crítica. Las células vegetales pueden estar sufriendo daño permanente. Sin agua urgente, puede haber pérdida parcial o total del cultivo.'
+                                }
+                            },
+                            savi: {
+                                'Vegetación Muy Densa': {
+                                    titulo: '🌳 Cobertura Completa',
+                                    descripcion: 'El dosel vegetal cubre completamente el suelo. Análisis SAVI detecta máxima vegetación sin influencia del suelo.',
+                                    significado: 'Cultivo plenamente desarrollado donde el suelo ya no es visible desde el satélite. En esta etapa, NDVI sería más preciso para evaluar salud vegetal.'
+                                },
+                                'Vegetación Densa': {
+                                    titulo: '� Alta Cobertura',
+                                    descripcion: 'Abundante vegetación con mínima exposición del suelo. SAVI indica buen desarrollo del cultivo.',
+                                    significado: 'Las plantas están cubriendo bien el terreno. Buen desarrollo vegetativo con poca interferencia del suelo en la medición satelital.'
+                                },
+                                'Vegetación Moderada': {
+                                    titulo: '🌱 Cobertura Parcial',
+                                    descripcion: 'Mezcla de vegetación y suelo visible. SAVI compensa la reflectancia del suelo para dar una medición más precisa.',
+                                    significado: 'Típico de cultivos en desarrollo o con espaciamiento amplio. SAVI es especialmente útil aquí porque filtra la influencia del suelo.'
+                                },
+                                'Vegetación Escasa': {
+                                    titulo: '� Poca Cobertura',
+                                    descripcion: 'Predomina la exposición del suelo con vegetación dispersa o muy joven.',
+                                    significado: 'Normal en siembras recientes o cultivos de bajo porte. Si el cultivo debería estar más desarrollado, puede indicar problemas de germinación o crecimiento.'
+                                },
+                                'Cultivo Joven': {
+                                    titulo: '🌱 Emergencia/Crecimiento Inicial',
+                                    descripcion: 'Plantas pequeñas o recién emergidas donde el suelo es predominante. SAVI detecta vegetación que NDVI podría subestimar.',
+                                    significado: 'Etapa inicial del cultivo. Las plantas son pequeñas pero SAVI puede detectarlas incluso con mucho suelo visible. Ideal para monitorear germinación.'
+                                },
+                                'Suelo Expuesto': {
+                                    titulo: '🟫 Suelo Predominante',
+                                    descripcion: 'Muy poca o ninguna vegetación. La señal proviene principalmente del suelo.',
+                                    significado: 'Puede ser suelo preparado pre-siembra, fallas de germinación, o áreas deliberadamente sin cultivo como calles de servicio.'
+                                }
+                            }
+                        };
+                        
+                        // Explicaciones comunes para todos los índices
+                        const commonExplanations = {
+                            'Sin Datos/Nubes': {
+                                titulo: '☁️ Zona Sin Datos',
+                                descripcion: 'Área cubierta por nubes o donde el satélite no pudo obtener datos válidos.',
+                                significado: 'No hay información confiable para esta zona en esta imagen. Las nubes bloquean la visión del satélite hacia la superficie.'
+                            },
+                            'Sombra': {
+                                titulo: '🌑 Área Sombreada',
+                                descripcion: 'Zona oscurecida por sombras de nubes, árboles, edificaciones o relieve del terreno.',
+                                significado: 'La sombra impide obtener datos precisos. No indica problema con el cultivo, solo limitación de la imagen.'
+                            },
+                            'Transición': {
+                                titulo: '🔄 Zona de Cambio',
+                                descripcion: 'Área donde se mezclan diferentes condiciones: vegetación con suelo, húmedo con seco, etc.',
+                                significado: 'Representa bordes o gradientes naturales en el terreno. Puede ser límite entre zonas de diferente manejo o condición.'
+                            },
+                            'Mixto': {
+                                titulo: '� Área Variada',
+                                descripcion: 'Combinación heterogénea de diferentes coberturas o estados dentro de la misma zona.',
+                                significado: 'El pixel satelital contiene mezcla de elementos: algo de vegetación, algo de suelo, posiblemente agua o estructuras.'
+                            }
+                        };
+                        
+                        // Normalizar el tipo de índice
+                        const indexKey = (indexType || 'ndvi').toLowerCase().replace(/[^a-z]/g, '');
+                        
+                        // Buscar en explicaciones específicas del índice
+                        let explanation = null;
+                        const indexExplanations = explanationsByIndex[indexKey];
+                        
+                        if (indexExplanations) {
+                            explanation = indexExplanations[categoryName];
+                            
+                            // Buscar coincidencia parcial si no hay exacta
+                            if (!explanation) {
+                                const searchTerm = categoryName.toLowerCase();
+                                for (const [key, value] of Object.entries(indexExplanations)) {
+                                    if (searchTerm.includes(key.toLowerCase().split(' ')[0]) || 
+                                        key.toLowerCase().includes(searchTerm.split(' ')[0])) {
+                                        explanation = value;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Buscar en explicaciones comunes
+                        if (!explanation) {
+                            explanation = commonExplanations[categoryName];
+                            if (!explanation) {
+                                for (const [key, value] of Object.entries(commonExplanations)) {
+                                    if (categoryName.toLowerCase().includes(key.toLowerCase().split(' ')[0])) {
+                                        explanation = value;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Generar explicación dinámica si no se encontró
+                        if (!explanation) {
+                            const indexNames = {
+                                ndvi: 'salud vegetativa (NDVI)',
+                                ndmi: 'contenido hídrico (NDMI)',
+                                savi: 'vegetación ajustada al suelo (SAVI)'
+                            };
+                            const indexDescription = indexNames[indexKey] || indexType.toUpperCase();
+                            
+                            explanation = {
+                                titulo: `📊 ${categoryName}`,
+                                descripcion: `Categoría identificada automáticamente en el análisis de ${indexDescription}.`,
+                                significado: `Esta clasificación representa una condición específica detectada por el análisis espectral de la imagen satelital para el índice ${indexType.toUpperCase()}.`
+                            };
+                        }
+                        
+                        return explanation;
+                    };
+                    
+                    // Función para mostrar modal de explicación
+                    const showCategoryExplanation = (categoryName, percent, indexType) => {
+                        const explanation = getCategoryExplanation(categoryName, indexType);
+                        
+                        // Crear o encontrar el modal
+                        let modal = document.getElementById('categoryExplanationModal');
+                        if (!modal) {
+                            modal = document.createElement('div');
+                            modal.id = 'categoryExplanationModal';
+                            modal.style.cssText = `
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                background: rgba(0,0,0,0.5);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                z-index: 10000;
+                                opacity: 0;
+                                transition: opacity 0.3s ease;
+                            `;
+                            document.body.appendChild(modal);
+                        }
+                        
+                        modal.innerHTML = `
+                            <div style="
+                                background: white;
+                                border-radius: 20px;
+                                max-width: 420px;
+                                width: 90%;
+                                max-height: 80vh;
+                                overflow-y: auto;
+                                box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                                animation: modalSlideIn 0.3s ease;
+                            ">
+                                <style>
+                                    @keyframes modalSlideIn {
+                                        from { transform: translateY(30px); opacity: 0; }
+                                        to { transform: translateY(0); opacity: 1; }
+                                    }
+                                </style>
+                                
+                                <!-- Header con gradiente -->
+                                <div style="
+                                    background: linear-gradient(135deg, #4CAF50, #2E7D32);
+                                    padding: 20px;
+                                    border-radius: 20px 20px 0 0;
+                                    color: white;
+                                    position: relative;
+                                ">
+                                    <button onclick="document.getElementById('categoryExplanationModal').style.display='none'" style="
+                                        position: absolute;
+                                        top: 15px;
+                                        right: 15px;
+                                        background: rgba(255,255,255,0.2);
+                                        border: none;
+                                        color: white;
+                                        width: 32px;
+                                        height: 32px;
+                                        border-radius: 50%;
+                                        cursor: pointer;
+                                        font-size: 18px;
+                                        display: flex;
+                                        align-items: center;
+                                        justify-content: center;
+                                    ">✕</button>
+                                    <h4 style="margin: 0 0 8px 0; font-size: 1.3rem;">${explanation.titulo}</h4>
+                                    <div style="font-size: 2rem; font-weight: bold;">${parseFloat(percent).toFixed(1)}%</div>
+                                    <small>del área total analizada</small>
+                                </div>
+                                
+                                <!-- Contenido simplificado -->
+                                <div style="padding: 20px;">
+                                    <!-- Descripción -->
+                                    <div style="margin-bottom: 20px;">
+                                        <div style="font-weight: 600; color: #333; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                            <span style="background: #E8F5E9; padding: 6px 10px; border-radius: 8px; font-size: 1.1rem;">📝</span>
+                                            ¿Qué detectó el satélite?
+                                        </div>
+                                        <p style="color: #555; margin: 0; line-height: 1.6; font-size: 0.95rem;">${explanation.descripcion}</p>
+                                    </div>
+                                    
+                                    <!-- Significado -->
+                                    <div style="
+                                        background: linear-gradient(135deg, #FFF8E1, #FFFDE7);
+                                        padding: 16px;
+                                        border-radius: 12px;
+                                        border-left: 4px solid #FFC107;
+                                    ">
+                                        <div style="font-weight: 600; color: #333; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
+                                            <span style="font-size: 1.2rem;">💡</span>
+                                            ¿Qué significa para tu cultivo?
+                                        </div>
+                                        <p style="color: #555; margin: 0; line-height: 1.6; font-size: 0.95rem;">${explanation.significado}</p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Footer -->
+                                <div style="padding: 0 20px 20px 20px;">
+                                    <button onclick="document.getElementById('categoryExplanationModal').style.display='none'" style="
+                                        width: 100%;
+                                        background: linear-gradient(135deg, #4CAF50, #2E7D32);
+                                        color: white;
+                                        border: none;
+                                        padding: 14px;
+                                        border-radius: 12px;
+                                        font-weight: 600;
+                                        cursor: pointer;
+                                        font-size: 1rem;
+                                    ">Entendido ✓</button>
+                                </div>
+                            </div>
+                        `;
+                        
+                        modal.style.display = 'flex';
+                        setTimeout(() => modal.style.opacity = '1', 10);
+                        
+                        // Cerrar al hacer clic fuera
+                        modal.onclick = (e) => {
+                            if (e.target === modal) {
+                                modal.style.display = 'none';
+                            }
+                        };
+                    };
+                    
+                    // Añadir tarjetas de resultados con mejor diseño
                     resultsWithColors.forEach((result, index) => {
+                        const [r, g, b] = result.color || [128, 128, 128];
+                        const textColor = getContrastColor(r, g, b);
+                        const borderColor = `rgba(${r}, ${g}, ${b}, 0.8)`;
+                        
                         const card = document.createElement('div');
-                        card.style.background = 'rgba(255, 255, 255, 0.8)';
-                        card.style.borderRadius = '8px';
-                        card.style.padding = '12px';
-                        card.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
-                        card.style.position = 'relative';
-                        card.style.overflow = 'hidden';
+                        card.style.cssText = `
+                            background: linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 0.9), rgba(${r}, ${g}, ${b}, 1));
+                            border-radius: 12px;
+                            padding: 14px 10px;
+                            box-shadow: 0 4px 12px rgba(${r}, ${g}, ${b}, 0.3);
+                            position: relative;
+                            overflow: hidden;
+                            border: 2px solid ${borderColor};
+                            transition: transform 0.2s ease, box-shadow 0.2s ease;
+                            cursor: pointer;
+                        `;
                         
-                        // Color de fondo según el resultado
-                        card.style.backgroundColor = `rgb(${result.color.join(',')})`;
+                        // Icono de información
+                        const infoIcon = document.createElement('div');
+                        infoIcon.innerHTML = 'ⓘ';
+                        infoIcon.style.cssText = `
+                            position: absolute;
+                            top: 6px;
+                            right: 8px;
+                            font-size: 0.9rem;
+                            color: ${textColor};
+                            opacity: 0.7;
+                        `;
+                        card.appendChild(infoIcon);
                         
-                        // Texto del resultado
-                        const text = document.createElement('div');
-                        text.style.fontSize = '1rem';
-                        text.style.fontWeight = 'bold';
-                        text.style.color = '#fff';
-                        text.style.textAlign = 'center';
-                        text.style.marginBottom = '4px';
-                        text.textContent = result.label;
-                        card.appendChild(text);
+                        // Hover effect
+                        card.onmouseenter = () => {
+                            card.style.transform = 'translateY(-2px)';
+                            card.style.boxShadow = `0 6px 16px rgba(${r}, ${g}, ${b}, 0.4)`;
+                            infoIcon.style.opacity = '1';
+                        };
+                        card.onmouseleave = () => {
+                            card.style.transform = 'translateY(0)';
+                            card.style.boxShadow = `0 4px 12px rgba(${r}, ${g}, ${b}, 0.3)`;
+                            infoIcon.style.opacity = '0.7';
+                        };
                         
-                        // Porcentaje (si aplica)
-                        if (result.percentage != null) {
-                            const percentage = document.createElement('div');
-                            percentage.style.fontSize = '0.9rem';
-                            percentage.style.color = '#fff';
-                            percentage.style.textAlign = 'center';
-                            percentage.textContent = `${result.percentage.toFixed(1)}%`;
-                            card.appendChild(percentage);
-                        }
+                        // Click para mostrar explicación
+                        card.onclick = () => {
+                            showCategoryExplanation(result.name, result.percent || result.percentage, tipo);
+                        };
                         
-                        // Indicador de análisis dinámico (si aplica)
-                        if (analysisResult.analysisType === 'dynamic') {
-                            const dynamicIndicator = document.createElement('div');
-                            dynamicIndicator.style.position = 'absolute';
-                            dynamicIndicator.style.top = '8px';
-                            dynamicIndicator.style.right = '8px';
-                            dynamicIndicator.style.background = 'rgba(255, 255, 255, 0.9)';
-                            dynamicIndicator.style.color = '#333';
-                            dynamicIndicator.style.fontSize = '0.8rem';
-                            dynamicIndicator.style.padding = '4px 8px';
-                            dynamicIndicator.style.borderRadius = '12px';
-                            dynamicIndicator.textContent = 'Análisis dinámico';
-                            card.appendChild(dynamicIndicator);
-                        }
+                        // Nombre de la categoría
+                        const nameText = document.createElement('div');
+                        nameText.style.cssText = `
+                            font-size: 0.85rem;
+                            font-weight: 600;
+                            color: ${textColor};
+                            text-align: center;
+                            margin-bottom: 8px;
+                            line-height: 1.2;
+                            text-shadow: ${textColor === '#ffffff' ? '0 1px 2px rgba(0,0,0,0.3)' : 'none'};
+                        `;
+                        nameText.textContent = result.name || `Categoría ${index + 1}`;
+                        card.appendChild(nameText);
+                        
+                        // Porcentaje con formato prominente
+                        const percentValue = result.percent || result.percentage || 0;
+                        const percentText = document.createElement('div');
+                        percentText.style.cssText = `
+                            font-size: 1.4rem;
+                            font-weight: 800;
+                            color: ${textColor};
+                            text-align: center;
+                            text-shadow: ${textColor === '#ffffff' ? '0 1px 3px rgba(0,0,0,0.4)' : 'none'};
+                        `;
+                        percentText.textContent = `${parseFloat(percentValue).toFixed(1)}%`;
+                        card.appendChild(percentText);
+                        
+                        // Barra de progreso visual
+                        const progressContainer = document.createElement('div');
+                        progressContainer.style.cssText = `
+                            margin-top: 8px;
+                            background: rgba(255,255,255,0.3);
+                            border-radius: 4px;
+                            height: 6px;
+                            overflow: hidden;
+                        `;
+                        const progressBar = document.createElement('div');
+                        progressBar.style.cssText = `
+                            width: ${Math.min(parseFloat(percentValue), 100)}%;
+                            height: 100%;
+                            background: ${textColor === '#ffffff' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.5)'};
+                            border-radius: 4px;
+                            transition: width 0.5s ease;
+                        `;
+                        progressContainer.appendChild(progressBar);
+                        card.appendChild(progressContainer);
                         
                         resultsContainer.appendChild(card);
                     });
+                    
+                    // Agregar hint para indicar que las tarjetas son clickeables
+                    const clickHint = document.createElement('div');
+                    clickHint.style.cssText = `
+                        margin-top: 8px;
+                        padding: 6px 12px;
+                        background: linear-gradient(135deg, #E8F5E9, #C8E6C9);
+                        border-radius: 8px;
+                        font-size: 0.75rem;
+                        color: #2E7D32;
+                        text-align: center;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 6px;
+                    `;
+                    clickHint.innerHTML = '<span style="font-size: 1rem;">👆</span> Toca cualquier tarjeta para ver qué significa';
+                    legendContainer.appendChild(clickHint);
+                    
+                    // Agregar indicador de tipo de análisis al final
+                    const analysisInfo = document.createElement('div');
+                    analysisInfo.style.cssText = `
+                        margin-top: 12px;
+                        padding: 10px;
+                        background: rgba(0,0,0,0.03);
+                        border-radius: 8px;
+                        font-size: 0.8rem;
+                        color: #666;
+                        text-align: center;
+                    `;
+                    const analysisIcon = analysisResult.analysisType === 'dynamic' ? '🔍' : '📋';
+                    const analysisText = analysisResult.analysisType === 'dynamic' 
+                        ? 'Análisis dinámico (colores detectados automáticamente)' 
+                        : 'Análisis con rangos predefinidos';
+                    analysisInfo.innerHTML = `${analysisIcon} <strong>${analysisText}</strong><br>
+                        <small>Total píxeles analizados: ${analysisResult.totalPixels?.toLocaleString() || 'N/A'}</small>`;
+                    legendContainer.appendChild(analysisInfo);
+                    
+                    // NUEVO: Generar y mostrar interpretación profesional
+                    try {
+                        const interpretacion = generarInterpretacionProfesional(resultsWithColors, tipo, analysisResult.metadata);
+                        const interpretacionHTML = generarHTMLInterpretacion(interpretacion, tipo);
+                        
+                        // Crear contenedor de interpretación si no existe
+                        let interpretacionContainer = legendContainer.querySelector('.interpretacion-profesional');
+                        if (!interpretacionContainer) {
+                            interpretacionContainer = document.createElement('div');
+                            interpretacionContainer.className = 'interpretacion-profesional mt-3';
+                            legendContainer.appendChild(interpretacionContainer);
+                        }
+                        interpretacionContainer.innerHTML = interpretacionHTML;
+                        
+                        console.log(`[IMAGE_ANALYSIS] Interpretación profesional generada para ${tipo.toUpperCase()}`);
+                    } catch (interpError) {
+                        console.warn('[IMAGE_ANALYSIS] Error al generar interpretación profesional:', interpError);
+                    }
                 }
                 
                 return;
@@ -2071,9 +2782,9 @@ window.reinitializeCesium = function() {
         }
         
         // Limpiar el contenedor
-        const cesiumContainer = document.getElementById('cesiumContainer');
-        if (cesiumContainer) {
-            cesiumContainer.innerHTML = '';
+        const mapContainer = document.getElementById('mapContainer');
+        if (mapContainer) {
+            mapContainer.innerHTML = '';
         }
         
         // Mostrar mensaje de carga

@@ -4,14 +4,14 @@
     <meta charset="UTF-8">
     <!-- Content Security Policy permisiva para Leaflet y recursos externos -->
     <meta http-equiv="Content-Security-Policy" 
-          content="default-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:; 
-                   script-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:; 
-                   style-src 'self' 'unsafe-inline' https: data:; 
-                   font-src 'self' 'unsafe-inline' https: data:; 
-                   img-src 'self' 'unsafe-inline' https: data: blob:; 
-                   connect-src 'self' 'unsafe-inline' https: data: blob:; 
-                   worker-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:; 
-                   child-src 'self' 'unsafe-eval' 'unsafe-inline' https: data: blob:;">
+          content="default-src 'self' 'unsafe-eval' 'unsafe-inline' http: https: data: blob:; 
+                   script-src 'self' 'unsafe-eval' 'unsafe-inline' http: https: data: blob:; 
+                   style-src 'self' 'unsafe-inline' http: https: data:; 
+                   font-src 'self' 'unsafe-inline' http: https: data:; 
+                   img-src 'self' 'unsafe-inline' http: https: data: blob:; 
+                   connect-src 'self' 'unsafe-inline' http: https: data: blob: ws: wss:; 
+                   worker-src 'self' 'unsafe-eval' 'unsafe-inline' http: https: data: blob:; 
+                   child-src 'self' 'unsafe-eval' 'unsafe-inline' http: https: data: blob:;">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapa Satelital - AgroTech Digital</title>
     
@@ -56,6 +56,8 @@
     
     <!-- ⭐ SISTEMA NEUMÓRFICO AGROTECH ⭐ -->
     <link href="../../css/agrotech-neomorphic.css" rel="stylesheet" type="text/css" />
+    <!-- ⭐ OVERRIDE NEUMÓRFICO PARA DASHBOARD PARCELAS ⭐ -->
+    <link href="../../css/parcelas-neomorphic-override.css" rel="stylesheet" type="text/css" />
     
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <!-- Tabler Icons for Sidebar -->
@@ -80,6 +82,83 @@
             0% { transform: scale(1); opacity: 1; }
             50% { transform: scale(1.05); opacity: 0.8; }
             100% { transform: scale(1); opacity: 1; }
+        }
+        
+        /* 🎯 Estilos para parcela seleccionada */
+        #parcelTable tbody tr.selected-parcel {
+            background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(46, 125, 50, 0.1)) !important;
+            border-left: 4px solid #4CAF50;
+            position: relative;
+        }
+        
+        #parcelTable tbody tr.selected-parcel td:first-child::before {
+            content: '✓ ';
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        #parcelTable tbody tr {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        #parcelTable tbody tr:hover:not(.selected-parcel) {
+            background-color: rgba(0, 0, 0, 0.02) !important;
+        }
+        
+        /* Animación del banner de parcela seleccionada */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        #selectedParcelBanner {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        /* Animaciones para modales */
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        
+        /* Estilos para el modal de escenas satelitales */
+        #sceneSelectionModal table tbody tr {
+            transition: all 0.15s ease;
+        }
+        
+        #sceneSelectionModal table tbody tr:hover {
+            transform: scale(1.01);
+        }
+        
+        #sceneSelectionModal button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+        
+        /* Estilos para el panel de estado rápido */
+        #quickStatusPanel .col-6 > div:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important;
+            transition: all 0.2s ease;
+        }
+        
+        /* Selector de rango de fechas */
+        .btn-group .btn.active {
+            background-color: #28a745 !important;
+            border-color: #28a745 !important;
+            color: white !important;
         }
         
         /* Ajustes para el backdrop del modal - hacerlo más claro */
@@ -403,13 +482,13 @@
             </a>
         </div>
         <ul class="menu" style="padding: 20px 0; margin: 0; list-style: none;">
-            <li><a href="../vertical_base.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-home" style="font-size: 1.2em; color: #35B835;"></i> Dashboard</a></li>
-            <li><a href="../employees/RRHH-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-user" style="font-size: 1.2em; color: #35B835;"></i> Recursos Humanos</a></li>
-            <li><a href="../inventory/inventario-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-box" style="font-size: 1.2em; color: #35B835;"></i> Inventario</a></li>
-            <li><a href="../configuration/configuracion.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-settings" style="font-size: 1.2em; color: #35B835;"></i> Configuración</a></li>
+            <li><a href="../dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-home" style="font-size: 1.2em; color: #35B835;"></i> Dashboard</a></li>
+            <!-- <li><a href="../employees/RRHH-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-user" style="font-size: 1.2em; color: #35B835;"></i> Recursos Humanos</a></li> -->
+            <!-- <li><a href="../inventory/inventario-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-box" style="font-size: 1.2em; color: #35B835;"></i> Inventario</a></li> -->
+            <!-- <li><a href="../configuration/configuracion.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-settings" style="font-size: 1.2em; color: #35B835;"></i> Configuración</a></li> -->
             <li><a href="parcels-dashboard.html" class="active" style="display: flex; align-items: center; gap: 10px; color: #007A20; padding: 12px 22px; border-radius: 7px; background: linear-gradient(135deg, rgba(53, 184, 53, 0.15), rgba(0, 122, 32, 0.1)); font-weight: 600; transition: all 0.3s; font-size: 15px;"><i class="ti ti-map" style="font-size: 1.2em; color: #007A20;"></i> Parcelas</a></li>
-            <li><a href="../labors/labor-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-clipboard-list" style="font-size: 1.2em; color: #35B835;"></i> Labores</a></li>
-            <li><a href="../crops/crops-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-plant" style="font-size: 1.2em; color: #35B835;"></i> Cultivos</a></li>
+            <!-- <li><a href="../labors/labor-dashboard.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-clipboard-list" style="font-size: 1.2em; color: #35B835;"></i> Labores</a></li> -->
+            <li><a href="../crop/crop_list.html" style="display: flex; align-items: center; gap: 10px; color: #2C3E50; padding: 12px 22px; border-radius: 7px; transition: all 0.3s; font-size: 15px;"><i class="ti ti-plant" style="font-size: 1.2em; color: #35B835;"></i> Cultivos</a></li>
         </ul>
     </div>
 
@@ -486,8 +565,8 @@
 
         <!-- Contenedor principal -->
         <div style="display: flex; flex-direction: column; min-height: 100vh; overflow-y: auto;">
-            <!-- Mapa -->
-            <div id="cesiumContainer" style="flex: 0 0 auto; height: 75vh; min-height: 600px; position: relative;"></div>
+            <!-- Mapa - ID debe ser mapContainer para Leaflet -->
+            <div id="mapContainer" style="flex: 0 0 auto; height: 75vh; min-height: 600px; position: relative;"></div>
 
             <!-- Lista de Parcelas SIEMPRE visible encima del dashboard -->
             <div id="parcelTableContainer" style="margin: 30px auto 0 auto; max-width:90%; min-width:320px; overflow-x:auto; clear: both; background: #fff; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 18px 12px 12px 12px; display: block !important; position: relative; z-index:2;">
@@ -515,47 +594,127 @@
             <div id="dashboardFlexRow" style="width:95%;max-width:1200px;margin:24px auto 0 auto;padding:24px 16px 16px 16px;background:#fff;border-radius:18px;box-shadow:0 4px 16px rgba(0,0,0,0.10);font-size:16px;display:flex;align-items:flex-start;gap:32px;flex-wrap:wrap;z-index:1;">
                 <!-- Columna izquierda: Tarjeta de Análisis Satelital e Info Parcela -->
                 <div style="flex:2;min-width:320px;">
+                    <!-- 🔔 Banner de parcela seleccionada -->
+                    <div id="selectedParcelBanner" style="display:none;background:linear-gradient(135deg, #4CAF50, #2E7D32);border-radius:12px;padding:14px 18px;margin-bottom:16px;color:white;box-shadow:0 3px 12px rgba(46,125,50,0.3);">
+                        <div style="display:flex;align-items:center;justify-content:space-between;">
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <i class="fas fa-map-marked-alt" style="font-size:1.5em;"></i>
+                                <div>
+                                    <div style="font-size:12px;opacity:0.85;">Parcela seleccionada</div>
+                                    <div id="selectedParcelName" style="font-weight:700;font-size:1.1em;">-</div>
+                                </div>
+                            </div>
+                            <button onclick="clearParcelSelection()" class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white;border:none;border-radius:8px;padding:6px 12px;">
+                                <i class="fas fa-times me-1"></i> Cambiar
+                            </button>
+                        </div>
+                    </div>
+                    
                     <!-- Análisis de Imagen Satelital -->
                     <div style="background:#f8f9fa;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:24px;">
-                        <h5 style="font-weight:bold;color:#145A32;margin-bottom:15px;">� Análisis de Imagen Satelital</h5>
+                        <h5 style="font-weight:bold;color:#145A32;margin-bottom:15px;">🛰️ Análisis de Imagen Satelital</h5>
                         
-                        <div class="mb-2">
-                            <label for="fechaInicioInput" class="form-label">Fecha Inicio:</label>
-                            <input type="date" id="fechaInicioInput" class="form-control" placeholder="dd/mm/aaaa">
+                        <!-- Selector rápido de rango de fechas -->
+                        <div class="mb-3">
+                            <label class="form-label" style="font-weight:500;font-size:13px;color:#666;">Rango rápido:</label>
+                            <div class="btn-group w-100" role="group" aria-label="Selector de rango de fechas">
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="setDateRange(7)">7 días</button>
+                                <button type="button" class="btn btn-outline-success btn-sm active" onclick="setDateRange(30)">30 días</button>
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="setDateRange(90)">3 meses</button>
+                                <button type="button" class="btn btn-outline-success btn-sm" onclick="setDateRange(180)">6 meses</button>
+                            </div>
                         </div>
-                        <div class="mb-2">
-                            <label for="fechaFinInput" class="form-label">Fecha Fin:</label>
-                            <input type="date" id="fechaFinInput" class="form-control" placeholder="dd/mm/aaaa">
+                        
+                        <div class="row mb-2">
+                            <div class="col-6">
+                                <label for="fechaInicioInput" class="form-label" style="font-size:13px;">Desde:</label>
+                                <input type="date" id="fechaInicioInput" class="form-control form-control-sm">
+                            </div>
+                            <div class="col-6">
+                                <label for="fechaFinInput" class="form-label" style="font-size:13px;">Hasta:</label>
+                                <input type="date" id="fechaFinInput" class="form-control form-control-sm">
+                            </div>
                         </div>
-                        <button id="escenasSatelitalesBtn" class="btn btn-warning w-100 mb-2" style="font-weight:500;">Buscar escenas satelitales</button>
-                        <button id="graficoHistoricoBtn" class="btn btn-success w-100 mb-2" style="font-weight:500;">Ver Gráfico Histórico</button>
-                        <button id="analisisMeteorologicoBtn" class="btn btn-info w-100" style="font-weight:500;">Ver Meteorología</button>
+                        <button id="escenasSatelitalesBtn" class="btn btn-warning w-100 mb-2" style="font-weight:500;">
+                            <i class="fas fa-satellite me-1"></i> Buscar escenas satelitales
+                        </button>
+                        <button id="graficoHistoricoBtn" class="btn btn-success w-100 mb-2" style="font-weight:500;">
+                            <i class="fas fa-chart-line me-1"></i> Ver Gráfico Histórico
+                        </button>
+                        <button id="analisisMeteorologicoBtn" class="btn btn-info w-100" style="font-weight:500;">
+                            <i class="fas fa-cloud-sun me-1"></i> Ver Meteorología
+                        </button>
                     </div>
                     
                     <!-- Info Parcela -->
                     <div>
-                        <h5 style="font-weight:bold;color:#145A32;margin-bottom:16px;">Info Parcela</h5>
+                        <h5 style="font-weight:bold;color:#145A32;margin-bottom:16px;">📋 Info Parcela</h5>
                         <table class="table table-borderless mb-0" style="background:transparent;">
                             <tbody id="parcelDataTable">
-                                <tr><td style="color:#888;">Nombre:</td><td id="parcelNameCell">Selecciona una parcela</td></tr>
+                                <tr><td style="color:#888;width:40%;">Nombre:</td><td id="parcelNameCell" style="font-weight:500;">Selecciona una parcela</td></tr>
                                 <tr><td style="color:#888;">Área:</td><td id="parcelAreaCell">-</td></tr>
-                                <tr><td style="color:#888;">Fecha última escena:</td><td id="parcelDateCell">-</td></tr>
+                                <tr><td style="color:#888;">Última escena:</td><td id="parcelDateCell">-</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
                 
-                <!-- Columna derecha: Tabla de análisis -->
+                <!-- Columna derecha: Panel de estado rápido + análisis -->
                 <div style="flex:1;min-width:320px;">
-                    <!-- Espacio para futuras funcionalidades -->
-                    <div style="background:#f8f9fa;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:24px;display:flex;flex-direction:column;align-items:center;justify-content:center;">
-                        <div style="font-weight:600;color:#145A32;font-size:16px;margin-bottom:10px;text-align:center;">Funcionalidades adicionales</div>
-                        <div style="font-size:13px;color:#888;text-align:center;">Próximamente: herramientas de análisis avanzado y gestión de cultivos</div>
+                    <!-- 📊 Panel de Estado Rápido de la Parcela -->
+                    <div id="quickStatusPanel" style="background:linear-gradient(135deg, #f8f9fa, #e9ecef);border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:24px;">
+                        <div style="font-weight:600;color:#145A32;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
+                            <i class="fas fa-tachometer-alt"></i> Estado Rápido
+                        </div>
+                        
+                        <!-- Estado placeholder cuando no hay parcela -->
+                        <div id="quickStatusPlaceholder" style="text-align:center;padding:20px 0;">
+                            <i class="fas fa-hand-pointer" style="font-size:2em;color:#ccc;margin-bottom:10px;display:block;"></i>
+                            <div style="font-size:13px;color:#888;">Selecciona una parcela para ver su estado</div>
+                        </div>
+                        
+                        <!-- Estado real (oculto inicialmente) -->
+                        <div id="quickStatusContent" style="display:none;">
+                            <div class="row g-2">
+                                <!-- Salud de Vegetación -->
+                                <div class="col-6">
+                                    <div style="background:white;border-radius:10px;padding:12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+                                        <div style="font-size:1.4em;margin-bottom:4px;">🌱</div>
+                                        <div style="font-size:11px;color:#888;">Vegetación</div>
+                                        <div id="statusNdvi" style="font-weight:700;color:#28a745;font-size:14px;">-</div>
+                                    </div>
+                                </div>
+                                <!-- Estrés Hídrico -->
+                                <div class="col-6">
+                                    <div style="background:white;border-radius:10px;padding:12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+                                        <div style="font-size:1.4em;margin-bottom:4px;">💧</div>
+                                        <div style="font-size:11px;color:#888;">Humedad</div>
+                                        <div id="statusNdmi" style="font-weight:700;color:#17a2b8;font-size:14px;">-</div>
+                                    </div>
+                                </div>
+                                <!-- Próxima Lluvia -->
+                                <div class="col-6">
+                                    <div style="background:white;border-radius:10px;padding:12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+                                        <div style="font-size:1.4em;margin-bottom:4px;">🌧️</div>
+                                        <div style="font-size:11px;color:#888;">Próx. Lluvia</div>
+                                        <div id="statusRain" style="font-weight:700;color:#6c757d;font-size:12px;">-</div>
+                                    </div>
+                                </div>
+                                <!-- Última Imagen -->
+                                <div class="col-6">
+                                    <div style="background:white;border-radius:10px;padding:12px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.05);">
+                                        <div style="font-size:1.4em;margin-bottom:4px;">📅</div>
+                                        <div style="font-size:11px;color:#888;">Últ. Imagen</div>
+                                        <div id="statusLastImage" style="font-weight:700;color:#6c757d;font-size:12px;">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     
                     <!-- Análisis automático de imagen satelital -->
                     <div id="analysisTableCard" style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);padding:18px 20px;">
-                        <h5 style="font-weight: bold; color: #333; margin-bottom: 15px;">Análisis de Imagen Satelital</h5>
+                        <h5 style="font-weight: bold; color: #333; margin-bottom: 15px;">📊 Análisis de Imagen</h5>
                         <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
                             <!-- Imagen satelital -->
                             <div id="satelliteImageContainer" style="flex:1;min-width:300px;max-width:400px;">
@@ -947,152 +1106,6 @@
             </div>
         </div>
 
-        <!-- Sección de Análisis NDVI + Meteorología (estática, no modal) -->
-        <div id="meteorologicalAnalysisSection" style="display: none; margin-top: 30px;">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #4CAF50, #FF9800); color: white;">
-                    <h5 class="mb-0" style="color: white;">Análisis Comparativo Meteorológico</h5>
-                    <button type="button" class="btn-close btn-close-white" aria-label="Cerrar" onclick="closeMeterologicalAnalysis()" style="filter: brightness(0) invert(1);"></button>
-                </div>
-                <div class="card-body">
-                    <!-- Loading del análisis -->
-                    <div id="meteorologicalAnalysisLoading" style="display: none; text-align: center; padding: 40px;">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Cargando...</span>
-                        </div>
-                        <p class="mt-3">Analizando meteorológicos...</p>
-                    </div>
-
-                    <!-- Contenedor del análisis -->
-                    <div id="meteorologicalAnalysisContainer" style="display: none;">
-                        <!-- Controles -->
-                        <div class="row mb-4">
-                            <div class="col-md-12 d-flex justify-content-between align-items-center">
-                                <button class="btn btn-primary" onclick="loadWeatherForecast(window.EOSDA_STATE.selectedParcelId)">
-                                    <i class="fas fa-cloud-sun me-1"></i> Ver Pronóstico
-                                </button>
-                                <div>
-                                    <button class="btn btn-outline-primary me-2" onclick="exportMeteorologicalData()">
-                                        <i class="fas fa-download me-1"></i> Exportar CSV
-                                    </button>
-                                    <button class="btn btn-outline-secondary" onclick="refreshMeteorologicalAnalysis()">
-                                        <i class="fas fa-sync-alt me-1"></i> Actualizar
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Gráfico comparativo -->
-                        <div class="row">   
-                            <div class="col-md-8">
-                                <div style="position: relative; height: 400px; background: #f8f9fa; border-radius: 8px; padding: 15px;">
-                                    <canvas id="meteorologicalChart"></canvas>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <!-- Correlaciones -->
-                                <div class="card mb-3">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0">
-                                            <i class="fas fa-chart-line me-2"></i>Métricas Meteorológicas
-                                        </h6>
-                                        <small class="text-muted">Promedios del período seleccionado</small>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="mb-3">
-                                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                                <small class="fw-bold">Temperatura Máxima Promedio:</small>
-                                                <span id="correlationStrengthPrecip" class="badge bg-secondary">-</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <span id="correlationPrecipitation" style="font-weight: bold; color: #E65100; font-size: 1.1em;">-</span>
-                                                <small class="text-muted">Promedio del período</small>
-                                            </div>
-                                            <div class="progress mt-1" style="height: 6px;">
-                                                <div id="precipitationProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: #E65100;"></div>
-                                            </div>
-                                        </div>
-                                        <div class="mb-2">
-                                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                                <small class="fw-bold">Precipitación Total del Período:</small>
-                                                <span id="correlationStrengthTemp" class="badge bg-secondary">-</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <span id="correlationTemperature" style="font-weight: bold; color: #1565C0; font-size: 1.1em;">-</span>
-                                                <small class="text-muted">Promedio del período</small>
-                                            </div>
-                                            <div class="progress mt-1" style="height: 6px;">
-                                                <div id="temperatureProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: #1565C0;"></div>
-                                            </div>
-                                        </div>
-                                        <div class="mb-3">
-                                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                                <small class="fw-bold">Velocidad del Viento Promedio:</small>
-                                                <span id="correlationStrengthWind" class="badge bg-secondary">-</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <span id="correlationWind" style="font-weight: bold; color: #5E35B1; font-size: 1.1em;">-</span>
-                                                <small class="text-muted">Promedio del período</small>
-                                            </div>
-                                            <div class="progress mt-1" style="height: 6px;">
-                                                <div id="windProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: #5E35B1;"></div>
-                                            </div>
-                                        </div>
-                                        <div class="mb-2">
-                                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                                <small class="fw-bold">Radiación Solar Promedio:</small>
-                                                <span id="correlationStrengthSolar" class="badge bg-secondary">-</span>
-                                            </div>
-                                            <div class="d-flex justify-content-between align-items-center">
-                                                <span id="correlationSolar" style="font-weight: bold; color: #FF8F00; font-size: 1.1em;">-</span>
-                                                <small class="text-muted">Promedio del período</small>
-                                            </div>
-                                            <div class="progress mt-1" style="height: 6px;">
-                                                <div id="solarProgressBar" class="progress-bar" role="progressbar" style="width: 0%; background-color: #FF8F00;"></div>
-                                            </div>
-                                        </div>
-                                        <hr>
-                                    </div>
-                                </div>
-
-                                <!-- Insights -->
-                                <div class="card">
-                                    <div class="card-header bg-light">
-                                        <h6 class="mb-0">
-                                            <i class="fas fa-lightbulb me-2"></i>Insights y Recomendaciones
-                                        </h6>
-                                        <small class="text-muted">Análisis automático basado en correlaciones</small>
-                                    </div>
-                                    <div class="card-body">
-                                        <div id="insightsContainer">
-                                            <div id="insightsLoading" class="text-center py-3">
-                                                <div class="spinner-border spinner-border-sm text-primary" role="status">
-                                                    <span class="visually-hidden">Analizando...</span>
-                                                </div>
-                                                <p class="mt-2 mb-0 small text-muted">Generando insights...</p>
-                                            </div>
-                                            <ul id="insightsList" class="list-unstyled mb-0" style="display: none;">
-                                                <!-- Los insights se llenarán dinámicamente -->
-                                            </ul>
-                                        </div>
-                                        <div class="mt-3 p-2 bg-light rounded" style="display: none;" id="insightsHelp">
-                                            <small class="text-muted">
-                                                <i class="fas fa-info-circle me-1"></i>
-                                                <strong>¿Cómo interpretar?</strong><br>
-                                                • Correlación positiva: A mayor factor, mayor NDVI<br>
-                                                • Correlación negativa: A mayor factor, menor NDVI<br>
-                                                • Use estas recomendaciones para optimizar manejo
-                                            </small>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Modal para Gráfico Histórico de Índices Satelitales -->
         <div class="modal fade" id="historicalChartModal" tabindex="-1" aria-labelledby="historicalChartModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-xl">
@@ -1244,7 +1257,8 @@
     <!-- El token de Cesium Ion se configura en parcel.js después de verificar que Cesium esté cargado -->
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qs/dist/qs.js"></script>
-    <script type="module" src="../../js/utils/api-utils.js"></script>
+    <!-- api-utils.js debe cargarse SIN type="module" para garantizar que window.ApiUrls esté disponible -->
+    <script src="../../js/utils/api-utils.js"></script>
     <script type="module" src="../../js/auth/dev-auth-helper.js"></script>
     <script src="../../js/app.js"></script>
     <script type="module" src="../../js/parcels/parcel.js"></script>
@@ -1366,10 +1380,11 @@
     </script>
 
     <script>
-    // Función global para manejar el menú lateral móvil
+    // Función global para manejar el menú lateral móvil (compatible con ambos IDs)
     function toggleMobileSidebar() {
-        const mobileSidebar = document.getElementById('mobile-sidebar');
-        const overlay = document.getElementById('sidebar-overlay');
+        // Buscar sidebar y overlay con nuevos IDs o legacy
+        const mobileSidebar = document.getElementById('mobile-sidebar') || document.querySelector('.mobile-sidebar-neo');
+        const overlay = document.getElementById('sidebar-overlay') || document.querySelector('.sidebar-overlay-neo');
         
         if (mobileSidebar && overlay) {
             const isOpen = mobileSidebar.classList.contains('show');
@@ -1386,13 +1401,13 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         // Configurar eventos del menú móvil
-        const overlay = document.getElementById('sidebar-overlay');
+        const overlay = document.getElementById('sidebar-overlay') || document.querySelector('.sidebar-overlay-neo');
         if (overlay) {
             overlay.addEventListener('click', toggleMobileSidebar);
         }
         
         // Cerrar menú al hacer clic en los enlaces
-        const mobileSidebar = document.getElementById('mobile-sidebar');
+        const mobileSidebar = document.getElementById('mobile-sidebar') || document.querySelector('.mobile-sidebar-neo');
         if (mobileSidebar) {
             const links = mobileSidebar.querySelectorAll('a');
             links.forEach(function(link) {
@@ -1402,7 +1417,7 @@
             });
         }
 
-        // Mostrar topbar móvil solo en móvil
+        // Mostrar topbar móvil solo en móvil (legacy support)
         const isMobile = window.innerWidth < 768;
         const topbar = document.querySelector('.topbar');
         if (topbar && isMobile) {
@@ -1519,9 +1534,359 @@
     });
     </script>
 
+    <!-- 🚀 FUNCIONES DE MEJORA UX PARA PARCELAS -->
+    <script>
+    /**
+     * Funciones de mejora UX para el dashboard de parcelas
+     * - Fechas predefinidas inteligentes
+     * - Indicador de parcela seleccionada
+     * - Panel de estado rápido
+     */
+
+    // Inicializar fechas por defecto (últimos 30 días)
+    document.addEventListener('DOMContentLoaded', function() {
+        setDateRange(30);
+        
+        // Observar cambios en el estado global para actualizar UI
+        setupParcelSelectionObserver();
+    });
+
+    /**
+     * Establece el rango de fechas predefinido
+     * @param {number} days - Número de días hacia atrás
+     */
+    function setDateRange(days) {
+        const endDate = new Date();
+        const startDate = new Date();
+        startDate.setDate(endDate.getDate() - days);
+        
+        const formatDate = (date) => date.toISOString().split('T')[0];
+        
+        const fechaInicioInput = document.getElementById('fechaInicioInput');
+        const fechaFinInput = document.getElementById('fechaFinInput');
+        
+        if (fechaInicioInput) {
+            fechaInicioInput.value = formatDate(startDate);
+            // Disparar evento change manualmente para que updateButtonState() se ejecute
+            fechaInicioInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        
+        if (fechaFinInput) {
+            fechaFinInput.value = formatDate(endDate);
+            // Disparar evento change manualmente
+            fechaFinInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        
+        // Actualizar estado visual de botones
+        document.querySelectorAll('.btn-group .btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event?.target?.classList?.add('active');
+        
+        console.log(`[UX] Rango de fechas establecido: ${formatDate(startDate)} - ${formatDate(endDate)}`);
+        
+        // Actualizar estado del botón de escenas directamente
+        updateSceneButtonState();
+    }
+    window.setDateRange = setDateRange;
+    
+    /**
+     * Actualiza el estado del botón de escenas satelitales
+     */
+    function updateSceneButtonState() {
+        const btnEscenas = document.getElementById('escenasSatelitalesBtn');
+        const fechaInicio = document.getElementById('fechaInicioInput');
+        const fechaFin = document.getElementById('fechaFinInput');
+        
+        if (!btnEscenas) return;
+        
+        const parcelaSeleccionada = window.AGROTECH_STATE && window.AGROTECH_STATE.selectedParcelId;
+        const fechasValidas = fechaInicio && fechaFin && fechaInicio.value && fechaFin.value;
+        
+        btnEscenas.disabled = !(parcelaSeleccionada && fechasValidas);
+        
+        // Actualizar tooltip visual
+        if (btnEscenas.disabled) {
+            if (!parcelaSeleccionada) {
+                btnEscenas.title = 'Selecciona primero una parcela';
+            } else if (!fechasValidas) {
+                btnEscenas.title = 'Selecciona el rango de fechas';
+            }
+        } else {
+            btnEscenas.title = 'Buscar imágenes satelitales disponibles';
+        }
+        
+        console.log(`[UX] Estado botón escenas: parcela=${!!parcelaSeleccionada}, fechas=${!!fechasValidas}, disabled=${btnEscenas.disabled}`);
+    }
+    window.updateSceneButtonState = updateSceneButtonState;
+
+    /**
+     * Actualiza el banner de parcela seleccionada
+     * @param {Object} parcel - Datos de la parcela
+     */
+    function updateSelectedParcelBanner(parcel) {
+        const banner = document.getElementById('selectedParcelBanner');
+        const nameEl = document.getElementById('selectedParcelName');
+        
+        if (parcel && parcel.name) {
+            nameEl.textContent = parcel.name;
+            banner.style.display = 'block';
+            
+            // Actualizar info de parcela
+            document.getElementById('parcelNameCell').textContent = parcel.name || '-';
+            document.getElementById('parcelAreaCell').textContent = 
+                parcel.area_hectares ? `${parcel.area_hectares.toFixed(2)} ha` : '-';
+            
+            // Mostrar panel de estado rápido
+            document.getElementById('quickStatusPlaceholder').style.display = 'none';
+            document.getElementById('quickStatusContent').style.display = 'block';
+            
+            // Cargar datos de estado rápido
+            loadQuickStatus(parcel);
+            
+            // Actualizar estado del botón de escenas
+            updateSceneButtonState();
+            
+        } else {
+            banner.style.display = 'none';
+            document.getElementById('parcelNameCell').textContent = 'Selecciona una parcela';
+            document.getElementById('parcelAreaCell').textContent = '-';
+            document.getElementById('parcelDateCell').textContent = '-';
+            
+            // Ocultar panel de estado rápido
+            document.getElementById('quickStatusPlaceholder').style.display = 'block';
+            document.getElementById('quickStatusContent').style.display = 'none';
+            
+            // Actualizar estado del botón de escenas
+            updateSceneButtonState();
+        }
+    }
+    window.updateSelectedParcelBanner = updateSelectedParcelBanner;
+
+    /**
+     * Limpia la selección de parcela
+     */
+    function clearParcelSelection() {
+        window.AGROTECH_STATE.selectedParcelId = null;
+        window.AGROTECH_STATE.selectedSatelliteId = null;
+        updateSelectedParcelBanner(null);
+        
+        // Highlight en la tabla
+        document.querySelectorAll('#parcelTable tbody tr').forEach(row => {
+            row.classList.remove('table-success', 'selected-parcel');
+        });
+        
+        // Actualizar estado del botón de escenas
+        updateSceneButtonState();
+        
+        if (typeof showToast === 'function') {
+            showToast('📍 Selección de parcela limpiada', 'info');
+        }
+    }
+    window.clearParcelSelection = clearParcelSelection;
+
+    /**
+     * Carga el estado rápido de la parcela seleccionada
+     * Intenta múltiples fuentes de datos: API histórica, cache de escenas, último análisis
+     * @param {Object} parcel - Datos de la parcela
+     */
+    async function loadQuickStatus(parcel) {
+        const statusNdvi = document.getElementById('statusNdvi');
+        const statusNdmi = document.getElementById('statusNdmi');
+        const statusRain = document.getElementById('statusRain');
+        const statusLastImage = document.getElementById('statusLastImage');
+        
+        if (!statusNdvi || !statusNdmi || !statusRain || !statusLastImage) {
+            console.warn('[QUICK_STATUS] Elementos del panel no encontrados');
+            return;
+        }
+        
+        // Mostrar estado de carga con animación
+        [statusNdvi, statusNdmi, statusRain, statusLastImage].forEach(el => {
+            el.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size:12px;"></i>';
+            el.style.color = '#888';
+        });
+        
+        try {
+            const parcelId = parcel.id || window.AGROTECH_STATE.selectedParcelId;
+            let dataLoaded = false;
+            
+            // ESTRATEGIA 1: Intentar obtener datos históricos de la API
+            if (parcelId && window.axiosInstance) {
+                try {
+                    const response = await window.axiosInstance.get(`/parcel/${parcelId}/historical-indices/`);
+                    const data = response.data;
+                    
+                    if (data && data.statistics) {
+                        dataLoaded = true;
+                        
+                        // NDVI
+                        const ndviValue = data.statistics.ndvi?.latest || data.statistics.ndvi?.average;
+                        if (ndviValue !== undefined && ndviValue !== null) {
+                            const ndviCategory = categorizeNDVI(ndviValue);
+                            statusNdvi.textContent = ndviCategory.label;
+                            statusNdvi.style.color = ndviCategory.color;
+                        } else {
+                            statusNdvi.textContent = 'Consultar';
+                            statusNdvi.style.color = '#17a2b8';
+                        }
+                        
+                        // NDMI
+                        const ndmiValue = data.statistics.ndmi?.latest || data.statistics.ndmi?.average;
+                        if (ndmiValue !== undefined && ndmiValue !== null) {
+                            const ndmiCategory = categorizeNDMI(ndmiValue);
+                            statusNdmi.textContent = ndmiCategory.label;
+                            statusNdmi.style.color = ndmiCategory.color;
+                        } else {
+                            statusNdmi.textContent = 'Consultar';
+                            statusNdmi.style.color = '#17a2b8';
+                        }
+                        
+                        // Última imagen
+                        if (data.historical_data?.ndvi?.length > 0) {
+                            const lastEntry = data.historical_data.ndvi[data.historical_data.ndvi.length - 1];
+                            if (lastEntry.date) {
+                                const lastDate = new Date(lastEntry.date);
+                                const daysAgo = Math.floor((new Date() - lastDate) / (1000 * 60 * 60 * 24));
+                                statusLastImage.textContent = daysAgo === 0 ? 'Hoy' : 
+                                    daysAgo === 1 ? 'Ayer' : `${daysAgo}d`;
+                                statusLastImage.style.color = daysAgo <= 7 ? '#28a745' : daysAgo <= 14 ? '#ffc107' : '#dc3545';
+                                
+                                document.getElementById('parcelDateCell').textContent = 
+                                    lastDate.toLocaleDateString('es-ES');
+                            }
+                        } else {
+                            statusLastImage.textContent = 'Ver escenas';
+                            statusLastImage.style.color = '#17a2b8';
+                        }
+                    }
+                } catch (apiError) {
+                    console.log('[QUICK_STATUS] API histórica no disponible:', apiError.message);
+                }
+            }
+            
+            // ESTRATEGIA 2: Si no hay datos, intentar desde cache de escenas
+            if (!dataLoaded && window.EOSDA_SCENES_CACHE) {
+                const eosda_id = parcel.eosda_id || window.AGROTECH_STATE.selectedSatelliteId;
+                const cacheKey = `scenes_${eosda_id}`;
+                const cachedScenes = window.EOSDA_SCENES_CACHE[cacheKey];
+                
+                if (cachedScenes && cachedScenes.length > 0) {
+                    dataLoaded = true;
+                    const latestScene = cachedScenes[0]; // Ya están ordenadas por fecha desc
+                    
+                    // Mostrar info de la última escena
+                    if (latestScene.date) {
+                        const lastDate = new Date(latestScene.date);
+                        const daysAgo = Math.floor((new Date() - lastDate) / (1000 * 60 * 60 * 24));
+                        statusLastImage.textContent = daysAgo === 0 ? 'Hoy' : 
+                            daysAgo === 1 ? 'Ayer' : `${daysAgo}d`;
+                        statusLastImage.style.color = daysAgo <= 7 ? '#28a745' : '#ffc107';
+                    }
+                    
+                    // Contar escenas óptimas
+                    const optimalScenes = cachedScenes.filter(s => (s.cloudCoverage ?? s.cloud ?? 100) <= 30).length;
+                    if (optimalScenes > 0) {
+                        statusNdvi.textContent = `${optimalScenes} óptimas`;
+                        statusNdvi.style.color = '#28a745';
+                    } else {
+                        statusNdvi.textContent = 'Ver lista';
+                        statusNdvi.style.color = '#ffc107';
+                    }
+                    
+                    statusNdmi.textContent = 'Disponible';
+                    statusNdmi.style.color = '#17a2b8';
+                }
+            }
+            
+            // ESTRATEGIA 3: Si aún no hay datos, mostrar estado por defecto interactivo
+            if (!dataLoaded) {
+                statusNdvi.textContent = 'Buscar';
+                statusNdvi.style.color = '#17a2b8';
+                statusNdvi.style.cursor = 'pointer';
+                statusNdvi.title = 'Haz clic en "Buscar escenas satelitales"';
+                
+                statusNdmi.textContent = 'Buscar';
+                statusNdmi.style.color = '#17a2b8';
+                statusNdmi.style.cursor = 'pointer';
+                
+                statusLastImage.textContent = 'Buscar';
+                statusLastImage.style.color = '#888';
+            }
+            
+            // Lluvia - siempre mostrar enlace a meteorología
+            statusRain.innerHTML = '<span style="cursor:pointer;text-decoration:underline;" onclick="document.getElementById(\'analisisMeteorologicoBtn\').click()">Consultar</span>';
+            statusRain.style.color = '#17a2b8';
+            
+        } catch (error) {
+            console.error('[QUICK_STATUS] Error general:', error);
+            statusNdvi.textContent = 'Error';
+            statusNdmi.textContent = 'Error';
+            statusRain.textContent = '-';
+            statusLastImage.textContent = '-';
+            [statusNdvi, statusNdmi].forEach(el => el.style.color = '#dc3545');
+        }
+    }
+
+    /**
+     * Categoriza el valor NDVI
+     */
+    function categorizeNDVI(value) {
+        if (value >= 0.6) return { label: 'Excelente', color: '#28a745' };
+        if (value >= 0.4) return { label: 'Buena', color: '#4CAF50' };
+        if (value >= 0.2) return { label: 'Moderada', color: '#FFC107' };
+        return { label: 'Baja', color: '#dc3545' };
+    }
+
+    /**
+     * Categoriza el valor NDMI
+     */
+    function categorizeNDMI(value) {
+        if (value >= 0.4) return { label: 'Muy húmedo', color: '#1565C0' };
+        if (value >= 0.2) return { label: 'Húmedo', color: '#17a2b8' };
+        if (value >= 0) return { label: 'Normal', color: '#4CAF50' };
+        return { label: 'Seco', color: '#FF9800' };
+    }
+
+    /**
+     * Configura un observer para detectar cambios en la parcela seleccionada
+     */
+    function setupParcelSelectionObserver() {
+        // Verificar periódicamente si hay cambio en la parcela seleccionada
+        let lastSelectedParcelId = null;
+        
+        setInterval(() => {
+            const currentId = window.AGROTECH_STATE?.selectedParcelId;
+            if (currentId && currentId !== lastSelectedParcelId) {
+                lastSelectedParcelId = currentId;
+                
+                // Buscar datos de la parcela y actualizar UI
+                if (window.axiosInstance) {
+                    window.axiosInstance.get(`/parcel/${currentId}/`)
+                        .then(response => {
+                            updateSelectedParcelBanner(response.data);
+                            
+                            // Highlight en la tabla
+                            document.querySelectorAll('#parcelTable tbody tr').forEach(row => {
+                                row.classList.remove('table-success', 'selected-parcel');
+                                const rowId = row.getAttribute('data-parcel-id');
+                                if (rowId == currentId) {
+                                    row.classList.add('table-success', 'selected-parcel');
+                                }
+                            });
+                        })
+                        .catch(err => console.log('[OBSERVER] Error:', err));
+                }
+            } else if (!currentId && lastSelectedParcelId) {
+                lastSelectedParcelId = null;
+                updateSelectedParcelBanner(null);
+            }
+        }, 500);
+    }
+    </script>
+
     <!-- ⭐ SISTEMA JAVASCRIPT NEUMÓRFICO AGROTECH ⭐ -->
     <script src="../../js/agrotech-neomorphic.js"></script>
 
 </body>
 </html>
-

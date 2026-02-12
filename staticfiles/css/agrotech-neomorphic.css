@@ -1,0 +1,543 @@
+/**
+ * AGROTECH DIGITAL - Sistema de Diseño Neumórfico Luminoso 3D
+ * Basado en el sistema del proyecto histórico
+ * Adaptado para mantener funcionalidades existentes
+ */
+
+/* ========================================
+   VARIABLES CSS - PALETA AGROTECH
+   ======================================== */
+:root {
+    /* Colores principales AgroTech */
+    --agrotech-orange: #FF7A00;
+    --agrotech-green: #2E8B57;
+    --agrotech-dark-green: #007A20;
+    --agrotech-bright-green: #35B835;
+    --agrotech-white: #FFFFFF;
+    --agrotech-light: #F0F4F8;
+    
+    /* Fondos neumórficos */
+    --neuro-bg-primary: #E8F0F8;
+    --neuro-bg-secondary: #F5F7FA;
+    --neuro-bg-card: #F0F4F8;
+    
+    /* Sombras neumórficas - Efecto 3D doble sombra */
+    --neuro-shadow-light: -8px -8px 16px rgba(255, 255, 255, 0.8);
+    --neuro-shadow-dark: 8px 8px 16px rgba(46, 139, 87, 0.15);
+    --neuro-shadow-inset-light: inset -4px -4px 8px rgba(255, 255, 255, 0.7);
+    --neuro-shadow-inset-dark: inset 4px 4px 8px rgba(46, 139, 87, 0.1);
+    
+    /* Sombras para hover */
+    --neuro-shadow-hover-light: -12px -12px 24px rgba(255, 255, 255, 0.9);
+    --neuro-shadow-hover-dark: 12px 12px 24px rgba(255, 122, 0, 0.2);
+    
+    /* Sombras para elementos activos */
+    --neuro-shadow-active-light: inset -6px -6px 12px rgba(255, 255, 255, 0.6);
+    --neuro-shadow-active-dark: inset 6px 6px 12px rgba(46, 139, 87, 0.15);
+}
+
+/* ========================================
+   BODY Y FONDOS
+   ======================================== */
+body.neomorphic-theme {
+    background: linear-gradient(145deg, 
+        #E8F0F8 0%,
+        #F0F8F0 50%,
+        #FFF8F0 100%);
+    background-attachment: fixed;
+    font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    min-height: 100vh;
+    color: #2c3e50;
+}
+
+/* ========================================
+   CARDS NEUMÓRFICOS 3D
+   ======================================== */
+.card.neomorphic,
+.neomorphic-card {
+    background: var(--neuro-bg-secondary);
+    border: none;
+    border-radius: 28px;
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: visible;
+    position: relative;
+}
+
+/* Barra superior de color al hacer hover */
+.card.neomorphic::before,
+.neomorphic-card::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 20px;
+    right: 20px;
+    height: 5px;
+    background: linear-gradient(90deg, var(--agrotech-green), var(--agrotech-orange));
+    border-radius: 28px 28px 0 0;
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    transform: translateY(-100%);
+}
+
+.card.neomorphic:hover,
+.neomorphic-card:hover {
+    transform: translateY(-6px);
+    box-shadow: var(--neuro-shadow-hover-light), var(--neuro-shadow-hover-dark);
+}
+
+.card.neomorphic:hover::before,
+.neomorphic-card:hover::before {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.card.neomorphic .card-header,
+.neomorphic-card .card-header {
+    background: linear-gradient(145deg, 
+        rgba(46, 139, 87, 0.06), 
+        rgba(255, 122, 0, 0.06));
+    color: var(--agrotech-green);
+    border-radius: 28px 28px 0 0 !important;
+    border: none;
+    font-weight: 700;
+    padding: 24px 28px;
+    box-shadow: var(--neuro-shadow-inset-light), var(--neuro-shadow-inset-dark);
+}
+
+.card.neomorphic .card-body,
+.neomorphic-card .card-body {
+    padding: 28px;
+}
+
+/* ========================================
+   BOTONES NEUMÓRFICOS LUMINOSOS 3D
+   ======================================== */
+.btn.neomorphic,
+.btn-neomorphic {
+    border-radius: 18px;
+    padding: 14px 32px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.3px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    border: none;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+    background: var(--neuro-bg-secondary);
+}
+
+/* Efecto ripple */
+.btn.neomorphic::before,
+.btn-neomorphic::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.btn.neomorphic:hover::before,
+.btn-neomorphic:hover::before {
+    width: 300px;
+    height: 300px;
+}
+
+.btn.neomorphic:hover,
+.btn-neomorphic:hover {
+    box-shadow: var(--neuro-shadow-hover-light), 
+                var(--neuro-shadow-hover-dark),
+                0 8px 30px rgba(46, 139, 87, 0.3);
+    transform: translateY(-4px);
+}
+
+.btn.neomorphic:active,
+.btn-neomorphic:active {
+    box-shadow: var(--neuro-shadow-active-light), var(--neuro-shadow-active-dark);
+    transform: translateY(1px);
+}
+
+.btn.neomorphic i,
+.btn-neomorphic i {
+    margin-right: 8px;
+    transition: transform 0.3s ease;
+}
+
+.btn.neomorphic:hover i,
+.btn-neomorphic:hover i {
+    transform: scale(1.2) rotate(5deg);
+}
+
+/* Variantes de Botones Neumórficos */
+.btn.neomorphic.btn-primary,
+.btn-neomorphic-primary {
+    background: linear-gradient(145deg, #2E8B57 0%, #3BA868 100%);
+    color: white;
+    box-shadow: var(--neuro-shadow-light), 
+                var(--neuro-shadow-dark),
+                0 6px 20px rgba(46, 139, 87, 0.35),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn.neomorphic.btn-warning,
+.btn-neomorphic-warning {
+    background: linear-gradient(145deg, #FF7A00 0%, #FF9500 100%);
+    color: white;
+    box-shadow: var(--neuro-shadow-light), 
+                var(--neuro-shadow-dark),
+                0 6px 20px rgba(255, 122, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn.neomorphic.btn-success,
+.btn-neomorphic-success {
+    background: linear-gradient(145deg, #34A853 0%, #2E8B57 100%);
+    color: white;
+    box-shadow: var(--neuro-shadow-light), 
+                var(--neuro-shadow-dark),
+                0 6px 20px rgba(52, 168, 83, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn.neomorphic.btn-info,
+.btn-neomorphic-info {
+    background: linear-gradient(145deg, #17a2b8 0%, #20c9e0 100%);
+    color: white;
+    box-shadow: var(--neuro-shadow-light), 
+                var(--neuro-shadow-dark),
+                0 6px 20px rgba(23, 162, 184, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.btn.neomorphic.btn-light,
+.btn-neomorphic-light {
+    background: var(--neuro-bg-secondary);
+    color: var(--agrotech-green);
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+    font-weight: 700;
+}
+
+/* ========================================
+   FORMULARIOS NEUMÓRFICOS
+   ======================================== */
+.form-control.neomorphic,
+.form-select.neomorphic,
+.neomorphic-input {
+    background: var(--neuro-bg-secondary);
+    border: none;
+    border-radius: 14px;
+    padding: 14px 18px;
+    box-shadow: var(--neuro-shadow-inset-light), var(--neuro-shadow-inset-dark);
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.form-control.neomorphic:focus,
+.form-select.neomorphic:focus,
+.neomorphic-input:focus {
+    outline: none;
+    box-shadow: var(--neuro-shadow-hover-light), var(--neuro-shadow-hover-dark);
+    border-color: var(--agrotech-green);
+}
+
+/* ========================================
+   TABLAS NEUMÓRFICAS
+   ======================================== */
+.table.neomorphic,
+.neomorphic-table {
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--neuro-bg-secondary);
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+}
+
+.table.neomorphic thead th,
+.neomorphic-table thead th {
+    background: linear-gradient(145deg, 
+        rgba(46, 139, 87, 0.08), 
+        rgba(255, 122, 0, 0.08));
+    border: none;
+    color: var(--agrotech-green);
+    font-weight: 700;
+    padding: 16px;
+}
+
+.table.neomorphic tbody tr,
+.neomorphic-table tbody tr {
+    transition: all 0.2s ease;
+}
+
+.table.neomorphic tbody tr:hover,
+.neomorphic-table tbody tr:hover {
+    background: rgba(46, 139, 87, 0.04);
+    transform: scale(1.01);
+}
+
+/* ========================================
+   STATS CARDS (Tarjetas de Estadísticas)
+   ======================================== */
+.stats-card,
+.neomorphic-stats {
+    background: var(--neuro-bg-secondary);
+    border-left: 5px solid var(--agrotech-green);
+    border-radius: 20px;
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+    transition: all 0.3s ease;
+    padding: 20px;
+}
+
+.stats-card:hover,
+.neomorphic-stats:hover {
+    transform: translateX(8px);
+    box-shadow: var(--neuro-shadow-hover-light), var(--neuro-shadow-hover-dark);
+}
+
+.stats-card.orange,
+.neomorphic-stats.orange {
+    border-left-color: var(--agrotech-orange);
+}
+
+/* ========================================
+   ALERTS Y BADGES NEUMÓRFICOS
+   ======================================== */
+.alert.neomorphic,
+.neomorphic-alert {
+    border: none;
+    border-radius: 18px;
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+    background: var(--neuro-bg-secondary);
+    padding: 18px 24px;
+}
+
+.badge.neomorphic,
+.neomorphic-badge {
+    border-radius: 12px;
+    font-weight: 600;
+    padding: 8px 16px;
+    box-shadow: var(--neuro-shadow-inset-light), var(--neuro-shadow-inset-dark);
+}
+
+.badge.neomorphic.bg-success {
+    background: linear-gradient(145deg, var(--agrotech-green), #34A853) !important;
+}
+
+/* ========================================
+   NAVBAR NEUMÓRFICO
+   ======================================== */
+.navbar.neomorphic {
+    background: var(--neuro-bg-primary) !important;
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+    border-radius: 0 0 24px 24px;
+    padding: 20px 0;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.navbar.neomorphic .navbar-brand {
+    font-weight: 800;
+    font-size: 1.6rem;
+    background: linear-gradient(135deg, var(--agrotech-green), var(--agrotech-orange));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    padding: 12px 20px;
+    border-radius: 16px;
+    background-color: var(--neuro-bg-secondary);
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+}
+
+.navbar.neomorphic .nav-link {
+    color: var(--agrotech-green) !important;
+    font-weight: 600;
+    margin: 0 6px;
+    padding: 12px 20px !important;
+    border-radius: 14px;
+    background: var(--neuro-bg-secondary);
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.navbar.neomorphic .nav-link:hover {
+    color: var(--agrotech-orange) !important;
+    box-shadow: var(--neuro-shadow-hover-light), var(--neuro-shadow-hover-dark);
+    transform: translateY(-2px);
+}
+
+/* ========================================
+   ANIMACIONES
+   ======================================== */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(40px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes pulseGlow {
+    0%, 100% {
+        box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+    }
+    50% {
+        box-shadow: var(--neuro-shadow-hover-light), var(--neuro-shadow-hover-dark);
+    }
+}
+
+.pulse-glow {
+    animation: pulseGlow 2s ease-in-out infinite;
+}
+
+/* ========================================
+   RESPONSIVE DESIGN
+   ======================================== */
+
+/* Tablets y dispositivos medianos (768px - 991px) */
+@media (max-width: 991px) {
+    .navbar.neomorphic .navbar-brand {
+        font-size: 1.3rem;
+        padding: 10px 16px;
+    }
+    
+    .navbar.neomorphic .nav-link {
+        margin: 8px 0;
+        text-align: center;
+        padding: 12px 16px !important;
+    }
+    
+    .btn.neomorphic,
+    .btn-neomorphic {
+        width: 100%;
+        margin: 4px 0;
+    }
+}
+
+/* Smartphones y dispositivos pequeños (max 768px) */
+@media (max-width: 768px) {
+    body.neomorphic-theme {
+        font-size: 14px;
+    }
+    
+    .card.neomorphic,
+    .neomorphic-card {
+        margin-bottom: 20px;
+        border-radius: 20px;
+    }
+    
+    .btn.neomorphic,
+    .btn-neomorphic {
+        padding: 12px 24px;
+        font-size: 0.9rem;
+        width: 100%;
+        margin: 4px 0;
+    }
+    
+    .stats-card,
+    .neomorphic-stats {
+        margin-bottom: 15px;
+    }
+}
+
+/* Smartphones pequeños (max 576px) */
+@media (max-width: 576px) {
+    .card.neomorphic,
+    .neomorphic-card {
+        border-radius: 16px;
+    }
+    
+    .btn.neomorphic,
+    .btn-neomorphic {
+        padding: 10px 20px;
+        font-size: 0.85rem;
+        border-radius: 14px;
+    }
+    
+    .card.neomorphic .card-body,
+    .neomorphic-card .card-body {
+        padding: 16px;
+    }
+}
+
+/* Dispositivos extra pequeños (max 400px) */
+@media (max-width: 400px) {
+    .navbar.neomorphic {
+        padding: 10px 0;
+    }
+    
+    .card.neomorphic .card-body,
+    .neomorphic-card .card-body {
+        padding: 12px;
+    }
+}
+
+/* ========================================
+   UTILIDADES ADICIONALES
+   ======================================== */
+.neomorphic-container {
+    background: var(--neuro-bg-secondary);
+    border-radius: 24px;
+    padding: 24px;
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+}
+
+.neomorphic-divider {
+    height: 2px;
+    background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(46, 139, 87, 0.2) 50%, 
+        transparent 100%);
+    border: none;
+    margin: 24px 0;
+}
+
+.text-gradient-primary {
+    background: linear-gradient(135deg, var(--agrotech-green), var(--agrotech-orange));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 700;
+}
+
+/* Compatibilidad con clases existentes del proyecto */
+.page-wrapper.neomorphic {
+    background: linear-gradient(145deg, #E8F0F8 0%, #F0F8F0 50%, #FFF8F0 100%);
+}
+
+.topbar.neomorphic {
+    background: var(--neuro-bg-primary) !important;
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+}
+
+.left-sidebar.neomorphic {
+    background: linear-gradient(180deg, 
+        rgba(46, 139, 87, 0.95), 
+        rgba(44, 62, 80, 0.95));
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+}
+
+/* Footer neumórfico */
+footer.neomorphic {
+    background: linear-gradient(145deg, 
+        rgba(46, 139, 87, 0.95), 
+        rgba(44, 62, 80, 0.95));
+    color: white;
+    margin-top: 60px;
+    border-radius: 28px 28px 0 0;
+    box-shadow: var(--neuro-shadow-light), var(--neuro-shadow-dark);
+    padding: 40px 20px;
+}

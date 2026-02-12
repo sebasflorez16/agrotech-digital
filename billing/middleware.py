@@ -2,8 +2,10 @@
 Middleware para verificación de límites de suscripción.
 
 Verifica que el tenant tenga una suscripción activa antes de permitir acceso.
+En modo DEBUG=True, permite continuar sin suscripción para facilitar desarrollo.
 """
 
+from django.conf import settings
 from django.http import JsonResponse
 from django.utils.deprecation import MiddlewareMixin
 from django_tenants.utils import get_tenant_model, get_tenant
@@ -61,6 +63,12 @@ class SubscriptionLimitMiddleware(MiddlewareMixin):
         try:
             subscription = tenant.subscription
         except Subscription.DoesNotExist:
+            # En modo DEBUG, permitir continuar sin suscripción (desarrollo local)
+            if getattr(settings, 'DEBUG', False):
+                logger.warning(f"[SubscriptionLimitMiddleware] DEBUG MODE: Permitiendo acceso sin suscripción para tenant {tenant.schema_name}")
+                request.subscription = None  # Marcar como None para que otros componentes sepan
+                return None
+            
             return JsonResponse({
                 'error': 'No hay suscripción activa',
                 'code': 'no_subscription',

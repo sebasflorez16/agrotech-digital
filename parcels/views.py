@@ -29,19 +29,86 @@ class ParcelScenesByDateView(APIView):
         """
         GET /api/parcels/parcel/<parcel_id>/scenes/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
         Retorna: { "scenes": [...], "request_id": ..., "eosda_raw": ... }
+        
+        OPTIMIZACIÓN: Primero busca en cache de base de datos antes de llamar a EOSDA.
+        El cache se guarda por 7 días para minimizar llamadas a la API.
         """
+        from datetime import datetime, timedelta
+        from django.utils import timezone
+        
         start_date = request.query_params.get("start_date")
         end_date = request.query_params.get("end_date")
         logger.info(f"[SCENES_BY_DATE] Parámetros recibidos: parcel_id={parcel_id}, start_date={start_date}, end_date={end_date}")
+        
         if not start_date or not end_date:
             logger.error("[SCENES_BY_DATE] Faltan parámetros start_date y end_date.")
             return Response({"error": "Faltan parámetros start_date y end_date."}, status=400)
+        
         parcel = get_object_or_404(Parcel, pk=parcel_id, is_deleted=False)
         field_id = getattr(parcel, "eosda_id", None)
         logger.info(f"[SCENES_BY_DATE] field_id de parcela: {field_id}")
+        
         if not field_id:
             logger.error("[SCENES_BY_DATE] La parcela no tiene un field_id EOSDA válido.")
             return Response({"error": "La parcela no tiene un field_id EOSDA válido."}, status=404)
+        
+        # ============ CACHE EN BASE DE DATOS ============
+        # Verificar si tenemos escenas cacheadas para este rango de fechas
+        cache_key = f"scenes_{field_id}_{start_date}_{end_date}"
+        
+        # Buscar en cache de Django (memoria/redis)
+        cached_response = cache.get(cache_key)
+        if cached_response:
+            logger.info(f"[SCENES_BY_DATE] ✅ CACHE HIT (memoria): Retornando {len(cached_response.get('scenes', []))} escenas cacheadas")
+            return Response(cached_response, status=200)
+        
+        # Buscar escenas en la base de datos (ParcelSceneCache)
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d").date()
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").date()
+            
+            cached_scenes = ParcelSceneCache.objects.filter(
+                parcel=parcel,
+                date__gte=start_dt,
+                date__lte=end_dt
+            ).order_by('-date')
+            
+            if cached_scenes.exists():
+                # Verificar si el cache no ha expirado (7 días)
+                oldest_cache = cached_scenes.order_by('created_at').first()
+                cache_age = timezone.now() - oldest_cache.created_at
+                
+                if cache_age < timedelta(days=7):
+                    # Convertir a formato de respuesta
+                    scenes_list = []
+                    for sc in cached_scenes:
+                        scene_data = {
+                            'view_id': sc.scene_id,
+                            'date': sc.date.isoformat(),
+                            'cloudCoverage': sc.metadata.get('cloudCoverage', 0) if sc.metadata else 0,
+                        }
+                        if sc.metadata:
+                            scene_data.update(sc.metadata)
+                        scenes_list.append(scene_data)
+                    
+                    response_data = {
+                        "request_id": None,
+                        "scenes": scenes_list,
+                        "from_cache": True,
+                        "cache_age_hours": int(cache_age.total_seconds() / 3600)
+                    }
+                    
+                    # Guardar en cache de memoria por 1 hora
+                    cache.set(cache_key, response_data, 3600)
+                    
+                    logger.info(f"[SCENES_BY_DATE] ✅ CACHE HIT (DB): Retornando {len(scenes_list)} escenas cacheadas (edad: {cache_age})")
+                    return Response(response_data, status=200)
+                else:
+                    logger.info(f"[SCENES_BY_DATE] Cache expirado (edad: {cache_age}), consultando EOSDA...")
+        except Exception as cache_error:
+            logger.warning(f"[SCENES_BY_DATE] Error al buscar en cache: {cache_error}")
+        
+        # ============ LLAMADA A EOSDA ============
         # Llamar a EOSDA scene-search filtrando por fechas
         request_url = f"https://api-connect.eos.com/scene-search/for-field/{field_id}"
         headers = {
@@ -109,8 +176,11 @@ class ParcelScenesByDateView(APIView):
                     scenes_data = scenes_response.json()
                     if scenes_data.get('status') != 'pending':
                         scenes = scenes_data.get('result', [])
-                        logger.info(f"[SCENES_BY_DATE] Escenas recibidas (GET): {scenes}")
-                        print(f"[SCENES_BY_DATE] Escenas recibidas (GET): {scenes}")
+                        logger.info(f"[SCENES_BY_DATE] Escenas recibidas (GET): {len(scenes)} escenas")
+                        
+                        # ============ GUARDAR EN CACHE ============
+                        self._save_scenes_to_cache(parcel, scenes, cache_key)
+                        
                         return Response({"request_id": request_id, "scenes": scenes, "eosda_raw": scenes_data}, status=200)
                     time.sleep(delay_seconds)
                 # Si tras los intentos sigue en pending, informar al usuario
@@ -120,8 +190,11 @@ class ParcelScenesByDateView(APIView):
             else:
                 # Si no hay request_id, usar las escenas del POST
                 scenes = req_data.get('result', [])
-                logger.info(f"[SCENES_BY_DATE] Escenas recibidas (POST directo): {scenes}")
-                print(f"[SCENES_BY_DATE] Escenas recibidas (POST directo): {scenes}")
+                logger.info(f"[SCENES_BY_DATE] Escenas recibidas (POST directo): {len(scenes)} escenas")
+                
+                # ============ GUARDAR EN CACHE ============
+                self._save_scenes_to_cache(parcel, scenes, cache_key)
+                
                 return Response({"request_id": None, "scenes": scenes, "eosda_raw": req_data}, status=200)
         except requests.exceptions.RequestException as e:
             logger.error(f"[SCENES_BY_DATE] Error en la petición a EOSDA: {str(e)}")
@@ -137,6 +210,56 @@ class ParcelScenesByDateView(APIView):
                     }, status=402)
             
             return Response({"error": str(e)}, status=500)
+
+    def _save_scenes_to_cache(self, parcel, scenes, cache_key):
+        """Guarda las escenas en cache (base de datos y memoria)"""
+        from datetime import datetime
+        from django.utils import timezone
+        
+        try:
+            # Guardar en cache de memoria por 1 hora
+            response_data = {"request_id": None, "scenes": scenes, "from_cache": False}
+            cache.set(cache_key, response_data, 3600)
+            
+            # Guardar cada escena en la base de datos
+            for scene in scenes:
+                try:
+                    scene_id = scene.get('view_id') or scene.get('id') or scene.get('scene_id')
+                    if not scene_id:
+                        continue
+                    
+                    # Parsear fecha
+                    date_str = scene.get('date', '')
+                    if date_str:
+                        if 'T' in date_str:
+                            scene_date = datetime.strptime(date_str.split('T')[0], "%Y-%m-%d").date()
+                        else:
+                            scene_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+                    else:
+                        continue
+                    
+                    # Crear o actualizar cache de escena
+                    ParcelSceneCache.objects.update_or_create(
+                        parcel=parcel,
+                        scene_id=scene_id,
+                        index_type='NDVI',  # Por defecto, las escenas son genéricas
+                        defaults={
+                            'date': scene_date,
+                            'metadata': {
+                                'cloudCoverage': scene.get('cloudCoverage', scene.get('cloud', 0)),
+                                'satellite': scene.get('satellite', 'sentinel2'),
+                            },
+                            'raw_response': scene,
+                            'expires_at': timezone.now() + timezone.timedelta(days=7)
+                        }
+                    )
+                except Exception as scene_error:
+                    logger.warning(f"[CACHE] Error guardando escena {scene}: {scene_error}")
+            
+            logger.info(f"[CACHE] ✅ {len(scenes)} escenas guardadas en cache")
+        except Exception as e:
+            logger.warning(f"[CACHE] Error guardando escenas en cache: {e}")
+
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
@@ -679,8 +802,8 @@ class EosdaImageView(APIView):
             img_format = request.data.get("format", "png")
             logger.info(f"[EOSDA_IMAGE] Payload recibido: field_id={field_id}, view_id={view_id}, type={index_type}, format={img_format}")
             
-            # Validación de parámetros
-            if not field_id or not view_id or index_type not in ["ndvi", "ndmi", "evi"]:
+            # Validación de parámetros - Incluir SAVI además de NDVI, NDMI y EVI
+            if not field_id or not view_id or index_type not in ["ndvi", "ndmi", "evi", "savi"]:
                 logger.error(f"[EOSDA_IMAGE] Parámetros inválidos: field_id={field_id}, view_id={view_id}, type={index_type}")
                 return Response({"error": "Parámetros inválidos."}, status=400)
             

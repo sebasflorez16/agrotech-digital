@@ -29,6 +29,50 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def resolve_tenant_for_request(request):
+    """
+    Resuelve el tenant para un request autenticado de forma segura.
+    
+    1. Intenta desde request.user.tenant_id → busca Client con raw SQL en public
+    2. Fallback a request.tenant (resuelto por middleware)
+    3. Retorna None si no se encuentra
+    
+    NOTA: No usar getattr(request.user, 'tenant', None) directamente
+    porque Django ForeignKey lanza DoesNotExist si el Client no se
+    encuentra en el search_path del schema actual (ej: schema 'prueba'
+    no tiene la tabla django_tenants_client).
+    """
+    # 1. Intentar desde el FK del user
+    if hasattr(request, 'user') and request.user.is_authenticated:
+        tenant_id = getattr(request.user, 'tenant_id', None)
+        if tenant_id:
+            try:
+                from base_agrotech.models import Client
+                # Usar query directa al schema public para evitar
+                # problemas con el search_path del tenant actual
+                tenant = Client.objects.using('default').raw(
+                    'SELECT * FROM public.base_agrotech_client WHERE id = %s',
+                    [tenant_id]
+                )
+                tenant_list = list(tenant)
+                if tenant_list:
+                    return tenant_list[0]
+            except Exception as exc:
+                logger.debug(f"resolve_tenant_for_request: raw query failed: {exc}")
+                # Fallback: intentar con ORM normal por si funciona
+                try:
+                    return Client.objects.get(id=tenant_id)
+                except Exception:
+                    pass
+    
+    # 2. Fallback a request.tenant (resuelto por SmartTenantMiddleware)
+    tenant = getattr(request, 'tenant', None)
+    if tenant and tenant.schema_name != 'public':
+        return tenant
+    
+    return None
+
+
 class PlanViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet para consultar planes disponibles.
@@ -520,9 +564,10 @@ def usage_dashboard_view(request):
             }
         }
     """
-    tenant = getattr(request, 'tenant', None)
+    # Resolver tenant de forma segura (evita DoesNotExist en FK cross-schema)
+    tenant = resolve_tenant_for_request(request)
     
-    if not tenant:
+    if not tenant or tenant.schema_name == 'public':
         return Response({
             'error': 'No tenant found',
             'message': 'Usuario no asociado a ningún tenant'

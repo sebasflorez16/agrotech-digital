@@ -135,7 +135,11 @@ const showInfoToast = (msg) => {
     showToast(msg, 'info');
 };
 
-export { showErrorToast, showInfoToast };
+const showWarningToast = (msg) => {
+    showToast(msg, 'warning');
+};
+
+export { showErrorToast, showInfoToast, showWarningToast };
 
 function showToast(msg, type = 'info') {
     // Busca o crea el contenedor de toasts

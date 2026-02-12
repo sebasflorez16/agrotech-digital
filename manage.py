@@ -4,8 +4,9 @@ import sys
 from pathlib import Path
 
 if __name__ == "__main__":
-    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.production")
-    #os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local") solo para local testing
+    # Usar configuración local para desarrollo, producción para despliegue
+    # La variable de entorno DJANGO_SETTINGS_MODULE puede sobrescribir esto
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.local")
 
     try:
         from django.core.management import execute_from_command_line

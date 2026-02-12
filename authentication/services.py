@@ -136,23 +136,25 @@ class RegistrationService:
         return domain
     
     def _create_admin_user(self, tenant: Client, data: dict) -> User:
-        """Crear el usuario administrador dentro del schema del tenant."""
-        with schema_context(tenant.schema_name):
-            user = User(
-                username=data['username'],
-                email=data['email'],
-                name=data['name'],
-                last_name=data['last_name'],
-                phone=data.get('phone', ''),
-                is_active=True,
-                is_staff=True,  # Admin del tenant
-                role='admin',
-            )
-            user.set_password(data['password'])
-            user.save()
-            
-            logger.info(f"Admin user creado: {user.username} en {tenant.schema_name}")
-            return user
+        """Crear el usuario administrador y asignarlo al tenant."""
+        # Users es shared_app, se crea en schema public
+        # El campo user.tenant vincula al usuario con su organización
+        user = User(
+            username=data['username'],
+            email=data['email'],
+            name=data['name'],
+            last_name=data['last_name'],
+            phone=data.get('phone', ''),
+            is_active=True,
+            is_staff=True,  # Admin del tenant
+            role='admin',
+            tenant=tenant,  # Vincular usuario con su organización
+        )
+        user.set_password(data['password'])
+        user.save()
+        
+        logger.info(f"Admin user creado: {user.email} → tenant: {tenant.schema_name}")
+        return user
     
     def _get_subscription(self, tenant: Client):
         """Obtener la suscripción creada automáticamente por el signal."""

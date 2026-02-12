@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - AgroTech Digital</title>
+    
+    <!-- Favicon -->
+    <link rel="shortcut icon" href="../../images/agrotech solo negro.png">
+    
+    <!-- Liquid Glass Design System -->
+    <link rel="stylesheet" href="../../css/liquid-glass-system.css">
+    
+    <!-- 🌍 Configuración global (debe cargarse primero) -->
+    <script src="../../js/config.js"></script>
+    
+    <!-- Tabler Icons -->
+    <link rel="stylesheet" href="https://unpkg.com/@tabler/icons-webfont@latest/tabler-icons.min.css" />
+    
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #F5F5F7 0%, #E8E8ED 100%);
+            background-attachment: fixed;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        /* Animated background blobs */
+        .bg-blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: 0.3;
+            animation: float 20s infinite ease-in-out;
+        }
+        
+        .blob-1 {
+            width: 400px;
+            height: 400px;
+            background: linear-gradient(135deg, var(--agrotech-primary) 0%, var(--agrotech-primary-light) 100%);
+            top: -200px;
+            left: -200px;
+            animation-delay: 0s;
+        }
+        
+        .blob-2 {
+            width: 300px;
+            height: 300px;
+            background: linear-gradient(135deg, var(--agrotech-accent) 0%, #FFB340 100%);
+            bottom: -150px;
+            right: -150px;
+            animation-delay: 5s;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            25% { transform: translate(30px, -30px) scale(1.1); }
+            50% { transform: translate(-20px, 20px) scale(0.9); }
+            75% { transform: translate(20px, 10px) scale(1.05); }
+        }
+        
+        /* Login Container */
+        .login-container {
+            background: var(--glass-white);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-xl);
+            padding: var(--space-2xl);
+            width: 90%;
+            max-width: 440px;
+            box-shadow: var(--shadow-glass);
+            position: relative;
+            z-index: 10;
+        }
+        
+        .logo-container {
+            text-align: center;
+            margin-bottom: var(--space-2xl);
+        }
+        
+        .logo-container img {
+            max-width: 100px;
+            margin-bottom: var(--space-md);
+            filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.1));
+        }
+        
+        .brand-name {
+            font-size: 1.75rem;
+            font-weight: var(--font-weight-bold);
+            background: linear-gradient(135deg, var(--agrotech-primary) 0%, var(--agrotech-primary-dark) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: var(--space-xs);
+        }
+        
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        
+        .form-group {
+            margin-bottom: var(--space-lg);
+        }
+        
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: var(--font-weight-medium);
+            color: var(--text-primary);
+            margin-bottom: var(--space-xs);
+        }
+        
+        .input-wrapper {
+            position: relative;
+        }
+        
+        .input-icon {
+            position: absolute;
+            left: var(--space-md);
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-tertiary);
+            font-size: 1.25rem;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: var(--space-md) var(--space-md) var(--space-md) 3rem;
+            background: var(--glass-white);
+            backdrop-filter: var(--glass-blur-light);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            font-family: var(--font-primary);
+            font-size: 1rem;
+            color: var(--text-primary);
+            transition: all 0.2s ease;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: var(--agrotech-primary);
+            box-shadow: 0 0 0 3px rgba(47, 179, 68, 0.1);
+            background: rgba(255, 255, 255, 0.95);
+        }
+        
+        .btn-login {
+            width: 100%;
+            padding: var(--space-md) var(--space-xl);
+            background: linear-gradient(135deg, var(--agrotech-primary) 0%, var(--agrotech-primary-dark) 100%);
+            color: white;
+            border: none;
+            border-radius: var(--radius-full);
+            font-weight: var(--font-weight-semibold);
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 24px rgba(47, 179, 68, 0.3);
+            margin-top: var(--space-lg);
+        }
+        
+        .btn-login:hover {
+            background: linear-gradient(135deg, var(--agrotech-primary-light) 0%, var(--agrotech-primary) 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(47, 179, 68, 0.4);
+        }
+        
+        .btn-login:active {
+            transform: translateY(0);
+        }
+        
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .error-message {
+            background: rgba(255, 59, 48, 0.1);
+            border: 1px solid rgba(255, 59, 48, 0.2);
+            border-radius: var(--radius-md);
+            padding: var(--space-md);
+            margin-bottom: var(--space-lg);
+            color: #DC2626;
+            font-size: 0.875rem;
+            display: none;
+        }
+        
+        .error-message.show {
+            display: flex;
+            align-items: center;
+            gap: var(--space-sm);
+        }
+        
+        .loading-spinner {
+            display: none;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: var(--space-sm);
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .btn-login.loading .loading-spinner {
+            display: inline-block;
+        }
+        
+        .forgot-password {
+            text-align: center;
+            margin-top: var(--space-lg);
+        }
+        
+        .forgot-password a {
+            color: var(--agrotech-primary);
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: var(--font-weight-medium);
+            transition: color 0.2s ease;
+        }
+        
+        .forgot-password a:hover {
+            color: var(--agrotech-primary-dark);
+        }
+        
+        /* Mobile */
+        @media (max-width: 768px) {
+            .login-container {
+                padding: var(--space-xl);
+                border-radius: var(--radius-lg);
+            }
+            
+            .brand-name {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated background -->
+    <div class="bg-blob blob-1"></div>
+    <div class="bg-blob blob-2"></div>
+    
+    <!-- Login Container -->
+    <div class="login-container">
+        <div class="logo-container">
+            <img src="../../images/agrotech solo negro.png" alt="AgroTech">
+            <div class="brand-name">AgroTech</div>
+            <p class="subtitle">Gestión Agrícola Inteligente</p>
+        </div>
+        
+        <div id="errorMessage" class="error-message">
+            <i class="ti ti-alert-circle"></i>
+            <span id="errorText"></span>
+        </div>
+        
+        <form id="loginForm">
+            <div class="form-group">
+                <label class="form-label" for="username">Usuario</label>
+                <div class="input-wrapper">
+                    <i class="ti ti-user input-icon"></i>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        name="username" 
+                        class="form-input" 
+                        placeholder="Ingresa tu usuario"
+                        required
+                        autocomplete="username"
+                    >
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label" for="password">Contraseña</label>
+                <div class="input-wrapper">
+                    <i class="ti ti-lock input-icon"></i>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        class="form-input" 
+                        placeholder="Ingresa tu contraseña"
+                        required
+                        autocomplete="current-password"
+                    >
+                </div>
+            </div>
+            
+            <button type="submit" class="btn-login" id="btnLogin">
+                <span class="loading-spinner"></span>
+                <span id="btnText">Iniciar Sesión</span>
+            </button>
+        </form>
+        
+        <div class="forgot-password">
+            <a href="#" onclick="alert('Contacta al administrador para recuperar tu contraseña'); return false;">
+                ¿Olvidaste tu contraseña?
+            </a>
+        </div>
+    </div>
+    
+    <!-- Script -->
+    <script src="../../js/login-liquid.js"></script>
+</body>
+</html>
