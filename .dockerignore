@@ -2,6 +2,11 @@
 .git
 .gitignore
 
+# Archivos de entorno local - CRÍTICO: No copiar al contenedor
+.env
+.env.local
+.env.development
+
 # Base de datos local
 db.sqlite3
 *.sqlite3

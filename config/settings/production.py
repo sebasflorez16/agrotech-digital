@@ -1,3 +1,8 @@
+import os
+# CRÍTICO: Desactivar lectura de .env en producción ANTES de importar base.py
+# Esto evita que variables locales como DB_HOST=localhost sobrescriban las de Railway
+os.environ['DJANGO_READ_DOT_ENV_FILE'] = 'False'
+
 from .base import *  # noqa
 from .base import env
 
