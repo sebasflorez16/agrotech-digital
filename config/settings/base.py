@@ -66,20 +66,41 @@ LOCALE_PATHS = [str(ROOT_DIR / "locale")]
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 
-# Configuración base para desarrollo local (se sobrescribe en production.py)
-DATABASES = {
-    'default': {
-        'ENGINE': 'django_tenants.postgresql_backend',
-        'NAME': env('DB_NAME', default='agrotech'),
-        'USER': env('DB_USER', default='postgres'),
-        'PASSWORD': env('DB_PASSWORD', default=''),
-        'HOST': env('DB_HOST', default='localhost'),
-        'PORT': env('DB_PORT', default='5432'),
-        'ATOMIC_REQUESTS': True,
+# Si estamos en Railway, usar DATABASE_URL directamente
+if IS_RAILWAY:
+    from urllib.parse import urlparse
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    if DATABASE_URL:
+        url = urlparse(DATABASE_URL)
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django_tenants.postgresql_backend',
+                'NAME': url.path[1:],  # Quitar '/' inicial
+                'USER': url.username,
+                'PASSWORD': url.password,
+                'HOST': url.hostname,
+                'PORT': url.port or 5432,
+                'ATOMIC_REQUESTS': False,  # Importante para django-tenants
+                'CONN_MAX_AGE': 0,
+            }
+        }
+        print(f"🚂 Railway: Conectando a DB en {url.hostname}")
+    else:
+        raise Exception("❌ DATABASE_URL no está configurado en Railway")
+else:
+    # Configuración para desarrollo local
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_tenants.postgresql_backend',
+            'NAME': env('DB_NAME', default='agrotech'),
+            'USER': env('DB_USER', default='postgres'),
+            'PASSWORD': env('DB_PASSWORD', default=''),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+            'ATOMIC_REQUESTS': True,
+        }
     }
-}
-
-# NOTA: Esta configuración se sobrescribe completamente en production.py para Railway
+    print(f"💻 Local: Conectando a DB en {DATABASES['default']['HOST']}")
 
 
 DATABASE_ROUTERS = (
