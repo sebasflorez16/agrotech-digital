@@ -11,13 +11,24 @@ ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 APPS_DIR = ROOT_DIR / "metrica"
 env = environ.Env()
 
-# Si READ_DOT_ENV_FILE es True, Django leerá las variables del archivo .env.
+# IMPORTANTE: No leer .env si estamos en Railway (producción)
+# Railway define DATABASE_URL y RAILWAY_ENVIRONMENT automáticamente
+IS_RAILWAY = bool(os.environ.get('DATABASE_URL')) or bool(os.environ.get('RAILWAY_ENVIRONMENT'))
+
+# Si READ_DOT_ENV_FILE es True y NO estamos en Railway, Django leerá las variables del archivo .env.
 # Esto permite configurar variables sensibles (como claves API) sin incluirlas en el código.
-# Si es False, Django solo usará las variables de entorno del sistema operativo.
-# Las variables del sistema tienen prioridad sobre las del archivo .env.
-READ_DOT_ENV_FILE = env.bool("DJANGO_READ_DOT_ENV_FILE", default=True)
+# Si es False o estamos en Railway, Django solo usará las variables de entorno del sistema operativo.
+READ_DOT_ENV_FILE = env.bool("DJANGO_READ_DOT_ENV_FILE", default=True) and not IS_RAILWAY
 if READ_DOT_ENV_FILE:
-    env.read_env(str(ROOT_DIR / ".env"))
+    env_file = str(ROOT_DIR / ".env")
+    if os.path.exists(env_file):
+        env.read_env(env_file)
+        print("✅ Archivo .env cargado (desarrollo local)")
+else:
+    if IS_RAILWAY:
+        print("🚂 Railway detectado - usando variables de entorno del sistema")
+    else:
+        print("⚠️ Archivo .env no se cargará (DJANGO_READ_DOT_ENV_FILE=False)")
 
 # GENERAL
 # ------------------------------------------------------------------------------
