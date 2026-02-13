@@ -1156,7 +1156,13 @@ def create_checkout_view(request):
                     response_data['tokens'] = result['tokens']
                 return JsonResponse(response_data)
             else:
-                return JsonResponse({'error': result.get('error', 'Error creando tenant')}, status=500)
+                # Diferenciar errores de duplicado (409) de errores internos (500)
+                error_status = 409 if result.get('existing_tenant') else 500
+                return JsonResponse({
+                    'error': result.get('error', 'Error creando tenant'),
+                    'existing_tenant': result.get('existing_tenant', ''),
+                    'existing_schema': result.get('existing_schema', ''),
+                }, status=error_status)
         
         # Calcular precio para planes pagos
         if billing_cycle == 'yearly':
@@ -1349,9 +1355,12 @@ def confirm_payment_create_tenant(request):
                 response_data['tokens'] = result['tokens']
             return JsonResponse(response_data)
         else:
+            error_status = 409 if result.get('existing_tenant') else 500
             return JsonResponse({
-                'error': result.get('error', 'Error creando tenant')
-            }, status=500)
+                'error': result.get('error', 'Error creando tenant'),
+                'existing_tenant': result.get('existing_tenant', ''),
+                'existing_schema': result.get('existing_schema', ''),
+            }, status=error_status)
     
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)

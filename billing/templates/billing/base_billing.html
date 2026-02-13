@@ -137,14 +137,20 @@
 
         /* ══════ RESPONSIVE ══════ */
         @media (max-width: 768px) {
-            .nav-menu { gap: 16px; }
+            .nav-menu { gap: 12px; }
             .nav-menu a:not(.btn-primary-nav) { display: none; }
             .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
             .footer-bottom { flex-direction: column; gap: 12px; text-align: center; }
+            .container { padding: 0 16px; }
+            .logo span { font-size: 15px; }
+            .logo-icon { width: 32px; height: 32px; font-size: 0.95rem; }
+            .btn-primary-nav { padding: 8px 16px !important; font-size: 13px !important; }
         }
 
         @media (max-width: 480px) {
             .footer-grid { grid-template-columns: 1fr; }
+            .container { padding: 0 12px; }
+            .nav-content { padding: 12px 0; }
         }
     </style>
     
