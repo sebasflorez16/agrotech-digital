@@ -42,8 +42,8 @@
         
         // Endpoints principales
         ENDPOINTS: {
-            LOGIN: '/api/authentication/login/',
-            LOGOUT: '/api/authentication/logout/',
+            LOGIN: '/api/auth/login/',
+            LOGOUT: '/api/auth/logout/',
             TOKEN_REFRESH: '/api/token/refresh/',
             
             // Parcelas

@@ -70,50 +70,46 @@ loginForm.addEventListener('submit', async (e) => {
     setLoading(true);
     
     try {
-        // Hacer login - Usar endpoint correcto
-        const loginUrl = window.AGROTECH_CONFIG?.ENDPOINTS?.LOGIN || '/api/auth/login/';
-        const response = await fetch(`${API_BASE_URL}${loginUrl}`, {
+        // Hacer login - enviar como email Y username para compatibilidad
+        const loginUrl = window.AGROTECH_CONFIG 
+            ? `${API_BASE_URL}${window.AGROTECH_CONFIG.ENDPOINTS.LOGIN}`
+            : `${API_BASE_URL}/api/auth/login/`;
+        
+        const response = await fetch(loginUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 username: username,
+                email: username,
                 password: password
             })
         });
         
         const data = await response.json();
         
-        if (!response.ok || data.success === false) {
+        if (!response.ok) {
             // Error en la autenticación
-            const errorMsg = data.error || data.detail || data.message || 'Credenciales inválidas';
-            showError(errorMsg);
+            if (response.status === 401) {
+                showError('Usuario o contraseña incorrectos');
+            } else if (response.status === 400) {
+                showError(data.detail || data.error || 'Datos inválidos');
+            } else {
+                showError('Error al iniciar sesión. Intenta nuevamente');
+            }
             setLoading(false);
             return;
         }
         
-        // Login exitoso - Backend devuelve { success: true, tokens: {...}, user: {...} }
-        // o también puede ser { success: true, data: { tokens: {...}, user: {...} } }
-        const tokens = data.tokens || data.data?.tokens || data;
-        const accessToken = tokens.access || data.access || data.token;
-        
-        if (accessToken) {
-            // Guardar token
-            localStorage.setItem('accessToken', accessToken);
-            const refreshToken = tokens.refresh || data.refresh;
-            if (refreshToken) {
-                localStorage.setItem('refreshToken', refreshToken);
-            }
+        // Login exitoso
+        if (data.access || data.token) {
+            const token = data.access || data.token;
             
-            // Guardar info del usuario si existe
-            const userData = data.user || data.data?.user;
-            if (userData) {
-                localStorage.setItem('user', JSON.stringify(userData));
-            }
-            const tenantData = data.tenant || data.data?.tenant;
-            if (tenantData) {
-                localStorage.setItem('tenant', JSON.stringify(tenantData));
+            // Guardar token
+            localStorage.setItem('accessToken', token);
+            if (data.refresh) {
+                localStorage.setItem('refreshToken', data.refresh);
             }
             
             console.log('✅ Login exitoso');

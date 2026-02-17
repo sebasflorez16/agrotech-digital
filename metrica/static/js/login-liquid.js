@@ -70,14 +70,19 @@ loginForm.addEventListener('submit', async (e) => {
     setLoading(true);
     
     try {
-        // Hacer login
-        const response = await fetch(`${API_BASE_URL}/api/authentication/login/`, {
+        // Hacer login - enviar como email Y username para compatibilidad
+        const loginUrl = window.AGROTECH_CONFIG 
+            ? `${API_BASE_URL}${window.AGROTECH_CONFIG.ENDPOINTS.LOGIN}`
+            : `${API_BASE_URL}/api/auth/login/`;
+        
+        const response = await fetch(loginUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
                 username: username,
+                email: username,
                 password: password
             })
         });

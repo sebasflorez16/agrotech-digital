@@ -23,14 +23,16 @@ document.addEventListener("DOMContentLoaded", function () {
 
         try {
             // POST al backend para autenticación
-            const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://agrotechcolombia.com';
-            const response = await fetch(`${API_BASE}/api/authentication/login/`, {
+            const API_BASE = window.AGROTECH_CONFIG ? window.AGROTECH_CONFIG.API_BASE : 
+                (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' ? 'http://localhost:8000' : 'https://agrotech-digital-production.up.railway.app');
+            const response = await fetch(`${API_BASE}/api/auth/login/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ 
-                    username: username, 
+                    username: username,
+                    email: username,
                     password: password 
                 })
             });

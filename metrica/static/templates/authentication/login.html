@@ -266,15 +266,15 @@
         
         <form id="loginForm">
             <div class="form-group">
-                <label class="form-label" for="username">Usuario</label>
+                <label class="form-label" for="username">Correo electrónico</label>
                 <div class="input-wrapper">
-                    <i class="ti ti-user input-icon"></i>
+                    <i class="ti ti-mail input-icon"></i>
                     <input 
                         type="text" 
                         id="username" 
                         name="username" 
                         class="form-input" 
-                        placeholder="Ingresa tu usuario"
+                        placeholder="Ingresa tu correo o usuario"
                         required
                         autocomplete="username"
                     >
@@ -304,9 +304,12 @@
         </form>
         
         <div class="forgot-password">
-            <a href="#" onclick="alert('Contacta al administrador para recuperar tu contraseña'); return false;">
+            <a href="recover-password.html">
                 ¿Olvidaste tu contraseña?
             </a>
+            <p style="margin-top: var(--space-md); color: var(--text-secondary); font-size: 0.875rem;">
+                ¿No tienes cuenta? <a href="register.html" style="color: var(--agrotech-primary); font-weight: var(--font-weight-semibold); text-decoration: none;">Crear cuenta gratis</a>
+            </p>
         </div>
     </div>
     

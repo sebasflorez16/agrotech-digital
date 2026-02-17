@@ -44,8 +44,6 @@
         ENDPOINTS: {
             LOGIN: '/api/auth/login/',
             LOGOUT: '/api/auth/logout/',
-            REGISTER: '/api/auth/register/',
-            ME: '/api/auth/me/',
             TOKEN_REFRESH: '/api/token/refresh/',
             
             // Parcelas
