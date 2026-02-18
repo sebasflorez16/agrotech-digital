@@ -732,6 +732,11 @@ function selectParcel(parcel) {
     if (typeof showInfoToast === 'function') {
         showInfoToast(`📍 Parcela "${parcelData.name}" seleccionada`);
     }
+    
+    // Cargar ciclo de cultivo activo (si el módulo está disponible)
+    if (window.AgrotechCropCycles && typeof window.AgrotechCropCycles.showCropCycleBadge === 'function') {
+        window.AgrotechCropCycles.showCropCycleBadge(parcel.id);
+    }
 }
 window.selectParcel = selectParcel;
 
@@ -2638,6 +2643,61 @@ window.mostrarImagenNDVIConAnalisis = async function(imageSrc, tipo = 'ndvi', sc
                         console.log(`[IMAGE_ANALYSIS] Interpretación profesional generada para ${tipo.toUpperCase()}`);
                     } catch (interpError) {
                         console.warn('[IMAGE_ANALYSIS] Error al generar interpretación profesional:', interpError);
+                    }
+                    
+                    // CONTEXTUALIZACIÓN CON CICLO DE CULTIVO (si existe)
+                    // No modifica el análisis existente, solo agrega información adicional debajo
+                    try {
+                        if (window.AgrotechCropCycles && typeof window.AgrotechCropCycles.getContextualInterpretation === 'function') {
+                            const parcelId = window.AGROTECH_STATE?.selectedParcelId;
+                            if (parcelId) {
+                                // Calcular valor promedio ponderado del índice a partir de los resultados del análisis
+                                // Usar la categoría dominante para estimar un valor representativo
+                                const indexRanges = {
+                                    ndvi: {
+                                        'Vegetación Muy Densa': 0.85, 'Vegetación Densa': 0.65,
+                                        'Vegetación Moderada': 0.45, 'Vegetación Escasa': 0.25,
+                                        'Estrés Severo': 0.10, 'Suelo Desnudo': 0.02
+                                    },
+                                    ndmi: {
+                                        'Muy Húmedo': 0.50, 'Húmedo': 0.30, 'Moderado': 0.10,
+                                        'Seco': -0.10, 'Muy Seco': -0.30, 'Estrés Hídrico': -0.50
+                                    },
+                                    savi: {
+                                        'Vegetación Muy Densa': 0.75, 'Vegetación Densa': 0.55,
+                                        'Vegetación Moderada': 0.35, 'Vegetación Escasa': 0.18,
+                                        'Suelo con poca vegetación': 0.08, 'Suelo Desnudo': 0.02
+                                    }
+                                };
+                                const ranges = indexRanges[tipo.toLowerCase()] || {};
+                                let weightedSum = 0;
+                                let totalPercent = 0;
+                                for (const r of resultsWithColors) {
+                                    const refValue = ranges[r.name] ?? 0.5;
+                                    weightedSum += refValue * r.percent;
+                                    totalPercent += r.percent;
+                                }
+                                const avgValue = totalPercent > 0 ? parseFloat((weightedSum / totalPercent).toFixed(3)) : 0.5;
+                                
+                                const contextResult = await window.AgrotechCropCycles.getContextualInterpretation(parcelId, tipo.toLowerCase(), avgValue);
+                                if (contextResult && contextResult.status !== 'unknown') {
+                                    let cropContextContainer = legendContainer.querySelector('.crop-context-interpretation');
+                                    if (!cropContextContainer) {
+                                        cropContextContainer = document.createElement('div');
+                                        cropContextContainer.className = 'crop-context-interpretation mt-3';
+                                        legendContainer.appendChild(cropContextContainer);
+                                    }
+                                    // renderContextualBadge es async y genera su propio HTML internamente
+                                    const badgeHtml = await window.AgrotechCropCycles.renderContextualBadge(parcelId, tipo.toLowerCase(), avgValue);
+                                    if (badgeHtml) {
+                                        cropContextContainer.innerHTML = badgeHtml;
+                                    }
+                                    console.log(`[IMAGE_ANALYSIS] Contexto de ciclo de cultivo agregado para ${tipo.toUpperCase()} (valor estimado: ${avgValue})`);
+                                }
+                            }
+                        }
+                    } catch (cropContextError) {
+                        console.warn('[IMAGE_ANALYSIS] Ciclo de cultivo no disponible (esperado si no hay ciclo activo):', cropContextError.message);
                     }
                 }
                 

@@ -20,6 +20,8 @@ def test_analytics_endpoint(request):
 from .proxy import eosda_wmts_proxy
 
 urlpatterns = [
+    # Geocoding Proxy
+    path('geocode/', views.geocode_proxy, name='geocode_proxy'),
 ## Eliminado: vista dashboard que no existe
     path('eosda-wmts-tile/', eosda_wmts_proxy, name='eosda_wmts_proxy'),
     # Endpoints alineados con el nuevo flujo EOSDA
