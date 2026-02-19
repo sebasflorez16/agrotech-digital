@@ -9,7 +9,7 @@ Uso en views:
 
 from functools import wraps
 from django.http import JsonResponse
-from .models import UsageMetrics
+from .models import UsageMetrics, Subscription
 import logging
 
 logger = logging.getLogger(__name__)
@@ -98,15 +98,54 @@ def check_eosda_limit(view_func):
         @check_eosda_limit
         def get_satellite_analysis(request, parcel_id):
             ...
+    
+    En modo DEBUG=True, permite continuar sin suscripción para desarrollo.
     """
     
     @wraps(view_func)
-    def wrapper(request, *args, **kwargs):
+    def wrapper(*args, **kwargs):
+        from django.conf import settings
+        
+        # Soportar tanto vistas basadas en funciones como en clases
+        # En FBV: args[0] es request
+        # En CBV: args[0] es self, args[1] es request
+        if len(args) >= 2 and hasattr(args[0], '__class__') and hasattr(args[1], 'META'):
+            # Class-based view
+            request = args[1]
+        elif len(args) >= 1 and hasattr(args[0], 'META'):
+            # Function-based view
+            request = args[0]
+        else:
+            logger.error("[check_eosda_limit] No se pudo determinar el request")
+            return JsonResponse({'error': 'Internal error'}, status=500)
+        
+        # Intentar obtener subscription del request primero
         subscription = getattr(request, 'subscription', None)
         
+        # Si no está en request, intentar obtenerla del tenant
         if not subscription:
+            tenant = getattr(request, 'tenant', None)
+            if tenant and tenant.schema_name != 'public':
+                try:
+                    subscription = tenant.subscription
+                    # Guardarla en request para uso posterior
+                    request.subscription = subscription
+                except Subscription.DoesNotExist:
+                    logger.warning(f"[check_eosda_limit] No subscription for tenant {tenant.schema_name}")
+        
+        if not subscription:
+            # En modo DEBUG, permitir continuar sin suscripción (desarrollo local)
+            if getattr(settings, 'DEBUG', False):
+                logger.warning("[check_eosda_limit] DEBUG MODE: Permitiendo acceso sin suscripción")
+                return view_func(*args, **kwargs)
+            
+            # En producción, devolver error más descriptivo
             return JsonResponse({
-                'error': 'No subscription found'
+                'error': 'No subscription found',
+                'code': 'no_subscription',
+                'message': 'Este tenant no tiene una suscripción activa configurada. '
+                           'Por favor configure una suscripción para acceder a las funciones satelitales.',
+                'solution': 'Ejecute el comando: python manage.py setup_default_subscription'
             }, status=402)
         
         # Obtener métricas del mes actual
@@ -114,7 +153,7 @@ def check_eosda_limit(view_func):
         if not tenant:
             # Fallback: continuar sin verificación
             logger.warning("No se pudo obtener tenant para verificar límite EOSDA")
-            return view_func(request, *args, **kwargs)
+            return view_func(*args, **kwargs)
         
         metrics = UsageMetrics.get_or_create_current(tenant)
         
@@ -150,7 +189,7 @@ def check_eosda_limit(view_func):
             }, status=429)  # Too Many Requests
         
         # Incrementar contador DESPUÉS de ejecutar la vista exitosamente
-        response = view_func(request, *args, **kwargs)
+        response = view_func(*args, **kwargs)
         
         # Solo incrementar si la request fue exitosa (2xx status code)
         if 200 <= response.status_code < 300:

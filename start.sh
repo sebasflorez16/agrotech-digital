@@ -1,35 +1,32 @@
 #!/bin/bash
+set -e
 
 echo "🚀 Iniciando aplicación AgroTech Digital..."
 
-# CRÍTICO: Verificar variables ANTES de cualquier cosa
-echo "� Verificando variables críticas de Railway..."
-
-# Listar todas las variables que pueden contener DB info
-echo "📋 Variables de entorno disponibles:"
+# ============================================================
+# 1. VERIFICACIÓN DE VARIABLES DE ENTORNO
+# ============================================================
+echo "🔍 Verificando variables críticas de Railway..."
 env | grep -E "(DATABASE|POSTGRES|DB_|RAILWAY)" | head -10
 
-# Verificar DATABASE_URL específicamente
+# Verificar DATABASE_URL
 if [ -z "$DATABASE_URL" ]; then
-    echo "❌ DATABASE_URL no está configurado"
-    echo "🔍 Buscando variables alternativas..."
+    echo "⚠️ DATABASE_URL no está configurado, buscando variables alternativas..."
     
-    # Intentar construir DATABASE_URL desde variables separadas
     if [ ! -z "$PGHOST" ] && [ ! -z "$PGDATABASE" ]; then
         export DATABASE_URL="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE"
         echo "✅ DATABASE_URL construido desde variables PG: ${DATABASE_URL:0:50}..."
     else
         echo "❌ No se pueden construir credenciales de base de datos"
-        echo "🚨 La aplicación puede fallar"
+        exit 1
     fi
 else
     echo "✅ DATABASE_URL configurado: ${DATABASE_URL:0:50}..."
 fi
 
-# Configurar variables de entorno críticas
+# Configurar variables de entorno
 export DJANGO_SETTINGS_MODULE="config.settings.production"
 
-# Detectar puerto de Railway
 if [ -z "$PORT" ]; then
     export PORT=8080
     echo "⚠️ PORT no configurado, usando 8080 por defecto"
@@ -39,66 +36,65 @@ fi
 
 echo "🔍 DJANGO_SETTINGS_MODULE: $DJANGO_SETTINGS_MODULE"
 
-# Verificar DATABASE_URL
-if [ -z "$DATABASE_URL" ]; then
-    echo "❌ DATABASE_URL no configurado"
+# ============================================================
+# 2. ESPERAR CONEXIÓN A BASE DE DATOS
+# ============================================================
+echo "==> Esperando conexión a base de datos..."
+max_retries=30
+count=0
+until python -c "
+import os, psycopg2
+psycopg2.connect(os.environ['DATABASE_URL'])
+print('✅ Conexión a base de datos exitosa')
+" 2>/dev/null || [ $count -eq $max_retries ]; do
+    count=$((count+1))
+    echo "Intento $count/$max_retries..."
+    sleep 2
+done
+
+if [ $count -eq $max_retries ]; then
+    echo "❌ No se pudo conectar a la base de datos después de $max_retries intentos"
     exit 1
-else
-    echo "✅ DATABASE_URL configurado: ${DATABASE_URL:0:50}..."
-    # Exportar explícitamente para que esté disponible en subprocesos
-    export DATABASE_URL=$DATABASE_URL
 fi
 
-# Asegurar que las variables estén disponibles para Django
-export DJANGO_SETTINGS_MODULE="config.settings.production"
+# ============================================================
+# 3. SETUP INICIAL (tablas base multi-tenant)
+# ============================================================
+echo "🔧 Ejecutando setup de Railway (tablas base multi-tenant)..."
+python manage.py setup_railway 2>&1 || {
+    echo "⚠️ Setup de Railway falló, intentando script de emergencia..."
+    python fix_railway_tables.py 2>&1 || echo "⚠️ Script de emergencia también falló, continuando..."
+}
 
-# Verificar que Django esté disponible antes del setup
-echo "🔧 Verificando disponibilidad de Django..."
-python -c "import django; print('✅ Django disponible')" 2>/dev/null
-django_available=$?
+# ============================================================
+# 4. MIGRACIONES DE DJANGO (django-tenants)
+# ============================================================
+echo "🔄 Ejecutando migraciones del esquema público (shared)..."
+python manage.py migrate_schemas --shared --noinput 2>&1
+echo "✅ Migraciones shared completadas"
 
-if [ $django_available -eq 0 ]; then
-    # Ejecutar setup de Railway con variables de entorno disponibles
-    echo "🔧 Ejecutando setup de Railway..."
-    echo "📋 Comando: python manage.py setup_railway"
+echo "🔄 Ejecutando migraciones de tenants..."
+python manage.py migrate_schemas --noinput 2>&1
+echo "✅ Migraciones de tenants completadas"
 
-    python manage.py setup_railway 2>&1
-    setup_exit_code=$?
+# ============================================================
+# 5. DATOS INICIALES
+# ============================================================
+echo "� Cargando datos iniciales..."
+python manage.py seed_plans 2>&1 || echo "⚠️ seed_plans falló (puede que ya existan)"
+python manage.py populate_crop_catalog 2>&1 || echo "⚠️ populate_crop_catalog falló (puede que ya existan)"
 
-    echo "📊 Setup exit code: $setup_exit_code"
+# ============================================================
+# 6. ARCHIVOS ESTÁTICOS
+# ============================================================
+echo "📁 Recolectando archivos estáticos..."
+python manage.py collectstatic --noinput 2>/dev/null || echo "⚠️ collectstatic falló"
 
-    if [ $setup_exit_code -ne 0 ]; then
-        echo "❌ Setup de Railway falló con código: $setup_exit_code"
-        echo "🚨 Intentando script de emergencia..."
-        
-        # Fallback: ejecutar script de emergencia
-        python fix_railway_tables.py 2>&1
-        emergency_exit_code=$?
-        
-        echo "📊 Emergency script exit code: $emergency_exit_code"
-        
-        if [ $emergency_exit_code -ne 0 ]; then
-            echo "❌ Script de emergencia también falló"
-            echo "🚨 Continuando sin setup (puede causar errores)"
-        else
-            echo "✅ Script de emergencia completado exitosamente"
-        fi
-    else
-        echo "✅ Setup de Railway completado exitosamente"
-    fi
-else
-    echo "⚠️ Django no disponible, saltando setup de Railway"
-    echo "🚨 Continuando con inicio del servidor..."
-fi
-
-# ❌ ELIMINADO - Backend solo APIs no necesita archivos estáticos
-# echo "📁 Recopilando archivos estáticos..."
-# python manage.py collectstatic --noinput --clear
-
+# ============================================================
+# 7. INICIAR SERVIDOR
+# ============================================================
 echo "🚀 Iniciando Gunicorn en puerto $PORT..."
-
-# Iniciar gunicorn con configuración optimizada para Railway
-exec gunicorn config.wsgi \
+exec gunicorn config.wsgi:application \
     --bind 0.0.0.0:$PORT \
     --workers 2 \
     --timeout 120 \
@@ -106,5 +102,4 @@ exec gunicorn config.wsgi \
     --max-requests-jitter 100 \
     --log-level info \
     --access-logfile - \
-    --error-logfile - \
-    --env DJANGO_SETTINGS_MODULE=config.settings.production
+    --error-logfile -

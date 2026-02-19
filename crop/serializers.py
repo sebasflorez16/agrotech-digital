@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CropType, Crop, CropStage, CropProgressPhoto, CropInput, LaborInput, CropEvent
+from .models import CropType, Crop, CropStage, CropProgressPhoto, CropInput, LaborInput, CropEvent, CropCatalog, PhenologicalStage, CropCycle
 
 class CropTypeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -70,3 +70,62 @@ class CropEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = CropEvent
         fields = '__all__'
+
+
+# =============================================================================
+# SERIALIZERS PARA CATALOGO DE CULTIVOS Y CICLOS
+# =============================================================================
+
+class PhenologicalStageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PhenologicalStage
+        fields = '__all__'
+
+
+class CropCatalogSerializer(serializers.ModelSerializer):
+    stages = PhenologicalStageSerializer(many=True, read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+
+    class Meta:
+        model = CropCatalog
+        fields = '__all__'
+
+
+class CropCatalogListSerializer(serializers.ModelSerializer):
+    """Serializer ligero para listados (sin etapas)."""
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    stages_count = serializers.IntegerField(source='stages.count', read_only=True)
+
+    class Meta:
+        model = CropCatalog
+        fields = [
+            'id', 'name', 'scientific_name', 'family', 'category',
+            'category_display', 'cycle_days_min', 'cycle_days_max',
+            'temp_min', 'temp_max', 'is_active', 'stages_count',
+        ]
+
+
+class CropCycleSerializer(serializers.ModelSerializer):
+    crop_catalog_name = serializers.CharField(source='crop_catalog.name', read_only=True)
+    crop_catalog_category = serializers.CharField(source='crop_catalog.category', read_only=True)
+    parcel_name = serializers.CharField(source='parcel.name', read_only=True)
+    days_since_planting = serializers.IntegerField(read_only=True)
+    current_stage = serializers.SerializerMethodField()
+    progress_percent = serializers.FloatField(read_only=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = CropCycle
+        fields = '__all__'
+
+    def get_current_stage(self, obj):
+        stage = obj.current_stage
+        if stage:
+            return PhenologicalStageSerializer(stage).data
+        return None
+
+
+class IndexInterpretationSerializer(serializers.Serializer):
+    """Serializer para validar la peticion de interpretacion de indices."""
+    index_type = serializers.ChoiceField(choices=['ndvi', 'ndmi', 'savi'])
+    value = serializers.FloatField(min_value=-1.0, max_value=1.0)

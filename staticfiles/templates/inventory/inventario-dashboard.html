@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Inventario | Agrotech</title>
+    <link href="/static/css/bootstrap.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/icons.min.css" rel="stylesheet" type="text/css" />
+    <link href="/static/css/app.min.css" rel="stylesheet" type="text/css" />
+    <style>
+        body { background: #fff; }
+        .table thead th { background: #e9ecef; }
+        #main-content {
+            margin-top: 110px !important;
+        }
+        /* Cards dashboard modernas */
+        .dashboard-card {
+            background: #fff;
+            border: none;
+            box-shadow: 0 2px 12px rgba(44,62,80,0.07);
+            border-radius: 18px;
+            transition: box-shadow 0.2s, transform 0.2s;
+            padding: 1.2rem 1rem 1.2rem 1rem;
+        }
+        .dashboard-card:hover {
+            box-shadow: 0 6px 24px rgba(44,62,80,0.13);
+            transform: translateY(-2px) scale(1.02);
+        }
+        .dashboard-card .icon-circle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: #f3f6fa;
+            margin-bottom: 10px;
+            font-size: 1.7rem;
+        }
+        .dashboard-card .icon-warehouse { color: #3b82f6; background: #e8f0fe; }
+        .dashboard-card .icon-supply { color: #22c55e; background: #e7fbe9; }
+        .dashboard-card .icon-movement { color: #f59e42; background: #fff4e6; }
+        .dashboard-card .icon-machinery { color: #0ea5e9; background: #e0f7fa; }
+        .dashboard-card .card-title {
+            color: #2d3748;
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-bottom: 0.2rem;
+        }
+        .dashboard-card .card-text {
+            font-size: 2.3rem;
+            color: #1a202c;
+            font-weight: 700;
+        }
+        .dashboard-nav-btn2 {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            background: #f7fafd;
+            color: #253445;
+            font-weight: 600;
+            font-size: 0.93rem;
+            border: none;
+            box-shadow: 0 1px 4px rgba(44,62,80,0.06);
+            transition: background 0.18s, color 0.18s, box-shadow 0.18s;
+            text-decoration: none;
+            min-width: 70px;
+            justify-content: flex-start;
+        }
+        .dashboard-nav-btn2:hover, .dashboard-nav-btn2:focus {
+            background: #e8f0fe;
+            color: #1a237e;
+            box-shadow: 0 4px 16px rgba(44,62,80,0.13);
+            text-decoration: none;
+        }
+        .dashboard-nav-btn2 .icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #e3e6f0;
+            font-size: 1em;
+            margin-right: 2px;
+            color: #253445;
+            box-shadow: 0 1px 4px rgba(44,62,80,0.07);
+        }
+        .dashboard-nav-btn2 .icon.bg-blue { background: #2563eb; color: #fff; }
+        .dashboard-nav-btn2 .icon.bg-green { background: #16a34a; color: #fff; }
+        .dashboard-nav-btn2 .icon.bg-orange { background: #ea580c; color: #fff; }
+        .dashboard-nav-btn2 .icon.bg-cyan { background: #0891b2; color: #fff; }
+        .dashboard-nav-btn2 .icon.bg-purple { background: #7c3aed; color: #fff; }
+        .dashboard-nav-btn2 .icon.bg-dark { background: #253445; color: #fff; }
+        @media (max-width: 991px) {
+            .dashboard-nav-btn2 {
+                min-width: 60px;
+                font-size: 0.89rem;
+                padding: 4px 4px;
+            }
+            .dashboard-nav-btn2 .icon {
+                width: 16px;
+                height: 16px;
+                font-size: 0.8em;
+            }
+        }
+        @media (max-width: 991px) {
+            .dashboard-card { margin-bottom: 1.2rem; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Botón hamburguesa solo visible en móvil -->
+    <div id="topbar-container" style="display:none;"></div>
+    <div id="left-sidebar"></div>
+    <!-- Modales de empresa y proveedor -->
+    <div id="modals-supplier-company">
+      <!-- Modales para empresa y proveedor -->
+      <!-- supplier_company_modals.html -->
+      <!-- Puedes copiar el contenido o usar un include si tu motor lo soporta -->
+    </div>
+    <button id="mobileToggle" aria-label="Abrir menú lateral" style="position:fixed;top:18px;left:18px;z-index:1100;background:#2C3E50;border:none;border-radius:8px;padding:10px 12px;display:none;box-shadow:0 2px 8px rgba(44,62,80,0.10);color:#fff;">
+        <span style="display:block;width:24px;height:3px;background:#fff;margin:4px 0;border-radius:2px;"></span>
+        <span style="display:block;width:24px;height:3px;background:#fff;margin:4px 0;border-radius:2px;"></span>
+        <span style="display:block;width:24px;height:3px;background:#fff;margin:4px 0;border-radius:2px;"></span>
+    </button>
+    <div id="main-content" class="container mt-5" style="margin-top: 90px;">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-4">
+            <h2 class="mb-3 mb-md-0" style="font-size:2rem;font-weight:700;color:#253445;display:flex;align-items:center;gap:10px;">
+                <i class="fa fa-warehouse"></i> Dashboard de Inventario
+            </h2>
+            <a href="/templates/vertical_base.html" class="dashboard-nav-btn2 dashboard-nav-btn2-back" style="margin-bottom: 0;">
+                <span class="icon"><i class="fa fa-arrow-left"></i></span>
+                <span>Volver al Dashboard</span>
+            </a>
+        </div>
+        <div class="mb-4 d-flex flex-wrap gap-2 justify-content-start align-items-center" style="gap: 12px !important;">
+            <a href="/templates/inventario/almacenes.html" class="dashboard-nav-btn2">
+                <span class="icon bg-blue"><i class="fa fa-warehouse"></i></span>
+                <span>Almacenes</span>
+            </a>
+            <a href="/templates/inventario/supply_list.html" class="dashboard-nav-btn2">
+                <span class="icon bg-green"><i class="fa fa-boxes"></i></span>
+                <span>Insumos</span>
+            </a>
+            <a href="/templates/inventario/movements_list.html" class="dashboard-nav-btn2">
+                <span class="icon bg-orange"><i class="fa fa-exchange-alt"></i></span>
+                <span>Movimientos</span>
+            </a>
+            <a href="/templates/inventario/machinery.html" class="dashboard-nav-btn2">
+                <span class="icon bg-cyan"><i class="fa fa-tractor"></i></span>
+                <span>Maquinaria</span>
+            </a>
+            <a href="/templates/inventario/categorias.html" class="dashboard-nav-btn2">
+                <span class="icon bg-purple"><i class="fa fa-tags"></i></span>
+                <span>Categorías</span>
+            </a>
+            <a href="/templates/inventario/directory.html" class="dashboard-nav-btn2">
+                <span class="icon bg-dark"><i class="fa fa-address-book"></i></span>
+                <span>Directorio</span>
+            </a>
+        </div>
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card dashboard-card mb-3 text-center">
+                    <div class="icon-circle icon-warehouse mb-2"><i class="fa fa-warehouse"></i></div>
+                    <div class="card-body p-0">
+                        <div class="card-title">Almacenes</div>
+                        <div class="card-text" id="dashboardWarehouseCount">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card dashboard-card mb-3 text-center">
+                    <div class="icon-circle icon-supply mb-2"><i class="fa fa-boxes"></i></div>
+                    <div class="card-body p-0">
+                        <div class="card-title">Insumos</div>
+                        <div class="card-text" id="dashboardSupplyCount">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card dashboard-card mb-3 text-center">
+                    <div class="icon-circle icon-movement mb-2"><i class="fa fa-exchange-alt"></i></div>
+                    <div class="card-body p-0">
+                        <div class="card-title">Movimientos</div>
+                        <div class="card-text" id="dashboardMovementCount">-</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card dashboard-card mb-3 text-center">
+                    <div class="icon-circle icon-machinery mb-2"><i class="fa fa-tractor"></i></div>
+                    <div class="card-body p-0">
+                        <div class="card-title">Maquinaria</div>
+                        <div class="card-text" id="dashboardMachineryCount">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-4">
+            <div class="col">
+                <h4>Resumen de Stock por Almacén</h4>
+                <div id="dashboardStockTableWrapper">
+                    <table class="table table-striped" id="dashboardStockTable">
+                        <thead>
+                            <tr>
+                                <th>Almacén</th>
+                                <th>Insumo</th>
+                                <th>Cantidad</th>
+                                <th>Unidad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Datos dinámicos -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="footer-container"></div>
+    <div id="righsidebar"></div>
+    <div id="vendorjs"></div>
+    <script src="/static/js/bootstrap.bundle.min.js"></script>
+    <script src="/static/js/inventario/dashboard-inventario.js"></script>
+    <script src="/static/js/inventario/supplier_company.js"></script>
+    <script>
+    // Mostrar/ocultar topbar y botón hamburguesa según tamaño
+    function handleResponsiveNav() {
+        const topbar = document.getElementById('topbar-container');
+        const mobileToggle = document.getElementById('mobileToggle');
+        if (window.innerWidth <= 991) {
+            if (topbar) topbar.style.display = 'none';
+            if (mobileToggle) mobileToggle.style.display = 'block';
+        } else {
+            if (topbar) topbar.style.display = 'block';
+            if (mobileToggle) mobileToggle.style.display = 'none';
+        }
+    }
+    window.addEventListener('resize', handleResponsiveNav);
+    window.addEventListener('DOMContentLoaded', handleResponsiveNav);
+    </script>
+    <script type="module">
+        import { loadLayoutComponents } from '/static/js/load_components.js';
+        const components = {
+            // El topbar se carga pero se oculta en móvil
+            "topbar-container": "/templates/partials/horizontal-nav.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "righsidebar": "/templates/partials/right-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
+        };
+        loadLayoutComponents(components);
+    </script>
+</body>
+</html>

@@ -1,4 +1,3 @@
-
 # Create your models here.
 #modelo inicial para creacion de usuario se recomienda agregar al crear el superusuario
 
@@ -10,25 +9,27 @@ from simple_history.models import HistoricalRecords
 
 
 class UserManager(BaseUserManager):
-    def _create_user(self, username, email, name,last_name, password, is_staff, is_superuser, **extra_fields):
+    def _create_user(self, username, email, name, last_name, password, is_staff, is_superuser, **extra_fields):
+        # Normalizar email a minúsculas SIEMPRE
+        email = self.normalize_email(email).lower()
         user = self.model(
-            username = username,
-            email = email,
-            name = name,
-            last_name = last_name,
-            is_staff = is_staff,
-            is_superuser = is_superuser,
+            username=username,
+            email=email,
+            name=name,
+            last_name=last_name,
+            is_staff=is_staff,
+            is_superuser=is_superuser,
             **extra_fields
         )
         user.set_password(password)
         user.save(using=self.db)
         return user
 
-    def create_user(self, username, email, name,last_name, password=None, **extra_fields):
-        return self._create_user(username, email, name,last_name, password, False, False, **extra_fields)
+    def create_user(self, username, email, name, last_name, password=None, **extra_fields):
+        return self._create_user(username, email, name, last_name, password, False, False, **extra_fields)
 
-    def create_superuser(self, username, email, name,last_name, password=None, **extra_fields):
-        return self._create_user(username, email, name,last_name, password, True, True, **extra_fields)
+    def create_superuser(self, username, email, name, last_name, password=None, **extra_fields):
+        return self._create_user(username, email, name, last_name, password, True, True, **extra_fields)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -81,6 +82,18 @@ class User(AbstractBaseUser, PermissionsMixin):
     modified_on = models.DateField('Última Modificación', auto_now=True)
     historical = HistoricalRecords()
 
+    # Tenant al que pertenece el usuario
+    # Un usuario pertenece a UN solo tenant (organización/finca)
+    # null=True para el superusuario y usuarios del schema public
+    tenant = models.ForeignKey(
+        'base_agrotech.Client',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='users',
+        verbose_name='Organización',
+    )
+
     # Relaciones
     reports_to = models.ForeignKey(
         'self',
@@ -108,6 +121,20 @@ class User(AbstractBaseUser, PermissionsMixin):
     class Meta:
         verbose_name = 'Usuario'
         verbose_name_plural = 'Usuarios'
+        constraints = [
+            # Unicidad case-insensitive a nivel de BD (PostgreSQL)
+            models.UniqueConstraint(
+                models.functions.Lower('email'),
+                name='unique_email_ci',
+                violation_error_message='Ya existe una cuenta con este correo electrónico.',
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        # Normalizar email a minúsculas antes de guardar
+        if self.email:
+            self.email = self.email.lower().strip()
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.name} {self.last_name}'

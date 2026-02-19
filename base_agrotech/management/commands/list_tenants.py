@@ -34,9 +34,17 @@ class Command(BaseCommand):
             self.stdout.write(f"   ID: {tenant.id}")
             if hasattr(tenant, 'created_on'):
                 self.stdout.write(f"   Creado: {tenant.created_on}")
+            if hasattr(tenant, 'paid_until') and tenant.paid_until:
+                self.stdout.write(f"   Pagado hasta: {tenant.paid_until}")
+            if hasattr(tenant, 'on_trial'):
+                self.stdout.write(f"   En trial: {'Sí' if tenant.on_trial else 'No'}")
             
-            if tenant.description:
-                self.stdout.write(f"   Descripción: {tenant.description}")
+            # Verificar suscripción
+            try:
+                sub = tenant.subscription
+                self.stdout.write(f"   💳 Suscripción: {sub.plan.name} ({sub.status})")
+            except Exception:
+                self.stdout.write(f"   ⚠️ Sin suscripción")
             
             # Mostrar dominios
             domains = Domain.objects.filter(tenant=tenant)

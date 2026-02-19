@@ -1,0 +1,377 @@
+<!-- Incluyendo los scripts necesarios directamente -->
+<script src="/static/libs/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script src="/static/js/app.js"></script>
+<script src="/static/js/user-profile.js"></script>
+
+<!-- Iconos necesarios para el menú -->
+<link href="https://unpkg.com/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+<!-- Topbar Neumórfico Premium -->
+<div class="topbar-neomorphic">
+    <div class="topbar-left">
+        <button class="menu-toggle-neo" aria-label="Abrir menú" onclick="toggleMobileSidebar()">
+            <i class="fas fa-bars"></i>
+        </button>
+        <div class="topbar-brand">
+            <span class="brand-icon">🌾</span>
+            <span class="brand-text">AgroTech Digital</span>
+        </div>
+    </div>
+    <div class="topbar-center">
+        <div class="topbar-page-title" id="topbar-page-indicator">
+            <i class="ti ti-map-2" style="margin-right: 6px;"></i> Parcelas
+        </div>
+    </div>
+    <div class="topbar-right">
+        <button class="topbar-action-btn" aria-label="Notificaciones" title="Notificaciones">
+            <i class="fas fa-bell"></i>
+            <span class="notification-dot"></span>
+        </button>
+        <button class="topbar-action-btn" aria-label="Perfil" title="Perfil">
+            <i class="fas fa-user-circle"></i>
+        </button>
+    </div>
+</div>
+
+<!-- Menú lateral móvil (drawer) neumórfico -->
+<div id="mobile-sidebar" class="mobile-sidebar-neo">
+    <!-- Logo -->
+    <div class="mobile-brand">
+        <img src="../../images/agrotech solo blanco.png" alt="AgroTech" class="mobile-logo-img">
+        <div class="mobile-brand-name">AgroTech Digital</div>
+    </div>
+    <!-- Menú con rutas reales -->
+    <ul class="mobile-nav-menu">
+        <li class="mobile-nav-section">Principal</li>
+        <li><a href="/dashboard/"><i class="ti ti-home"></i> Dashboard</a></li>
+        <li><a href="/rrhh/"><i class="ti ti-users"></i> Recursos Humanos</a></li>
+        
+        <li class="mobile-nav-section">Operaciones</li>
+        <li><a href="/inventario/"><i class="ti ti-box"></i> Inventario</a></li>
+        <li><a href="/parcelas/" class="active"><i class="ti ti-map-2"></i> Parcelas</a></li>
+        <li><a href="/labores/"><i class="ti ti-clipboard-list"></i> Labores</a></li>
+        <li><a href="/cultivos/"><i class="ti ti-plant"></i> Cultivos</a></li>
+        
+        <li class="mobile-nav-section">Sistema</li>
+        <li><a href="/configuracion/"><i class="ti ti-settings"></i> Configuración</a></li>
+    </ul>
+</div>
+
+<!-- Overlay para cerrar el menú móvil -->
+<div id="sidebar-overlay" class="sidebar-overlay-neo"></div>
+
+<style>
+/* ========================================
+   TOPBAR NEUMÓRFICO PREMIUM
+   ======================================== */
+.topbar-neomorphic {
+    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 2000;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    background: linear-gradient(135deg, #FFFFFF 0%, #F5F7FA 100%);
+    box-shadow:
+        0 4px 18px rgba(46, 139, 87, 0.06),
+        0 1px 3px rgba(0, 0, 0, 0.04);
+    border-bottom: 1px solid rgba(46, 139, 87, 0.06);
+}
+
+.topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.menu-toggle-neo {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: #2E8B57;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.menu-toggle-neo:hover {
+    background: rgba(46, 139, 87, 0.1);
+}
+
+.topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.topbar-brand .brand-icon {
+    font-size: 1.3em;
+}
+
+.topbar-brand .brand-text {
+    font-family: 'Poppins', 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    background: linear-gradient(135deg, #2E8B57, #FF7A00);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.3px;
+}
+
+.topbar-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.topbar-page-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #6c757d;
+    background: rgba(46, 139, 87, 0.06);
+    padding: 6px 16px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+}
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.topbar-action-btn {
+    background: rgba(46, 139, 87, 0.06);
+    border: none;
+    border-radius: 12px;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    color: #2E8B57;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    box-shadow:
+        -2px -2px 4px rgba(255, 255, 255, 0.6),
+        2px 2px 4px rgba(46, 139, 87, 0.08);
+}
+
+.topbar-action-btn:hover {
+    background: rgba(46, 139, 87, 0.12);
+    transform: translateY(-1px);
+    box-shadow:
+        -3px -3px 6px rgba(255, 255, 255, 0.7),
+        3px 3px 6px rgba(46, 139, 87, 0.12);
+}
+
+.notification-dot {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 7px;
+    height: 7px;
+    background: #FF7A00;
+    border-radius: 50%;
+    border: 1.5px solid #FFFFFF;
+}
+
+/* ========================================
+   MOBILE SIDEBAR NEUMÓRFICO
+   ======================================== */
+.mobile-sidebar-neo {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    width: 85vw;
+    max-width: 300px;
+    height: calc(100vh - 60px);
+    background: linear-gradient(180deg, #1a3a2a 0%, #253445 100%);
+    z-index: 4000;
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.2);
+    transform: translateX(-100%);
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+    display: none;
+}
+
+.mobile-sidebar-neo.show {
+    transform: translateX(0);
+}
+
+.mobile-brand {
+    padding: 24px 20px 18px 20px;
+    text-align: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(180deg, rgba(46, 139, 87, 0.15), transparent);
+}
+
+.mobile-logo-img {
+    max-width: 55px;
+    display: block;
+    margin: 0 auto;
+    filter: drop-shadow(0 2px 6px rgba(46, 139, 87, 0.3));
+}
+
+.mobile-brand-name {
+    font-family: 'Poppins', 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 0.75rem;
+    margin-top: 8px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    background: linear-gradient(135deg, #4CAF50, #FF9800);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.mobile-nav-menu {
+    padding: 12px 0;
+    margin: 0;
+    list-style: none;
+}
+
+.mobile-nav-section {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255, 255, 255, 0.3);
+    padding: 12px 22px 4px 22px;
+    font-weight: 700;
+}
+
+.mobile-nav-menu li a {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: rgba(255, 255, 255, 0.75);
+    padding: 12px 20px;
+    margin: 2px 8px;
+    border-radius: 12px;
+    transition: all 0.25s ease;
+    font-size: 14px;
+    text-decoration: none;
+    font-weight: 500;
+    position: relative;
+}
+
+.mobile-nav-menu li a i {
+    font-size: 1.15em;
+    color: rgba(255, 255, 255, 0.5);
+    width: 22px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.mobile-nav-menu li a:hover,
+.mobile-nav-menu li a:active {
+    background: rgba(46, 139, 87, 0.25);
+    color: #FFFFFF;
+}
+
+.mobile-nav-menu li a.active {
+    background: linear-gradient(135deg, rgba(46, 139, 87, 0.35), rgba(255, 122, 0, 0.15));
+    color: #FFFFFF;
+    font-weight: 700;
+}
+
+.mobile-nav-menu li a.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 55%;
+    background: linear-gradient(180deg, #4CAF50, #FF9800);
+    border-radius: 0 3px 3px 0;
+}
+
+/* Overlay */
+.sidebar-overlay-neo {
+    position: fixed;
+    top: 60px;
+    left: 0;
+    width: 100vw;
+    height: calc(100vh - 60px);
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 3999;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+    display: none;
+}
+
+.sidebar-overlay-neo.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+@media (max-width: 767px) {
+    .menu-toggle-neo {
+        display: flex !important;
+    }
+    
+    .topbar-brand .brand-text {
+        font-size: 0.9rem;
+    }
+    
+    .topbar-center {
+        display: none;
+    }
+    
+    .mobile-sidebar-neo {
+        display: block;
+    }
+    
+    .sidebar-overlay-neo {
+        display: block;
+    }
+    
+    .topbar-neomorphic {
+        padding: 0 12px;
+    }
+}
+
+@media (min-width: 768px) {
+    .topbar-neomorphic {
+        padding-left: 240px; /* Espacio para el sidebar desktop */
+    }
+    
+    .mobile-sidebar-neo,
+    .sidebar-overlay-neo {
+        display: none !important;
+    }
+    
+    .menu-toggle-neo {
+        display: none !important;
+    }
+}
+</style>
+
+<!-- Script de funcionalidades del topbar -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        if (typeof fetchAndRenderUserProfile === 'function') {
+            fetchAndRenderUserProfile();
+        }
+    });
+</script>

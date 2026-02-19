@@ -1,3 +1,5 @@
+import os
+
 from .base import *  # noqa
 from .base import env
 
@@ -17,38 +19,11 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
     "agrotechcolombia.netlify.app",  # Sin protocolo https://
 ])
 
-# DATABASES
-# ------------------------------------------------------------------------------
-# Configuración optimizada para Railway con django-tenants
-import os
-from urllib.parse import urlparse
-
-# Intentar obtener DATABASE_URL inmediatamente
-DATABASE_URL = os.environ.get('DATABASE_URL')
-
-if not DATABASE_URL:
-    raise Exception("❌ DATABASE_URL no está definida. Verifica las variables de entorno en Railway.")
-
-# Parsear URL de Railway
-print(f"✅ Railway DATABASE_URL detectado: {DATABASE_URL[:50]}...")
-url = urlparse(DATABASE_URL)
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django_tenants.postgresql_backend",
-        "NAME": url.path[1:],  # Quitar '/' inicial
-        "USER": url.username,
-        "PASSWORD": url.password,
-        "HOST": url.hostname,
-        "PORT": url.port or 5432,
-        "ATOMIC_REQUESTS": False,  # Importante para django-tenants
-        "CONN_MAX_AGE": 0,  # Desactivar pooling para evitar problemas con schemas
-    }
-}
-print(f"✅ DB Config - HOST: {url.hostname}, NAME: {url.path[1:]}")
+# DATABASES - Ya configurado automáticamente en base.py cuando IS_RAILWAY=True
+# No es necesario reconfigurar aquí
 
 
-# MIDDLEWARE - Agregar WhiteNoise después de SecurityMiddleware
+# MIDDLEWARE - Agregar WhiteNoise y HealthCheck para producción
 # ------------------------------------------------------------------------------
 MIDDLEWARE = [
     'config.middleware.HealthCheckMiddleware',  # PRIMERO: Intercepta /health/ para Railway

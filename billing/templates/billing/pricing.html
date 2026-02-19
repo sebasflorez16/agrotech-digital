@@ -366,12 +366,33 @@
 }
 
 @media (max-width: 768px) {
-    .pricing-grid { grid-template-columns: 1fr; gap: 16px; }
-    .pricing-card { padding: 36px 28px; }
+    .pricing-grid { grid-template-columns: 1fr; gap: 16px; max-width: 420px; }
+    .pricing-card { padding: 32px 24px; }
     .faq-grid { grid-template-columns: 1fr; }
-    .amount { font-size: 44px; }
-    .pricing-hero { padding: 60px 0 20px; }
-    .comparison-section { overflow-x: auto; }
+    .amount { font-size: 40px; }
+    .pricing-hero { padding: 48px 0 16px; }
+    .section-title { font-size: 28px; }
+    .section-subtitle { font-size: 15px; }
+    .comparison-section { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .comparison-table th,
+    .comparison-table td { padding: 12px 10px; font-size: 12px; white-space: nowrap; }
+    .billing-toggle { margin: 24px 0 32px; gap: 12px; }
+    .faq-card { padding: 20px; }
+    .faq-card h5 { font-size: 14px; }
+    .faq-card p { font-size: 13px; }
+    .comparison-section h3 { font-size: 22px; margin-bottom: 24px; }
+    .faq-section h3 { font-size: 22px; }
+}
+
+@media (max-width: 480px) {
+    .pricing-card { padding: 28px 20px; }
+    .amount { font-size: 36px; }
+    .currency { font-size: 18px; }
+    .period { font-size: 13px; }
+    .features-list li { font-size: 13px; padding: 8px 0; }
+    .limit-tag { font-size: 11px; padding: 2px 8px; }
+    .btn-plan { padding: 12px; font-size: 14px; }
+    .save-badge { font-size: 11px; padding: 3px 10px; }
 }
 </style>
 {% endblock %}

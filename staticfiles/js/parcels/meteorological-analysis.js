@@ -179,8 +179,11 @@ function loadMeteorologicalAnalysisWithRefresh(parcelId) {
     
     showMeteorologicalLoading(true);
     
-    // Construir URL - usar siempre window.location.origin para producción
-    const baseUrl = window.location.origin;
+    // Determinar la URL base según el entorno
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const baseUrl = isLocalhost ? 'http://localhost:8000' : '';
+    
+    // Construir el endpoint completo
     const endpoint = `${baseUrl}/api/parcels/parcel/${parcelId}/ndvi-weather-comparison/?refresh=${Date.now()}`;
     
     console.log(`[METEOROLOGICAL] Haciendo petición de actualización a: ${endpoint}`);
@@ -192,23 +195,38 @@ function loadMeteorologicalAnalysisWithRefresh(parcelId) {
             'Content-Type': 'application/json'
         }
     })
-    .then(response => {
+    .then(async response => {
+        console.log('[METEOROLOGICAL] 📡 Respuesta recibida:', {
+            status: response.status,
+            statusText: response.statusText,
+            contentType: response.headers.get('content-type'),
+            url: response.url
+        });
+        
+        // Leer el texto de la respuesta UNA SOLA VEZ
+        const text = await response.text();
+        
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            console.error('[METEOROLOGICAL] ❌ Respuesta HTTP no OK:', text.substring(0, 500));
+            throw new Error(`HTTP ${response.status}: ${response.statusText}\nRespuesta recibida:\n${text.substring(0, 500)}`);
         }
-        return response.json();
+        
+        // Intenta parsear como JSON
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error('[METEOROLOGICAL] ❌ Respuesta no es JSON:', text.substring(0, 500));
+            throw new Error(`Respuesta no es JSON. Recibido:\n${text.substring(0, 500)}`);
+        }
     })
     .then(data => {
         console.log('[METEOROLOGICAL] ✅ Datos actualizados recibidos del backend:', data);
-        
         // Procesar datos reales de EOSDA con indicador de actualización
         processRealEOSDADataWithRefresh(data);
-        
     })
     .catch(error => {
         console.error('[METEOROLOGICAL] Error actualizando análisis:', error);
         showMeteorologicalError(error.message);
-        
         if (typeof showToast === 'function') {
             showToast('❌ Error actualizando datos meteorológicos', 'error');
         }
@@ -243,8 +261,11 @@ function loadMeteorologicalAnalysisInternal(parcelId) {
     
     showMeteorologicalLoading(true);
     
-    // Usar siempre window.location.origin para producción
-    const baseUrl = window.location.origin;
+    // Determinar la URL base según el entorno
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const baseUrl = isLocalhost ? 'http://localhost:8000' : '';
+    
+    // Construir el endpoint completo
     const endpoint = `${baseUrl}/api/parcels/parcel/${parcelId}/ndvi-weather-comparison/`;
     
     console.log(`[METEOROLOGICAL] Haciendo petición a: ${endpoint}`);
@@ -256,11 +277,29 @@ function loadMeteorologicalAnalysisInternal(parcelId) {
             'Content-Type': 'application/json'
         }
     })
-    .then(response => {
+    .then(async response => {
+        console.log('[METEOROLOGICAL] 📡 Respuesta recibida (ndvi-weather):', {
+            status: response.status,
+            statusText: response.statusText,
+            contentType: response.headers.get('content-type'),
+            url: response.url
+        });
+        
+        // Leer el texto de la respuesta UNA SOLA VEZ
+        const text = await response.text();
+        
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            console.error('[METEOROLOGICAL] ❌ Respuesta HTTP no OK:', text.substring(0, 500));
+            throw new Error(`HTTP ${response.status}: ${response.statusText}\nRespuesta recibida:\n${text.substring(0, 500)}`);
         }
-        return response.json();
+        
+        // Intenta parsear como JSON
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error('[METEOROLOGICAL] ❌ Respuesta no es JSON:', text.substring(0, 500));
+            throw new Error(`Respuesta no es JSON. Recibido:\n${text.substring(0, 500)}`);
+        }
     })
     .then(data => {
         console.log('[METEOROLOGICAL] Datos meteorológicos recibidos:', data);
@@ -709,9 +748,11 @@ function loadWeatherForecast(parcelId) {
     
     showMeteorologicalLoading(true);
     
-    // Usar siempre window.location.origin para producción
-    const baseUrl = window.location.origin;
-    // Usar la ruta directa para evitar conflictos de routing
+    // Determinar la URL base según el entorno
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const baseUrl = isLocalhost ? 'http://localhost:8000' : '';
+    
+    // Construir el endpoint completo
     const endpoint = `${baseUrl}/api/parcels/get-weather-forecast/${parcelId}/`;
     
     console.log(`[METEOROLOGICAL] Haciendo petición al pronóstico (ruta directa): ${endpoint}`);
@@ -723,11 +764,29 @@ function loadWeatherForecast(parcelId) {
             'Content-Type': 'application/json'
         }
     })
-    .then(response => {
+    .then(async response => {
+        console.log('[METEOROLOGICAL] 📡 Respuesta de pronóstico recibida:', {
+            status: response.status,
+            statusText: response.statusText,
+            contentType: response.headers.get('content-type'),
+            url: response.url
+        });
+        
+        // Leer el texto de la respuesta UNA SOLA VEZ
+        const text = await response.text();
+        
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            console.error('[METEOROLOGICAL] ❌ Respuesta HTTP no OK:', text.substring(0, 500));
+            throw new Error(`HTTP ${response.status}: ${response.statusText}\nRespuesta recibida:\n${text.substring(0, 500)}`);
         }
-        return response.json();
+        
+        // Intenta parsear como JSON
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error('[METEOROLOGICAL] ❌ Respuesta no es JSON:', text.substring(0, 500));
+            throw new Error(`Respuesta no es JSON. Recibido:\n${text.substring(0, 500)}`);
+        }
     })
     .then(data => {
         console.log('[METEOROLOGICAL] Datos del pronóstico recibidos:', data);
@@ -1597,35 +1656,6 @@ function updateCorrelations(meteorologicalMetrics) {
     } else {
         console.warn('[METEOROLOGICAL] ❌ Elementos de viento no encontrados en DOM');
     }
-    
-    // Métrica 4: Radiación Solar Promedio
-    const avgSolar = meteorologicalMetrics.avg_solar_radiation || 0;
-    const solarIndex = calculateSolarIndex(avgSolar);
-    
-    console.log('[METEOROLOGICAL] Solar promedio:', avgSolar, 'Índice:', solarIndex);
-    
-    const solarElem = document.getElementById('correlationSolar');
-    const solarStrengthElem = document.getElementById('correlationStrengthSolar');
-    const solarProgress = document.getElementById('solarProgressBar');
-    
-    if (solarElem && solarStrengthElem) {
-        solarElem.textContent = avgSolar.toFixed(1) + ' MJ/m²';
-        solarElem.style.color = '#FF8F00'; // Color naranja claro del gráfico
-        
-        solarStrengthElem.textContent = solarIndex.risk;
-        solarStrengthElem.className = `badge ${solarIndex.risk === 'Bajo' ? 'bg-danger' : solarIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
-        
-        if (solarProgress) {
-            const progressValue = (avgSolar / 30) * 100; // Normalizar a 30 MJ/m² máximo
-            solarProgress.style.width = `${Math.min(progressValue, 100)}%`;
-            // Mantener el color fijo de radiación solar (#FF8F00) sin cambiar
-        }
-        console.log('[METEOROLOGICAL] ✅ Métrica de radiación solar actualizada:', avgSolar.toFixed(1), 'MJ/m²');
-    } else {
-        console.warn('[METEOROLOGICAL] ❌ Elementos de radiación solar no encontrados en DOM');
-    }
-    
-       
     
     console.log('[METEOROLOGICAL] Todas las métricas meteorológicas actualizadas');
 }

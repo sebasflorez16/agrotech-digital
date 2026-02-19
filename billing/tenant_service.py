@@ -98,16 +98,51 @@ class TenantService:
         Returns:
             dict con tenant, subscription, domain y status info
         """
+        # ── VALIDACIÓN DE DUPLICADOS ──
+        # Impedir que un mismo email cree múltiples tenants
+        if payer_email:
+            existing_subs = Subscription.objects.filter(
+                metadata__payer_email=payer_email,
+                status__in=['active', 'trialing'],
+            ).select_related('tenant')
+
+            if existing_subs.exists():
+                existing = existing_subs.first()
+                logger.warning(
+                    f"⚠️ Intento de crear tenant duplicado con email={payer_email}. "
+                    f"Ya existe: {existing.tenant.name} (schema={existing.tenant.schema_name})"
+                )
+                return {
+                    'success': False,
+                    'error': (
+                        f'Ya tienes un espacio de trabajo activo: "{existing.tenant.name}". '
+                        f'No puedes crear otro con el mismo correo electrónico. '
+                        f'Si necesitas acceder a tu cuenta, inicia sesión.'
+                    ),
+                    'existing_tenant': existing.tenant.name,
+                    'existing_schema': existing.tenant.schema_name,
+                }
+
         # 1. Generar schema_name si no se provee
         if not schema_name:
             schema_name = _slugify_schema(tenant_name)
 
-        # Evitar colisión con schemas existentes
-        base_schema = schema_name
-        counter = 1
-        while Client.objects.filter(schema_name=schema_name).exists():
-            schema_name = f"{base_schema}_{counter}"
-            counter += 1
+        # Evitar colisión con schemas existentes — en lugar de agregar sufijo,
+        # rechazar si ya existe un tenant con ese nombre exacto
+        if Client.objects.filter(schema_name=schema_name).exists():
+            existing_tenant = Client.objects.get(schema_name=schema_name)
+            logger.warning(
+                f"⚠️ Schema '{schema_name}' ya existe para tenant '{existing_tenant.name}'"
+            )
+            return {
+                'success': False,
+                'error': (
+                    f'Ya existe un espacio de trabajo con el nombre "{tenant_name}". '
+                    f'Usa un nombre diferente o inicia sesión en tu cuenta existente.'
+                ),
+                'existing_tenant': existing_tenant.name,
+                'existing_schema': schema_name,
+            }
 
         # 2. Obtener plan
         try:

@@ -11,13 +11,24 @@ ROOT_DIR = Path(__file__).resolve(strict=True).parent.parent.parent
 APPS_DIR = ROOT_DIR / "metrica"
 env = environ.Env()
 
-# Si READ_DOT_ENV_FILE es True, Django leerá las variables del archivo .env.
+# IMPORTANTE: No leer .env si estamos en Railway (producción)
+# Railway define DATABASE_URL y RAILWAY_ENVIRONMENT automáticamente
+IS_RAILWAY = bool(os.environ.get('DATABASE_URL')) or bool(os.environ.get('RAILWAY_ENVIRONMENT'))
+
+# Si READ_DOT_ENV_FILE es True y NO estamos en Railway, Django leerá las variables del archivo .env.
 # Esto permite configurar variables sensibles (como claves API) sin incluirlas en el código.
-# Si es False, Django solo usará las variables de entorno del sistema operativo.
-# Las variables del sistema tienen prioridad sobre las del archivo .env.
-READ_DOT_ENV_FILE = env.bool("DJANGO_READ_DOT_ENV_FILE", default=True)
+# Si es False o estamos en Railway, Django solo usará las variables de entorno del sistema operativo.
+READ_DOT_ENV_FILE = env.bool("DJANGO_READ_DOT_ENV_FILE", default=True) and not IS_RAILWAY
 if READ_DOT_ENV_FILE:
-    env.read_env(str(ROOT_DIR / ".env"))
+    env_file = str(ROOT_DIR / ".env")
+    if os.path.exists(env_file):
+        env.read_env(env_file)
+        print("✅ Archivo .env cargado (desarrollo local)")
+else:
+    if IS_RAILWAY:
+        print("🚂 Railway detectado - usando variables de entorno del sistema")
+    else:
+        print("⚠️ Archivo .env no se cargará (DJANGO_READ_DOT_ENV_FILE=False)")
 
 # GENERAL
 # ------------------------------------------------------------------------------
@@ -55,20 +66,41 @@ LOCALE_PATHS = [str(ROOT_DIR / "locale")]
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 
-# Configuración base para desarrollo local (se sobrescribe en production.py)
-DATABASES = {
-    'default': {
-        'ENGINE': 'django_tenants.postgresql_backend',
-        'NAME': env('DB_NAME', default='agrotech'),
-        'USER': env('DB_USER', default='postgres'),
-        'PASSWORD': env('DB_PASSWORD', default=''),
-        'HOST': env('DB_HOST', default='localhost'),
-        'PORT': env('DB_PORT', default='5432'),
-        'ATOMIC_REQUESTS': True,
+# Si estamos en Railway, usar DATABASE_URL directamente
+if IS_RAILWAY:
+    from urllib.parse import urlparse
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    if DATABASE_URL:
+        url = urlparse(DATABASE_URL)
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django_tenants.postgresql_backend',
+                'NAME': url.path[1:],  # Quitar '/' inicial
+                'USER': url.username,
+                'PASSWORD': url.password,
+                'HOST': url.hostname,
+                'PORT': url.port or 5432,
+                'ATOMIC_REQUESTS': False,  # Importante para django-tenants
+                'CONN_MAX_AGE': 0,
+            }
+        }
+        print(f"🚂 Railway: Conectando a DB en {url.hostname}")
+    else:
+        raise Exception("❌ DATABASE_URL no está configurado en Railway")
+else:
+    # Configuración para desarrollo local
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_tenants.postgresql_backend',
+            'NAME': env('DB_NAME', default='agrotech'),
+            'USER': env('DB_USER', default='postgres'),
+            'PASSWORD': env('DB_PASSWORD', default=''),
+            'HOST': env('DB_HOST', default='localhost'),
+            'PORT': env('DB_PORT', default='5432'),
+            'ATOMIC_REQUESTS': True,
+        }
     }
-}
-
-# NOTA: Esta configuración se sobrescribe completamente en production.py para Railway
+    print(f"💻 Local: Conectando a DB en {DATABASES['default']['HOST']}")
 
 
 DATABASE_ROUTERS = (
@@ -81,6 +113,11 @@ DATABASE_ROUTERS = (
 ROOT_URLCONF = "config.urls"
 # https://docs.djangoproject.com/en/dev/ref/settings/#wsgi-application
 WSGI_APPLICATION = "config.wsgi.application"
+
+# CRÍTICO para django-tenants con proxy (Netlify/Railway):
+# Permite que Django use el header X-Forwarded-Host del proxy para resolver el tenant.
+# Sin esto, el backend siempre vería "localhost" como host y resolvería al tenant public.
+USE_X_FORWARDED_HOST = True
 
 
 

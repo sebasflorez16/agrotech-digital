@@ -1648,35 +1648,6 @@ function updateCorrelations(meteorologicalMetrics) {
         console.warn('[METEOROLOGICAL] ❌ Elementos de viento no encontrados en DOM');
     }
     
-    // Métrica 4: Radiación Solar Promedio
-    const avgSolar = meteorologicalMetrics.avg_solar_radiation || 0;
-    const solarIndex = calculateSolarIndex(avgSolar);
-    
-    console.log('[METEOROLOGICAL] Solar promedio:', avgSolar, 'Índice:', solarIndex);
-    
-    const solarElem = document.getElementById('correlationSolar');
-    const solarStrengthElem = document.getElementById('correlationStrengthSolar');
-    const solarProgress = document.getElementById('solarProgressBar');
-    
-    if (solarElem && solarStrengthElem) {
-        solarElem.textContent = avgSolar.toFixed(1) + ' MJ/m²';
-        solarElem.style.color = '#FF8F00'; // Color naranja claro del gráfico
-        
-        solarStrengthElem.textContent = solarIndex.risk;
-        solarStrengthElem.className = `badge ${solarIndex.risk === 'Bajo' ? 'bg-danger' : solarIndex.risk === 'Medio' ? 'bg-warning' : 'bg-success'}`;
-        
-        if (solarProgress) {
-            const progressValue = (avgSolar / 30) * 100; // Normalizar a 30 MJ/m² máximo
-            solarProgress.style.width = `${Math.min(progressValue, 100)}%`;
-            // Mantener el color fijo de radiación solar (#FF8F00) sin cambiar
-        }
-        console.log('[METEOROLOGICAL] ✅ Métrica de radiación solar actualizada:', avgSolar.toFixed(1), 'MJ/m²');
-    } else {
-        console.warn('[METEOROLOGICAL] ❌ Elementos de radiación solar no encontrados en DOM');
-    }
-    
-       
-    
     console.log('[METEOROLOGICAL] Todas las métricas meteorológicas actualizadas');
 }
 

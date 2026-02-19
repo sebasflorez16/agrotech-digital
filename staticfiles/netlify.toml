@@ -1,0 +1,93 @@
+# 🍎 Configuración de Netlify para AgroTech Digital
+# Frontend Liquid Glass + Railway Backend REST API
+
+[build]
+  publish = "."
+  command = "echo '🍎 Desplegando AgroTech Liquid Glass Frontend'"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# ========================================
+# REDIRECTS - ORDEN CRÍTICO
+# ========================================
+
+# 1. Dashboard por defecto (redirigir raíz a dashboard si está autenticado)
+[[redirects]]
+  from = "/dashboard"
+  to = "/templates/dashboard.html"
+  status = 200
+
+# 2. Billing
+[[redirects]]
+  from = "/billing"
+  to = "/templates/billing.html"
+  status = 200
+
+# 3. Login
+[[redirects]]
+  from = "/login"
+  to = "/templates/authentication/login.html"
+  status = 200
+
+# 4. Redirigir TODAS las peticiones de API a Railway (Backend REST)
+# IMPORTANTE: 
+# - force=true: Redirige ANTES de buscar archivos locales
+# - status=200: Proxy transparente (el navegador no ve el redirect)
+# - Preserva headers X-Forwarded-Host para detección de tenant en django-tenants
+[[redirects]]
+  from = "/api/*"
+  to = "https://agrotech-digital-production.up.railway.app/api/:splat"
+  status = 200
+  force = true
+  [redirects.headers]
+    X-Forwarded-Proto = "https"
+
+# 5. Manejo de 404 - Landing page
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 404
+
+# ========================================
+# HEADERS DE SEGURIDAD
+# ========================================
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    # Content Security Policy - Permisivo para desarrollo (Leaflet, Chart.js, etc.)
+    Content-Security-Policy = "default-src 'self' https: data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https: http:; connect-src 'self' https: http:; worker-src 'self' blob:; child-src 'self' blob:; font-src 'self' data: https:; frame-src 'self'; media-src 'self' https: http: data: blob:;"
+    
+    # CORS headers - Necesarios para API calls a Railway
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With"
+    Access-Control-Max-Age = "86400"
+    
+    # Security headers - Estándar de seguridad web
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+    # Cache - Moderado para contenido dinámico
+    Cache-Control = "public, max-age=3600, must-revalidate"
+
+# Cache largo para JS - Assets estáticos inmutables
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache largo para CSS - Assets estáticos inmutables
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Cache largo para imágenes - Assets estáticos inmutables
+[[headers]]
+  for = "/images/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

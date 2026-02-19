@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agrotech Digital - Tecnología Satelital para Agricultura de Precisión</title>
+    <meta name="description" content="Plataforma líder en análisis satelital y monitoreo agrícola. Optimiza tus cultivos con datos precisos y decisiones inteligentes.">
+    <meta name="keywords" content="agricultura de precisión, análisis satelital, NDVI, monitoreo de cultivos, tecnología agrícola, datos satelitales">
+    <meta name="author" content="Agrotech Digital">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- CSS Styles -->
+    <link rel="stylesheet" href="css/landing.css">
+    
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Agrotech Digital - Tecnología Satelital para Agricultura">
+    <meta property="og:description" content="Plataforma líder en análisis satelital y monitoreo agrícola">
+    <meta property="og:type" content="website">
+    
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Agrotech Digital">
+    <meta name="twitter:description" content="Tecnología Satelital para Agricultura de Precisión">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header" id="header">
+        <div class="container">
+            <nav class="nav">
+                <a href="#" class="nav-logo">
+                    <img src="images/agrotech solo blanco.png" alt="Agrotech Digital" class="nav-logo-image">
+                    <span>agrotech.</span>
+                </a>
+                <ul class="nav-links" id="navLinks">
+                    <li><a href="#inicio">Inicio</a></li>
+                    <li><a href="#funcionalidades">Funcionalidades</a></li>
+                    <li><a href="#productos">Productos</a></li>
+                    <li><a href="#contacto">Contacto</a></li>
+                    <li><a href="#" class="neuro-button neuro-button-primary" onclick="redirectToLogin()">Iniciar Sesión</a></li>
+                </ul>
+                <button class="nav-burger" id="navBurger" aria-label="Toggle menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero section" id="inicio">
+        <div class="hero-bg"></div>
+        <div class="container">
+            <div class="hero-content fade-in-up">
+                <span class="hero-badge">Tecnología Satelital Avanzada</span>
+                <h1>Agricultura de Precisión con Visión Satelital</h1>
+                <p class="hero-description">
+                    Monitore sus cultivos en tiempo real con análisis satelital avanzado. 
+                    Tome decisiones informadas basadas en datos precisos de NDVI, estrés hídrico y pronósticos meteorológicos.
+                </p>
+                <div class="hero-buttons">
+                    <button class="neuro-button neuro-button-primary" onclick="redirectToLogin()">
+                        Acceder a la Plataforma
+                    </button>
+                    <a href="https://agrotechcolombia.netlify.app/templates/authentication/login.html" class="neuro-button neuro-button-accent">
+                        Ver Dashboard
+                    </a>
+                </div>
+                <div class="hero-stats">
+                    <div class="hero-stat">
+                        <span class="hero-stat-value">131.65</span>
+                        <span class="hero-stat-label">Hectáreas Monitoreadas</span>
+                    </div>
+                    <div class="hero-stat">
+                        <span class="hero-stat-value">99.9%</span>
+                        <span class="hero-stat-label">Precisión de Datos</span>
+                    </div>
+                    <div class="hero-stat">
+                        <span class="hero-stat-value">24/7</span>
+                        <span class="hero-stat-label">Soporte Técnico</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features section" id="funcionalidades">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">Funcionalidades</span>
+                <h2 class="section-title">Herramientas Potentes para Agricultura Inteligente</h2>
+                <p class="section-description">
+                    Tecnología satelital de vanguardia para optimizar cada aspecto de su producción agrícola
+                </p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <img src="images/agrotech satelite 1.png" alt="Análisis Satelital">
+                    </div>
+                    <h3 class="feature-title">Análisis Satelital NDVI</h3>
+                    <p class="feature-description">
+                        Imágenes satelitales de alta resolución con índices vegetativos (NDVI, NDMI, EVI) 
+                        para monitoreo preciso del estado de sus cultivos en tiempo real.
+                    </p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <img src="images/iot-de-agricultura-inteligente-con-fondo-de-arbol-de-plantacion-manual.jpg" alt="Dashboard Analítico">
+                    </div>
+                    <h3 class="feature-title">Dashboard Analítico</h3>
+                    <p class="feature-description">
+                        Visualice estadísticas históricas, gráficos temporales y métricas clave 
+                        de sus parcelas con interfaz intuitiva y reportes automatizados.
+                    </p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <img src="images/iot-agricola-con-fondo-de-campo-de-arroz.jpg" alt="Pronóstico Meteorológico">
+                    </div>
+                    <h3 class="feature-title">Pronóstico Meteorológico</h3>
+                    <p class="feature-description">
+                        Datos climáticos precisos de 7 días para planificación de actividades agrícolas, 
+                        riego y aplicación de agroquímicos.
+                    </p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <img src="images/agricultura-inteligente-con-agricultura-iot.jpg" alt="Estrés Hídrico">
+                    </div>
+                    <h3 class="feature-title">Estrés Hídrico</h3>
+                    <p class="feature-description">
+                        Detecte zonas con déficit hídrico mediante índice NDMI para optimizar 
+                        sistemas de riego y conservar recursos.
+                    </p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <img src="images/mujer-sosteniendo-una-tableta-junto-un-campo-agricola-con-espacio-de-copia.jpg" alt="Gestión de Cultivos">
+                    </div>
+                    <h3 class="feature-title">Gestión de Cultivos</h3>
+                    <p class="feature-description">
+                        Administre fácilmente todos sus cultivos, parcelas y temporadas desde una interfaz 
+                        intuitiva y centralizada.
+                    </p>
+                </div>
+                <div class="feature-card reveal">
+                    <div class="feature-icon">
+                        <img src="images/farmer-rice-field-with-laptop.jpg" alt="Mapas Interactivos 3D">
+                    </div>
+                    <h3 class="feature-title">Mapas Interactivos 3D</h3>
+                    <p class="feature-description">
+                        Visualización de parcelas en mapas 3D con CesiumJS, overlays de índices 
+                        vegetativos y análisis geoespacial avanzado.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <section class="products section" id="productos">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">Productos</span>
+                <h2 class="section-title">Soluciones Integrales para su Negocio</h2>
+                <p class="section-description">
+                    Plataformas diseñadas específicamente para las necesidades del sector agrícola moderno
+                </p>
+            </div>
+                        <div class="products-showcase">
+                <div class="product-card reveal">
+                    <div class="product-image">
+                        <img src="images/ingeniero-agronomo-control-de-cultivos-en-el-campo-con-tablet-pc.jpg" alt="Agrotech Crop Monitoring">
+                    </div>
+                    <div class="product-content">
+                        <span class="product-badge">Principal</span>
+                        <h3 class="product-title">Agrotech Crop Monitoring</h3>
+                        <p class="product-description">
+                            Plataforma integral para monitoreo de cultivos con análisis satelital en tiempo real, 
+                            gestión de parcelas y reportes automatizados.
+                        </p>
+                        <ul class="product-features">
+                            <li>Monitoreo satelital 24/7</li>
+                            <li>Análisis NDVI, NDMI, EVI</li>
+                            <li>Pronósticos meteorológicos</li>
+                            <li>Alertas automáticas</li>
+                            <li>Reportes personalizados</li>
+                        </ul>
+                        <button class="neuro-button neuro-button-primary" onclick="redirectToLogin()">
+                            Explorar Plataforma
+                        </button>
+                    </div>
+                </div>
+                <div class="product-card reveal">
+                    <div class="product-image">
+                        <img src="images/mujer-sosteniendo-una-tableta-junto-un-campo-agricola-con-espacio-de-copia.jpg" alt="Análisis de Datos">
+                    </div>
+                    <div class="product-content">
+                        <span class="product-badge">Analítica</span>
+                        <h3 class="product-title">Data Analytics Suite</h3>
+                        <p class="product-description">
+                            Herramientas avanzadas de análisis de datos agrícolas con inteligencia artificial 
+                            para toma de decisiones basada en datos históricos y predicciones.
+                        </p>
+                        <ul class="product-features">
+                            <li>BI y visualización de datos</li>
+                            <li>Machine Learning aplicado</li>
+                            <li>Predicción de rendimientos</li>
+                            <li>Optimización de recursos</li>
+                            <li>Dashboards personalizables</li>
+                        </ul>
+                        <button class="neuro-button neuro-button-accent" onclick="redirectToLogin()">
+                            Ver Demos
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+        <!-- Stats Section -->
+    <section class="stats section">
+        <div class="container">
+            <div class="stats-grid">
+                <div class="stat-card reveal">
+                    <div class="stat-icon">
+                        <img src="images/farmer-rice-field-with-laptop.jpg" alt="Hectáreas">
+                    </div>
+                    <span class="stat-value">131.65</span>
+                    <span class="stat-label">Hectáreas bajo Monitoreo</span>
+                </div>
+                <div class="stat-card reveal">
+                    <div class="stat-icon">
+                        <img src="images/agrotech satelite 1.png" alt="Imágenes Satelitales">
+                    </div>
+                    <span class="stat-value">1,000+</span>
+                    <span class="stat-label">Imágenes Satelitales Procesadas</span>
+                </div>
+                <div class="stat-card reveal">
+                    <div class="stat-icon">
+                        <img src="images/agricultura-inteligente-con-agricultura-iot.jpg" alt="Análisis NDVI">
+                    </div>
+                    <span class="stat-value">99.9%</span>
+                    <span class="stat-label">Precisión en Análisis NDVI</span>
+                </div>
+                <div class="stat-card reveal">
+                    <div class="stat-icon">
+                        <img src="images/iot-agricola-con-fondo-de-campo-de-arroz.jpg" alt="Uptime">
+                    </div>
+                    <span class="stat-value">24/7</span>
+                    <span class="stat-label">Soporte Técnico Disponible</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- API Demo Section - Temporalmente oculto -->
+    <section class="section" id="api" style="display: none; background: var(--dark-bg-secondary);">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">API</span>
+                <h2 class="section-title">API REST Potente y Fácil de Usar</h2>
+                <p class="section-description">
+                    Integre datos satelitales y meteorológicos en sus aplicaciones con nuestra API robusta
+                </p>
+            </div>
+            <div class="neuro-card reveal" style="max-width: 900px; margin: 0 auto;">
+                <h3 style="margin-bottom: var(--spacing-md);">Endpoints Principales</h3>
+                
+                <div style="margin-bottom: var(--spacing-md);">
+                    <h4 style="color: var(--brand-green); margin-bottom: var(--spacing-xs);">📍 Gestión de Parcelas</h4>
+                    <code style="display: block; background: var(--dark-bg); padding: var(--spacing-sm); border-radius: var(--radius-sm); color: var(--brand-green-light); margin-bottom: var(--spacing-xs);">
+                        GET /api/parcels/
+                    </code>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Obtiene la lista completa de parcelas registradas</p>
+                </div>
+
+                <div style="margin-bottom: var(--spacing-md);">
+                    <h4 style="color: var(--brand-green); margin-bottom: var(--spacing-xs);">Análisis NDVI Histórico</h4>
+                    <code style="display: block; background: var(--dark-bg); padding: var(--spacing-sm); border-radius: var(--radius-sm); color: var(--brand-green-light); margin-bottom: var(--spacing-xs);">
+                        POST /api/parcels/ndvi-historical/
+                    </code>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Obtiene análisis histórico de índice vegetativo NDVI</p>
+                </div>
+
+                <div style="margin-bottom: var(--spacing-md);">
+                    <h4 style="color: var(--brand-green); margin-bottom: var(--spacing-xs);">Pronóstico Meteorológico</h4>
+                    <code style="display: block; background: var(--dark-bg); padding: var(--spacing-sm); border-radius: var(--radius-sm); color: var(--brand-green-light); margin-bottom: var(--spacing-xs);">
+                        GET /api/parcels/weather-forecast/{parcel_id}/
+                    </code>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Pronóstico meteorológico de 7 días para una parcela</p>
+                </div>
+
+                <div style="margin-bottom: var(--spacing-md);">
+                    <h4 style="color: var(--brand-green); margin-bottom: var(--spacing-xs);">Escenas Satelitales por Rango de Fechas</h4>
+                    <code style="display: block; background: var(--dark-bg); padding: var(--spacing-sm); border-radius: var(--radius-sm); color: var(--brand-green-light); margin-bottom: var(--spacing-xs);">
+                        GET /api/parcels/parcel/{id}/scenes/?start_date=2024-01-01&end_date=2024-12-31
+                    </code>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Obtiene escenas satelitales filtradas por fechas</p>
+                </div>
+
+                <div style="margin-bottom: var(--spacing-lg);">
+                    <h4 style="color: var(--brand-green); margin-bottom: var(--spacing-xs);">Estrés Hídrico Histórico</h4>
+                    <code style="display: block; background: var(--dark-bg); padding: var(--spacing-sm); border-radius: var(--radius-sm); color: var(--brand-green-light); margin-bottom: var(--spacing-xs);">
+                        POST /api/parcels/water-stress-historical/
+                    </code>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Análisis histórico de estrés hídrico mediante NDMI</p>
+                </div>
+
+                <button class="neuro-button neuro-button-primary" onclick="testAPI()" id="testApiBtn">
+                    Probar API en Vivo
+                </button>
+                <div id="apiResult" style="margin-top: var(--spacing-md);"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta section">
+        <div class="container">
+            <div class="cta-content reveal">
+                <h2 class="cta-title">¿Listo para Transformar su Agricultura?</h2>
+                <p class="cta-description">
+                    Únase a los agricultores que ya están optimizando sus cosechas con tecnología satelital
+                </p>
+                <div class="cta-buttons">
+                    <button class="neuro-button neuro-button-primary" onclick="redirectToLogin()">
+                        Comenzar Ahora - Gratis
+                    </button>
+                    <a href="#contacto" class="neuro-button neuro-button-accent">
+                        Hablar con un Experto
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer" id="contacto">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Agrotech Digital</h3>
+                    <p>
+                        Soluciones tecnológicas para el sector agrícola mediante análisis satelital 
+                        y datos precisos. Impulsamos la agricultura de precisión en Colombia y Latinoamérica.
+                    </p>
+                    <div class="footer-social">
+                        <a href="https://twitter.com/agrotechcolombia" target="_blank" rel="noopener noreferrer" aria-label="Twitter/X">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                        </a>
+                        <a href="https://facebook.com/agrotechcolombia" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                        </a>
+                        <a href="https://instagram.com/agrotechcolombia" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                        </a>
+                        <a href="https://tiktok.com/@agrotechcolombia" target="_blank" rel="noopener noreferrer" aria-label="TikTok">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/></svg>
+                        </a>
+                        <a href="https://youtube.com/@agrotechcolombia" target="_blank" rel="noopener noreferrer" aria-label="YouTube">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                        </a>
+                    </div>
+                </div>
+                <div class="footer-section">
+                    <h3>Enlaces Rápidos</h3>
+                    <ul class="footer-links">
+                        <li><a href="#inicio">→ Inicio</a></li>
+                        <li><a href="#funcionalidades">→ Funcionalidades</a></li>
+                        <li><a href="#productos">→ Productos</a></li>
+                        <li><a href="#contacto">→ Contacto</a></li>
+                        <li><a href="https://agrotechcolombia.netlify.app/templates/authentication/login.html" onclick="redirectToLogin()">→ Iniciar Sesión</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Productos</h3>
+                    <ul class="footer-links">
+                        <li><a href="#">→ Monitoreo de Cultivos</a></li>
+                        <li><a href="#">→ Análisis NDVI</a></li>
+                        <li><a href="#">→ Pronósticos Meteorológicos</a></li>
+                        <li><a href="#">→ Estrés Hídrico</a></li>
+                        <li><a href="#">→ Gestión de Parcelas</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h3>Contacto</h3>
+                    <ul class="footer-links">
+                        <li><a href="mailto:info@agrotechcolombia.com">✉️ info@agrotechcolombia.com</a></li>
+                        <li><a href="tel:+573223088873">📞 +57 322 308 8873</a></li>
+                        <li><a href="#">📍 Yopal, Casanare</a></li>
+                        <li><a href="#">🕒 Lun - Vie: 8:00 AM - 6:00 PM</a></li>
+                        <li><a href="#">🌐 www.agrotechcolombia.com</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 Agrotech Digital. Todos los derechos reservados. | 
+                <a href="#" style="color: var(--brand-green);">Política de Privacidad</a> | 
+                <a href="#" style="color: var(--brand-green);">Términos de Servicio</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scroll to Top Button -->
+    <div class="scroll-to-top" id="scrollToTop" onclick="scrollToTop()">
+        ↑
+    </div>
+
+    <!-- JavaScript -->
+    <script>
+        // Configuración del backend
+        const BACKEND_URL = 'https://agrotechcolombia.com';
+        
+        // Redirigir al login
+        function redirectToLogin() {
+            window.location.href = 'https://agrotechcolombia.netlify.app/templates/authentication/login.html';
+        }
+
+        // Mobile menu toggle
+        const navBurger = document.getElementById('navBurger');
+        const navLinks = document.getElementById('navLinks');
+
+        navBurger.addEventListener('click', () => {
+            navBurger.classList.toggle('active');
+            navLinks.classList.toggle('active');
+        });
+
+        // Close mobile menu when clicking a link
+        document.querySelectorAll('.nav-links a').forEach(link => {
+            link.addEventListener('click', () => {
+                navBurger.classList.remove('active');
+                navLinks.classList.remove('active');
+            });
+        });
+
+        // Header scroll effect
+        const header = document.getElementById('header');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        });
+
+        // Scroll to top button
+        const scrollToTopBtn = document.getElementById('scrollToTop');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                scrollToTopBtn.classList.add('visible');
+            } else {
+                scrollToTopBtn.classList.remove('visible');
+            }
+        });
+
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                const href = this.getAttribute('href');
+                if (href === '#' || href === '#inicio') return;
+                
+                e.preventDefault();
+                const target = document.querySelector(href);
+                if (target) {
+                    const headerHeight = header.offsetHeight;
+                    const targetPosition = target.getBoundingClientRect().top + window.pageYOffset - headerHeight;
+                    window.scrollTo({
+                        top: targetPosition,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Reveal elements on scroll
+        const revealElements = document.querySelectorAll('.reveal');
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('active');
+                    revealObserver.unobserve(entry.target);
+                }
+            });
+        }, {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        });
+
+        revealElements.forEach(element => {
+            revealObserver.observe(element);
+        });
+
+        // Test API function
+        async function testAPI() {
+            const btn = document.getElementById('testApiBtn');
+            const resultDiv = document.getElementById('apiResult');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Probando conexión...';
+            
+            try {
+                const response = await fetch(`${BACKEND_URL}/api/parcels/summary/`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `
+                        <div style="background: rgba(76, 175, 80, 0.1); border: 1px solid rgba(76, 175, 80, 0.3); border-radius: var(--radius-md); padding: var(--spacing-md); color: var(--brand-green-light);">
+                            <h4 style="margin-bottom: var(--spacing-sm);">✅ Conexión Exitosa</h4>
+                            <pre style="background: var(--dark-bg); padding: var(--spacing-sm); border-radius: var(--radius-sm); overflow-x: auto; font-size: 0.85rem;">${JSON.stringify(data, null, 2)}</pre>
+                        </div>
+                    `;
+                } else if (response.status === 401) {
+                    resultDiv.innerHTML = `
+                        <div style="background: rgba(255, 152, 0, 0.1); border: 1px solid rgba(255, 152, 0, 0.3); border-radius: var(--radius-md); padding: var(--spacing-md); color: var(--brand-orange-light);">
+                            <h4 style="margin-bottom: var(--spacing-sm);">🔐 API Funcional - Autenticación Requerida</h4>
+                            <p>Estado: ${response.status}</p>
+                            <p>La API está funcionando correctamente. Este endpoint requiere autenticación.</p>
+                            <p>Para acceder a todos los datos, <a href="#" onclick="redirectToLogin()" style="color: var(--brand-green); text-decoration: underline;">inicie sesión en la plataforma</a>.</p>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                console.error('Error testing API:', error);
+                resultDiv.innerHTML = `
+                    <div style="background: rgba(244, 67, 54, 0.1); border: 1px solid rgba(244, 67, 54, 0.3); border-radius: var(--radius-md); padding: var(--spacing-md); color: #ff6b6b;">
+                        <h4 style="margin-bottom: var(--spacing-sm);">⚠️ Error de Conexión</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p>Verifica que el backend esté ejecutándose en: <code style="background: var(--dark-bg); padding: 4px 8px; border-radius: 4px;">${BACKEND_URL}</code></p>
+                    </div>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🧪 Probar API en Vivo';
+            }
+        }
+
+        // Log initial load
+        console.log('%c🌱 Agrotech Digital - Landing Page', 'color: #4CAF50; font-size: 20px; font-weight: bold;');
+        console.log('%cTecnología Satelital para Agricultura de Precisión', 'color: #FF6F00; font-size: 14px;');
+        console.log('API Base URL:', BACKEND_URL);
+        console.log('Versión:', '2.0.0');
+    </script>
+
+    <!-- Main JavaScript -->
+    <script src="js/landing.js"></script>
+</body>
+</html>

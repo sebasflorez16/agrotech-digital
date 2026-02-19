@@ -30,8 +30,9 @@ urlpatterns = [
     # Dashboard de suscripción del usuario
     path('mi-suscripcion/', views.subscription_page_view, name='subscription_page'),
     
-    # ============== API ENDPOINTS ==============
-    path('api/', include(router.urls)),
+    # ============== API ENDPOINTS (custom) ==============
+    # ⚠️ ORDEN CRÍTICO: rutas custom ANTES del router DRF
+    # porque el router captura /api/usage/<pk>/ y "dashboard" se interpreta como pk
     
     # Dashboard de métricas
     path('api/usage/dashboard/', views.usage_dashboard_view, name='usage_dashboard'),
@@ -46,6 +47,9 @@ urlpatterns = [
     
     # Confirmar pago y crear tenant (llamado desde success page o webhook)
     path('api/confirm-payment/', views.confirm_payment_create_tenant, name='confirm_payment'),
+    
+    # ============== API ENDPOINTS (router DRF) ==============
+    path('api/', include(router.urls)),
     
     # ============== WEBHOOKS ==============
     path('webhooks/mercadopago/', webhooks.mercadopago_webhook, name='webhook_mercadopago'),

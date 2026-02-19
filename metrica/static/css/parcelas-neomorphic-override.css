@@ -1,0 +1,858 @@
+/**
+ * PARCELAS DASHBOARD - Override Neumórfico Premium
+ * Transforma todos los elementos del dashboard de parcelas
+ * con el sistema de diseño neumórfico AgroTech
+ */
+
+/* ========================================
+   LAYOUT PRINCIPAL Y BODY
+   ======================================== */
+body.neomorphic-theme {
+    background: linear-gradient(145deg, #E8F0F8 0%, #F0F8F0 50%, #FFF8F0 100%) !important;
+    background-attachment: fixed !important;
+}
+
+/* Topbar container neumórfico */
+#topbar-container {
+    background: linear-gradient(135deg, #FFFFFF 0%, #F0F4F8 100%) !important;
+    border-bottom: none !important;
+    box-shadow: 
+        0 4px 15px rgba(46, 139, 87, 0.08),
+        0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Sidebar neumórfico premium */
+#left-sidebar {
+    background: linear-gradient(180deg, #1a3a2a 0%, #253445 40%, #1e3040 100%) !important;
+    border-right: none !important;
+    box-shadow: 
+        4px 0 20px rgba(0, 0, 0, 0.15),
+        inset -1px 0 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+#left-sidebar .sidebar {
+    background: transparent !important;
+}
+
+#left-sidebar .menu li a {
+    border-radius: 12px !important;
+    margin: 2px 10px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+#left-sidebar .menu li a:hover {
+    background: rgba(46, 139, 87, 0.25) !important;
+    transform: translateX(4px) !important;
+    box-shadow: 0 2px 8px rgba(46, 139, 87, 0.2) !important;
+}
+
+#left-sidebar .menu li a.active {
+    background: linear-gradient(135deg, rgba(46, 139, 87, 0.35), rgba(255, 122, 0, 0.2)) !important;
+    box-shadow: 
+        0 4px 15px rgba(46, 139, 87, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    font-weight: 700 !important;
+}
+
+/* ========================================
+   MAIN CONTENT AREA
+   ======================================== */
+#main-content {
+    background: transparent !important;
+}
+
+/* ========================================
+   MAPA - CONTENEDOR NEUMÓRFICO
+   ======================================== */
+#cesiumContainer {
+    border-radius: 24px !important;
+    box-shadow: 
+        -8px -8px 20px rgba(255, 255, 255, 0.7),
+        8px 8px 25px rgba(46, 139, 87, 0.15),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.3) !important;
+    overflow: hidden !important;
+    border: 2px solid rgba(255, 255, 255, 0.5) !important;
+    transition: box-shadow 0.4s ease, transform 0.3s ease !important;
+}
+
+#cesiumContainer:hover {
+    box-shadow: 
+        -12px -12px 28px rgba(255, 255, 255, 0.8),
+        12px 12px 30px rgba(46, 139, 87, 0.2),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.4) !important;
+}
+
+/* ========================================
+   BUTTON CONTAINER - OPCIONES NEUMÓRFICAS
+   ======================================== */
+#button-container {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-radius: 20px !important;
+    box-shadow: 
+        -6px -6px 14px rgba(255, 255, 255, 0.8),
+        6px 6px 14px rgba(46, 139, 87, 0.12) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+    padding: 16px 24px !important;
+}
+
+#button-container h3 {
+    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+    background: linear-gradient(135deg, #2E8B57, #FF7A00) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    margin-bottom: 12px !important;
+}
+
+.custom-button {
+    border-radius: 14px !important;
+    font-weight: 600 !important;
+    font-family: 'Inter', sans-serif !important;
+    box-shadow: 
+        -4px -4px 8px rgba(255, 255, 255, 0.6),
+        4px 4px 8px rgba(46, 139, 87, 0.15) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    background: linear-gradient(145deg, #34A853, #2E8B57) !important;
+    border: none !important;
+    text-transform: none !important;
+    letter-spacing: 0.3px !important;
+}
+
+.custom-button:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 
+        -6px -6px 12px rgba(255, 255, 255, 0.7),
+        6px 6px 16px rgba(46, 139, 87, 0.25) !important;
+}
+
+.custom-button:active {
+    transform: translateY(1px) !important;
+    box-shadow: 
+        inset -3px -3px 6px rgba(255, 255, 255, 0.4),
+        inset 3px 3px 6px rgba(46, 139, 87, 0.15) !important;
+}
+
+/* ========================================
+   TABLA DE PARCELAS - NEUMÓRFICA
+   ======================================== */
+#parcelTableContainer {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 24px !important;
+    box-shadow: 
+        -8px -8px 18px rgba(255, 255, 255, 0.7),
+        8px 8px 18px rgba(46, 139, 87, 0.12) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    padding: 24px 20px 16px 20px !important;
+    transition: all 0.3s ease !important;
+}
+
+#parcelTableContainer:hover {
+    box-shadow: 
+        -10px -10px 22px rgba(255, 255, 255, 0.8),
+        10px 10px 22px rgba(46, 139, 87, 0.16) !important;
+}
+
+#parcelTableContainer h4 {
+    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-weight: 700 !important;
+    background: linear-gradient(135deg, #2E8B57, #145A32) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    font-size: 1.15rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+}
+
+#parcelTableContainer h4::before {
+    content: '🌾' !important;
+    -webkit-text-fill-color: initial !important;
+}
+
+#parcelTable {
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    border: none !important;
+}
+
+#parcelTable thead {
+    background: linear-gradient(145deg, rgba(46, 139, 87, 0.08), rgba(255, 122, 0, 0.06)) !important;
+}
+
+#parcelTable thead th {
+    border: none !important;
+    color: #2E8B57 !important;
+    font-weight: 700 !important;
+    font-size: 0.85rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    padding: 14px 12px !important;
+}
+
+#parcelTable tbody tr {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border-bottom: 1px solid rgba(46, 139, 87, 0.06) !important;
+}
+
+#parcelTable tbody tr:hover:not(.selected-parcel) {
+    background: linear-gradient(135deg, rgba(46, 139, 87, 0.04), rgba(255, 122, 0, 0.03)) !important;
+    transform: scale(1.005) !important;
+}
+
+#parcelTable tbody tr td {
+    padding: 12px !important;
+    vertical-align: middle !important;
+    border: none !important;
+}
+
+/* Selected parcel row - enhanced */
+#parcelTable tbody tr.selected-parcel {
+    background: linear-gradient(135deg, rgba(46, 139, 87, 0.12), rgba(52, 168, 83, 0.08)) !important;
+    border-left: 4px solid #2E8B57 !important;
+    box-shadow: 
+        inset -3px -3px 6px rgba(255, 255, 255, 0.5),
+        inset 3px 3px 6px rgba(46, 139, 87, 0.1) !important;
+    border-radius: 8px !important;
+}
+
+/* ========================================
+   DASHBOARD FLEX ROW - PANEL PRINCIPAL
+   ======================================== */
+#dashboardFlexRow {
+    background: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(10px) !important;
+    border-radius: 28px !important;
+    box-shadow: 
+        -10px -10px 22px rgba(255, 255, 255, 0.7),
+        10px 10px 22px rgba(46, 139, 87, 0.12) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    padding: 28px 24px 20px 24px !important;
+    transition: all 0.4s ease !important;
+}
+
+/* ========================================
+   SELECTED PARCEL BANNER - PREMIUM
+   ======================================== */
+#selectedParcelBanner {
+    background: linear-gradient(135deg, #2E8B57 0%, #1a5c36 40%, #145A32 100%) !important;
+    border-radius: 18px !important;
+    padding: 16px 20px !important;
+    box-shadow: 
+        0 6px 20px rgba(46, 139, 87, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ========================================
+   ANÁLISIS SATELITAL CARD - NEUMÓRFICA
+   ======================================== */
+#dashboardFlexRow > div:first-child > div:nth-child(2) {
+    background: var(--neuro-bg-secondary, #F5F7FA) !important;
+    border-radius: 20px !important;
+    padding: 22px 24px !important;
+    box-shadow: 
+        inset -4px -4px 8px rgba(255, 255, 255, 0.7),
+        inset 4px 4px 8px rgba(46, 139, 87, 0.08) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+/* Título análisis satelital */
+#dashboardFlexRow h5 {
+    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-weight: 700 !important;
+    font-size: 1.05rem !important;
+}
+
+/* Inputs de fecha neumórficos */
+#fechaInicioInput,
+#fechaFinInput {
+    background: var(--neuro-bg-secondary, #F5F7FA) !important;
+    border: none !important;
+    border-radius: 12px !important;
+    box-shadow: 
+        inset -3px -3px 6px rgba(255, 255, 255, 0.6),
+        inset 3px 3px 6px rgba(46, 139, 87, 0.08) !important;
+    padding: 10px 14px !important;
+    font-weight: 500 !important;
+    transition: all 0.3s ease !important;
+}
+
+#fechaInicioInput:focus,
+#fechaFinInput:focus {
+    box-shadow: 
+        -4px -4px 10px rgba(255, 255, 255, 0.7),
+        4px 4px 10px rgba(46, 139, 87, 0.15) !important;
+    outline: 2px solid rgba(46, 139, 87, 0.3) !important;
+}
+
+/* Botones de análisis neumórficos */
+#escenasSatelitalesBtn,
+#graficoHistoricoBtn,
+#analisisMeteorologicoBtn {
+    border-radius: 14px !important;
+    font-weight: 600 !important;
+    padding: 12px 18px !important;
+    box-shadow: 
+        -4px -4px 8px rgba(255, 255, 255, 0.5),
+        4px 4px 8px rgba(0, 0, 0, 0.1) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border: none !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+#escenasSatelitalesBtn {
+    background: linear-gradient(145deg, #FF9800, #FF7A00) !important;
+    color: white !important;
+}
+
+#graficoHistoricoBtn {
+    background: linear-gradient(145deg, #34A853, #2E8B57) !important;
+}
+
+#analisisMeteorologicoBtn {
+    background: linear-gradient(145deg, #17a2b8, #138496) !important;
+    color: white !important;
+}
+
+#escenasSatelitalesBtn:hover,
+#graficoHistoricoBtn:hover,
+#analisisMeteorologicoBtn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 
+        -6px -6px 12px rgba(255, 255, 255, 0.6),
+        6px 6px 16px rgba(0, 0, 0, 0.15) !important;
+}
+
+#escenasSatelitalesBtn:active,
+#graficoHistoricoBtn:active,
+#analisisMeteorologicoBtn:active {
+    transform: translateY(1px) !important;
+    box-shadow: 
+        inset -3px -3px 6px rgba(255, 255, 255, 0.3),
+        inset 3px 3px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Botón selector de rango de fechas */
+.btn-group .btn-outline-success {
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    font-size: 0.8rem !important;
+    border-color: rgba(46, 139, 87, 0.3) !important;
+    transition: all 0.25s ease !important;
+}
+
+.btn-group .btn-outline-success.active,
+.btn-group .btn-outline-success:active {
+    background: linear-gradient(135deg, #2E8B57, #34A853) !important;
+    border-color: #2E8B57 !important;
+    color: white !important;
+    box-shadow: 
+        inset -2px -2px 4px rgba(255, 255, 255, 0.2),
+        inset 2px 2px 4px rgba(0, 0, 0, 0.1),
+        0 2px 8px rgba(46, 139, 87, 0.3) !important;
+}
+
+/* ========================================
+   QUICK STATUS PANEL - NEUMÓRFICO
+   ======================================== */
+#quickStatusPanel {
+    background: linear-gradient(135deg, var(--neuro-bg-secondary, #F5F7FA), #E8F0F8) !important;
+    border-radius: 22px !important;
+    padding: 22px 24px !important;
+    box-shadow: 
+        -8px -8px 16px rgba(255, 255, 255, 0.7),
+        8px 8px 16px rgba(46, 139, 87, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+/* Decoración superior del quick status */
+#quickStatusPanel::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    height: 4px !important;
+    background: linear-gradient(90deg, #2E8B57, #FF7A00, #17a2b8) !important;
+    border-radius: 22px 22px 0 0 !important;
+}
+
+#quickStatusPanel .col-6 > div {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-radius: 16px !important;
+    padding: 16px 12px !important;
+    box-shadow: 
+        -4px -4px 8px rgba(255, 255, 255, 0.6),
+        4px 4px 8px rgba(46, 139, 87, 0.08) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+}
+
+#quickStatusPanel .col-6 > div:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 
+        -6px -6px 12px rgba(255, 255, 255, 0.7),
+        6px 6px 14px rgba(46, 139, 87, 0.15) !important;
+}
+
+/* ========================================
+   ANÁLISIS DE IMAGEN CARD - NEUMÓRFICA
+   ======================================== */
+#analysisTableCard {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-radius: 22px !important;
+    box-shadow: 
+        -6px -6px 14px rgba(255, 255, 255, 0.6),
+        6px 6px 14px rgba(46, 139, 87, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+    padding: 22px 24px !important;
+}
+
+/* ========================================
+   MODAL PARCEL - NEUMÓRFICO
+   ======================================== */
+#parcelModal {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(16px) !important;
+    border-radius: 24px !important;
+    box-shadow: 
+        0 15px 50px rgba(0, 0, 0, 0.2),
+        -10px -10px 25px rgba(255, 255, 255, 0.5),
+        10px 10px 25px rgba(46, 139, 87, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+}
+
+#parcelModal h4 {
+    font-family: 'Poppins', 'Inter', sans-serif !important;
+    background: linear-gradient(135deg, #2E8B57, #FF7A00) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+#parcelModal .form-control {
+    background: var(--neuro-bg-secondary, #F5F7FA) !important;
+    border: none !important;
+    border-radius: 12px !important;
+    box-shadow: 
+        inset -3px -3px 6px rgba(255, 255, 255, 0.6),
+        inset 3px 3px 6px rgba(46, 139, 87, 0.08) !important;
+    padding: 12px 16px !important;
+    font-weight: 500 !important;
+}
+
+#parcelModal .btn-success {
+    background: linear-gradient(145deg, #34A853, #2E8B57) !important;
+    border-radius: 14px !important;
+    padding: 10px 28px !important;
+    font-weight: 600 !important;
+    box-shadow: 
+        -4px -4px 8px rgba(255, 255, 255, 0.5),
+        4px 4px 8px rgba(46, 139, 87, 0.2) !important;
+    border: none !important;
+}
+
+#parcelModal .btn-secondary {
+    border-radius: 14px !important;
+    padding: 10px 28px !important;
+    font-weight: 600 !important;
+    box-shadow: 
+        -4px -4px 8px rgba(255, 255, 255, 0.5),
+        4px 4px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* ========================================
+   EDIT MODAL - NEUMÓRFICO
+   ======================================== */
+#editParcelModal .modal-content {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(12px) !important;
+    border-radius: 24px !important;
+    box-shadow: 
+        0 10px 40px rgba(0, 0, 0, 0.15),
+        -8px -8px 20px rgba(255, 255, 255, 0.5),
+        8px 8px 20px rgba(46, 139, 87, 0.12) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+#editParcelModal .modal-header {
+    background: linear-gradient(135deg, rgba(46, 139, 87, 0.06), rgba(255, 122, 0, 0.04)) !important;
+    border-radius: 24px 24px 0 0 !important;
+    border-bottom: 1px solid rgba(46, 139, 87, 0.1) !important;
+}
+
+#editParcelModal .form-control {
+    background: var(--neuro-bg-secondary, #F5F7FA) !important;
+    border: none !important;
+    border-radius: 12px !important;
+    box-shadow: 
+        inset -3px -3px 6px rgba(255, 255, 255, 0.6),
+        inset 3px 3px 6px rgba(46, 139, 87, 0.08) !important;
+}
+
+/* ========================================
+   WEATHER MODAL - NEUMÓRFICO GLASS
+   ======================================== */
+#weatherDetailModal .modal-content {
+    background: rgba(255, 255, 255, 0.6) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border-radius: 24px !important;
+    box-shadow: 
+        0 15px 50px rgba(31, 38, 135, 0.15),
+        -8px -8px 18px rgba(255, 255, 255, 0.4),
+        8px 8px 18px rgba(46, 139, 87, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.6) !important;
+}
+
+#weatherDetailModal .modal-header {
+    background: linear-gradient(135deg, rgba(46, 139, 87, 0.85), rgba(255, 152, 0, 0.85)) !important;
+    border-radius: 24px 24px 0 0 !important;
+    padding: 22px 24px !important;
+}
+
+#weatherDetailModal .card {
+    background: rgba(255, 255, 255, 0.4) !important;
+    backdrop-filter: blur(8px) !important;
+    border-radius: 16px !important;
+    box-shadow: 
+        -4px -4px 8px rgba(255, 255, 255, 0.3),
+        4px 4px 8px rgba(0, 0, 0, 0.06) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+/* ========================================
+   HISTORICAL CHART MODAL - NEUMÓRFICO
+   ======================================== */
+#historicalChartModal .modal-content {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(12px) !important;
+    border-radius: 24px !important;
+    box-shadow: 
+        0 10px 40px rgba(0, 0, 0, 0.15),
+        -6px -6px 16px rgba(255, 255, 255, 0.4),
+        6px 6px 16px rgba(46, 139, 87, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+#historicalChartModal .modal-header {
+    background: linear-gradient(135deg, rgba(46, 139, 87, 0.06), rgba(255, 122, 0, 0.04)) !important;
+    border-radius: 24px 24px 0 0 !important;
+    border-bottom: 1px solid rgba(46, 139, 87, 0.08) !important;
+}
+
+#historicalChartModal .modal-title {
+    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-weight: 700 !important;
+    background: linear-gradient(135deg, #2E8B57, #FF7A00) !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+}
+
+/* ========================================
+   METEOROLOGICAL SECTION - NEUMÓRFICO
+   ======================================== */
+#meteorologicalAnalysisSection .card {
+    border-radius: 22px !important;
+    overflow: hidden !important;
+    box-shadow: 
+        -8px -8px 18px rgba(255, 255, 255, 0.6),
+        8px 8px 18px rgba(46, 139, 87, 0.12) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+#meteorologicalAnalysisSection .card-header {
+    background: linear-gradient(135deg, rgba(46, 139, 87, 0.9), rgba(255, 152, 0, 0.85)) !important;
+    border-radius: 22px 22px 0 0 !important;
+    padding: 18px 24px !important;
+}
+
+/* ========================================
+   SCROLLBAR PERSONALIZADA
+   ======================================== */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(46, 139, 87, 0.05);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #2E8B57, #34A853);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #1a5c36, #2E8B57);
+}
+
+/* ========================================
+   ANIMACIONES DE ENTRADA
+   ======================================== */
+@keyframes neuroFadeIn {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes neuroSlideRight {
+    0% {
+        opacity: 0;
+        transform: translateX(-20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+#parcelTableContainer {
+    animation: neuroFadeIn 0.5s ease-out !important;
+}
+
+#dashboardFlexRow {
+    animation: neuroFadeIn 0.6s ease-out 0.2s both !important;
+}
+
+#quickStatusPanel {
+    animation: neuroSlideRight 0.5s ease-out 0.3s both !important;
+}
+
+#analysisTableCard {
+    animation: neuroSlideRight 0.5s ease-out 0.4s both !important;
+}
+
+/* ========================================
+   INFO PARCELA - TABLA NEUMÓRFICA
+   ======================================== */
+#parcelDataTable tr {
+    transition: all 0.2s ease !important;
+}
+
+#parcelDataTable tr:hover {
+    background: rgba(46, 139, 87, 0.03) !important;
+}
+
+#parcelDataTable td:first-child {
+    font-weight: 600 !important;
+    color: #2E8B57 !important;
+    font-size: 0.85rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+}
+
+/* ========================================
+   TOAST NOTIFICATIONS - NEUMÓRFICAS
+   ======================================== */
+.neomorphic-alert {
+    border-radius: 16px !important;
+    box-shadow: 
+        -6px -6px 14px rgba(255, 255, 255, 0.6),
+        6px 6px 14px rgba(0, 0, 0, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.5) !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+/* ========================================
+   GENERAL BADGES Y PROGRESS BARS
+   ======================================== */
+.badge {
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    padding: 6px 12px !important;
+}
+
+.progress {
+    border-radius: 8px !important;
+    background: var(--neuro-bg-secondary, #F5F7FA) !important;
+    box-shadow: 
+        inset -2px -2px 4px rgba(255, 255, 255, 0.6),
+        inset 2px 2px 4px rgba(46, 139, 87, 0.08) !important;
+    overflow: hidden !important;
+}
+
+.progress-bar {
+    border-radius: 8px !important;
+}
+
+/* ========================================
+   MOBILE RESPONSIVE NEUMÓRFICO
+   ======================================== */
+@media (max-width: 767px) {
+    #cesiumContainer {
+        border-radius: 18px !important;
+        margin-top: 10px !important;
+    }
+    
+    #parcelTableContainer {
+        border-radius: 18px !important;
+        padding: 16px 12px 12px 12px !important;
+    }
+    
+    #dashboardFlexRow {
+        border-radius: 22px !important;
+        padding: 18px 14px 14px 14px !important;
+    }
+    
+    #quickStatusPanel {
+        border-radius: 18px !important;
+        padding: 16px 14px !important;
+    }
+    
+    #button-container {
+        border-radius: 16px !important;
+    }
+    
+    .custom-button {
+        border-radius: 12px !important;
+    }
+    
+    /* Topbar móvil neumórfico */
+    .topbar {
+        background: linear-gradient(135deg, #FFFFFF 0%, #F0F4F8 100%) !important;
+        box-shadow: 
+            0 4px 15px rgba(46, 139, 87, 0.08),
+            0 1px 3px rgba(0, 0, 0, 0.05) !important;
+        border-bottom: none !important;
+    }
+    
+    .topbar .topbar-title {
+        font-family: 'Poppins', 'Inter', sans-serif !important;
+        background: linear-gradient(135deg, #2E8B57, #FF7A00) !important;
+        -webkit-background-clip: text !important;
+        background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+        font-weight: 700 !important;
+    }
+}
+
+/* ========================================
+   CESIUM CREDIT - ESTILO NEUMÓRFICO
+   ======================================== */
+#cesium-credit {
+    background: rgba(255, 255, 255, 0.8) !important;
+    backdrop-filter: blur(8px) !important;
+    border-radius: 10px !important;
+    box-shadow: 
+        -2px -2px 4px rgba(255, 255, 255, 0.5),
+        2px 2px 4px rgba(0, 0, 0, 0.06) !important;
+    font-size: 11px !important;
+}
+
+/* ========================================
+   EOSDA SCENES MODAL - NEUMÓRFICO
+   ======================================== */
+#eosdaScenesModal .modal-content {
+    background: rgba(255, 255, 255, 0.95) !important;
+    backdrop-filter: blur(12px) !important;
+    border-radius: 24px !important;
+    box-shadow: 
+        0 10px 40px rgba(0, 0, 0, 0.15),
+        -6px -6px 16px rgba(255, 255, 255, 0.4),
+        6px 6px 16px rgba(46, 139, 87, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+#eosdaScenesModal .modal-header {
+    background: linear-gradient(135deg, rgba(46, 139, 87, 0.06), rgba(255, 122, 0, 0.04)) !important;
+    border-radius: 24px 24px 0 0 !important;
+}
+
+/* Botones dentro de modales de escenas */
+#eosdaScenesModal .btn-success,
+#eosdaScenesModal .btn-info,
+#eosdaScenesModal .btn-warning {
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    box-shadow: 
+        -2px -2px 4px rgba(255, 255, 255, 0.4),
+        2px 2px 4px rgba(0, 0, 0, 0.08) !important;
+    transition: all 0.2s ease !important;
+}
+
+#eosdaScenesModal .btn-success:hover,
+#eosdaScenesModal .btn-info:hover,
+#eosdaScenesModal .btn-warning:hover {
+    transform: translateY(-1px) !important;
+}
+
+/* ========================================
+   LOADING SKELETON EFFECT
+   ======================================== */
+.neuro-skeleton {
+    background: linear-gradient(90deg, #F0F4F8 25%, #E8F0F8 50%, #F0F4F8 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 12px;
+}
+
+/* ========================================
+   INSIGHTS & CORRELATIONS CARDS
+   ======================================== */
+#insightsList li {
+    padding: 10px 14px !important;
+    border-radius: 12px !important;
+    margin-bottom: 8px !important;
+    background: rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 
+        -2px -2px 4px rgba(255, 255, 255, 0.5),
+        2px 2px 4px rgba(0, 0, 0, 0.04) !important;
+    transition: all 0.2s ease !important;
+}
+
+#insightsList li:hover {
+    transform: translateX(4px) !important;
+    background: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* ========================================
+   CORRECCIÓN IMÁGENES NDVI/NDMI EN LEAFLET
+   Evita tinte amarillo por mezcla con mapa base
+   ======================================== */
+.leaflet-image-layer.ndvi-layer,
+img.ndvi-layer {
+    /* Forzar rendering sin mezcla de colores */
+    mix-blend-mode: normal !important;
+    isolation: isolate !important;
+    /* Renderizar con calidad alta */
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+    /* Sin filtros adicionales */
+    filter: none !important;
+    -webkit-filter: none !important;
+}
+
+/* Asegurar que el pane de overlay no tenga efectos de mezcla */
+.leaflet-overlay-pane {
+    mix-blend-mode: normal !important;
+    isolation: isolate !important;
+}
+
+/* Estilo adicional para la capa NDVI/NDMI con borde sutil */
+.ndvi-layer {
+    border-radius: 2px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
