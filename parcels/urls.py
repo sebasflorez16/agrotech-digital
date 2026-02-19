@@ -48,4 +48,7 @@ urlpatterns = [
     path('weather-forecast/<int:parcel_id>/', WeatherForecastView.as_view(), name='weather_forecast_alt'),
     # Ruta directa extra para evitar posibles conflictos con el router
     path('get-weather-forecast/<int:parcel_id>/', WeatherForecastView.as_view(), name='weather_forecast_direct'),
-]
+
+    # Geocoding Proxy (evita CORS y bloqueos de Nominatim)
+    path('geocode/', views.geocode_proxy, name='geocode_proxy'),
+]]

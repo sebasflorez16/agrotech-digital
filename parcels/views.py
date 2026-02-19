@@ -2602,3 +2602,51 @@ class ParcelNdviWeatherComparisonView(APIView):
             insights.append(f'{metrics.get("heat_stress_days")} días con temperaturas extremas (>35°C). Implementar medidas de protección.')
         
         return insights
+
+
+# --- GEOCODING PROXY ---
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def geocode_proxy(request):
+    """
+    Proxy para geocodificación usando Nominatim (OpenStreetMap).
+    Evita problemas de CORS en el frontend y gestiona headers requeridos.
+    GET param: q (query string de la dirección)
+    """
+    query = request.GET.get('q')
+    if not query:
+        return Response({"error": "Parámetro 'q' es requerido"}, status=400)
+
+    # Nominatim requiere un User-Agent válido para no bloquear la petición
+    headers = {
+        'User-Agent': 'AgroTechDigital/1.0 (internal-proxy)',
+        'Referer': 'https://agrotechcolombia.com'
+    }
+    
+    try:
+        url = "https://nominatim.openstreetmap.org/search"
+        params = {
+            'q': query,
+            'format': 'json',
+            'limit': 5,
+            'addressdetails': 1,
+            'countrycodes': 'co',
+            'accept-language': 'es'
+        }
+        
+        # Llamada externa a Nominatim
+        external_response = requests.get(url, params=params, headers=headers)
+        
+        if external_response.status_code != 200:
+             logger.error(f"Error Nominatim ({external_response.status_code}): {external_response.text}")
+             return Response({"error": "Error externo en geocodificación"}, status=502)
+        
+        return Response(external_response.json())
+        
+    except Exception as e:
+        logger.error(f"Error en geocode_proxy: {e}")
+        return Response(
+            {"error": "Error interno en geocodificación"}, 
+            status=500
+        )
