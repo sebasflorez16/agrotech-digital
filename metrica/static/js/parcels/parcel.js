@@ -270,6 +270,31 @@ function initializeLeaflet() {
         });
         window.axiosInstance = axiosInstance;
 
+        // Interceptor de respuesta: maneja token expirado (401) automáticamente
+        axiosInstance.interceptors.response.use(
+            response => response,
+            async error => {
+                const status = error.response?.status;
+                if (status === 401) {
+                    console.warn('[AUTH] Token expirado (401), intentando refresh...');
+                    const refreshed = typeof window.refreshAccessToken === 'function'
+                        ? await window.refreshAccessToken()
+                        : false;
+                    if (refreshed) {
+                        const newToken = localStorage.getItem('accessToken');
+                        axiosInstance.defaults.headers['Authorization'] = `Bearer ${newToken}`;
+                        error.config.headers['Authorization'] = `Bearer ${newToken}`;
+                        return axiosInstance.request(error.config);
+                    } else {
+                        if (typeof window.handleAuthFailure === 'function') {
+                            window.handleAuthFailure();
+                        }
+                    }
+                }
+                return Promise.reject(error);
+            }
+        );
+
         // Inicializar el mapa Leaflet centrado en Colombia
         map = L.map('cesiumContainer', {
             center: [4.6097, -74.0817], // Colombia
@@ -645,8 +670,18 @@ function loadParcels() {
             });
         })
         .catch(error => {
-            console.error("Error al cargar las parcelas:", error);
-            showErrorToast("Error al cargar las parcelas: " + (error.message || error));
+            const status = error.response?.status;
+            if (status === 401) {
+                // Token expirado: el interceptor de axios ya manejó el redirect,
+                // pero por si llega aquí de todas formas lo manejamos explícitamente
+                console.warn('[AUTH] Error 401 en loadParcels, sesión expirada.');
+                if (typeof window.handleAuthFailure === 'function') {
+                    window.handleAuthFailure();
+                }
+            } else {
+                console.error("Error al cargar las parcelas:", error);
+                showErrorToast("Error al cargar las parcelas. Por favor recarga la página.");
+            }
         });
 }
 

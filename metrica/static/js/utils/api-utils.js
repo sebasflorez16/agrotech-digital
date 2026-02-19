@@ -103,12 +103,76 @@ async function authenticatedFetch(url, options = {}) {
     });
 }
 
+/**
+ * Intenta refrescar el token de acceso usando el refresh token
+ * @returns {Promise<boolean>} true si se refrescó exitosamente
+ */
+async function refreshAccessToken() {
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) {
+        console.warn('[API-UTILS] No hay refresh token disponible');
+        return false;
+    }
+    try {
+        const refreshUrl = getBackendUrl('/api/token/refresh/');
+        const response = await fetch(refreshUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh: refreshToken })
+        });
+        if (response.ok) {
+            const data = await response.json();
+            const newAccessToken = data.access || data.accessToken || data.token;
+            if (newAccessToken) {
+                localStorage.setItem('accessToken', newAccessToken);
+                console.log('[API-UTILS] Token refrescado exitosamente');
+                return true;
+            }
+        }
+        console.warn('[API-UTILS] Fallo al refrescar token:', response.status);
+        return false;
+    } catch (error) {
+        console.error('[API-UTILS] Error al refrescar token:', error);
+        return false;
+    }
+}
+
+/**
+ * Maneja la falla de autenticación: limpia tokens, muestra aviso y redirige al login
+ */
+function handleAuthFailure() {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+
+    // Banner DOM visible independientemente de librerías de toast
+    const existing = document.getElementById('auth-expired-banner');
+    if (!existing) {
+        const banner = document.createElement('div');
+        banner.id = 'auth-expired-banner';
+        banner.style.cssText = [
+            'position:fixed', 'top:20px', 'left:50%', 'transform:translateX(-50%)',
+            'background:#f59e0b', 'color:#1c1917', 'padding:14px 28px',
+            'border-radius:10px', 'font-size:15px', 'font-weight:600',
+            'z-index:999999', 'box-shadow:0 4px 20px rgba(0,0,0,0.3)',
+            'pointer-events:none'
+        ].join(';');
+        banner.textContent = '⚠️ Sesión expirada. Volviendo al inicio de sesión...';
+        document.body.appendChild(banner);
+    }
+
+    setTimeout(() => {
+        window.location.href = '/templates/authentication/login.html';
+    }, 1500);
+}
+
 // Exportar para uso global
 window.getBackendUrl = getBackendUrl;
 window.ApiUrls = ApiUrls;
 window.getAuthToken = getAuthToken;
 window.getAuthHeaders = getAuthHeaders;
 window.authenticatedFetch = authenticatedFetch;
+window.refreshAccessToken = refreshAccessToken;
+window.handleAuthFailure = handleAuthFailure;
 
 // Exportar para módulos ES6
 export { getBackendUrl, ApiUrls, getAuthToken, getAuthHeaders, authenticatedFetch };
