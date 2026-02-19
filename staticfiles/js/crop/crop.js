@@ -342,11 +342,11 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('crop-variety-hint').classList.remove('d-none');
         }
     });
-    document.getElementById('btn-add-type')?    .addEventListener('click', openAddTypeModal);
+    document.getElementById('btn-add-type')?.addEventListener('click', openAddTypeModal);
     document.getElementById('btn-add-variety')?.addEventListener('click', openAddVarietyModal);
     document.getElementById('btn-add-employee')?.addEventListener('click', openAddEmployeeModal);
     document.getElementById('btn-add-supplier')?.addEventListener('click', openAddSupplierModal);
-    document.getElementById('btn-save-type')?    .addEventListener('click', saveNewType);
+    document.getElementById('btn-save-type')?.addEventListener('click', saveNewType);
     document.getElementById('btn-save-variety')?.addEventListener('click', saveNewVariety);
     document.getElementById('btn-save-employee')?.addEventListener('click', saveNewEmployee);
     document.getElementById('btn-save-supplier')?.addEventListener('click', saveNewSupplier);
