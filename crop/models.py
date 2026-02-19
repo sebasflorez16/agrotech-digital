@@ -18,10 +18,33 @@ class CropType(models.Model):
         verbose_name_plural = "Tipos de cultivo"
         ordering = ["name"]
 
+class CropVariety(models.Model):
+    """Variedad de un tipo de cultivo (ej. Arroz IR-64, Maíz ICA V-305)"""
+    name = models.CharField(max_length=150, verbose_name="Nombre de la variedad")
+    crop_type = models.ForeignKey(
+        CropType, on_delete=models.CASCADE,
+        related_name="varieties", verbose_name="Tipo de cultivo"
+    )
+    cycle_days = models.IntegerField(
+        null=True, blank=True,
+        verbose_name="Días de ciclo (aprox.)"
+    )
+    description = models.TextField(blank=True, null=True, verbose_name="Descripción")
+
+    def __str__(self):
+        return f"{self.name} ({self.crop_type.name})"
+
+    class Meta:
+        verbose_name = "Variedad de cultivo"
+        verbose_name_plural = "Variedades de cultivo"
+        ordering = ["crop_type", "name"]
+        unique_together = [("name", "crop_type")]
+
+
 class Crop(models.Model):
     name = models.CharField(max_length=100, verbose_name="Nombre del cultivo")
     crop_type = models.ForeignKey(CropType, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Tipo de cultivo")
-    variety = models.ForeignKey(Supply, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Variedad")
+    variety = models.ForeignKey(CropVariety, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Variedad")
     parcel = models.ForeignKey(Parcel, on_delete=models.CASCADE, related_name="crops", verbose_name="Parcela", blank=True, null=True)
     area = models.FloatField(verbose_name="Área asignada (ha)", blank=True, null=True)
     sowing_date = models.DateField(verbose_name="Fecha de siembra", blank=True, null=True)

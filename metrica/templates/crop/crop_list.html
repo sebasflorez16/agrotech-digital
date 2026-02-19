@@ -13,13 +13,49 @@
         <div class="row">
             <div class="col-12">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h1 class="mb-0">Resumen de Cultivos</h1>
-                    <button class="btn btn-success" id="btn-new-crop" data-bs-toggle="modal" data-bs-target="#cropModal">
+                    <h1 class="mb-0">Cultivos</h1>
+                    <button class="btn btn-success" id="btn-new-crop">
                         <i class="bi bi-plus-circle"></i> Nuevo cultivo
                     </button>
                 </div>
-                <div class="card shadow-sm">
-                    <div class="card-body">
+
+                <!-- Empty state (se oculta cuando hay datos) -->
+                <div id="crop-empty-state" class="card border-0 shadow-sm mb-4" style="display:none;">
+                    <div class="card-body text-center py-5">
+                        <i class="bi bi-seedling" style="font-size:3rem;color:#6c757d;"></i>
+                        <h5 class="mt-3 mb-2">Aún no tienes cultivos registrados</h5>
+                        <p class="text-muted mb-4">Sigue estos pasos para registrar tu primer cultivo:</p>
+                        <div class="row justify-content-center g-3 mb-4">
+                            <div class="col-12 col-sm-4">
+                                <div class="border rounded p-3 h-100">
+                                    <div class="fs-3 mb-1">1️⃣</div>
+                                    <strong>Crea una Parcela</strong>
+                                    <p class="text-muted small mb-2">Define el terreno donde plantarás</p>
+                                    <a href="/templates/parcels/parcels-dashboard.html" class="btn btn-outline-primary btn-sm">Ir a Parcelas</a>
+                                </div>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <div class="border rounded p-3 h-100">
+                                    <div class="fs-3 mb-1">2️⃣</div>
+                                    <strong>Registra el Cultivo</strong>
+                                    <p class="text-muted small mb-2">Elige el tipo (Arroz, Maíz, etc.) y la variedad</p>
+                                    <button class="btn btn-outline-success btn-sm" id="btn-new-crop-empty">+ Nuevo cultivo</button>
+                                </div>
+                            </div>
+                            <div class="col-12 col-sm-4">
+                                <div class="border rounded p-3 h-100">
+                                    <div class="fs-3 mb-1">3️⃣</div>
+                                    <strong>Asigna a la Parcela</strong>
+                                    <p class="text-muted small mb-2">Vincula el cultivo con tu parcela y empieza el seguimiento</p>
+                                    <span class="badge bg-light text-muted">Al crear el cultivo</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm" id="crop-table-card">
+                    <div class="card-body table-responsive">
                         <table class="table table-hover" id="crop-summary-table">
                             <thead>
                                 <tr>
@@ -34,9 +70,7 @@
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <!-- Aquí se cargarán los cultivos dinámicamente -->
-                            </tbody>
+                            <tbody></tbody>
                         </table>
                     </div>
                 </div>
@@ -44,98 +78,292 @@
         </div>
     </main>
     <div id="footer-container"></div>
-    <!-- Modal Detalle Cultivo -->
-    <div class="modal fade" id="cropDetailModal" tabindex="-1" aria-labelledby="cropDetailModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-centered">
+
+    <!-- ===================== MODAL DETALLE ===================== -->
+    <div class="modal fade" id="cropDetailModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header bg-light border-0">
-            <h5 class="modal-title fw-bold" id="cropDetailModalLabel"><i class="bi bi-seedling"></i> Detalle de Cultivo</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            <h5 class="modal-title fw-bold"><i class="bi bi-seedling"></i> Detalle de Cultivo</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
-          <div class="modal-body py-4" id="crop-detail-body">
-            <!-- Aquí se insertan los datos del cultivo -->
-          </div>
+          <div class="modal-body py-4" id="crop-detail-body"></div>
         </div>
       </div>
     </div>
-    <!-- Modal Crear/Editar Cultivo -->
-    <div class="modal fade" id="cropModal" tabindex="-1" aria-labelledby="cropModalLabel" aria-hidden="true">
-      <div class="modal-dialog modal-lg">
+
+    <!-- ===================== MODAL CREAR / EDITAR ===================== -->
+    <div class="modal fade" id="cropModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable modal-fullscreen-sm-down">
         <div class="modal-content">
           <form id="crop-form">
             <div class="modal-header">
               <h5 class="modal-title" id="cropModalLabel">Nuevo Cultivo</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+
+              <!-- Banner prerequisito parcelas -->
+              <div id="crop-no-parcel-banner" class="alert alert-warning d-none" role="alert">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>Necesitas al menos una parcela</strong> para asignar este cultivo.
+                <a href="/templates/parcels/parcels-dashboard.html" class="alert-link ms-1">Ir a Parcelas →</a>
+              </div>
+
               <div class="row g-3">
-                <div class="col-md-6">
-                  <label for="crop-name" class="form-label">Nombre</label>
+
+                <!-- Nombre -->
+                <div class="col-12 col-md-6">
+                  <label for="crop-name" class="form-label">Nombre del cultivo <span class="text-danger">*</span></label>
                   <input type="text" class="form-control" id="crop-name" name="name" required>
                 </div>
-                <div class="col-md-6">
-                  <label for="crop-type" class="form-label">Tipo</label>
-                  <select class="form-select" id="crop-type" name="crop_type" required></select>
+
+                <!-- Tipo de cultivo -->
+                <div class="col-12 col-md-6">
+                  <label for="crop-type" class="form-label">Tipo de cultivo <span class="text-danger">*</span></label>
+                  <div class="input-group">
+                    <select class="form-select" id="crop-type" name="crop_type" required></select>
+                    <button type="button" class="btn btn-outline-secondary" id="btn-add-type" title="Agregar tipo">
+                      <i class="bi bi-plus-lg"></i>
+                    </button>
+                  </div>
+                  <div id="crop-type-hint" class="form-text text-warning d-none"></div>
                 </div>
-                <div class="col-md-6">
+
+                <!-- Variedad (encadenada al tipo) -->
+                <div class="col-12 col-md-6">
                   <label for="crop-variety" class="form-label">Variedad</label>
-                  <select class="form-select" id="crop-variety" name="variety" required></select>
+                  <div class="input-group">
+                    <select class="form-select" id="crop-variety" name="variety"></select>
+                    <button type="button" class="btn btn-outline-secondary" id="btn-add-variety" title="Agregar variedad">
+                      <i class="bi bi-plus-lg"></i>
+                    </button>
+                  </div>
+                  <div id="crop-variety-hint" class="form-text text-muted d-none">Selecciona primero el tipo de cultivo para ver las variedades disponibles.</div>
                 </div>
-                <div class="col-md-6">
+
+                <!-- Parcela -->
+                <div class="col-12 col-md-6">
                   <label for="crop-parcel" class="form-label">Parcela</label>
-                  <select class="form-select" id="crop-parcel" name="parcel" required></select>
+                  <select class="form-select" id="crop-parcel" name="parcel"></select>
+                  <div id="crop-parcel-hint" class="form-text text-warning d-none">
+                    Sin parcelas. <a href="/templates/parcels/parcels-dashboard.html">Crear parcela →</a>
+                  </div>
                 </div>
-                <div class="col-md-6">
+
+                <!-- Área -->
+                <div class="col-12 col-md-6">
                   <label for="crop-area" class="form-label">Área (ha)</label>
-                  <input type="number" step="0.01" class="form-control" id="crop-area" name="area" required>
+                  <input type="number" step="0.01" class="form-control" id="crop-area" name="area">
                 </div>
-                <div class="col-md-6">
+
+                <!-- Responsable -->
+                <div class="col-12 col-md-6">
                   <label for="crop-manager" class="form-label">Responsable</label>
-                  <select class="form-select" id="crop-manager" name="manager" required></select>
+                  <div class="input-group">
+                    <select class="form-select" id="crop-manager" name="manager"></select>
+                    <button type="button" class="btn btn-outline-secondary" id="btn-add-employee" title="Agregar empleado">
+                      <i class="bi bi-plus-lg"></i>
+                    </button>
+                  </div>
+                  <div id="crop-manager-hint" class="form-text text-warning d-none">
+                    Sin empleados registrados. Usa el botón <strong>+</strong> para agregar uno.
+                  </div>
                 </div>
-                <div class="col-md-6">
-                  <label for="crop-sowing-date" class="form-label">Fecha de Siembra</label>
+
+                <!-- Fecha siembra -->
+                <div class="col-12 col-md-6">
+                  <label for="crop-sowing-date" class="form-label">Fecha de Siembra <span class="text-danger">*</span></label>
                   <input type="date" class="form-control" id="crop-sowing-date" name="sowing_date" required>
                 </div>
-                <div class="col-md-6">
+
+                <!-- Fecha cosecha -->
+                <div class="col-12 col-md-6">
                   <label for="crop-harvest-date" class="form-label">Fecha de Cosecha</label>
                   <input type="date" class="form-control" id="crop-harvest-date" name="harvest_date">
                 </div>
-                <div class="col-md-6">
+
+                <!-- Rendimiento esperado -->
+                <div class="col-12 col-md-6">
                   <label for="crop-expected-yield" class="form-label">Rendimiento esperado (t/ha)</label>
                   <input type="number" step="0.01" class="form-control" id="crop-expected-yield" name="expected_yield">
                 </div>
-                <div class="col-md-6">
+
+                <!-- Rendimiento real -->
+                <div class="col-12 col-md-6">
                   <label for="crop-actual-yield" class="form-label">Rendimiento real (t/ha)</label>
                   <input type="number" step="0.01" class="form-control" id="crop-actual-yield" name="actual_yield">
                 </div>
-                <div class="col-md-6">
+
+                <!-- Tipo de riego -->
+                <div class="col-12 col-md-6">
                   <label for="crop-irrigation-type" class="form-label">Tipo de riego</label>
-                  <input type="text" class="form-control" id="crop-irrigation-type" name="irrigation_type">
+                  <input type="text" class="form-control" id="crop-irrigation-type" name="irrigation_type" placeholder="Ej: Goteo, Aspersión, Gravedad...">
                 </div>
-                <div class="col-md-6">
+
+                <!-- Proveedor de semilla -->
+                <div class="col-12 col-md-6">
                   <label for="crop-seed-supplier" class="form-label">Proveedor de semilla</label>
-                  <select class="form-select" id="crop-seed-supplier" name="seed_supplier"></select>
+                  <div class="input-group">
+                    <select class="form-select" id="crop-seed-supplier" name="seed_supplier"></select>
+                    <button type="button" class="btn btn-outline-secondary" id="btn-add-supplier" title="Agregar proveedor">
+                      <i class="bi bi-plus-lg"></i>
+                    </button>
+                  </div>
+                  <div id="crop-supplier-hint" class="form-text text-warning d-none">
+                    Sin proveedores. Usa el botón <strong>+</strong> para agregar uno.
+                  </div>
                 </div>
-                <div class="col-md-6">
+
+                <!-- Imagen -->
+                <div class="col-12 col-md-6">
                   <label for="crop-image" class="form-label">Imagen del cultivo</label>
                   <input type="file" class="form-control" id="crop-image" name="image" accept="image/*">
                 </div>
-                <div class="col-md-12">
+
+                <!-- Notas -->
+                <div class="col-12">
                   <label for="crop-notes" class="form-label">Notas</label>
                   <textarea class="form-control" id="crop-notes" name="notes" rows="2"></textarea>
                 </div>
               </div>
-              <div id="crop-form-feedback" class="mt-3"></div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-              <button type="submit" class="btn btn-primary">Guardar</button>
+              <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Guardar</button>
             </div>
           </form>
         </div>
       </div>
     </div>
+
+    <!-- ===================== MINI-MODAL: TIPO DE CULTIVO ===================== -->
+    <div class="modal fade" id="modalAddType" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header py-2">
+            <h6 class="modal-title">Agregar tipo de cultivo</h6>
+            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-2">
+              <label class="form-label small">Nombre <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" id="new-type-name" placeholder="Ej: Cacao, Yuca...">
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">Descripción</label>
+              <input type="text" class="form-control form-control-sm" id="new-type-desc">
+            </div>
+          </div>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-success" id="btn-save-type">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== MINI-MODAL: VARIEDAD ===================== -->
+    <div class="modal fade" id="modalAddVariety" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header py-2">
+            <h6 class="modal-title">Agregar variedad</h6>
+            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <p class="small text-muted mb-2" id="add-variety-type-label">Para el tipo seleccionado</p>
+            <div class="mb-2">
+              <label class="form-label small">Nombre <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" id="new-variety-name" placeholder="Ej: IR-64, ICA V-305...">
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">Días de ciclo (aprox.)</label>
+              <input type="number" class="form-control form-control-sm" id="new-variety-days" placeholder="Ej: 120">
+            </div>
+          </div>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-success" id="btn-save-variety">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== MINI-MODAL: EMPLEADO ===================== -->
+    <div class="modal fade" id="modalAddEmployee" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header py-2">
+            <h6 class="modal-title">Agregar empleado</h6>
+            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-2">
+              <div class="col-12">
+                <label class="form-label small">Cédula <span class="text-danger">*</span></label>
+                <input type="number" class="form-control form-control-sm" id="new-emp-id">
+              </div>
+              <div class="col-6">
+                <label class="form-label small">Nombre <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm" id="new-emp-fname">
+              </div>
+              <div class="col-6">
+                <label class="form-label small">Apellido <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm" id="new-emp-lname">
+              </div>
+              <div class="col-12">
+                <label class="form-label small">Dirección <span class="text-danger">*</span></label>
+                <input type="text" class="form-control form-control-sm" id="new-emp-addr">
+              </div>
+              <div class="col-6">
+                <label class="form-label small">Teléfono <span class="text-danger">*</span></label>
+                <input type="number" class="form-control form-control-sm" id="new-emp-phone">
+              </div>
+              <div class="col-6">
+                <label class="form-label small">Fecha contratación <span class="text-danger">*</span></label>
+                <input type="date" class="form-control form-control-sm" id="new-emp-hire">
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-success" id="btn-save-employee">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== MINI-MODAL: PROVEEDOR ===================== -->
+    <div class="modal fade" id="modalAddSupplier" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header py-2">
+            <h6 class="modal-title">Agregar proveedor de semilla</h6>
+            <button type="button" class="btn-close btn-sm" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-2">
+              <label class="form-label small">Nombre <span class="text-danger">*</span></label>
+              <input type="text" class="form-control form-control-sm" id="new-supplier-name" placeholder="Ej: Semillas del Valle...">
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">Teléfono</label>
+              <input type="text" class="form-control form-control-sm" id="new-supplier-phone">
+            </div>
+            <div class="mb-2">
+              <label class="form-label small">Email</label>
+              <input type="email" class="form-control form-control-sm" id="new-supplier-email">
+            </div>
+          </div>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-sm btn-success" id="btn-save-supplier">Guardar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="righsidebar"></div>
     <div id="vendorjs"></div>
     <script src="/static/js/bootstrap.bundle.min.js"></script>
@@ -150,13 +378,6 @@
             "vendorjs": "/templates/partials/vendorjs.html"
         };
         loadLayoutComponents(components);
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => {
-                const topbar = document.getElementById('topbar-container');
-                if (topbar) topbar.style.display = 'block';
-            }, 400);
-        });
-
     </script>
 </body>
 </html>

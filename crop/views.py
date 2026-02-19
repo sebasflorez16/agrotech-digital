@@ -3,9 +3,9 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
-from .models import CropType, Crop, CropStage, CropProgressPhoto, CropInput, LaborInput, CropEvent, CropCatalog, PhenologicalStage, CropCycle
+from .models import CropType, CropVariety, Crop, CropStage, CropProgressPhoto, CropInput, LaborInput, CropEvent, CropCatalog, PhenologicalStage, CropCycle
 from .serializers import (
-    CropTypeSerializer, CropSerializer, CropStageSerializer,
+    CropTypeSerializer, CropVarietySerializer, CropSerializer, CropStageSerializer,
     CropProgressPhotoSerializer, CropInputSerializer, LaborInputSerializer, CropEventSerializer,
     CropCatalogSerializer, CropCatalogListSerializer, PhenologicalStageSerializer,
     CropCycleSerializer, IndexInterpretationSerializer
@@ -27,6 +27,17 @@ class CropTypeViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=201, headers=headers)
+
+class CropVarietyViewSet(viewsets.ModelViewSet):
+    serializer_class = CropVarietySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = CropVariety.objects.select_related('crop_type').all()
+        crop_type = self.request.query_params.get('crop_type')
+        if crop_type:
+            qs = qs.filter(crop_type_id=crop_type)
+        return qs
 
 class CropViewSet(viewsets.ModelViewSet):
     queryset = Crop.objects.all()

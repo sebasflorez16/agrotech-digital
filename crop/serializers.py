@@ -1,10 +1,17 @@
 from rest_framework import serializers
-from .models import CropType, Crop, CropStage, CropProgressPhoto, CropInput, LaborInput, CropEvent, CropCatalog, PhenologicalStage, CropCycle
+from .models import CropType, CropVariety, Crop, CropStage, CropProgressPhoto, CropInput, LaborInput, CropEvent, CropCatalog, PhenologicalStage, CropCycle
 
 class CropTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = CropType
         fields = '__all__'
+
+class CropVarietySerializer(serializers.ModelSerializer):
+    crop_type_name = serializers.CharField(source='crop_type.name', read_only=True)
+
+    class Meta:
+        model = CropVariety
+        fields = ['id', 'name', 'crop_type', 'crop_type_name', 'cycle_days', 'description']
 
 class CropSerializer(serializers.ModelSerializer):
     crop_type_name = serializers.SerializerMethodField()

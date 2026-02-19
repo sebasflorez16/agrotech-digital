@@ -80,8 +80,9 @@ echo "✅ Migraciones de tenants completadas"
 # ============================================================
 # 5. DATOS INICIALES
 # ============================================================
-echo "� Cargando datos iniciales..."
+echo "📦 Cargando datos iniciales..."
 python manage.py seed_plans 2>&1 || echo "⚠️ seed_plans falló (puede que ya existan)"
+python manage.py seed_crop_types 2>&1 || echo "⚠️ seed_crop_types falló (puede que ya existan)"
 python manage.py populate_crop_catalog 2>&1 || echo "⚠️ populate_crop_catalog falló (puede que ya existan)"
 
 # ============================================================

@@ -1,6 +1,6 @@
 from rest_framework import routers
 from .views import (
-    CropTypeViewSet, CropViewSet, CropStageViewSet,
+    CropTypeViewSet, CropVarietyViewSet, CropViewSet, CropStageViewSet,
     CropProgressPhotoViewSet, CropInputViewSet, LaborInputViewSet, CropEventViewSet,
     CropCatalogViewSet, CropCycleViewSet
 )
@@ -10,6 +10,7 @@ app_name = "crop"
 router = routers.DefaultRouter()
 
 router.register(r'types', CropTypeViewSet)
+router.register(r'varieties', CropVarietyViewSet, basename='cropvariety')
 router.register(r'crops', CropViewSet)
 router.register(r'stages', CropStageViewSet)
 router.register(r'progress-photos', CropProgressPhotoViewSet)

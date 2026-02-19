@@ -1,271 +1,357 @@
-// crop.js - Gestión profesional de cultivos
-const API_BASE = `http://${window.location.hostname}:8000/api/crop/`;
-const API_TYPE = `${API_BASE}types/`;
-const API_CROP = `${API_BASE}crops/`;
-const API_PARCEL = `http://${window.location.hostname}:8000/api/parcels/parcel/`;
-const API_EMPLOYEE = `http://${window.location.hostname}:8000/api/RRHH/empleados/`;
-const API_VARIETY = `http://${window.location.hostname}:8000/api/inventario/supplies/`;
-const API_SUPPLIER = `http://${window.location.hostname}:8000/api/inventario/suppliers/`;
-const token = localStorage.getItem("accessToken");
+/**
+ * crop.js — Módulo de gestión de Cultivos
+ * Fixes:
+ *  - API_BASE sin puerto hardcoded
+ *  - Funciones showCropDetail/deleteCrop/editCrop fuera del scope de loadCropTable
+ *  - Endpoint variedades → /api/crop/varieties/
+ *  - Encadenamiento tipo → variedad
+ *  - Mini-modales inline (tipo, variedad, empleado, proveedor)
+ *  - Banner cuando no hay parcelas
+ *  - Empty-state en tabla
+ */
 
-// --- CARGA DE TABLA DE CULTIVOS ---
-document.addEventListener('DOMContentLoaded', function() {
-    loadCropTable();
-    document.getElementById('btn-new-crop').addEventListener('click', showCropModal);
-    document.getElementById('crop-form').addEventListener('submit', submitCropForm);
-});
+const _hostname = window.location.hostname;
+const _isLocal  = _hostname === 'localhost' || _hostname === '127.0.0.1';
+const BACKEND   = _isLocal ? `http://${_hostname}:8000` : '';
+const API_BASE  = `${BACKEND}/api/crop/`;
+const API_VARIETY   = `${BACKEND}/api/crop/varieties/`;
+const API_PARCELS   = `${BACKEND}/api/parcels/parcel/`;
+const API_EMPLOYEES = `${BACKEND}/api/RRHH/empleados/`;
+const API_SUPPLIERS = `${BACKEND}/api/inventario/suppliers/`;
+
+function authHeaders() {
+    const token = localStorage.getItem('accessToken');
+    return { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+async function apiFetch(url, options = {}) {
+    const defaults = { headers: authHeaders() };
+    const config   = { ...defaults, ...options, headers: { ...defaults.headers, ...(options.headers || {}) } };
+    let res = await fetch(url, config);
+    if (res.status === 401) {
+        const refresh = localStorage.getItem('refreshToken');
+        if (refresh) {
+            const rr = await fetch(`${BACKEND}/api/token/refresh/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh })
+            });
+            if (rr.ok) {
+                const data = await rr.json();
+                localStorage.setItem('accessToken', data.access);
+                config.headers['Authorization'] = `Bearer ${data.access}`;
+                res = await fetch(url, config);
+            } else { handleAuthFailure(); throw new Error('session_expired'); }
+        } else { handleAuthFailure(); throw new Error('session_expired'); }
+    }
+    return res;
+}
+
+function handleAuthFailure() {
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+    window.location.href = '/templates/authentication/login.html';
+}
+
+let _cropModal, _cropDetailModal, _addTypeModal, _addVarietyModal, _addEmployeeModal, _addSupplierModal;
+function getCropModal()        { return _cropModal        = _cropModal        || new bootstrap.Modal(document.getElementById('cropModal')); }
+function getDetailModal()      { return _cropDetailModal  = _cropDetailModal  || new bootstrap.Modal(document.getElementById('cropDetailModal')); }
+function getAddTypeModal()     { return _addTypeModal     = _addTypeModal     || new bootstrap.Modal(document.getElementById('modalAddType')); }
+function getAddVarietyModal()  { return _addVarietyModal  = _addVarietyModal  || new bootstrap.Modal(document.getElementById('modalAddVariety')); }
+function getAddEmployeeModal() { return _addEmployeeModal = _addEmployeeModal || new bootstrap.Modal(document.getElementById('modalAddEmployee')); }
+function getAddSupplierModal() { return _addSupplierModal = _addSupplierModal || new bootstrap.Modal(document.getElementById('modalAddSupplier')); }
+
+let editingCropId = null;
 
 async function loadCropTable() {
-    const tbody = document.querySelector('#crop-summary-table tbody');
-    tbody.innerHTML = '';
     try {
-        const resp = await fetch(API_CROP, { headers: { 'Authorization': `Bearer ${token}` } });
-        const data = await resp.json();
-        data.forEach(crop => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td>${crop.name}</td>
-                <td>${crop.crop_type_name || ''}</td>
-                <td>${crop.variety_name || ''}</td>
-                <td>${crop.parcel_name || ''}</td>
-                <td>${crop.area || ''}</td>
-                <td>${crop.sowing_date || ''}</td>
-                <td>${crop.harvest_date || ''}</td>
-                <td>${crop.manager_name || ''}</td>
-                <td class="text-center">
-                  <button class="btn btn-sm btn-outline-info me-1" title="Ver" onclick="showCropDetail('${crop.id}')"><i class="fa fa-eye"></i></button>
-                  <button class="btn btn-sm btn-outline-warning me-1" title="Editar" onclick="editCrop('${crop.id}')"><i class="fa fa-edit"></i></button>
-                  <button class="btn btn-sm btn-outline-danger" title="Eliminar" onclick="deleteCrop('${crop.id}')"><i class="fa fa-trash"></i></button>
-                </td>
-            `;
-            tbody.appendChild(row);
+        const res   = await apiFetch(`${API_BASE}crops/`);
+        const data  = await res.json();
+        const crops = Array.isArray(data) ? data : (data.results || []);
+        const tbody = document.querySelector('#crop-summary-table tbody');
+        tbody.innerHTML = '';
+        if (!crops.length) {
+            document.getElementById('crop-empty-state').style.display = 'block';
+            document.getElementById('crop-table-card').style.display  = 'none';
+            return;
+        }
+        document.getElementById('crop-empty-state').style.display = 'none';
+        document.getElementById('crop-table-card').style.display   = '';
+        crops.forEach(c => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${c.name||'—'}</td><td>${c.crop_type_name||c.crop_type||'—'}</td><td>${c.variety_name||'—'}</td><td>${c.parcel_name||'—'}</td><td>${c.area||'—'}</td><td>${c.sowing_date||'—'}</td><td>${c.harvest_date||'—'}</td><td>${c.manager_name||'—'}</td><td><button class="btn btn-sm btn-info me-1" onclick="showCropDetail(${c.id})"><i class="bi bi-eye"></i></button><button class="btn btn-sm btn-warning me-1" onclick="editCrop(${c.id})"><i class="bi bi-pencil"></i></button><button class="btn btn-sm btn-danger" onclick="deleteCrop(${c.id})"><i class="bi bi-trash"></i></button></td>`;
+            tbody.appendChild(tr);
         });
-// --- DETALLE DE CULTIVO ---
-window.showCropDetail = async function showCropDetail(id) {
-    try {
-        const resp = await fetch(`${API_CROP}${id}/`, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (!resp.ok) throw new Error('No se pudo cargar el detalle');
-        const crop = await resp.json();
-        const body = document.getElementById('crop-detail-body');
-        body.innerHTML = `
-        <div class="card border-0 shadow-sm mb-0">
-          <div class="row g-0">
-            <div class="col-md-4 text-center p-4">
-              ${crop.image ? `<img src="${crop.image}" alt="Imagen cultivo" class="img-fluid rounded shadow mb-3" style="max-height:180px;">` : '<div class="bg-light border rounded p-4 mb-3">Sin imagen</div>'}
-              <div class="fw-bold fs-5 mb-1">${crop.name}</div>
-              <div class="text-muted mb-1">${crop.crop_type_name || ''}</div>
-              <div class="small text-secondary mb-2">${crop.variety_name || ''}</div>
-              <span class="badge bg-primary">${crop.parcel_name || '-'}</span>
-            </div>
-            <div class="col-md-8 p-4">
-              <div class="row mb-2">
-                <div class="col-6 mb-2"><strong>Área (ha):</strong> ${crop.area || '-'}</div>
-                <div class="col-6 mb-2"><strong>Responsable:</strong> ${crop.manager_name || '-'}</div>
-                <div class="col-6 mb-2"><strong>Proveedor semilla:</strong> ${crop.seed_supplier_name || '-'}</div>
-                <div class="col-6 mb-2"><strong>Tipo de riego:</strong> ${crop.irrigation_type || '-'}</div>
-                <div class="col-6 mb-2"><strong>Siembra:</strong> ${crop.sowing_date || '-'}</div>
-                <div class="col-6 mb-2"><strong>Cosecha:</strong> ${crop.harvest_date || '-'}</div>
-                <div class="col-6 mb-2"><strong>Rend. esperado:</strong> ${crop.expected_yield || '-'}</div>
-                <div class="col-6 mb-2"><strong>Rend. real:</strong> ${crop.actual_yield || '-'}</div>
-              </div>
-              <div class="mb-2"><strong>Notas:</strong><br><span class="text-secondary">${crop.notes || '-'}</span></div>
-            </div>
-          </div>
-        </div>
-        `;
-        bootstrap.Modal.getOrCreateInstance(document.getElementById('cropDetailModal')).show();
-    } catch (e) {
-        alert('No se pudo cargar el detalle del cultivo');
-    }
+    } catch (e) { if (e.message !== 'session_expired') console.error('Error al cargar cultivos:', e); }
 }
 
-// --- ELIMINAR CULTIVO ---
-window.deleteCrop = async function deleteCrop(id) {
-    if (!confirm('¿Seguro que deseas eliminar este cultivo?')) return;
+async function showCropDetail(id) {
     try {
-        const resp = await fetch(`${API_CROP}${id}/`, {
-            method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!resp.ok) throw new Error('No se pudo eliminar');
+        const res  = await apiFetch(`${API_BASE}crops/${id}/`);
+        const c    = await res.json();
+        document.getElementById('crop-detail-body').innerHTML = `<div class="row g-3"><div class="col-6"><strong>Nombre:</strong> ${c.name||'—'}</div><div class="col-6"><strong>Tipo:</strong> ${c.crop_type_name||c.crop_type||'—'}</div><div class="col-6"><strong>Variedad:</strong> ${c.variety_name||'—'}</div><div class="col-6"><strong>Parcela:</strong> ${c.parcel_name||'—'}</div><div class="col-6"><strong>Área:</strong> ${c.area||'—'} ha</div><div class="col-6"><strong>Siembra:</strong> ${c.sowing_date||'—'}</div><div class="col-6"><strong>Cosecha:</strong> ${c.harvest_date||'—'}</div><div class="col-6"><strong>R.esperado:</strong> ${c.expected_yield||'—'} t/ha</div><div class="col-6"><strong>R.real:</strong> ${c.actual_yield||'—'} t/ha</div><div class="col-6"><strong>Riego:</strong> ${c.irrigation_type||'—'}</div><div class="col-6"><strong>Responsable:</strong> ${c.manager_name||'—'}</div><div class="col-6"><strong>Proveedor:</strong> ${c.seed_supplier_name||'—'}</div><div class="col-12"><strong>Notas:</strong> ${c.notes||'—'}</div>${c.image?`<div class="col-12"><img src="${c.image}" class="img-fluid rounded" style="max-height:200px;"></div>`:''}</div>`;
+        getDetailModal().show();
+    } catch (e) { if (e.message !== 'session_expired') console.error('Error detalle:', e); }
+}
+
+async function editCrop(id) {
+    editingCropId = id;
+    await showCropModal();
+    try {
+        const res = await apiFetch(`${API_BASE}crops/${id}/`);
+        const c   = await res.json();
+        document.getElementById('cropModalLabel').textContent     = 'Editar Cultivo';
+        document.getElementById('crop-name').value                = c.name || '';
+        document.getElementById('crop-area').value                = c.area || '';
+        document.getElementById('crop-sowing-date').value         = c.sowing_date || '';
+        document.getElementById('crop-harvest-date').value        = c.harvest_date || '';
+        document.getElementById('crop-expected-yield').value      = c.expected_yield || '';
+        document.getElementById('crop-actual-yield').value        = c.actual_yield || '';
+        document.getElementById('crop-irrigation-type').value     = c.irrigation_type || '';
+        document.getElementById('crop-notes').value               = c.notes || '';
+        setSelectValue('crop-type',          c.crop_type);
+        setSelectValue('crop-parcel',        c.parcel);
+        setSelectValue('crop-manager',       c.manager);
+        setSelectValue('crop-seed-supplier', c.seed_supplier);
+        if (c.crop_type) { await loadVarieties(c.crop_type); setSelectValue('crop-variety', c.variety); }
+        getCropModal().show();
+    } catch (e) { if (e.message !== 'session_expired') console.error('Error editar:', e); }
+}
+
+function setSelectValue(selectId, value) {
+    const sel = document.getElementById(selectId);
+    if (!sel || value == null) return;
+    for (const opt of sel.options) { if (String(opt.value) === String(value)) { opt.selected = true; break; } }
+}
+
+async function deleteCrop(id) {
+    if (!confirm('¿Eliminar este cultivo?')) return;
+    try {
+        await apiFetch(`${API_BASE}crops/${id}/`, { method: 'DELETE' });
         loadCropTable();
-        showToast('Cultivo eliminado', 'success');
-    } catch (e) {
-        showToast('Error al eliminar el cultivo', 'danger');
-    }
+    } catch (e) { if (e.message !== 'session_expired') alert('Error al eliminar.'); }
 }
 
-// --- EDITAR CULTIVO (precarga en modal) ---
-window.editCrop = async function editCrop(id) {
-    try {
-        const resp = await fetch(`${API_CROP}${id}/`, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (!resp.ok) throw new Error('No se pudo cargar el cultivo');
-        const crop = await resp.json();
-        await showCropModal();
-        // Precargar datos en el formulario
-        const form = document.getElementById('crop-form');
-        form['name'].value = crop.name || '';
-        form['crop_type'].value = crop.crop_type || '';
-        form['variety'].value = crop.variety || '';
-        form['parcel'].value = crop.parcel || '';
-        form['area'].value = crop.area || '';
-        form['sowing_date'].value = crop.sowing_date || '';
-        form['harvest_date'].value = crop.harvest_date || '';
-        form['expected_yield'].value = crop.expected_yield || '';
-        form['actual_yield'].value = crop.actual_yield || '';
-        form['irrigation_type'].value = crop.irrigation_type || '';
-        form['seed_supplier'].value = crop.seed_supplier || '';
-        form['notes'].value = crop.notes || '';
-        // Imagen: no se precarga por seguridad
-        form.setAttribute('data-edit-id', crop.id);
-        document.getElementById('cropModalLabel').textContent = 'Editar Cultivo';
-    } catch (e) {
-        showToast('No se pudo cargar el cultivo para editar', 'danger');
-    }
-}
-    } catch (e) {
-        tbody.innerHTML = '<tr><td colspan="8">Error cargando cultivos</td></tr>';
-    }
-}
-
-// --- CARGA DE SELECTS EN MODAL ---
 async function showCropModal() {
     document.getElementById('crop-form').reset();
-    clearCropFormFeedback();
-    await Promise.all([
-        loadSelectOptions(API_TYPE, 'crop-type'),
-        loadSelectOptions(API_VARIETY, 'crop-variety'),
-        loadSelectOptions(API_PARCEL, 'crop-parcel'),
-        loadSelectOptions(API_EMPLOYEE, 'crop-manager', 'id', 'full_name'),
-        loadSelectOptions(API_SUPPLIER, 'crop-seed-supplier', 'id', 'name')
-    ]);
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('cropModal')).show();
-}
-
-// Limpia feedback visual de errores/éxito en el formulario
-function clearCropFormFeedback() {
-    const form = document.getElementById('crop-form');
-    form.querySelectorAll('.is-invalid, .is-valid').forEach(el => {
-        el.classList.remove('is-invalid', 'is-valid');
-    });
-    const alert = document.getElementById('crop-form-alert');
-    if (alert) alert.remove();
-}
-
-// Muestra feedback visual en el formulario
-function showCropFormFeedback(success, message, fieldErrors = {}) {
-    const form = document.getElementById('crop-form');
-    // Mensaje general
-    let alert = document.getElementById('crop-form-alert');
-    if (!alert) {
-        alert = document.createElement('div');
-        alert.id = 'crop-form-alert';
-        form.prepend(alert);
-    }
-    alert.className = `alert ${success ? 'alert-success' : 'alert-danger'} mt-2`;
-    alert.innerText = message;
-    // Campos con error
-    form.querySelectorAll('.is-invalid, .is-valid').forEach(el => {
-        el.classList.remove('is-invalid', 'is-valid');
-    });
-    Object.entries(fieldErrors).forEach(([field, msg]) => {
-        const input = form.querySelector(`[name="${field}"]`);
-        if (input) {
-            input.classList.add('is-invalid');
-            let feedback = input.nextElementSibling;
-            if (!feedback || !feedback.classList.contains('invalid-feedback')) {
-                feedback = document.createElement('div');
-                feedback.className = 'invalid-feedback';
-                input.parentNode.insertBefore(feedback, input.nextSibling);
-            }
-            feedback.innerText = Array.isArray(msg) ? msg.join(', ') : msg;
-        }
-    });
-}
-// --- ENVÍO DEL FORMULARIO DE CULTIVO POR POST ---
-async function submitCropForm(event) {
-    event.preventDefault();
-    clearCropFormFeedback();
-    const form = event.target;
-    const formData = new FormData(form);
-    // Si hay campo de imagen, incluirlo
-    let body;
-    let headers = { 'Authorization': `Bearer ${token}` };
-    if (form.querySelector('input[type="file"]')) {
-        body = formData;
-    } else {
-        // Convierte a JSON
-        body = {};
-        formData.forEach((v, k) => { body[k] = v; });
-        headers['Content-Type'] = 'application/json';
-        body = JSON.stringify(body);
-    }
+    document.getElementById('cropModalLabel').textContent = 'Nuevo Cultivo';
+    document.getElementById('crop-no-parcel-banner').classList.add('d-none');
+    document.getElementById('crop-variety-hint').classList.add('d-none');
     try {
-        let url = API_CROP;
-        let method = 'POST';
-        const editId = form.getAttribute('data-edit-id');
-        if (editId) {
-            url = `${API_CROP}${editId}/`;
-            method = 'PUT';
+        const [typesRes, parcelsRes, employeesRes, suppliersRes] = await Promise.all([
+            apiFetch(`${API_BASE}types/`),
+            apiFetch(API_PARCELS),
+            apiFetch(API_EMPLOYEES).catch(() => null),
+            apiFetch(API_SUPPLIERS).catch(() => null),
+        ]);
+        const [types, parcels, employees, suppliers] = await Promise.all([
+            typesRes.json(),
+            parcelsRes.json(),
+            employeesRes  ? employeesRes.json().catch(() => []) : Promise.resolve([]),
+            suppliersRes  ? suppliersRes.json().catch(() => []) : Promise.resolve([]),
+        ]);
+        populateSelect('crop-type',         extractList(types),     'id', 'name',      'crop-type-hint',     '⚠ Sin tipos. Usa + para agregar.');
+        populateSelect('crop-variety',       [],                     'id', 'name',      'crop-variety-hint',  'Selecciona primero el tipo para ver variedades.', null, false);
+        populateSelect('crop-parcel',        extractList(parcels),   'id', 'name',      'crop-parcel-hint',   '⚠ Sin parcelas.', '/templates/parcels/parcels-dashboard.html');
+        populateSelect('crop-manager',       extractList(employees), 'id', 'full_name', 'crop-manager-hint',  '⚠ Sin empleados. Usa + para agregar.');
+        populateSelect('crop-seed-supplier', extractList(suppliers), 'id', 'name',      'crop-supplier-hint', '⚠ Sin proveedores. Usa + para agregar.');
+        if (!extractList(parcels).length) {
+            document.getElementById('crop-no-parcel-banner').classList.remove('d-none');
         }
-        const resp = await fetch(url, {
-            method,
-            headers,
-            body
-        });
-        const data = await resp.json();
-        if (resp.ok) {
-            showCropFormFeedback(true, editId ? '¡Cultivo actualizado!' : '¡Cultivo guardado exitosamente!');
-            setTimeout(() => {
-                bootstrap.Modal.getOrCreateInstance(document.getElementById('cropModal')).hide();
-                loadCropTable();
-            }, 1200);
-        } else {
-            // Errores de validación
-            showCropFormFeedback(false, 'Error al guardar el cultivo', data);
+        document.getElementById('crop-variety-hint').classList.remove('d-none');
+    } catch (e) { if (e.message !== 'session_expired') console.error('Error opciones modal:', e); }
+    if (!editingCropId) getCropModal().show();
+}
+
+function extractList(data) {
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.results)) return data.results;
+    return [];
+}
+
+function populateSelect(selectId, items, valueKey, labelKey, hintId, emptyHint, linkHref, showHintOnEmpty = true) {
+    const sel  = document.getElementById(selectId);
+    const hint = hintId ? document.getElementById(hintId) : null;
+    if (!sel) return;
+    sel.innerHTML = '';
+    if (!items.length) {
+        const opt = document.createElement('option');
+        opt.value = ''; opt.textContent = '— Sin opciones —'; sel.appendChild(opt);
+        if (hint && emptyHint && showHintOnEmpty) {
+            hint.innerHTML = linkHref ? `${emptyHint} <a href="${linkHref}">Ir →</a>` : emptyHint;
+            hint.classList.remove('d-none');
         }
-        form.removeAttribute('data-edit-id');
-        document.getElementById('cropModalLabel').textContent = 'Nuevo Cultivo';
-    } catch (e) {
-        showCropFormFeedback(false, 'Error de conexión');
+        return;
     }
+    if (hint) hint.classList.add('d-none');
+    const blankOpt = document.createElement('option');
+    blankOpt.value = ''; blankOpt.textContent = '— Seleccionar —'; sel.appendChild(blankOpt);
+    items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item[valueKey];
+        opt.textContent = item[labelKey] || `${item.first_name||''} ${item.last_name||''}`.trim() || String(item.id);
+        sel.appendChild(opt);
+    });
 }
 
-// --- TOAST VISUAL ---
-function showToast(msg, type = 'info') {
-    // Requiere un div con id="main-toast" en el template
-    const toast = document.getElementById('main-toast');
-    if (!toast) return;
-    toast.textContent = msg;
-    toast.className = `toast align-items-center text-bg-${type} show`;
-    setTimeout(() => toast.classList.remove('show'), 3000);
-}
-
-async function loadSelectOptions(url, selectId, valueField = 'id', textField = 'name') {
-    const select = document.getElementById(selectId);
-    select.innerHTML = '<option value="">Selecciona...</option>';
+async function loadVarieties(cropTypeId) {
+    const sel  = document.getElementById('crop-variety');
+    const hint = document.getElementById('crop-variety-hint');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">Cargando...</option>';
     try {
-        const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (!resp.ok) {
-            select.innerHTML = '<option value="">Error de conexión o tenant</option>';
-            return;
-        }
-        let data = await resp.json();
-        console.log('Cargando select:', selectId, 'URL:', url, 'Respuesta:', data);
-        // Soporta respuesta paginada (DRF), array directo o respuesta con clave 'parcels'
-        if (data && data.results && Array.isArray(data.results)) {
-            data = data.results;
-        } else if (data && data.parcels && Array.isArray(data.parcels)) {
-            data = data.parcels;
-        }
-        if (!Array.isArray(data) || data.length === 0) {
-            select.innerHTML = '<option value="">No hay datos disponibles</option>';
-            return;
-        }
-        data.forEach(item => {
-            select.innerHTML += `<option value="${item[valueField]}">${item[textField]}</option>`;
-        });
+        const res      = await apiFetch(`${API_VARIETY}?crop_type=${cropTypeId}`);
+        const data     = await res.json();
+        const varieties = extractList(data);
+        populateSelect('crop-variety', varieties, 'id', 'name', 'crop-variety-hint', '⚠ Sin variedades. Usa + para agregar.');
+        if (hint) hint.classList.toggle('d-none', varieties.length > 0);
     } catch (e) {
-        select.innerHTML = '<option value="">Error</option>';
+        if (e.message !== 'session_expired') { if (sel) sel.innerHTML = '<option value="">Error al cargar</option>'; }
     }
 }
+
+async function saveCrop(e) {
+    e.preventDefault();
+    const formData = new FormData(document.getElementById('crop-form'));
+    const body = {};
+    for (const [key, val] of formData.entries()) { if (key !== 'image' && val !== '') body[key] = val; }
+    const url    = editingCropId ? `${API_BASE}crops/${editingCropId}/` : `${API_BASE}crops/`;
+    const method = editingCropId ? 'PUT' : 'POST';
+    try {
+        const res = await apiFetch(url, { method, body: JSON.stringify(body) });
+        if (res.ok) { getCropModal().hide(); editingCropId = null; loadCropTable(); }
+        else { const err = await res.json().catch(() => ({})); alert('Error al guardar: ' + JSON.stringify(err)); }
+    } catch (e) { if (e.message !== 'session_expired') alert('Error de red al guardar.'); }
+}
+
+// ─── Mini-modal: Tipo ────────────────────────────────────────────────────────
+function openAddTypeModal() {
+    document.getElementById('new-type-name').value = '';
+    document.getElementById('new-type-desc').value  = '';
+    getAddTypeModal().show();
+}
+async function saveNewType() {
+    const name = document.getElementById('new-type-name').value.trim();
+    if (!name) { alert('Nombre obligatorio.'); return; }
+    try {
+        const res = await apiFetch(`${API_BASE}types/`, {
+            method: 'POST',
+            body: JSON.stringify({ name, description: document.getElementById('new-type-desc').value.trim() })
+        });
+        if (res.ok) {
+            const tipo = await res.json();
+            getAddTypeModal().hide();
+            const sel = document.getElementById('crop-type');
+            const opt = document.createElement('option'); opt.value = tipo.id; opt.textContent = tipo.name;
+            sel.appendChild(opt); sel.value = tipo.id;
+            sel.dispatchEvent(new Event('change'));
+        } else { const err = await res.json().catch(() => ({})); alert('Error: ' + JSON.stringify(err)); }
+    } catch (e) { if (e.message !== 'session_expired') alert('Error de red.'); }
+}
+
+// ─── Mini-modal: Variedad ────────────────────────────────────────────────────
+function openAddVarietyModal() {
+    const typeId = document.getElementById('crop-type').value;
+    if (!typeId) { alert('Selecciona primero el tipo de cultivo.'); return; }
+    document.getElementById('add-variety-type-label').textContent = 'Para: ' + (document.getElementById('crop-type').selectedOptions[0]?.text || '');
+    document.getElementById('new-variety-name').value = '';
+    document.getElementById('new-variety-days').value  = '';
+    getAddVarietyModal().show();
+}
+async function saveNewVariety() {
+    const typeId = document.getElementById('crop-type').value;
+    const name   = document.getElementById('new-variety-name').value.trim();
+    const days   = document.getElementById('new-variety-days').value;
+    if (!name) { alert('Nombre obligatorio.'); return; }
+    try {
+        const res = await apiFetch(API_VARIETY, {
+            method: 'POST',
+            body: JSON.stringify({ name, crop_type: parseInt(typeId), cycle_days: days || null })
+        });
+        if (res.ok) {
+            const v = await res.json();
+            getAddVarietyModal().hide();
+            const sel = document.getElementById('crop-variety');
+            const opt = document.createElement('option'); opt.value = v.id; opt.textContent = v.name;
+            sel.appendChild(opt); sel.value = v.id;
+        } else { const err = await res.json().catch(() => ({})); alert('Error: ' + JSON.stringify(err)); }
+    } catch (e) { if (e.message !== 'session_expired') alert('Error de red.'); }
+}
+
+// ─── Mini-modal: Empleado ────────────────────────────────────────────────────
+function openAddEmployeeModal() {
+    ['new-emp-id','new-emp-fname','new-emp-lname','new-emp-addr','new-emp-phone','new-emp-hire'].forEach(id => { document.getElementById(id).value = ''; });
+    getAddEmployeeModal().show();
+}
+async function saveNewEmployee() {
+    const body = {
+        identification_number: document.getElementById('new-emp-id').value.trim(),
+        first_name: document.getElementById('new-emp-fname').value.trim(),
+        last_name: document.getElementById('new-emp-lname').value.trim(),
+        address: document.getElementById('new-emp-addr').value.trim(),
+        phone: document.getElementById('new-emp-phone').value.trim(),
+        date_of_hire: document.getElementById('new-emp-hire').value,
+    };
+    if (!body.identification_number || !body.first_name || !body.last_name) { alert('Cédula, nombre y apellido obligatorios.'); return; }
+    try {
+        const res = await apiFetch(API_EMPLOYEES, { method: 'POST', body: JSON.stringify(body) });
+        if (res.ok) {
+            const emp = await res.json();
+            getAddEmployeeModal().hide();
+            const sel = document.getElementById('crop-manager');
+            const opt = document.createElement('option'); opt.value = emp.id; opt.textContent = `${emp.first_name} ${emp.last_name}`;
+            sel.appendChild(opt); sel.value = emp.id;
+        } else { const err = await res.json().catch(() => ({})); alert('Error: ' + JSON.stringify(err)); }
+    } catch (e) { if (e.message !== 'session_expired') alert('Error de red.'); }
+}
+
+// ─── Mini-modal: Proveedor ───────────────────────────────────────────────────
+function openAddSupplierModal() {
+    ['new-supplier-name','new-supplier-phone','new-supplier-email'].forEach(id => { document.getElementById(id).value = ''; });
+    getAddSupplierModal().show();
+}
+async function saveNewSupplier() {
+    const body = {
+        name: document.getElementById('new-supplier-name').value.trim(),
+        phone: document.getElementById('new-supplier-phone').value.trim(),
+        email: document.getElementById('new-supplier-email').value.trim(),
+    };
+    if (!body.name) { alert('Nombre obligatorio.'); return; }
+    try {
+        const res = await apiFetch(API_SUPPLIERS, { method: 'POST', body: JSON.stringify(body) });
+        if (res.ok) {
+            const s = await res.json();
+            getAddSupplierModal().hide();
+            const sel = document.getElementById('crop-seed-supplier');
+            const opt = document.createElement('option'); opt.value = s.id; opt.textContent = s.name;
+            sel.appendChild(opt); sel.value = s.id;
+        } else { const err = await res.json().catch(() => ({})); alert('Error: ' + JSON.stringify(err)); }
+    } catch (e) { if (e.message !== 'session_expired') alert('Error de red.'); }
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    loadCropTable();
+    document.getElementById('btn-new-crop')?.addEventListener('click', () => { editingCropId = null; showCropModal(); });
+    document.getElementById('btn-new-crop-empty')?.addEventListener('click', () => { editingCropId = null; showCropModal(); });
+    document.getElementById('crop-form')?.addEventListener('submit', saveCrop);
+    document.getElementById('crop-type')?.addEventListener('change', (e) => {
+        if (e.target.value) loadVarieties(e.target.value);
+        else {
+            populateSelect('crop-variety', [], 'id', 'name', 'crop-variety-hint', 'Selecciona primero el tipo.', null, true);
+            document.getElementById('crop-variety-hint').classList.remove('d-none');
+        }
+    });
+    document.getElementById('btn-add-type')?    .addEventListener('click', openAddTypeModal);
+    document.getElementById('btn-add-variety')?.addEventListener('click', openAddVarietyModal);
+    document.getElementById('btn-add-employee')?.addEventListener('click', openAddEmployeeModal);
+    document.getElementById('btn-add-supplier')?.addEventListener('click', openAddSupplierModal);
+    document.getElementById('btn-save-type')?    .addEventListener('click', saveNewType);
+    document.getElementById('btn-save-variety')?.addEventListener('click', saveNewVariety);
+    document.getElementById('btn-save-employee')?.addEventListener('click', saveNewEmployee);
+    document.getElementById('btn-save-supplier')?.addEventListener('click', saveNewSupplier);
+});
+
+window.showCropDetail = showCropDetail;
+window.editCrop       = editCrop;
+window.deleteCrop     = deleteCrop;
