@@ -106,25 +106,32 @@ class StaffMetricsAPI(APIView):
                 or Decimal("0")
             )
             revenue_history.append(
-                {"month": m_start.strftime("%b %Y"), "revenue_cop": float(rev)}
+                {"month": m_start.strftime("%b %Y"), "revenue": float(rev)}
             )
 
         # ── Distribución por plan ─────────────────────────────────
-        by_plan = list(
-            Subscription.objects.filter(status__in=["active", "trialing"])
+        by_plan = [
+            {"plan": row["plan__name"], "tier": row["plan__tier"], "count": row["count"]}
+            for row in Subscription.objects.filter(status__in=["active", "trialing"])
             .values("plan__name", "plan__tier")
             .annotate(count=Count("id"))
             .order_by("-count")
-        )
+        ]
 
         # ── Últimos 25 eventos ────────────────────────────────────
-        events = list(
+        events_qs = list(
             BillingEvent.objects.select_related("tenant")
             .order_by("-created_at")[:25]
-            .values("created_at", "tenant__name", "event_type", "data")
+            .values("created_at", "tenant__name", "event_type", "event_data")
         )
-        for e in events:
-            e["created_at"] = e["created_at"].strftime("%Y-%m-%d %H:%M")
+        events = []
+        for e in events_qs:
+            events.append({
+                "created_at": e["created_at"].strftime("%Y-%m-%d %H:%M"),
+                "tenant": e["tenant__name"] or "—",
+                "event_type": e["event_type"],
+                "description": (e.get("event_data") or {}).get("description") or e["event_type"].replace("_", " ").capitalize(),
+            })
 
         # ── Top consumo EOSDA este mes ────────────────────────────
         top_usage = list(
@@ -140,38 +147,45 @@ class StaffMetricsAPI(APIView):
             )
         )
 
-        # ── Facturas recientes ────────────────────────────────────
-        recent_invoices = list(
-            Invoice.objects.select_related("tenant", "subscription__plan")
-            .order_by("-invoice_date")[:15]
-            .values(
-                "invoice_number",
-                "tenant__name",
-                "total",
-                "currency",
-                "status",
-                "invoice_date",
-                "paid_at",
-                "subscription__plan__name",
-            )
+        # ── Total usuarios y parcelas (suma de métricas del mes) ───
+        usage_totals = UsageMetrics.objects.filter(
+            year=now.year, month=now.month
+        ).aggregate(
+            total_users=Sum("users_count"),
+            total_parcels=Sum("parcels_count"),
         )
-        for inv in recent_invoices:
-            if inv["invoice_date"]:
-                inv["invoice_date"] = str(inv["invoice_date"])
-            if inv["paid_at"]:
-                inv["paid_at"] = inv["paid_at"].strftime("%Y-%m-%d %H:%M")
+        total_users = usage_totals["total_users"] or 0
+        total_parcels = usage_totals["total_parcels"] or 0
+
+        # ── Facturas recientes ────────────────────────────────────
+        recent_invoices = []
+        for inv in Invoice.objects.select_related("tenant", "subscription__plan").order_by("-invoice_date")[:15]:
+            recent_invoices.append({
+                "invoice_number": inv.invoice_number,
+                "tenant": inv.tenant.name if inv.tenant else "—",
+                "plan": inv.subscription.plan.name if (inv.subscription and inv.subscription.plan) else "—",
+                "amount": float(inv.total),
+                "currency": inv.currency,
+                "status": inv.status,
+                "period": str(inv.invoice_date) if inv.invoice_date else "—",
+                "paid_at": inv.paid_at.strftime("%Y-%m-%d") if inv.paid_at else None,
+            })
 
         return Response(
             {
                 "kpis": {
                     "total_tenants": total_tenants,
+                    "active_tenants": total_tenants,
                     "new_this_month": new_this_month,
-                    "active_subs": active,
+                    "active_subscriptions": active,
                     "trialing_subs": trialing,
                     "canceled_subs": canceled,
                     "past_due_subs": past_due,
+                    "mrr": float(mrr),
                     "mrr_cop": float(mrr),
-                    "revenue_this_month_cop": float(revenue_month),
+                    "revenue_this_month": float(revenue_month),
+                    "total_users": total_users,
+                    "total_parcels": total_parcels,
                 },
                 "revenue_history": revenue_history,
                 "by_plan": by_plan,
@@ -214,23 +228,36 @@ class StaffTenantsAPI(APIView):
                     tenant=t, year=now.year, month=now.month
                 ).first()
             )
+            # Dominio (django-tenants Domain model)
+            try:
+                domain = t.get_primary_domain().domain if hasattr(t, "get_primary_domain") else ""
+            except Exception:
+                domain_qs = t.domains.first()
+                domain = domain_qs.domain if domain_qs else t.schema_name
+            # Último pago
+            last_invoice = Invoice.objects.filter(tenant=t, status="paid").order_by("-paid_at").first()
+            sub_status = sub.status if sub else "no_sub"
             data.append(
                 {
                     "id": t.id,
-                    "name": t.name,
+                    "name": t.name or t.schema_name,
                     "schema": t.schema_name,
+                    "domain": domain,
                     "created": t.created_on.strftime("%Y-%m-%d"),
                     "paid_until": (
                         t.paid_until.strftime("%Y-%m-%d") if t.paid_until else None
                     ),
-                    "plan": sub.plan.name if sub else "Sin plan",
-                    "tier": sub.plan.tier if sub else "—",
-                    "status": sub.status if sub else "no_sub",
+                    "plan": sub.plan.name if sub and sub.plan else "Starter",
+                    "tier": sub.plan.tier if sub and sub.plan else "starter",
+                    "status": sub_status,
+                    "is_active": sub_status == "active",
+                    "on_trial": sub_status == "trialing",
                     "gateway": sub.payment_gateway if sub else "—",
                     "eosda_requests": usage.eosda_requests if usage else 0,
                     "hectares_used": float(usage.hectares_used) if usage else 0,
-                    "parcels_count": usage.parcels_count if usage else 0,
-                    "users_count": usage.users_count if usage else 0,
+                    "parcel_count": usage.parcels_count if usage else 0,
+                    "user_count": usage.users_count if usage else 0,
+                    "last_payment": last_invoice.paid_at.strftime("%Y-%m-%d") if last_invoice and last_invoice.paid_at else None,
                 }
             )
 
