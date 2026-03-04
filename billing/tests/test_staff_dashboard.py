@@ -79,8 +79,7 @@ class TestStaffViewsImport:
     """Verifica que las vistas se importan correctamente."""
 
     def test_views_importable(self):
-        from billing.views_staff import StaffDashboardHTML, StaffMetricsAPI, StaffTenantsAPI
-        assert StaffDashboardHTML is not None
+        from billing.views_staff import StaffMetricsAPI, StaffTenantsAPI
         assert StaffMetricsAPI is not None
         assert StaffTenantsAPI is not None
 
@@ -101,14 +100,15 @@ class TestStaffViewsImport:
     def test_urls_importable(self):
         from billing import urls_staff
         assert hasattr(urls_staff, "urlpatterns")
-        assert len(urls_staff.urlpatterns) == 3
+        assert len(urls_staff.urlpatterns) == 2  # solo API: metrics + tenants
 
     def test_urls_have_correct_names(self):
         from billing.urls_staff import urlpatterns
         names = {p.name for p in urlpatterns}
-        assert "staff_dashboard" in names
         assert "staff_metrics" in names
         assert "staff_tenants" in names
+        # El HTML vive en el frontend (Netlify), no en el backend
+        assert "staff_dashboard" not in names
 
 
 # ──────────────────────────────────────────────────────────────
@@ -349,72 +349,6 @@ class TestStaffTenantsAPIUnit:
             required = ["id", "name", "schema", "plan", "tier", "status", "eosda_requests"]
             for f in required:
                 assert f in tenant, f"Campo faltante en tenant: {f}"
-
-
-# ──────────────────────────────────────────────────────────────
-# UNIT TESTS — HTML Dashboard
-# ──────────────────────────────────────────────────────────────
-
-@pytest.mark.unit
-class TestStaffDashboardHTML:
-    """Tests para la vista HTML del dashboard."""
-
-    def test_dashboard_html_renders(self):
-        """La vista HTML devuelve 200 sin necesidad de autenticación."""
-        from billing.views_staff import StaffDashboardHTML
-        from django.test import RequestFactory
-
-        rf = RequestFactory()
-        request = rf.get("/staff/")
-        # La vista HTML no requiere autenticación (el JS maneja el login)
-        with patch("billing.views_staff.render") as mock_render:
-            mock_render.return_value = MagicMock(status_code=200)
-            response = StaffDashboardHTML(request)
-        mock_render.assert_called_once_with(request, "staff/dashboard.html")
-        assert response.status_code == 200
-
-    def test_template_file_exists(self):
-        """El archivo de template existe en el disco."""
-        import os
-        template_path = os.path.join(
-            os.path.dirname(__file__),
-            "..", "..", "metrica", "templates", "staff", "dashboard.html"
-        )
-        assert os.path.exists(os.path.normpath(template_path)), \
-            "metrica/templates/staff/dashboard.html no existe"
-
-    def test_template_contains_chart_js(self):
-        """El template incluye Chart.js para las gráficas."""
-        import os
-        template_path = os.path.normpath(os.path.join(
-            os.path.dirname(__file__),
-            "..", "..", "metrica", "templates", "staff", "dashboard.html"
-        ))
-        with open(template_path) as f:
-            content = f.read()
-        assert "chart.js" in content.lower()
-
-    def test_template_contains_login_form(self):
-        """El template incluye el formulario de login."""
-        import os
-        template_path = os.path.normpath(os.path.join(
-            os.path.dirname(__file__),
-            "..", "..", "metrica", "templates", "staff", "dashboard.html"
-        ))
-        with open(template_path) as f:
-            content = f.read()
-        assert "login-form" in content
-
-    def test_template_contains_kpi_grid(self):
-        """El template incluye la grilla de KPIs."""
-        import os
-        template_path = os.path.normpath(os.path.join(
-            os.path.dirname(__file__),
-            "..", "..", "metrica", "templates", "staff", "dashboard.html"
-        ))
-        with open(template_path) as f:
-            content = f.read()
-        assert "kpi-grid" in content
 
 
 # ──────────────────────────────────────────────────────────────

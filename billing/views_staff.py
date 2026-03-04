@@ -2,15 +2,17 @@
 Panel de Control del Operador SaaS — AgroTech Digital
 Acceso exclusivo para is_staff=True / is_superuser=True.
 
+Este módulo solo expone endpoints JSON (API REST).
+El HTML del panel vive en el frontend (agrotech-client-frontend).
+
 Rutas (public schema, sin tenant):
-  GET  /staff/              → HTML del dashboard
-  GET  /staff/api/metrics/  → KPIs, ingresos, eventos   (JSON, JWT o sesión)
-  GET  /staff/api/tenants/  → Lista completa de tenants  (JSON, JWT o sesión)
+  GET  /staff/api/metrics/  → KPIs, ingresos, eventos   (JSON, JWT Bearer)
+  GET  /staff/api/tenants/  → Lista completa de tenants  (JSON, JWT Bearer)
 """
 
+import calendar as _calendar
 from decimal import Decimal
 
-from django.shortcuts import render
 from django.utils import timezone
 from django.db.models import Count, Sum
 
@@ -22,15 +24,6 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from base_agrotech.models import Client
 from billing.models import BillingEvent, Invoice, Plan, Subscription, UsageMetrics
-
-
-# ──────────────────────────────────────────────
-# HTML View (sin autenticación; JS maneja el login)
-# ──────────────────────────────────────────────
-
-def StaffDashboardHTML(request):
-    """Sirve la SPA del panel de control."""
-    return render(request, "staff/dashboard.html")
 
 
 # ──────────────────────────────────────────────

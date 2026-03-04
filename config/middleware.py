@@ -47,6 +47,9 @@ class SmartTenantMiddleware(TenantMainMiddleware):
     PUBLIC_PATH_PREFIXES = [
         '/api/auth/',
         '/api/token/',
+        '/billing/',
+        '/health/',
+        '/staff/',
     ]
     
     # Hostnames que deben usar ROOT_URLCONF completo en desarrollo
