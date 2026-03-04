@@ -14,14 +14,17 @@ def health_check(request):
 
 urlpatterns = [
     path('health/', health_check, name='health'),
-    
+
     # 🔹 Autenticación JWT - NO requiere tenant
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    
+
     # 🔹 Auth completo (register, login, me) - NO requiere tenant
     path("api/auth/", include("authentication.urls")),
-    
+
     # 🔹 Billing público (planes, webhooks) - NO requiere tenant
     path("billing/", include("billing.urls", namespace="billing")),
+
+    # 🔹 Panel de control del operador (staff/superuser) - NO requiere tenant
+    path("staff/", include("billing.urls_staff")),
 ]

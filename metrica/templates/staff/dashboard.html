@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AgroTech · Panel Operador</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --agro-green: #2d7a3a;
+      --agro-light: #e8f5e9;
+      --agro-dark: #1b5e20;
+      --agro-accent: #43a047;
+      --sidebar-w: 220px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f4f0; color: #222; }
+
+    /* ── Login ───────────────────────────────────── */
+    #login-screen {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #1b5e20 0%, #2d7a3a 50%, #43a047 100%);
+    }
+    .login-card {
+      background: white; border-radius: 16px; padding: 2.5rem 2rem;
+      width: 100%; max-width: 400px; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    }
+    .login-card .logo { font-size: 2rem; font-weight: 800; color: var(--agro-green); letter-spacing: -1px; }
+    .login-card .subtitle { color: #666; font-size: .9rem; margin-top: .25rem; margin-bottom: 1.75rem; }
+
+    /* ── App shell ───────────────────────────────── */
+    #app { display: none; min-height: 100vh; }
+
+    .sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; width: var(--sidebar-w);
+      background: var(--agro-dark); color: white; z-index: 100; overflow-y: auto;
+      display: flex; flex-direction: column;
+    }
+    .sidebar-brand {
+      padding: 1.5rem 1.25rem .75rem;
+      font-size: 1.1rem; font-weight: 800; letter-spacing: -.5px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+    }
+    .sidebar-brand small { display: block; font-size: .68rem; font-weight: 400; opacity: .7; letter-spacing: .5px; text-transform: uppercase; margin-top: .1rem; }
+    .sidebar nav { padding: .75rem 0; flex: 1; }
+    .nav-link-s {
+      display: flex; align-items: center; gap: .65rem;
+      padding: .6rem 1.25rem; color: rgba(255,255,255,.75);
+      text-decoration: none; font-size: .88rem; cursor: pointer;
+      border-left: 3px solid transparent; transition: all .15s;
+    }
+    .nav-link-s:hover, .nav-link-s.active {
+      color: white; background: rgba(255,255,255,.1); border-left-color: #81c784;
+    }
+    .nav-link-s i { font-size: 1.05rem; width: 1.2rem; text-align: center; }
+    .sidebar-footer {
+      padding: 1rem 1.25rem; border-top: 1px solid rgba(255,255,255,.12);
+      font-size: .78rem; opacity: .65;
+    }
+
+    .main-content { margin-left: var(--sidebar-w); padding: 1.75rem 2rem; }
+
+    .topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 1.75rem;
+    }
+    .topbar h1 { font-size: 1.45rem; font-weight: 700; color: #1b3a20; }
+    .topbar .user-badge {
+      display: flex; align-items: center; gap: .5rem;
+      background: white; border-radius: 50px; padding: .4rem .9rem;
+      font-size: .82rem; box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    }
+
+    /* ── KPI Cards ───────────────────────────────── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1.1rem; margin-bottom: 1.75rem;
+    }
+    .kpi-card {
+      background: white; border-radius: 12px; padding: 1.1rem 1.25rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,.06); border-top: 3px solid var(--agro-accent);
+      transition: transform .15s;
+    }
+    .kpi-card:hover { transform: translateY(-2px); }
+    .kpi-card.red  { border-top-color: #e53935; }
+    .kpi-card.blue { border-top-color: #1e88e5; }
+    .kpi-card.gold { border-top-color: #f9a825; }
+    .kpi-card .label { font-size: .72rem; color: #888; text-transform: uppercase; letter-spacing: .5px; }
+    .kpi-card .value { font-size: 1.85rem; font-weight: 800; color: #1b3a20; line-height: 1.1; margin-top: .25rem; }
+    .kpi-card .sub   { font-size: .75rem; color: #aaa; margin-top: .15rem; }
+
+    /* ── Charts row ──────────────────────────────── */
+    .charts-row { display: grid; grid-template-columns: 2fr 1fr; gap: 1.25rem; margin-bottom: 1.75rem; }
+    .chart-card {
+      background: white; border-radius: 12px; padding: 1.25rem;
+      box-shadow: 0 2px 10px rgba(0,0,0,.06);
+    }
+    .chart-card h6 { font-size: .8rem; color: #888; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 1rem; }
+
+    /* ── Section pages ───────────────────────────── */
+    .section-page { display: none; }
+    .section-page.active { display: block; }
+
+    /* ── Tables ──────────────────────────────────── */
+    .data-card {
+      background: white; border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.06); overflow: hidden;
+    }
+    .data-card-header {
+      padding: .9rem 1.25rem; border-bottom: 1px solid #f0f0f0;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .data-card-header h6 { font-size: .87rem; font-weight: 700; color: #1b3a20; margin: 0; }
+    .data-card table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+    .data-card th {
+      padding: .65rem 1rem; background: #f7faf7; color: #555;
+      font-weight: 600; text-align: left; font-size: .72rem;
+      text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid #eee;
+    }
+    .data-card td { padding: .6rem 1rem; border-bottom: 1px solid #f5f5f5; vertical-align: middle; }
+    .data-card tr:last-child td { border-bottom: none; }
+    .data-card tr:hover td { background: #f9fef9; }
+
+    /* ── Badges ──────────────────────────────────── */
+    .badge-status {
+      display: inline-block; border-radius: 50px; padding: .2rem .65rem;
+      font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .3px;
+    }
+    .s-active   { background: #e8f5e9; color: #2e7d32; }
+    .s-trialing { background: #e3f2fd; color: #1565c0; }
+    .s-canceled { background: #fce4ec; color: #b71c1c; }
+    .s-past_due { background: #fff3e0; color: #e65100; }
+    .s-no_sub   { background: #f5f5f5; color: #757575; }
+    .s-paid     { background: #e8f5e9; color: #2e7d32; }
+    .s-open     { background: #fff8e1; color: #f57f17; }
+    .s-draft    { background: #f5f5f5; color: #616161; }
+
+    /* ── Event type pills ────────────────────────── */
+    .ev-pill {
+      display: inline-block; border-radius: 4px; padding: .18rem .55rem;
+      font-size: .68rem; font-weight: 600; letter-spacing: .2px;
+    }
+    .ev-created    { background: #c8e6c9; color: #1b5e20; }
+    .ev-paid       { background: #bbdefb; color: #0d47a1; }
+    .ev-canceled   { background: #ffcdd2; color: #b71c1c; }
+    .ev-failed     { background: #ffe0b2; color: #bf360c; }
+    .ev-upgraded   { background: #f3e5f5; color: #4a148c; }
+    .ev-trial      { background: #e0f7fa; color: #006064; }
+    .ev-other      { background: #f5f5f5; color: #444; }
+
+    /* ── Misc ────────────────────────────────────── */
+    .search-bar { max-width: 280px; }
+    .empty-state { padding: 2.5rem; text-align: center; color: #bbb; font-size: .88rem; }
+    #refresh-btn { cursor: pointer; }
+    .spinner-wrap { display: flex; align-items: center; justify-content: center; min-height: 300px; }
+    #error-toast {
+      position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 9999;
+      background: #c62828; color: white; border-radius: 8px;
+      padding: .75rem 1.25rem; font-size: .85rem;
+      display: none; box-shadow: 0 4px 16px rgba(0,0,0,.3);
+    }
+  </style>
+</head>
+<body>
+
+<!-- ──────── LOGIN ──────── -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="logo">🌱 AgroTech</div>
+    <div class="subtitle">Panel de Control · Solo Operadores</div>
+    <div id="login-error" class="alert alert-danger d-none py-2 mb-3" role="alert"></div>
+    <form id="login-form">
+      <div class="mb-3">
+        <label class="form-label fw-semibold" style="font-size:.85rem">Correo electrónico</label>
+        <input type="email" id="l-email" class="form-control" placeholder="admin@agrotech.co" required />
+      </div>
+      <div class="mb-4">
+        <label class="form-label fw-semibold" style="font-size:.85rem">Contraseña</label>
+        <input type="password" id="l-pass" class="form-control" placeholder="••••••••" required />
+      </div>
+      <button type="submit" class="btn w-100 text-white fw-bold"
+              style="background:var(--agro-green); padding:.65rem">
+        <span id="login-spinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+        Ingresar al Panel
+      </button>
+    </form>
+  </div>
+</div>
+
+<!-- ──────── APP ──────── -->
+<div id="app">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">🌱 AgroTech<small>Panel Operador</small></div>
+    <nav>
+      <a class="nav-link-s active" data-section="overview" onclick="showSection('overview', this)">
+        <i class="bi bi-speedometer2"></i> Resumen
+      </a>
+      <a class="nav-link-s" data-section="tenants" onclick="showSection('tenants', this)">
+        <i class="bi bi-buildings"></i> Tenants
+      </a>
+      <a class="nav-link-s" data-section="invoices" onclick="showSection('invoices', this)">
+        <i class="bi bi-receipt"></i> Facturas
+      </a>
+      <a class="nav-link-s" data-section="events" onclick="showSection('events', this)">
+        <i class="bi bi-activity"></i> Eventos
+      </a>
+      <a class="nav-link-s" data-section="usage" onclick="showSection('usage', this)">
+        <i class="bi bi-bar-chart-line"></i> Uso &amp; API
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div id="sidebar-user">—</div>
+      <div class="mt-2">
+        <a href="#" onclick="logout()" style="color:#ef9a9a;font-size:.78rem;text-decoration:none;">
+          <i class="bi bi-box-arrow-left"></i> Cerrar sesión
+        </a>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main-content">
+    <div class="topbar">
+      <h1 id="section-title">Resumen General</h1>
+      <div class="d-flex gap-2 align-items-center">
+        <span id="last-updated" style="font-size:.75rem;color:#aaa;"></span>
+        <button class="btn btn-sm btn-outline-secondary" id="refresh-btn" onclick="loadDashboard()">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── OVERVIEW ───────────────────────────── -->
+    <div id="sec-overview" class="section-page active">
+      <div class="kpi-grid" id="kpi-grid">
+        <div class="spinner-wrap"><div class="spinner-border text-success"></div></div>
+      </div>
+      <div class="charts-row" id="charts-row" style="display:none">
+        <div class="chart-card">
+          <h6><i class="bi bi-graph-up me-1"></i>Ingresos últimos 6 meses (COP)</h6>
+          <canvas id="revenueChart" height="140"></canvas>
+        </div>
+        <div class="chart-card">
+          <h6><i class="bi bi-pie-chart me-1"></i>Tenants activos por plan</h6>
+          <canvas id="planChart" height="140"></canvas>
+        </div>
+      </div>
+      <!-- Recent events (quick view) -->
+      <div class="data-card">
+        <div class="data-card-header">
+          <h6><i class="bi bi-activity me-1"></i>Últimos eventos</h6>
+          <a href="#" onclick="showSection('events', document.querySelector('[data-section=events]'))"
+             style="font-size:.78rem;color:var(--agro-green)">Ver todos →</a>
+        </div>
+        <div id="overview-events-body">
+          <div class="empty-state">Cargando…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── TENANTS ─────────────────────────────── -->
+    <div id="sec-tenants" class="section-page">
+      <div class="d-flex gap-2 mb-3">
+        <input type="search" id="tenant-search" class="form-control search-bar"
+               placeholder="Buscar tenant…" oninput="filterTenants(this.value)" />
+        <button class="btn btn-sm btn-outline-success" onclick="loadTenants()">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+      </div>
+      <div class="data-card">
+        <div class="data-card-header">
+          <h6><i class="bi bi-buildings me-1"></i>Todos los tenants</h6>
+          <span id="tenant-count" style="font-size:.78rem;color:#aaa;"></span>
+        </div>
+        <div id="tenants-body">
+          <div class="empty-state">Cargando…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FACTURAS ────────────────────────────── -->
+    <div id="sec-invoices" class="section-page">
+      <div class="data-card">
+        <div class="data-card-header">
+          <h6><i class="bi bi-receipt me-1"></i>Facturas recientes</h6>
+        </div>
+        <div id="invoices-body">
+          <div class="empty-state">Cargando…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── EVENTOS ─────────────────────────────── -->
+    <div id="sec-events" class="section-page">
+      <div class="data-card">
+        <div class="data-card-header">
+          <h6><i class="bi bi-activity me-1"></i>Historial de eventos de facturación</h6>
+        </div>
+        <div id="events-body">
+          <div class="empty-state">Cargando…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── USO / API ───────────────────────────── -->
+    <div id="sec-usage" class="section-page">
+      <div class="data-card">
+        <div class="data-card-header">
+          <h6><i class="bi bi-bar-chart-line me-1"></i>Top tenants — Uso del mes actual</h6>
+          <span style="font-size:.75rem;color:#aaa" id="usage-month"></span>
+        </div>
+        <div id="usage-body">
+          <div class="empty-state">Cargando…</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="error-toast"></div>
+
+<script>
+// ────────────────────────────────────────────────────────────
+// CONFIG
+// ────────────────────────────────────────────────────────────
+const API_BASE   = window.location.origin;
+const LOGIN_URL  = `${API_BASE}/api/auth/login/`;
+const METRICS_URL= `${API_BASE}/staff/api/metrics/`;
+const TENANTS_URL= `${API_BASE}/staff/api/tenants/`;
+const LS_KEY     = 'agro_staff_token';
+const LS_EMAIL   = 'agro_staff_email';
+
+let _metricsData = null;
+let _tenantsData = [];
+let revenueChart = null;
+let planChart    = null;
+
+// ────────────────────────────────────────────────────────────
+// AUTH
+// ────────────────────────────────────────────────────────────
+function getToken() { return localStorage.getItem(LS_KEY); }
+function setToken(t, email) {
+  localStorage.setItem(LS_KEY, t);
+  if (email) localStorage.setItem(LS_EMAIL, email);
+}
+
+async function login(email, password) {
+  const res = await fetch(LOGIN_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  });
+  if (!res.ok) throw new Error(res.status === 401 ? 'Credenciales incorrectas' : 'Error al iniciar sesión');
+  const data = await res.json();
+  const token = data.access || data.token;
+  if (!token) throw new Error('No se obtuvo token. Verifica que el usuario tenga is_staff=True.');
+  return token;
+}
+
+function logout() {
+  localStorage.removeItem(LS_KEY);
+  localStorage.removeItem(LS_EMAIL);
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+// ────────────────────────────────────────────────────────────
+// FETCH HELPER
+// ────────────────────────────────────────────────────────────
+async function api(url) {
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+  if (res.status === 401 || res.status === 403) {
+    showError('Sesión expirada. Vuelve a iniciar sesión.');
+    logout();
+    return null;
+  }
+  if (!res.ok) throw new Error(`Error ${res.status}`);
+  return res.json();
+}
+
+// ────────────────────────────────────────────────────────────
+// SECTION NAVIGATION
+// ────────────────────────────────────────────────────────────
+const SECTION_TITLES = {
+  overview: 'Resumen General',
+  tenants:  'Gestión de Tenants',
+  invoices: 'Contabilidad · Facturas',
+  events:   'Eventos de Facturación',
+  usage:    'Uso &amp; Consumo de API',
+};
+
+function showSection(name, el) {
+  document.querySelectorAll('.section-page').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-link-s').forEach(a => a.classList.remove('active'));
+  document.getElementById(`sec-${name}`).classList.add('active');
+  if (el) el.classList.add('active');
+  document.getElementById('section-title').innerHTML = SECTION_TITLES[name] || name;
+}
+
+// ────────────────────────────────────────────────────────────
+// LOAD DASHBOARD
+// ────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  document.getElementById('kpi-grid').innerHTML =
+    '<div class="spinner-wrap"><div class="spinner-border text-success"></div></div>';
+  document.getElementById('charts-row').style.display = 'none';
+
+  const data = await api(METRICS_URL);
+  if (!data) return;
+  _metricsData = data;
+
+  renderKPIs(data.kpis);
+  renderCharts(data.revenue_history, data.by_plan);
+  renderOverviewEvents(data.recent_events);
+  renderInvoices(data.recent_invoices);
+  renderEvents(data.recent_events);
+  renderUsage(data.top_usage);
+
+  const now = new Date();
+  document.getElementById('last-updated').textContent =
+    `Actualizado: ${now.toLocaleTimeString('es-CO')}`;
+  document.getElementById('usage-month').textContent =
+    now.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' });
+}
+
+async function loadTenants(search = '') {
+  document.getElementById('tenants-body').innerHTML =
+    '<div class="empty-state">Cargando…</div>';
+  const url = search ? `${TENANTS_URL}?search=${encodeURIComponent(search)}` : TENANTS_URL;
+  const data = await api(url);
+  if (!data) return;
+  _tenantsData = data.tenants;
+  document.getElementById('tenant-count').textContent = `${data.total} tenants`;
+  renderTenants(data.tenants);
+}
+
+function filterTenants(q) {
+  if (q.length === 0) { loadTenants(); return; }
+  if (q.length < 2) return;
+  loadTenants(q);
+}
+
+// ────────────────────────────────────────────────────────────
+// RENDERERS
+// ────────────────────────────────────────────────────────────
+
+function fmt(n, prefix = '$') {
+  if (n == null) return '—';
+  return prefix + Number(n).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+}
+
+function renderKPIs(k) {
+  const cards = [
+    { label: 'Tenants totales',    value: k.total_tenants,              sub: `+${k.new_this_month} este mes`,   cls: '' },
+    { label: 'Suscripciones activas', value: k.active_subs,            sub: `${k.trialing_subs} en prueba`,     cls: '' },
+    { label: 'Atrasados / Past Due',  value: k.past_due_subs,          sub: 'requieren atención',               cls: 'red' },
+    { label: 'MRR (COP)',          value: fmt(k.mrr_cop),               sub: 'suscripciones activas',            cls: 'gold' },
+    { label: 'Ingresos este mes',  value: fmt(k.revenue_this_month_cop), sub: 'facturas pagadas',                cls: 'blue' },
+    { label: 'Cancelados',         value: k.canceled_subs,             sub: 'suscripciones canceladas',         cls: 'red' },
+  ];
+  document.getElementById('kpi-grid').innerHTML = cards.map(c => `
+    <div class="kpi-card ${c.cls}">
+      <div class="label">${c.label}</div>
+      <div class="value">${c.value}</div>
+      <div class="sub">${c.sub}</div>
+    </div>`).join('');
+}
+
+function renderCharts(history, byPlan) {
+  document.getElementById('charts-row').style.display = 'grid';
+
+  // Revenue bar chart
+  if (revenueChart) revenueChart.destroy();
+  revenueChart = new Chart(document.getElementById('revenueChart'), {
+    type: 'bar',
+    data: {
+      labels: history.map(h => h.month),
+      datasets: [{
+        label: 'Ingresos COP',
+        data: history.map(h => h.revenue_cop),
+        backgroundColor: 'rgba(45,122,58,.75)',
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          ticks: {
+            callback: v => '$' + (v/1000).toFixed(0) + 'k',
+            font: { size: 10 }
+          }
+        },
+        x: { ticks: { font: { size: 10 } } }
+      }
+    }
+  });
+
+  // Plan donut
+  if (planChart) planChart.destroy();
+  const COLORS = ['#2d7a3a','#43a047','#66bb6a','#a5d6a7','#c8e6c9','#e8f5e9'];
+  planChart = new Chart(document.getElementById('planChart'), {
+    type: 'doughnut',
+    data: {
+      labels: byPlan.map(p => p.plan__name),
+      datasets: [{
+        data: byPlan.map(p => p.count),
+        backgroundColor: COLORS.slice(0, byPlan.length),
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      cutout: '65%',
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+function eventPillClass(type) {
+  if (!type) return 'ev-other';
+  if (type.includes('created') || type.includes('started')) return 'ev-created';
+  if (type.includes('paid'))    return 'ev-paid';
+  if (type.includes('cancel'))  return 'ev-canceled';
+  if (type.includes('failed'))  return 'ev-failed';
+  if (type.includes('upgrade') || type.includes('downgrade')) return 'ev-upgraded';
+  if (type.includes('trial'))   return 'ev-trial';
+  return 'ev-other';
+}
+
+function eventLabel(type) {
+  const labels = {
+    'subscription.created':  'Suscripción creada',
+    'subscription.canceled': 'Suscripción cancelada',
+    'invoice.paid':          'Factura pagada',
+    'invoice.payment_failed':'Pago fallido',
+    'plan.upgraded':         'Plan mejorado',
+    'plan.downgraded':       'Plan reducido',
+    'trial.started':         'Prueba iniciada',
+    'trial.ended':           'Prueba finalizada',
+  };
+  return labels[type] || type;
+}
+
+function renderOverviewEvents(events) {
+  if (!events || events.length === 0) {
+    document.getElementById('overview-events-body').innerHTML =
+      '<div class="empty-state">Sin eventos recientes</div>';
+    return;
+  }
+  const rows = events.slice(0, 10).map(e => `
+    <tr>
+      <td style="color:#aaa;font-size:.75rem;white-space:nowrap">${e.created_at}</td>
+      <td><strong>${e.tenant__name || '—'}</strong></td>
+      <td><span class="ev-pill ${eventPillClass(e.event_type)}">${eventLabel(e.event_type)}</span></td>
+    </tr>`).join('');
+  document.getElementById('overview-events-body').innerHTML =
+    `<table><thead><tr><th>Fecha</th><th>Tenant</th><th>Evento</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+function statusBadge(status) {
+  return `<span class="badge-status s-${status}">${status}</span>`;
+}
+
+function renderTenants(tenants) {
+  if (!tenants || tenants.length === 0) {
+    document.getElementById('tenants-body').innerHTML =
+      '<div class="empty-state">No hay tenants</div>';
+    return;
+  }
+  const rows = tenants.map(t => `
+    <tr>
+      <td><strong>${t.name}</strong><br><small style="color:#aaa">${t.schema}</small></td>
+      <td>${t.plan}<br><small style="color:#aaa;text-transform:uppercase;font-size:.65rem">${t.tier}</small></td>
+      <td>${statusBadge(t.status)}</td>
+      <td style="font-size:.78rem">${t.gateway}</td>
+      <td style="font-size:.78rem">${t.eosda_requests.toLocaleString()}</td>
+      <td style="font-size:.78rem">${t.users_count}</td>
+      <td style="font-size:.78rem;color:#aaa">${t.created}</td>
+      <td style="font-size:.78rem">${t.paid_until || '—'}</td>
+    </tr>`).join('');
+  document.getElementById('tenants-body').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Empresa</th><th>Plan</th><th>Estado</th>
+        <th>Pasarela</th><th>EOSDA req.</th><th>Usuarios</th>
+        <th>Creado</th><th>Vigente hasta</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderInvoices(invoices) {
+  if (!invoices || invoices.length === 0) {
+    document.getElementById('invoices-body').innerHTML =
+      '<div class="empty-state">Sin facturas</div>';
+    return;
+  }
+  const rows = invoices.map(inv => `
+    <tr>
+      <td style="font-size:.78rem;font-family:monospace">${inv.invoice_number || '—'}</td>
+      <td><strong>${inv['tenant__name'] || '—'}</strong></td>
+      <td>${inv['subscription__plan__name'] || '—'}</td>
+      <td class="fw-semibold">${fmt(inv.total)} ${inv.currency}</td>
+      <td>${statusBadge(inv.status)}</td>
+      <td style="font-size:.78rem;color:#aaa">${inv.invoice_date || '—'}</td>
+      <td style="font-size:.78rem;color:#aaa">${inv.paid_at || '—'}</td>
+    </tr>`).join('');
+  document.getElementById('invoices-body').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Número</th><th>Tenant</th><th>Plan</th>
+        <th>Total</th><th>Estado</th><th>Fecha</th><th>Pagada</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderEvents(events) {
+  if (!events || events.length === 0) {
+    document.getElementById('events-body').innerHTML =
+      '<div class="empty-state">Sin eventos</div>';
+    return;
+  }
+  const rows = events.map(e => `
+    <tr>
+      <td style="color:#aaa;font-size:.75rem;white-space:nowrap">${e.created_at}</td>
+      <td><strong>${e.tenant__name || '—'}</strong></td>
+      <td><span class="ev-pill ${eventPillClass(e.event_type)}">${eventLabel(e.event_type)}</span></td>
+      <td style="font-size:.72rem;color:#aaa;max-width:250px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+        ${e.data ? JSON.stringify(e.data) : '—'}
+      </td>
+    </tr>`).join('');
+  document.getElementById('events-body').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Fecha</th><th>Tenant</th><th>Evento</th><th>Datos</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function renderUsage(usage) {
+  if (!usage || usage.length === 0) {
+    document.getElementById('usage-body').innerHTML =
+      '<div class="empty-state">Sin datos de uso para este mes</div>';
+    return;
+  }
+  const max = Math.max(...usage.map(u => u.eosda_requests), 1);
+  const rows = usage.map((u, i) => `
+    <tr>
+      <td style="font-size:.8rem;color:#aaa;text-align:center">#${i+1}</td>
+      <td><strong>${u.tenant__name || '—'}</strong></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <div style="flex:1;background:#eee;border-radius:4px;height:6px">
+            <div style="width:${Math.round((u.eosda_requests/max)*100)}%;background:var(--agro-green);height:6px;border-radius:4px"></div>
+          </div>
+          <span style="font-size:.78rem;font-weight:700;min-width:3rem;text-align:right">${u.eosda_requests.toLocaleString()}</span>
+        </div>
+      </td>
+      <td style="font-size:.78rem">${Number(u.hectares_used).toLocaleString('es-CO')} ha</td>
+      <td style="font-size:.78rem">${u.parcels_count}</td>
+      <td style="font-size:.78rem">${u.users_count}</td>
+    </tr>`).join('');
+  document.getElementById('usage-body').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>#</th><th>Tenant</th><th>Solicitudes EOSDA</th>
+        <th>Hectáreas</th><th>Parcelas</th><th>Usuarios</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+// ────────────────────────────────────────────────────────────
+// ERROR TOAST
+// ────────────────────────────────────────────────────────────
+function showError(msg) {
+  const t = document.getElementById('error-toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => { t.style.display = 'none'; }, 5000);
+}
+
+// ────────────────────────────────────────────────────────────
+// INIT
+// ────────────────────────────────────────────────────────────
+document.getElementById('login-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type=submit]');
+  const sp  = document.getElementById('login-spinner');
+  btn.disabled = true; sp.classList.remove('d-none');
+  document.getElementById('login-error').classList.add('d-none');
+  try {
+    const email = document.getElementById('l-email').value.trim();
+    const pass  = document.getElementById('l-pass').value;
+    const token = await login(email, pass);
+    setToken(token, email);
+    startApp(email);
+  } catch (err) {
+    const el = document.getElementById('login-error');
+    el.textContent = err.message; el.classList.remove('d-none');
+  } finally {
+    btn.disabled = false; sp.classList.add('d-none');
+  }
+});
+
+function startApp(email) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('sidebar-user').textContent = email || '';
+  loadDashboard();
+  loadTenants();
+  // auto-refresh cada 3 minutos
+  setInterval(loadDashboard, 3 * 60 * 1000);
+}
+
+// Al cargar la página, revisar si ya hay token
+window.addEventListener('DOMContentLoaded', () => {
+  const token = getToken();
+  const email = localStorage.getItem(LS_EMAIL);
+  if (token) {
+    startApp(email);
+  }
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
