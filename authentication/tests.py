@@ -357,8 +357,10 @@ class TestPaddleWebhookSignature:
         result = gateway._verify_paddle_classic_signature(request)
         assert result is False
 
-    def test_classic_missing_public_key_passes_with_warning(self):
-        """Paddle Classic sin public key pasa con warning."""
+    def test_classic_missing_public_key_rejected_for_security(self):
+        """Paddle Classic sin public key es rechazado por seguridad en producción.
+        En el entorno de test, Django corre con DEBUG=False (seguridad),
+        así que un webhook sin PADDLE_PUBLIC_KEY siempre es rechazado."""
         gateway = self._make_gateway()
         gateway.public_key = ''  # Sin public key
         
@@ -369,7 +371,8 @@ class TestPaddleWebhookSignature:
             'p_signature': 'some_base64_signature',
         }
         result = gateway._verify_paddle_classic_signature(request)
-        assert result is True
+        # En tests (DEBUG=False), webhooks sin verificación son rechazados por seguridad
+        assert result is False
 
     def test_billing_v2_no_secret_passes_with_warning(self):
         """Paddle Billing v2 sin secret pasa con warning."""
@@ -899,3 +902,325 @@ class TestMeEndpointIntegration:
         api_client.credentials(HTTP_AUTHORIZATION="Bearer invalid.token.here")
         response = api_client.get('/api/auth/me/', SERVER_NAME='127.0.0.1')
         assert response.status_code == 401
+
+
+# ═══════════════════════════════════════════════════════════════
+#  TESTS — LOGOUT
+# ═══════════════════════════════════════════════════════════════
+
+@pytest.mark.django_db
+class TestLogoutEndpoint:
+    """Tests para POST /api/auth/logout/"""
+
+    @pytest.fixture
+    def user_with_tokens(self):
+        """Crea usuario y genera JWT tokens."""
+        from django.contrib.auth import get_user_model
+        from rest_framework_simplejwt.tokens import RefreshToken
+        User = get_user_model()
+        user = User.objects.create_user(
+            username='logout_user',
+            email='logout@test.com',
+            name='Logout',
+            last_name='User',
+            password='testpass123'
+        )
+        refresh = RefreshToken.for_user(user)
+        return user, str(refresh), str(refresh.access_token)
+
+    def test_logout_without_token_returns_401(self, api_client):
+        """Logout sin autenticar retorna 401."""
+        response = api_client.post('/api/auth/logout/', {}, format='json',
+                                   SERVER_NAME='127.0.0.1')
+        assert response.status_code == 401
+
+    def test_logout_without_refresh_returns_400(self, api_client, user_with_tokens):
+        """Logout autenticado pero sin refresh token retorna 400."""
+        user, refresh, access = user_with_tokens
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+        response = api_client.post('/api/auth/logout/', {}, format='json',
+                                   SERVER_NAME='127.0.0.1')
+        assert response.status_code == 400
+        assert 'error' in response.json()
+
+    def test_logout_with_valid_refresh_returns_200(self, api_client, user_with_tokens):
+        """Logout con refresh token válido retorna 200."""
+        user, refresh, access = user_with_tokens
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+        response = api_client.post(
+            '/api/auth/logout/',
+            {'refresh': refresh},
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data['success'] is True
+
+    def test_logout_method_not_allowed_get(self, api_client, user_with_tokens):
+        """GET /api/auth/logout/ no está permitido."""
+        user, refresh, access = user_with_tokens
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {access}')
+        response = api_client.get('/api/auth/logout/', SERVER_NAME='127.0.0.1')
+        assert response.status_code == 405
+
+
+# ═══════════════════════════════════════════════════════════════
+#  TESTS — CAMBIO DE CONTRASEÑA
+# ═══════════════════════════════════════════════════════════════
+
+@pytest.mark.django_db
+class TestPasswordChangeEndpoint:
+    """Tests para POST /api/auth/password/change/"""
+
+    @pytest.fixture
+    def auth_user_client(self, api_client):
+        """Crea usuario autenticado para tests de cambio de contraseña."""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        user = User.objects.create_user(
+            username='passchange_user',
+            email='passchange@test.com',
+            name='Pass',
+            last_name='Change',
+            password='OldPassword123'
+        )
+        api_client.force_authenticate(user=user)
+        return api_client, user
+
+    def test_change_password_success(self, auth_user_client):
+        """Cambio de contraseña válido retorna 200 con nuevos tokens."""
+        client, user = auth_user_client
+        response = client.post(
+            '/api/auth/password/change/',
+            {
+                'current_password': 'OldPassword123',
+                'new_password': 'NewPassword456',
+                'confirm_password': 'NewPassword456',
+            },
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data['success'] is True
+        assert 'tokens' in data
+        assert 'access' in data['tokens']
+        assert 'refresh' in data['tokens']
+        # Verificar que la nueva contraseña funciona
+        user.refresh_from_db()
+        assert user.check_password('NewPassword456')
+
+    def test_change_password_wrong_current(self, auth_user_client):
+        """Contraseña actual incorrecta retorna 400."""
+        client, user = auth_user_client
+        response = client.post(
+            '/api/auth/password/change/',
+            {
+                'current_password': 'WrongPassword',
+                'new_password': 'NewPassword456',
+                'confirm_password': 'NewPassword456',
+            },
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 400
+        assert 'error' in response.json()
+
+    def test_change_password_mismatch(self, auth_user_client):
+        """Confirmación diferente retorna 400."""
+        client, user = auth_user_client
+        response = client.post(
+            '/api/auth/password/change/',
+            {
+                'current_password': 'OldPassword123',
+                'new_password': 'NewPassword456',
+                'confirm_password': 'DifferentPassword789',
+            },
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 400
+
+    def test_change_password_too_short(self, auth_user_client):
+        """Contraseña menor a 8 caracteres retorna 400."""
+        client, user = auth_user_client
+        response = client.post(
+            '/api/auth/password/change/',
+            {
+                'current_password': 'OldPassword123',
+                'new_password': 'short',
+                'confirm_password': 'short',
+            },
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 400
+
+    def test_change_password_same_as_current(self, auth_user_client):
+        """Nueva igual a actual retorna 400."""
+        client, user = auth_user_client
+        response = client.post(
+            '/api/auth/password/change/',
+            {
+                'current_password': 'OldPassword123',
+                'new_password': 'OldPassword123',
+                'confirm_password': 'OldPassword123',
+            },
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 400
+
+    def test_change_password_missing_fields(self, auth_user_client):
+        """Campos faltantes retornan 400."""
+        client, user = auth_user_client
+        response = client.post(
+            '/api/auth/password/change/',
+            {'current_password': 'OldPassword123'},
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 400
+
+    def test_change_password_unauthenticated(self, api_client):
+        """Sin autenticar retorna 401."""
+        response = api_client.post(
+            '/api/auth/password/change/',
+            {'current_password': 'x', 'new_password': 'x', 'confirm_password': 'x'},
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 401
+
+
+# ═══════════════════════════════════════════════════════════════
+#  TESTS — ACTUALIZAR PERFIL
+# ═══════════════════════════════════════════════════════════════
+
+@pytest.mark.django_db
+class TestProfileUpdateEndpoint:
+    """Tests para PATCH /api/auth/profile/"""
+
+    @pytest.fixture
+    def auth_user_client(self, api_client):
+        """Crea usuario autenticado para tests de perfil."""
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        user = User.objects.create_user(
+            username='profile_user',
+            email='profile@test.com',
+            name='Original',
+            last_name='Name',
+            password='testpass123'
+        )
+        api_client.force_authenticate(user=user)
+        return api_client, user
+
+    def test_update_name_and_lastname(self, auth_user_client):
+        """Actualizar nombre y apellido retorna 200."""
+        client, user = auth_user_client
+        response = client.patch(
+            '/api/auth/profile/',
+            {'name': 'Nuevo Nombre', 'last_name': 'Nuevo Apellido'},
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data['success'] is True
+        assert data['user']['name'] == 'Nuevo Nombre'
+        assert data['user']['last_name'] == 'Nuevo Apellido'
+        user.refresh_from_db()
+        assert user.name == 'Nuevo Nombre'
+
+    def test_update_phone(self, auth_user_client):
+        """Actualizar teléfono retorna 200."""
+        client, user = auth_user_client
+        response = client.patch(
+            '/api/auth/profile/',
+            {'phone': '+573001234567'},
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 200
+        user.refresh_from_db()
+        assert user.phone == '+573001234567'
+
+    def test_update_empty_body_returns_400(self, auth_user_client):
+        """Body vacío retorna 400."""
+        client, user = auth_user_client
+        response = client.patch(
+            '/api/auth/profile/',
+            {},
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 400
+
+    def test_update_non_updatable_field_ignored(self, auth_user_client):
+        """Campos no actualizables (ej: username) son ignorados."""
+        client, user = auth_user_client
+        original_username = user.username
+        response = client.patch(
+            '/api/auth/profile/',
+            {'username': 'hacked_username', 'name': 'Válido'},
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 200
+        user.refresh_from_db()
+        # username NO debe cambiar
+        assert user.username == original_username
+        # name SÍ debe cambiar
+        assert user.name == 'Válido'
+
+    def test_update_profile_unauthenticated(self, api_client):
+        """Sin autenticar retorna 401."""
+        response = api_client.patch(
+            '/api/auth/profile/',
+            {'name': 'Test'},
+            format='json',
+            SERVER_NAME='127.0.0.1'
+        )
+        assert response.status_code == 401
+
+
+# ═══════════════════════════════════════════════════════════════
+#  TESTS — PLAN ENTERPRISE
+# ═══════════════════════════════════════════════════════════════
+
+@pytest.mark.django_db
+class TestEnterprisePlan:
+    """Verifica que el plan Enterprise esté correctamente configurado."""
+
+    def test_enterprise_plan_exists(self):
+        """Plan Enterprise debe existir en la BD."""
+        from billing.models import Plan
+        assert Plan.objects.filter(tier='enterprise').exists(), \
+            "El plan Enterprise no existe. Ejecuta: python manage.py seed_plans"
+
+    def test_enterprise_plan_is_active(self):
+        """Plan Enterprise debe estar activo."""
+        from billing.models import Plan
+        plan = Plan.objects.filter(tier='enterprise').first()
+        if plan:
+            assert plan.is_active is True
+
+    def test_enterprise_plan_has_limits(self):
+        """Plan Enterprise debe tener límites correctos."""
+        from billing.models import Plan
+        plan = Plan.objects.filter(tier='enterprise').first()
+        if plan:
+            assert plan.limits.get('hectares', 0) >= 1000
+            assert plan.limits.get('users', 0) >= 10
+            assert plan.price_cop > 0
+            assert plan.price_usd > 0
+
+    def test_all_four_tiers_exist(self):
+        """Los 4 tiers deben existir: free, basic, pro, enterprise."""
+        from billing.models import Plan
+        expected = {'free', 'basic', 'pro', 'enterprise'}
+        existing = set(Plan.objects.filter(tier__in=expected).values_list('tier', flat=True))
+        missing = expected - existing
+        assert not missing, f"Planes faltantes: {missing}. Ejecuta: python manage.py seed_plans"

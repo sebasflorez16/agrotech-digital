@@ -100,6 +100,34 @@ class Command(BaseCommand):
                 ],
                 'features_excluded': [],
             },
+            {
+                'tier': 'enterprise',
+                'name': 'Corporativo',
+                'description': 'Para corporaciones agrícolas con múltiples fincas. Soporte dedicado y personalización completa.',
+                'price_cop': 350000,
+                'price_usd': 89,
+                'frequency': 1,
+                'trial_days': 0,
+                'sort_order': 4,
+                'limits': {
+                    'hectares': 9999,
+                    'users': 50,
+                    'eosda_requests': 2000,
+                    'parcels': 200,
+                    'storage_mb': 10000,
+                },
+                'features_included': [
+                    'Todo del plan Empresarial',
+                    'Hectares ilimitadas',
+                    'Hasta 50 usuarios',
+                    'Account manager dedicado',
+                    'SLA de respuesta 4 horas',
+                    'Capacitación y onboarding',
+                    'Reportes personalizados avanzados',
+                    'Integraciones a medida',
+                ],
+                'features_excluded': [],
+            },
         ]
 
         created = 0

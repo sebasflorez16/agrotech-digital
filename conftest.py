@@ -1,6 +1,16 @@
 """
 Configuración compartida de pytest para todos los tests.
 """
+import sys
+import os
+from pathlib import Path
+
+# manage.py agrega ./metrica a sys.path; pytest no lo hace.
+# Sin esto, 'from users.serializers import ...' falla al resolver URLs.
+_METRICA_DIR = str(Path(__file__).parent / "metrica")
+if _METRICA_DIR not in sys.path:
+    sys.path.insert(0, _METRICA_DIR)
+
 import pytest
 from django.conf import settings
 from django.contrib.auth import get_user_model

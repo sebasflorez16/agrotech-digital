@@ -96,6 +96,8 @@ class TestTenantServiceCreateMocked:
         mock_plan = Mock()
         mock_plan.trial_days = 14
         MockPlan.objects.get.return_value = mock_plan
+        # Mock: no existe suscripción previa con ese email
+        MockSub.objects.filter.return_value.select_related.return_value.exists.return_value = False
         MockClient.objects.filter.return_value.exists.return_value = False
 
         mock_tenant = Mock()
@@ -126,6 +128,8 @@ class TestTenantServiceCreateMocked:
         from billing.tenant_service import TenantService
 
         MockPlan.objects.get.return_value = Mock()
+        # Mock: no existe suscripción previa con ese email
+        MockSub.objects.filter.return_value.select_related.return_value.exists.return_value = False
         MockClient.objects.filter.return_value.exists.return_value = False
 
         mock_tenant = Mock()
@@ -733,7 +737,7 @@ class TestCheckSubscriptionsCommand:
 
 @pytest.mark.integration
 @pytest.mark.tenant
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 class TestTenantLifecycleIntegration:
     """
     Tests de integración que crean tenants reales en PostgreSQL.

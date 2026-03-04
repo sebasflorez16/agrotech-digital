@@ -127,22 +127,17 @@ class TenantService:
         if not schema_name:
             schema_name = _slugify_schema(tenant_name)
 
-        # Evitar colisión con schemas existentes — en lugar de agregar sufijo,
-        # rechazar si ya existe un tenant con ese nombre exacto
+        # Evitar colisión con schemas existentes — agregar sufijo numérico
+        # para permitir que dos organizaciones distintas usen el mismo nombre.
         if Client.objects.filter(schema_name=schema_name).exists():
-            existing_tenant = Client.objects.get(schema_name=schema_name)
+            base_schema = schema_name
+            counter = 1
+            while Client.objects.filter(schema_name=f"{base_schema}_{counter}").exists():
+                counter += 1
+            schema_name = f"{base_schema}_{counter}"
             logger.warning(
-                f"⚠️ Schema '{schema_name}' ya existe para tenant '{existing_tenant.name}'"
+                f"⚠️ Schema '{base_schema}' ya existe, usando '{schema_name}'"
             )
-            return {
-                'success': False,
-                'error': (
-                    f'Ya existe un espacio de trabajo con el nombre "{tenant_name}". '
-                    f'Usa un nombre diferente o inicia sesión en tu cuenta existente.'
-                ),
-                'existing_tenant': existing_tenant.name,
-                'existing_schema': schema_name,
-            }
 
         # 2. Obtener plan
         try:

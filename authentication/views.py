@@ -2,9 +2,12 @@
 Views de autenticación para AgroTech Digital SaaS.
 
 Endpoints:
-- POST /api/auth/register/  → Registro completo (User + Tenant + Subscription)
-- POST /api/auth/login/     → Login con JWT (access + refresh tokens)
-- POST /api/auth/me/        → Datos del usuario autenticado
+- POST /api/auth/register/          → Registro completo (User + Tenant + Subscription)
+- POST /api/auth/login/             → Login con JWT (access + refresh tokens)
+- GET  /api/auth/me/                → Datos del usuario autenticado
+- POST /api/auth/logout/            → Cerrar sesión (invalida refresh token)
+- POST /api/auth/password/change/   → Cambiar contraseña
+- PATCH /api/auth/profile/          → Actualizar perfil del usuario
 """
 
 import logging
@@ -278,3 +281,163 @@ class MeView(APIView):
                 data['subscription'] = None
         
         return Response(data)
+
+
+# ── Logout ────────────────────────────────────────────────────────────────────
+
+class LogoutView(APIView):
+    """
+    Cerrar sesión: invalida el refresh token JWT.
+
+    POST /api/auth/logout/
+
+    Body:
+    {
+        "refresh": "<refresh_token>"
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response(
+                {'error': 'Se requiere el refresh token'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except Exception:
+            # Si token_blacklist no está instalado o el token ya está expirado,
+            # igual retornamos éxito (el frontend descarta los tokens).
+            pass
+        return Response(
+            {'success': True, 'message': 'Sesión cerrada correctamente'},
+            status=status.HTTP_200_OK
+        )
+
+
+# ── Cambio de contraseña ───────────────────────────────────────────────────────
+
+class PasswordChangeView(APIView):
+    """
+    Cambiar la contraseña del usuario autenticado.
+
+    POST /api/auth/password/change/
+
+    Body:
+    {
+        "current_password": "...",
+        "new_password": "...",
+        "confirm_password": "..."
+    }
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        current_password = request.data.get('current_password', '').strip()
+        new_password = request.data.get('new_password', '').strip()
+        confirm_password = request.data.get('confirm_password', '').strip()
+
+        if not current_password or not new_password or not confirm_password:
+            return Response(
+                {'error': 'Todos los campos son requeridos'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not user.check_password(current_password):
+            return Response(
+                {'error': 'La contraseña actual es incorrecta'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if new_password != confirm_password:
+            return Response(
+                {'error': 'La nueva contraseña y su confirmación no coinciden'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if len(new_password) < 8:
+            return Response(
+                {'error': 'La nueva contraseña debe tener al menos 8 caracteres'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if new_password == current_password:
+            return Response(
+                {'error': 'La nueva contraseña debe ser diferente a la actual'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.set_password(new_password)
+        user.save()
+        logger.info(f"Contraseña cambiada para usuario: {user.username}")
+
+        # Generar nuevos tokens para que el usuario no pierda la sesión
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'success': True,
+            'message': 'Contraseña actualizada correctamente',
+            'tokens': {
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+            },
+        })
+
+
+# ── Actualizar perfil ─────────────────────────────────────────────────────────
+
+class ProfileUpdateView(APIView):
+    """
+    Actualizar el perfil del usuario autenticado.
+
+    PATCH /api/auth/profile/
+
+    Body (todos los campos son opcionales):
+    {
+        "name": "...",
+        "last_name": "...",
+        "phone": "...",
+        "address": "...",
+        "job_title": "...",
+        "description": "..."
+    }
+    """
+    permission_classes = [IsAuthenticated]
+    UPDATABLE_FIELDS = ['name', 'last_name', 'phone', 'address', 'job_title', 'description']
+
+    def patch(self, request):
+        user = request.user
+        updated_fields = []
+
+        for field in self.UPDATABLE_FIELDS:
+            if field in request.data:
+                value = request.data[field]
+                setattr(user, field, value)
+                updated_fields.append(field)
+
+        if not updated_fields:
+            return Response(
+                {'error': 'No se proporcionaron campos para actualizar'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        user.save(update_fields=updated_fields)
+        logger.info(f"Perfil actualizado para usuario: {user.username} — campos: {updated_fields}")
+
+        return Response({
+            'success': True,
+            'message': f'Perfil actualizado correctamente',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'name': user.name,
+                'last_name': user.last_name,
+                'phone': user.phone,
+                'job_title': user.job_title,
+                'description': user.description,
+            },
+        })
