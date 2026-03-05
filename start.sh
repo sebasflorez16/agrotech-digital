@@ -90,22 +90,7 @@ python manage.py populate_crop_catalog 2>&1 || echo "⚠️ populate_crop_catalo
 # ============================================================
 if [ ! -z "$DJANGO_SUPERUSER_EMAIL" ]; then
     echo "👤 Creando/actualizando superusuario: $DJANGO_SUPERUSER_EMAIL"
-    python -c "
-import os, django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production')
-django.setup()
-from metrica.users.models import User
-email = os.environ['DJANGO_SUPERUSER_EMAIL']
-password = os.environ.get('DJANGO_SUPERUSER_PASSWORD', 'changeme123!')
-username = os.environ.get('DJANGO_SUPERUSER_USERNAME', email.split('@')[0])
-try:
-    u = User.objects.get(email=email)
-    u.set_password(password); u.is_staff=True; u.is_superuser=True; u.is_active=True; u.save()
-    print(f'✅ Superusuario actualizado: {email}')
-except User.DoesNotExist:
-    u = User.objects.create_superuser(username=username, email=email, password=password, name='Admin', last_name='AgroTech')
-    print(f'✅ Superusuario creado: {email}')
-" 2>&1 || echo "⚠️ No se pudo crear el superusuario"
+    python manage.py ensure_superuser 2>&1 || echo "⚠️ No se pudo crear el superusuario"
 fi
 
 # ============================================================
