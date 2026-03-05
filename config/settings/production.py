@@ -134,6 +134,17 @@ SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 
+# HTTP Security Headers
+# ------------------------------------------------------------------------------
+# Previene ataques MIME-sniffing
+SECURE_CONTENT_TYPE_NOSNIFF = True
+# HSTS: fuerza HTTPS por 1 año (incluye subdominios para multi-tenant)
+SECURE_HSTS_SECONDS = 31536000
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
+# Railway termina SSL antes de llegar a Django — le decimos que confíe en el header
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Configuración adicional para django-tenants
 USE_TZ = True
 CSRF_USE_SESSIONS = False  # Usar cookies en lugar de sesiones para CSRF

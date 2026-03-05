@@ -3,9 +3,10 @@ Views y API endpoints para billing y suscripciones.
 """
 
 from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.decorators import action, api_view, permission_classes, throttle_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.throttling import AnonRateThrottle
 from django.utils import timezone
 from django.db.models import Sum
 from django.shortcuts import render, redirect, get_object_or_404
@@ -27,6 +28,16 @@ import json
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+class CheckoutRateThrottle(AnonRateThrottle):
+    """
+    Rate limiting para endpoints de checkout y confirmación de pago.
+    Límite: 10 intentos por hora por IP.
+    Previene abuso de la API de MercadoPago y creación masiva de tenants.
+    """
+    rate = '10/hour'
+    scope = 'checkout'
 
 
 def resolve_tenant_for_request(request):
@@ -1090,6 +1101,7 @@ def subscription_page_view(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@throttle_classes([CheckoutRateThrottle])
 def create_checkout_view(request):
     """
     Crear sesión de checkout y redirigir a MercadoPago.
@@ -1245,6 +1257,7 @@ def create_checkout_view(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
+@throttle_classes([CheckoutRateThrottle])
 def confirm_payment_create_tenant(request):
     """
     Confirmar pago exitoso y crear tenant automáticamente.
@@ -1308,7 +1321,32 @@ def confirm_payment_create_tenant(request):
                         logger.warning(f"MercadoPago status inesperado: {mp_status} para {preapproval_id}")
             except Exception as e:
                 logger.warning(f"No se pudo verificar con MercadoPago: {e}")
-        
+
+        # ── SEGURIDAD CRÍTICA ──────────────────────────────────────────────────
+        # Los planes de pago REQUIEREN verificación con MercadoPago.
+        # Sin esto, cualquiera podría crear un tenant de 599.000 COP gratis.
+        if plan_tier != 'free':
+            if not preapproval_id:
+                logger.warning(
+                    f"[SECURITY] Intento de crear tenant de pago sin preapproval_id: "
+                    f"plan={plan_tier} email={payer_email} ip={request.META.get('REMOTE_ADDR')}"
+                )
+                return JsonResponse(
+                    {'error': 'Se requiere un ID de pago. Completa el checkout primero.'},
+                    status=402
+                )
+            if not mp_verified:
+                logger.warning(
+                    f"[SECURITY] Intento de crear tenant sin verificación MP: "
+                    f"plan={plan_tier} email={payer_email} preapproval={preapproval_id} "
+                    f"ip={request.META.get('REMOTE_ADDR')}"
+                )
+                return JsonResponse(
+                    {'error': 'El pago no fue confirmado por MercadoPago. Intenta de nuevo o contacta soporte.'},
+                    status=402
+                )
+        # ── FIN SEGURIDAD ──────────────────────────────────────────────────────
+
         # Generar nombre del tenant si no se proporcionó
         if not tenant_name:
             tenant_name = payer_email.split('@')[0].replace('.', '_').replace('-', '_')
