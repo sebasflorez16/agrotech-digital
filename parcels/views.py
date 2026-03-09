@@ -384,8 +384,34 @@ class ParcelViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """
-        Crea una nueva parcela verificando ESTRICTAMENTE el límite de hectáreas.
+        Crea una nueva parcela verificando ESTRICTAMENTE el límite de hectáreas y parcelas.
         """
+        # 1. Verificar límite de parcelas
+        subscription = getattr(request, 'subscription', None)
+        if subscription:
+            current_parcels = Parcel.objects.filter(is_deleted=False).count()
+            is_within, limit = subscription.check_limit('parcels', current_parcels + 1)
+            if not is_within:
+                logger.warning(
+                    f"Límite de parcelas excedido: current={current_parcels}, limit={limit}, "
+                    f"plan={subscription.plan.name}"
+                )
+                return Response({
+                    'error': 'Límite de parcelas excedido',
+                    'code': 'parcels_limit_exceeded',
+                    'current': current_parcels,
+                    'limit': limit,
+                    'plan': subscription.plan.name,
+                    'message': f'Tu plan {subscription.plan.name} permite hasta {limit} parcelas. '
+                               f'Actualmente tienes {current_parcels}.',
+                    'suggestions': [
+                        'Mejora tu plan para crear más parcelas',
+                        'Elimina parcelas que ya no uses',
+                    ],
+                    'upgrade_url': '/billing/upgrade/'
+                }, status=403)
+
+        # 2. Verificar límite de hectáreas
         geom_data = request.data.get('geom')
         new_hectares = self._calculate_parcel_area(geom_data)
         
@@ -393,7 +419,7 @@ class ParcelViewSet(viewsets.ModelViewSet):
         if not is_allowed:
             return error_response
         
-        logger.info(f"Creando parcela de {new_hectares:.2f} ha - Límite verificado OK")
+        logger.info(f"Creando parcela de {new_hectares:.2f} ha - Límites verificados OK")
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
@@ -794,6 +820,7 @@ class EosdaImageView(APIView):
         Retorna: { "request_id": "..." }
         
         OPTIMIZACIÓN: Cache de request_id por combinación field_id+view_id+type para evitar requests duplicados
+        RESTRICCIÓN: Los índices disponibles dependen del plan del usuario
         """
         try:
             field_id = request.data.get("field_id")
@@ -806,6 +833,33 @@ class EosdaImageView(APIView):
             if not field_id or not view_id or index_type not in ["ndvi", "ndmi", "evi", "savi"]:
                 logger.error(f"[EOSDA_IMAGE] Parámetros inválidos: field_id={field_id}, view_id={view_id}, type={index_type}")
                 return Response({"error": "Parámetros inválidos."}, status=400)
+            
+            # ── Restricción de índices por plan ──
+            subscription = getattr(request, 'subscription', None)
+            if subscription:
+                allowed_indices = subscription.plan.features_included or []
+                if index_type not in allowed_indices:
+                    plan_name = subscription.plan.name
+                    index_names = {
+                        'ndvi': 'NDVI',
+                        'savi': 'SAVI',
+                        'ndmi': 'NDMI',
+                        'evi': 'EVI',
+                    }
+                    logger.warning(
+                        f"[EOSDA_IMAGE] Índice '{index_type}' no permitido en plan {plan_name}. "
+                        f"Permitidos: {allowed_indices}"
+                    )
+                    return Response({
+                        'error': f'El índice {index_names.get(index_type, index_type.upper())} no está disponible en tu plan',
+                        'code': 'index_not_available',
+                        'index': index_type,
+                        'allowed_indices': [i for i in allowed_indices if i in ['ndvi', 'savi', 'ndmi', 'evi']],
+                        'plan': plan_name,
+                        'message': f'Tu plan {plan_name} no incluye análisis {index_names.get(index_type, index_type.upper())}. '
+                                   f'Mejora tu plan para acceder a más índices satelitales.',
+                        'upgrade_url': '/billing/upgrade/'
+                    }, status=403)
             
             # Verificar cache de request_id por combinación field_id+view_id+type (cache por 30 minutos)
             cache_key = f"eosda_image_request_{field_id}_{view_id}_{index_type}"

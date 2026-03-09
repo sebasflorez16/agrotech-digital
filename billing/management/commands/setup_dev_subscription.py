@@ -26,7 +26,7 @@ class Command(BaseCommand):
         
         # 1. Crear o obtener plan de desarrollo con límites altos
         dev_plan, created = Plan.objects.update_or_create(
-            tier='enterprise',
+            tier='pro',
             defaults={
                 'name': 'Plan Desarrollo (Ilimitado)',
                 'description': 'Plan de desarrollo con límites muy altos para pruebas',
@@ -41,16 +41,17 @@ class Command(BaseCommand):
                     'storage_mb': 999999
                 },
                 'features_included': [
+                    'ndvi',
+                    'savi',
+                    'ndmi',
+                    'evi',
+                    'weather_basic',
+                    'weather_full',
                     'satellite_imagery',
-                    'ndvi_analysis',
-                    'ndmi_analysis',
-                    'savi_analysis',
-                    'weather_forecast',
                     'historical_data',
                     'export_reports',
                     'api_access',
-                    'priority_support',
-                    'unlimited_users'
+                    'priority_support'
                 ],
                 'features_excluded': []
             }

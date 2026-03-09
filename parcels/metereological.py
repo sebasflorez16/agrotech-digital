@@ -35,7 +35,31 @@ class WeatherForecastView(APIView):
         """
         GET /api/parcels/parcel/<parcel_id>/weather-forecast/
         Retorna: { "forecast": [...], "source": "EOSDA", "parcel_id": ... }
+        
+        Restricción por plan:
+            - Explorador (free): Sin acceso a clima
+            - Agricultor (basic): Clima básico (weather_basic)
+            - Empresarial (pro): Clima completo (weather_full)
         """
+        # ── Verificar si el plan incluye pronóstico climático ──
+        subscription = getattr(request, 'subscription', None)
+        if subscription:
+            features = subscription.plan.features_included or []
+            has_weather = any(f in features for f in ['weather_basic', 'weather_full'])
+            if not has_weather:
+                logger.warning(
+                    f"[WEATHER_FORECAST] Plan '{subscription.plan.name}' no incluye clima. "
+                    f"Features: {features}"
+                )
+                return Response({
+                    'error': 'Tu plan no incluye pronóstico climático',
+                    'code': 'weather_not_available',
+                    'plan': subscription.plan.name,
+                    'message': f'El plan {subscription.plan.name} no incluye pronóstico meteorológico. '
+                               f'Mejora al plan Agricultor o superior para acceder al clima.',
+                    'upgrade_url': '/billing/upgrade/'
+                }, status=403)
+        
         logger.info(f"[WEATHER_FORECAST] Parámetros recibidos: parcel_id={parcel_id}")
         parcel = get_object_or_404(Parcel, pk=parcel_id, is_deleted=False)
         field_id = getattr(parcel, "eosda_id", None)

@@ -437,27 +437,27 @@
                 <tbody>
                     <tr>
                         <td><i class="ti ti-map-pin" style="color:var(--verde-claro);margin-right:8px;"></i> Hectáreas</td>
-                        <td>50 ha</td>
-                        <td>300 ha</td>
-                        <td>1,000 ha</td>
+                        <td>20 ha</td>
+                        <td>100 ha</td>
+                        <td>500 ha</td>
                     </tr>
                     <tr>
                         <td><i class="ti ti-satellite" style="color:var(--verde-claro);margin-right:8px;"></i> Análisis Satelitales/mes</td>
-                        <td>10</td>
-                        <td>100</td>
-                        <td>500</td>
+                        <td>15</td>
+                        <td>60</td>
+                        <td>300</td>
                     </tr>
                     <tr>
                         <td><i class="ti ti-users" style="color:var(--verde-claro);margin-right:8px;"></i> Usuarios</td>
                         <td>1</td>
                         <td>3</td>
-                        <td>10</td>
+                        <td>5</td>
                     </tr>
                     <tr>
                         <td><i class="ti ti-layout-grid" style="color:var(--verde-claro);margin-right:8px;"></i> Parcelas</td>
-                        <td>3</td>
-                        <td>10</td>
-                        <td>50</td>
+                        <td>2</td>
+                        <td>5</td>
+                        <td>20</td>
                     </tr>
                     <tr>
                         <td><i class="ti ti-chart-line" style="color:var(--verde-claro);margin-right:8px;"></i> Análisis NDVI</td>
@@ -466,28 +466,28 @@
                         <td><span class="table-check">✓</span></td>
                     </tr>
                     <tr>
-                        <td><i class="ti ti-droplet" style="color:var(--verde-claro);margin-right:8px;"></i> Estrés Hídrico</td>
+                        <td><i class="ti ti-plant-2" style="color:var(--verde-claro);margin-right:8px;"></i> Análisis SAVI</td>
                         <td><span class="table-cross">✗</span></td>
                         <td><span class="table-check">✓</span></td>
+                        <td><span class="table-check">✓</span></td>
+                    </tr>
+                    <tr>
+                        <td><i class="ti ti-droplet" style="color:var(--verde-claro);margin-right:8px;"></i> NDMI + EVI</td>
+                        <td><span class="table-cross">✗</span></td>
+                        <td><span class="table-cross">✗</span></td>
                         <td><span class="table-check">✓</span></td>
                     </tr>
                     <tr>
                         <td><i class="ti ti-cloud-rain" style="color:var(--verde-claro);margin-right:8px;"></i> Pronóstico Climático</td>
                         <td><span class="table-cross">✗</span></td>
-                        <td><span class="table-check">✓</span></td>
-                        <td><span class="table-check">✓</span></td>
+                        <td>Básico</td>
+                        <td>Completo</td>
                     </tr>
                     <tr>
-                        <td><i class="ti ti-code" style="color:var(--verde-claro);margin-right:8px;"></i> Acceso API</td>
-                        <td><span class="table-cross">✗</span></td>
-                        <td><span class="table-cross">✗</span></td>
-                        <td><span class="table-check">✓</span></td>
-                    </tr>
-                    <tr>
-                        <td><i class="ti ti-headset" style="color:var(--verde-claro);margin-right:8px;"></i> Soporte Prioritario</td>
-                        <td><span class="table-cross">✗</span></td>
-                        <td><span class="table-check">✓</span></td>
-                        <td><span class="table-check">✓</span></td>
+                        <td><i class="ti ti-headset" style="color:var(--verde-claro);margin-right:8px;"></i> Soporte</td>
+                        <td>Email</td>
+                        <td>Email prioritario</td>
+                        <td>Prioritario</td>
                     </tr>
                 </tbody>
             </table>
@@ -563,10 +563,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 ? `<span class="price-savings">Ahorras $${fmt(p.yearly_discount.savings_cop)}</span>` : '';
 
             const featureMap = {
-                'basic_analytics': 'Análisis básico (NDVI)',
-                'advanced_analytics': 'Análisis avanzado',
-                'weather_forecast': 'Pronóstico climático',
-                'api_access': 'Acceso a API'
+                'ndvi': 'Análisis NDVI',
+                'savi': 'Análisis SAVI',
+                'ndmi': 'Análisis NDMI (Humedad)',
+                'evi': 'Análisis EVI (Vegetación mejorado)',
+                'weather_basic': 'Pronóstico climático básico',
+                'weather_full': 'Pronóstico climático completo',
             };
 
             const included = [

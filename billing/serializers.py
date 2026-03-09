@@ -86,7 +86,7 @@ class CreateSubscriptionSerializer(serializers.Serializer):
     """Serializer para crear suscripción."""
     
     plan_tier = serializers.ChoiceField(
-        choices=['free', 'basic', 'pro', 'enterprise']
+        choices=['free', 'basic', 'pro']
     )
     billing_cycle = serializers.ChoiceField(
         choices=['monthly', 'yearly'],

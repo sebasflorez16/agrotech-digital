@@ -13,7 +13,7 @@ Reglas de negocio:
 │  - Se crea tenant al registrar suscripción free                 │
 │  - Si el trial expira sin upgrade → ELIMINAR tenant y schema    │
 │                                                                 │
-│  PLAN PAGO (basic, pro, enterprise)                             │
+│  PLAN PAGO (basic, pro)                                         │
 │  - Se crea tenant al confirmar primer pago                      │
 │  - Si deja de pagar → DESACTIVAR (on_trial=False, paid_until=   │
 │    fecha pasada). Los datos se conservan en la DB.              │
@@ -89,7 +89,7 @@ class TenantService:
             tenant_name: Nombre legible del tenant (ej: "Finca El Roble")
             schema_name: Nombre del schema PostgreSQL (auto-generado si None)
             domain_name: Subdominio (auto-generado si None)
-            plan_tier: Tier del plan ('free', 'basic', 'pro', 'enterprise')
+            plan_tier: Tier del plan ('free', 'basic', 'pro')
             billing_cycle: 'monthly' o 'yearly'
             payer_email: Email del pagador
             external_subscription_id: ID de suscripción en pasarela de pago
@@ -323,7 +323,6 @@ class TenantService:
                 'free': 'Explorador (Trial 14 días)',
                 'basic': 'Agricultor',
                 'pro': 'Empresarial',
-                'enterprise': 'Enterprise',
             }
             plan_display = plan_names.get(plan_tier, plan_tier)
 

@@ -87,7 +87,7 @@ class RegisterSerializer(serializers.Serializer):
     plan_tier = serializers.CharField(
         required=False,
         default='free',
-        help_text='Tier del plan: free, basic, pro, enterprise'
+        help_text='Tier del plan: free, basic, pro'
     )
     
     def validate_email(self, value):
@@ -185,7 +185,7 @@ class RegisterSerializer(serializers.Serializer):
         from billing.models import Plan
         
         tier = value.lower().strip()
-        valid_tiers = ['free', 'basic', 'pro', 'enterprise']
+        valid_tiers = ['free', 'basic', 'pro']
         
         if tier not in valid_tiers:
             raise serializers.ValidationError(

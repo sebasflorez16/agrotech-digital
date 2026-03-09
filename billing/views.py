@@ -336,7 +336,7 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Plan no encontrado'}, status=404)
         
         # Validar que sea upgrade
-        tier_order = ['free', 'basic', 'pro', 'enterprise']
+        tier_order = ['free', 'basic', 'pro']
         current_tier_idx = tier_order.index(subscription.plan.tier)
         new_tier_idx = tier_order.index(new_plan.tier)
         

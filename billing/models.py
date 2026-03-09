@@ -21,7 +21,6 @@ class Plan(models.Model):
         ('free', 'Explorador'),
         ('basic', 'Agricultor'),
         ('pro', 'Empresarial'),
-        ('enterprise', 'Corporativo'),
     ]
     
     FREQUENCY_CHOICES = [
@@ -107,7 +106,7 @@ class Plan(models.Model):
     is_custom = models.BooleanField(
         default=False,
         verbose_name='Plan personalizado',
-        help_text='True para planes Enterprise con pricing custom'
+        help_text='True para planes con pricing personalizado'
     )
     trial_days = models.IntegerField(
         default=14,

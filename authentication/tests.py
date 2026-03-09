@@ -1187,40 +1187,40 @@ class TestProfileUpdateEndpoint:
 
 
 # ═══════════════════════════════════════════════════════════════
-#  TESTS — PLAN ENTERPRISE
+#  TESTS — PLAN EMPRESARIAL (PRO)
 # ═══════════════════════════════════════════════════════════════
 
 @pytest.mark.django_db
-class TestEnterprisePlan:
-    """Verifica que el plan Enterprise esté correctamente configurado."""
+class TestEmpresarialPlan:
+    """Verifica que el plan Empresarial (pro) esté correctamente configurado."""
 
-    def test_enterprise_plan_exists(self):
-        """Plan Enterprise debe existir en la BD."""
+    def test_pro_plan_exists(self):
+        """Plan Pro debe existir en la BD."""
         from billing.models import Plan
-        assert Plan.objects.filter(tier='enterprise').exists(), \
-            "El plan Enterprise no existe. Ejecuta: python manage.py seed_plans"
+        assert Plan.objects.filter(tier='pro').exists(), \
+            "El plan Pro no existe. Ejecuta: python manage.py seed_plans"
 
-    def test_enterprise_plan_is_active(self):
-        """Plan Enterprise debe estar activo."""
+    def test_pro_plan_is_active(self):
+        """Plan Pro debe estar activo."""
         from billing.models import Plan
-        plan = Plan.objects.filter(tier='enterprise').first()
+        plan = Plan.objects.filter(tier='pro').first()
         if plan:
             assert plan.is_active is True
 
-    def test_enterprise_plan_has_limits(self):
-        """Plan Enterprise debe tener límites correctos."""
+    def test_pro_plan_has_limits(self):
+        """Plan Pro debe tener límites correctos."""
         from billing.models import Plan
-        plan = Plan.objects.filter(tier='enterprise').first()
+        plan = Plan.objects.filter(tier='pro').first()
         if plan:
-            assert plan.limits.get('hectares', 0) >= 1000
-            assert plan.limits.get('users', 0) >= 10
+            assert plan.limits.get('hectares', 0) >= 500
+            assert plan.limits.get('users', 0) >= 5
             assert plan.price_cop > 0
             assert plan.price_usd > 0
 
-    def test_all_four_tiers_exist(self):
-        """Los 4 tiers deben existir: free, basic, pro, enterprise."""
+    def test_all_three_tiers_exist(self):
+        """Los 3 tiers deben existir: free, basic, pro."""
         from billing.models import Plan
-        expected = {'free', 'basic', 'pro', 'enterprise'}
+        expected = {'free', 'basic', 'pro'}
         existing = set(Plan.objects.filter(tier__in=expected).values_list('tier', flat=True))
         missing = expected - existing
         assert not missing, f"Planes faltantes: {missing}. Ejecuta: python manage.py seed_plans"

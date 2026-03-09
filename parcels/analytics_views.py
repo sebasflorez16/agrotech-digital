@@ -118,8 +118,15 @@ class EOSDAAnalyticsAPIView(APIView):
             
             logger.info(f"[EOSDA_ANALYTICS_REAL] 📅 Fecha exacta: {start_date} (escena seleccionada por usuario)")
             
+            # ── Determinar índices permitidos según el plan del usuario ──
+            allowed_indices = None
+            subscription = getattr(request, 'subscription', None)
+            if subscription and subscription.plan and subscription.plan.features_included:
+                allowed_indices = [f for f in subscription.plan.features_included if f in ['ndvi', 'savi', 'ndmi', 'evi']]
+                logger.info(f"[EOSDA_ANALYTICS_REAL] 🔒 Índices permitidos por plan '{subscription.plan.name}': {allowed_indices}")
+            
             # Obtener datos REALES de EOSDA Statistics API usando datos de la parcela
-            real_analytics = self._get_real_eosda_statistics_for_parcel(parcel_data, start_date, end_date)
+            real_analytics = self._get_real_eosda_statistics_for_parcel(parcel_data, start_date, end_date, allowed_indices=allowed_indices)
             
             # EOSDA hace timeout para escena específica - Error más específico
             if not real_analytics:
@@ -465,7 +472,7 @@ class EOSDAAnalyticsAPIView(APIView):
             logger.error(f"[PARCEL_BY_ID] ❌ Error: {str(e)}")
             return None
     
-    def _get_real_eosda_statistics_for_parcel(self, parcel_data, start_date, end_date):
+    def _get_real_eosda_statistics_for_parcel(self, parcel_data, start_date, end_date, allowed_indices=None):
         """
         Obtiene estadísticas REALES de EOSDA usando datos específicos de parcela.
         
@@ -473,6 +480,7 @@ class EOSDAAnalyticsAPIView(APIView):
             parcel_data: Datos de la parcela con field_id y geometry
             start_date: Fecha inicio
             end_date: Fecha fin
+            allowed_indices: Lista de índices permitidos por el plan del usuario
             
         Returns:
             dict: Datos de EOSDA o None si falla
@@ -484,17 +492,21 @@ class EOSDAAnalyticsAPIView(APIView):
             
             logger.info(f"[EOSDA_PARCEL] ✅ Procesando parcela: {parcel_name}")
             logger.info(f"[EOSDA_PARCEL] ✅ field_id: {field_id}")
+            if allowed_indices:
+                logger.info(f"[EOSDA_PARCEL] 🔒 Índices permitidos por plan: {allowed_indices}")
             
             # Llamar al método original pero con datos específicos
-            return self._get_real_eosda_statistics_with_data(field_id, geometry, start_date, end_date)
+            return self._get_real_eosda_statistics_with_data(field_id, geometry, start_date, end_date, allowed_indices=allowed_indices)
             
         except Exception as e:
             logger.error(f"[EOSDA_PARCEL] ❌ Error: {str(e)}")
             return None
     
-    def _get_real_eosda_statistics_with_data(self, field_id, geometry, start_date, end_date):
+    def _get_real_eosda_statistics_with_data(self, field_id, geometry, start_date, end_date, allowed_indices=None):
         """
         Llama a EOSDA Statistics API con datos específicos.
+        allowed_indices: lista de índices permitidos por el plan (ej: ['ndvi', 'savi']).
+                         Si es None, se solicitan todos los disponibles.
         """
         try:
             import requests
@@ -526,11 +538,23 @@ class EOSDAAnalyticsAPIView(APIView):
                 "Content-Type": "application/json"
             }
             
-            # Payload optimizado para ESCENA ESPECÍFICA - TODOS LOS ÍNDICES
+            # Determinar índices a solicitar según el plan del usuario
+            all_indices = ["NDVI", "NDMI", "EVI"]
+            if allowed_indices:
+                # Filtrar solo los índices que el plan permite
+                index_map = {'ndvi': 'NDVI', 'ndmi': 'NDMI', 'evi': 'EVI', 'savi': 'SAVI'}
+                requested_indices = [index_map[i] for i in allowed_indices if i in index_map and index_map[i] in all_indices]
+                if not requested_indices:
+                    requested_indices = ["NDVI"]  # Mínimo NDVI
+                logger.info(f"[EOSDA_API] 🔒 Índices filtrados por plan: {requested_indices} (permitidos: {allowed_indices})")
+            else:
+                requested_indices = all_indices
+            
+            # Payload optimizado para ESCENA ESPECÍFICA
             payload = {
                 "type": "mt_stats",
                 "params": {
-                    "bm_type": ["NDVI", "NDMI", "EVI"],  # Todos los índices en una sola llamada
+                    "bm_type": requested_indices,
                     "date_start": start_date,  # Fecha exacta
                     "date_end": end_date,      # Misma fecha
                     "geometry": geometry,      # Geometría real de la parcela
