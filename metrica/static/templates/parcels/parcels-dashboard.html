@@ -998,7 +998,7 @@
                         <!-- Gráfico comparativo -->
                         <div class="row">   
                             <div class="col-md-8">
-                                <div style="position: relative; height: 400px; background: #f8f9fa; border-radius: 8px; padding: 15px;">
+                                <div style="position: relative; height: 400px; overflow: hidden; background: #f8f9fa; border-radius: 8px; padding: 15px;">
                                     <canvas id="meteorologicalChart"></canvas>
                                 </div>
                             </div>
@@ -1174,7 +1174,9 @@
                                 <div class="col-12">
                                     <div class="card">
                                         <div class="card-body">
-                                            <canvas id="historicalChart" width="400" height="200"></canvas>
+                                            <div style="position: relative; height: 400px; width: 100%;">
+                                                <canvas id="historicalChart"></canvas>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

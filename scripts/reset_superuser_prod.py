@@ -8,8 +8,11 @@ Uso:
 import django
 import os
 
-# DJANGO_SETTINGS_MODULE se inyecta por Railway automáticamente
-# Si corres local con railway run, también usa las vars de Railway
+# Railway inyecta DATABASE_URL y demás vars, pero DJANGO_SETTINGS_MODULE
+# hay que setearlo explícitamente si no está ya en las vars de Railway.
+if not os.environ.get('DJANGO_SETTINGS_MODULE'):
+    os.environ['DJANGO_SETTINGS_MODULE'] = 'config.settings.production'
+
 django.setup()
 
 from metrica.users.models import User  # noqa: E402
