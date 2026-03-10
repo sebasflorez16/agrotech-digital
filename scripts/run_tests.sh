@@ -21,7 +21,7 @@ fi
 
 # Configurar variables de entorno para tests
 export DJANGO_SETTINGS_MODULE=config.settings.local
-export DJANGO_SECRET_KEY=test-secret-key
+export DJANGO_SECRET_KEY="${DJANGO_SECRET_KEY:-test-secret-key-$(date +%s)}"
 
 # Función para tests rápidos
 run_quick_tests() {

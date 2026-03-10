@@ -8,7 +8,7 @@ import django
 
 # Configurar Django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.local')
-os.environ['DJANGO_SECRET_KEY'] = 'test-key-local-only'
+os.environ['DJANGO_SECRET_KEY'] = os.environ.get('DJANGO_SECRET_KEY', 'test-key-local-only')
 
 # Agregar al path
 sys.path.insert(0, '/Users/sebastianflorez/Documents/agrotech-digital/agrotech-digital')
@@ -50,8 +50,8 @@ connection.set_tenant(tenant)
 print(f"\n👤 Creando usuario en tenant '{tenant.schema_name}'...")
 
 username = 'admin'
-password = 'admin123'
-email = 'admin@agrotech.com'
+password = os.environ.get('TEST_ADMIN_PASSWORD', 'ChangeMe_T3st!2024')
+email = 'admin@agrotech.local'
 
 # Verificar si existe
 if User.objects.filter(username=username).exists():

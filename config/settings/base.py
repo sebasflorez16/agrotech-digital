@@ -132,9 +132,7 @@ CESIUM_ACCESS_TOKEN = env("CESIUM_ACCESS_TOKEN", default="TU_CESIUM_ACCESS_TOKEN
 
 
 # EOSDA API KEY
-
-# EOSDA API KEY
-EOSDA_API_KEY = os.getenv('EOSDA_API_KEY', 'TU_EOSDA_API_KEY') # Valor por defecto solo para desarrollo local, reemplaza en .env
+EOSDA_API_KEY = env.str("EOSDA_API_KEY", default="")  # Configurar en variables de entorno, NUNCA hardcodear
 
 # EOSDA DATASET ID (por defecto Sentinel-2 L2A)
 EOSDA_DATASET_ID = os.getenv('EOSDA_DATASET_ID', 'S2L2A')

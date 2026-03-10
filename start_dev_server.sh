@@ -5,8 +5,13 @@
 
 cd "$(dirname "$0")"
 
-# Variables de entorno necesarias
-export DJANGO_SECRET_KEY="django-insecure-dev-key-local-only-not-for-production-12345"
+# Cargar variables de .env si existe
+if [ -f .env ]; then
+    set -a; source .env; set +a
+fi
+
+# Variables de entorno necesarias (genera secret key temporal si no existe)
+export DJANGO_SECRET_KEY="${DJANGO_SECRET_KEY:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))')}"
 export DJANGO_SETTINGS_MODULE="config.settings.local"
 export DEBUG="True"
 

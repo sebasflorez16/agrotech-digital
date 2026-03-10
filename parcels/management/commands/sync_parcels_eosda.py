@@ -38,7 +38,7 @@ class Command(BaseCommand):
         from parcels.models import Parcel
         
         self.stdout.write(self.style.NOTICE('🔄 Sincronizando parcelas con EOSDA...'))
-        self.stdout.write(f'   API Key: {settings.EOSDA_API_KEY[:20]}...')
+        self.stdout.write(f'   API Key: {"configurada" if settings.EOSDA_API_KEY else "NO configurada"}')
         
         # Filtrar parcelas
         parcels = Parcel.objects.filter(is_deleted=False)

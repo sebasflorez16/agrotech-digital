@@ -52,13 +52,26 @@ coverage.xml
 .hypothesis/ 
 
 # Environments 
-.env 
+.env
+.env.*
+.env.local
+.env.production
+.env.staging
+!.env.example
 .venv 
 env/ 
 venv/ 
 ENV/ 
 env.bak/ 
 venv.bak/ 
+
+# Secrets / Credentials (NUNCA commitear)
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.json
+credentials.json
 
 # Visual Studio Code # 
 .vscode

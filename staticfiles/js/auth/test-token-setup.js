@@ -1,10 +1,13 @@
 /**
  * Script temporal para configurar el token de autenticación para pruebas
  * Este script debe ejecutarse desde la consola del navegador en cualquier tenant
+ * 
+ * USO: Primero obtén un token via login, luego pásalo como argumento:
+ *   setupAuthToken('tu_token_aqui')
  */
 
-// Token de acceso proporcionado (actualizar según sea necesario)
-const ACCESS_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzU1OTczMzIzLCJpYXQiOjE3NTU5NjM3MjMsImp0aSI6ImVhZGU1YzkwZjhkMjQ5ZjliZDY2MjRlMWRiZjljOWJjIiwidXNlcl9pZCI6MX0.0mrAwiEVtBDMzTQEuUfpBZp1HmLtIgvPqWuFikMapeQ';
+// NO hardcodear tokens - se pasan como argumento
+const ACCESS_TOKEN = null;
 
 /**
  * Configura el token de autenticación en localStorage

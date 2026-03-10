@@ -7,7 +7,7 @@ import sys
 import django
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.local')
-os.environ['DJANGO_SECRET_KEY'] = 'test-key'
+os.environ['DJANGO_SECRET_KEY'] = os.environ.get('DJANGO_SECRET_KEY', 'dev-local-only')
 sys.path.insert(0, '.')
 django.setup()
 

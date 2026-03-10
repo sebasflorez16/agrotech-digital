@@ -42,7 +42,7 @@ class Command(BaseCommand):
         tenant_schema = options['tenant']
         
         self.stdout.write(self.style.NOTICE(f'🔄 Sincronizando parcelas con EOSDA (tenant: {tenant_schema})...'))
-        self.stdout.write(f'   API Key: {settings.EOSDA_API_KEY[:20]}...')
+        self.stdout.write(f'   API Key: {"configurada" if settings.EOSDA_API_KEY else "NO configurada"}')
         
         with schema_context(tenant_schema):
             # Filtrar parcelas

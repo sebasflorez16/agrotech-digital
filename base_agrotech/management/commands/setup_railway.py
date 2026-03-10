@@ -21,7 +21,10 @@ class Command(BaseCommand):
         
         print(f"DJANGO_SETTINGS_MODULE: {django_settings}")
         if database_url != 'NO CONFIGURADO':
-            print(f"DATABASE_URL: {database_url[:50]}...")
+            # Solo mostrar host, no credenciales
+            from urllib.parse import urlparse
+            parsed = urlparse(database_url)
+            print(f"DATABASE_URL: {parsed.scheme}://***@{parsed.hostname}:{parsed.port}/{parsed.path.lstrip('/')}")
         else:
             print(f"DATABASE_URL: {database_url}")
         sys.stdout.flush()

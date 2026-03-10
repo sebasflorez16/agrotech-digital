@@ -65,7 +65,7 @@ if [ ! -f ".env" ]; then
 # Django
 DJANGO_DEBUG=True
 DJANGO_SETTINGS_MODULE=config.settings.local
-DJANGO_SECRET_KEY=local-dev-secret-key-change-in-production
+DJANGO_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(50))' 2>/dev/null || echo 'change-me-to-a-secure-random-key')
 
 # Database (PostgreSQL local)
 # DATABASE_URL=postgresql://user:password@localhost:5432/agrotech_dev
