@@ -103,14 +103,20 @@ loginForm.addEventListener('submit', async (e) => {
             return;
         }
         
-        // Login exitoso
-        if (data.access || data.token) {
-            const token = data.access || data.token;
+        // Login exitoso — backend devuelve { tokens: { access, refresh }, user }
+        const accessToken = (data.tokens && data.tokens.access) || data.access || data.token;
+        const refreshToken = (data.tokens && data.tokens.refresh) || data.refresh;
+        
+        if (accessToken) {
+            // Guardar tokens
+            localStorage.setItem('accessToken', accessToken);
+            if (refreshToken) {
+                localStorage.setItem('refreshToken', refreshToken);
+            }
             
-            // Guardar token
-            localStorage.setItem('accessToken', token);
-            if (data.refresh) {
-                localStorage.setItem('refreshToken', data.refresh);
+            // Guardar datos del usuario si vienen
+            if (data.user) {
+                localStorage.setItem('user', JSON.stringify(data.user));
             }
             
             console.log('✅ Login exitoso');
