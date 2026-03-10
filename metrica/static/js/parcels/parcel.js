@@ -232,7 +232,11 @@ window.clearEOSDACache = function() {
 // BASE_URL: Detectar correctamente el backend en desarrollo local
 // En localhost, el frontend puede estar en puerto diferente (8080, 3000) que el backend (8000)
 function getBaseUrl() {
-    // Si ApiUrls está disponible, usarlo
+    // Usar config.js centralizado como fuente principal
+    if (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE) {
+        return window.AGROTECH_CONFIG.API_BASE + '/api/parcels';
+    }
+    // Fallback: Si ApiUrls está disponible, usarlo
     if (window.ApiUrls) {
         return window.ApiUrls.parcels();
     }
@@ -241,12 +245,11 @@ function getBaseUrl() {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     
     if (isLocalhost) {
-        // En desarrollo local, el backend Django está en puerto 8000
         return 'http://localhost:8000/api/parcels';
     }
     
-    // En producción (Netlify), usar rutas relativas que el proxy redirige
-    return '/api/parcels';
+    // En producción, usar URL de Railway
+    return 'https://agrotech-digital-production.up.railway.app/api/parcels';
 }
 
 const BASE_URL = getBaseUrl();
@@ -1237,8 +1240,13 @@ async function fetchEosdaWmtsUrls(polygonGeoJson) {
     const fechaNDVI = new Date(today.getFullYear(), today.getMonth(), today.getDate() - daysAgo)
         .toISOString().split('T')[0];
     // Usar hostname dinámico para el proxy WMTS
+    const _pxBase = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+        ? window.AGROTECH_CONFIG.API_BASE
+        : (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? 'http://localhost:8000'
+            : 'https://agrotech-digital-production.up.railway.app';
     const baseProxy = window.ApiUrls ? window.ApiUrls.eosdaWmts() + '/' : 
-                     `${window.location.protocol}//${window.location.hostname}:8000/api/parcels/eosda-wmts-tile/`;
+                     `${_pxBase}/api/parcels/eosda-wmts-tile/`;
     // const ndviUrl = ...; const ndmiUrl = ...; Eliminado. Usar Render API.
     return { ndvi: ndviUrl, ndmi: ndmiUrl };
 }

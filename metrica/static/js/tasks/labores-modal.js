@@ -19,11 +19,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function cargarOpcionesResponsables() {
     const token = localStorage.getItem("accessToken");
-    // Usar el mismo hostname y puerto del frontend, pero forzar el puerto 8000 para el backend
-    let backendHost = window.location.hostname;
-    // Si el frontend corre en 3000, cambiar a 8000
-    let backendPort = window.location.port === "3000" ? "8000" : window.location.port;
-    const apiUrl = `${window.location.protocol}//${backendHost}:${backendPort}/api/RRHH/empleados/`;
+    const _LM_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+        ? window.AGROTECH_CONFIG.API_BASE
+        : (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? 'http://localhost:8000'
+            : 'https://agrotech-digital-production.up.railway.app';
+    const apiUrl = `${_LM_BASE}/api/RRHH/empleados/`;
     axios.get(apiUrl, {
         headers: { "Authorization": `Bearer ${token}` }
     })
@@ -65,7 +66,12 @@ function guardarLabor() {
         fecha_realizada: document.getElementById("fechaRealizada").value || null,
         responsables: Array.from(document.getElementById("responsablesLabor").selectedOptions).map(o => o.value)
     };
-    const url = `http://${window.location.hostname}:8000/api/labores/labores/` + (id ? id + '/' : '');
+    const _LM2 = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+        ? window.AGROTECH_CONFIG.API_BASE
+        : (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? 'http://localhost:8000'
+            : 'https://agrotech-digital-production.up.railway.app';
+    const url = `${_LM2}/api/labores/labores/` + (id ? id + '/' : '');
     const method = id ? 'put' : 'post';
     axios({
         method,

@@ -1,14 +1,19 @@
 // maquinaria.js - Gestión avanzada de maquinaria agrícola (CRUD, multi-tenant, modular)
 
-const API_URL = `http://${window.location.hostname}:8000/api/inventario/machinery/`;
-const token = localStorage.getItem("accessToken");
+const _MAQ_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        ? 'http://localhost:8000'
+        : 'https://agrotech-digital-production.up.railway.app';
+const API_URL = `${_MAQ_BASE}/api/inventario/machinery/`;
+function _maqToken() { return localStorage.getItem("accessToken"); }
 
 // Cargar maquinaria y renderizar tabla
 async function loadMaquinaria() {
     try {
         const resp = await fetch(API_URL, {
             headers: {
-                'Authorization': `Bearer ${token}`,
+                'Authorization': `Bearer ${_maqToken()}`,
                 'Content-Type': 'application/json'
             }
         });
@@ -76,7 +81,7 @@ async function saveMaquinaria(formData, id=null) {
         const resp = await fetch(url, {
             method,
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${_maqToken()}`
             },
             body: formData
         });
@@ -94,7 +99,7 @@ async function deleteMaquinaria(id) {
         const resp = await fetch(`${API_URL}${id}/`, {
             method: 'DELETE',
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${_maqToken()}`
             }
         });
         if (!resp.ok) throw new Error('Error eliminando maquinaria');

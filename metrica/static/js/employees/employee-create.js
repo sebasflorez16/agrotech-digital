@@ -1,4 +1,8 @@
-const BASE_URL = `http://${window.location.hostname}:8000/api/RRHH`;
+const _EMPC_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:8000` : 'https://agrotech-digital-production.up.railway.app');
+const BASE_URL = `${_EMPC_BASE}/api/RRHH`;
 
 // Manejar el envío del formulario
 async function handleEmployeeSubmit(event) {

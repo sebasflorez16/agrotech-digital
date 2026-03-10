@@ -4,10 +4,11 @@
  */
 
 // Configuración API (usa config.js si está disponible)
-const API_BASE_URL = window.AGROTECH_CONFIG ? window.AGROTECH_CONFIG.API_BASE : 
-    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:8000'
-    : 'https://agrotechcolombia.com');
+const API_BASE_URL = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:8000'
+        : 'https://agrotech-digital-production.up.railway.app');
 
 // Elementos del DOM
 const loginForm = document.getElementById('loginForm');

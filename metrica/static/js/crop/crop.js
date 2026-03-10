@@ -12,7 +12,9 @@
 
 const _hostname = window.location.hostname;
 const _isLocal  = _hostname === 'localhost' || _hostname === '127.0.0.1';
-const BACKEND   = _isLocal ? `http://${_hostname}:8000` : '';
+const BACKEND   = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (_isLocal ? `http://${_hostname}:8000` : 'https://agrotech-digital-production.up.railway.app');
 const API_BASE  = `${BACKEND}/api/crop/`;
 const API_VARIETY   = `${BACKEND}/api/crop/varieties/`;
 const API_PARCELS   = `${BACKEND}/api/parcels/parcel/`;

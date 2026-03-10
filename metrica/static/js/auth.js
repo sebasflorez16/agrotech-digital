@@ -6,12 +6,12 @@ export function isAuthenticated() {
 
 // 🔹 Función para redirigir al login
 export function redirectToLogin() {
-    window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
+    window.location.href = "../authentication/login.html";
 }
 
 // 🔹 Función para redirigir al dashboard después del login
 export function redirectToDashboard() {
-    window.location.href = "https://agrotechcolombia.netlify.app/templates/vertical_base.html";
+    window.location.href = "../dashboard.html";
 }
 
 // 🔹 Función de Logout

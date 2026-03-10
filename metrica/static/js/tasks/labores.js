@@ -15,7 +15,12 @@ function cargarLabores() {
         window.location.href = "/templates/authentication/login.html";
         return;
     }
-    axios.get(`http://${window.location.hostname}:8000/api/labores/labores/`, {
+    const _LB_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+        ? window.AGROTECH_CONFIG.API_BASE
+        : (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? 'http://localhost:8000'
+            : 'https://agrotech-digital-production.up.railway.app';
+    axios.get(`${_LB_BASE}/api/labores/labores/`, {
         headers: { "Authorization": `Bearer ${token}`, }
     })
     .then(response => {
@@ -75,7 +80,12 @@ function verLabor(id) {
 
 function editarLabor(id) {
     const token = localStorage.getItem("accessToken");
-    axios.get(`http://${window.location.hostname}:8000/api/labores/labores/${id}/`, {
+    const _LB2 = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+        ? window.AGROTECH_CONFIG.API_BASE
+        : (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? 'http://localhost:8000'
+            : 'https://agrotech-digital-production.up.railway.app';
+    axios.get(`${_LB2}/api/labores/labores/${id}/`, {
         headers: { "Authorization": `Bearer ${token}` }
     })
     .then(res => {
@@ -106,7 +116,12 @@ function editarLabor(id) {
 function eliminarLabor(id) {
     if (!confirm("¿Seguro que deseas eliminar esta labor?")) return;
     const token = localStorage.getItem("accessToken");
-    axios.delete(`http://${window.location.hostname}:8000/api/labores/labores/${id}/`, {
+    const _LB3 = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+        ? window.AGROTECH_CONFIG.API_BASE
+        : (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? 'http://localhost:8000'
+            : 'https://agrotech-digital-production.up.railway.app';
+    axios.delete(`${_LB3}/api/labores/labores/${id}/`, {
         headers: { "Authorization": `Bearer ${token}` }
     })
     .then(() => {

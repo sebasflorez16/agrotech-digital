@@ -1,5 +1,9 @@
 // machinery.js - CRUD para maquinaria
-const API_URL = `http://${window.location.hostname}:8000/api/inventario/machinery/`;
+const _MACH_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `${_MACH_BASE}` : 'https://agrotech-digital-production.up.railway.app');
+const API_URL = `${_MACH_BASE}/api/inventario/machinery/`;
 const token = localStorage.getItem("accessToken");
 
 // Cargar maquinaria y renderizar tabla
@@ -180,7 +184,7 @@ async function loadMachineryFormSelects(selectedWarehouse = '', selectedCategory
     const warehouseSelect = document.getElementById('machineryWarehouse');
     warehouseSelect.innerHTML = '<option value="">Selecciona almacén</option>';
     try {
-        const resp = await fetch(`http://${window.location.hostname}:8000/api/inventario/warehouses/`, {
+        const resp = await fetch(`${_MACH_BASE}/api/inventario/warehouses/`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await resp.json();
@@ -192,7 +196,7 @@ async function loadMachineryFormSelects(selectedWarehouse = '', selectedCategory
     const categorySelect = document.getElementById('machineryCategory');
     categorySelect.innerHTML = '<option value="">Selecciona categoría</option>';
     try {
-        const resp = await fetch(`http://${window.location.hostname}:8000/api/inventario/categories/`, {
+        const resp = await fetch(`${_MACH_BASE}/api/inventario/categories/`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await resp.json();
@@ -204,7 +208,7 @@ async function loadMachineryFormSelects(selectedWarehouse = '', selectedCategory
     const subcategorySelect = document.getElementById('machinerySubcategory');
     subcategorySelect.innerHTML = '<option value="">Selecciona subcategoría</option>';
     try {
-        const resp = await fetch(`http://${window.location.hostname}:8000/api/inventario/subcategories/`, {
+        const resp = await fetch(`${_MACH_BASE}/api/inventario/subcategories/`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await resp.json();
@@ -216,7 +220,7 @@ async function loadMachineryFormSelects(selectedWarehouse = '', selectedCategory
     const supplierSelect = document.getElementById('machinerySupplier');
     supplierSelect.innerHTML = '<option value="">Selecciona proveedor</option>';
     try {
-        const resp = await fetch(`http://${window.location.hostname}:8000/api/inventario/suppliers/`, {
+        const resp = await fetch(`${_MACH_BASE}/api/inventario/suppliers/`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await resp.json();

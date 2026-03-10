@@ -1,5 +1,9 @@
 // Definir la URL base para la API
-const BASE_URL = window.ApiUrls ? window.ApiUrls.rrhh() : `${window.location.protocol}//${window.location.hostname}:8000/api/RRHH`;
+const _EMP_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:8000` : 'https://agrotech-digital-production.up.railway.app');
+const BASE_URL = `${_EMP_BASE}/api/RRHH`;
 
 // Ejecutar el código cuando el DOM esté completamente cargado
 document.addEventListener("DOMContentLoaded", function () {

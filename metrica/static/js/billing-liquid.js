@@ -3,10 +3,12 @@
  * Gestión de facturación y uso con diseño Apple-inspired
  */
 
-// Configuración API
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:8000'
-    : 'https://agrotechcolombia.com';
+// Configuración API - usar config.js centralizado
+const API_BASE_URL = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:8000'
+        : 'https://agrotech-digital-production.up.railway.app');
 
 // Obtener token de autenticación
 function getAuthToken() {

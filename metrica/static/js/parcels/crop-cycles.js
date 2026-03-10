@@ -26,6 +26,10 @@
     // =====================================================================
 
     function getCropApiBase() {
+        // Usar config.js centralizado
+        if (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE) {
+            return window.AGROTECH_CONFIG.API_BASE + '/api/crop';
+        }
         if (window.ApiUrls && typeof window.ApiUrls.base === 'function') {
             return window.ApiUrls.base() + '/crop';
         }
@@ -33,7 +37,7 @@
         if (isLocalhost) {
             return 'http://localhost:8000/api/crop';
         }
-        return '/api/crop';
+        return 'https://agrotech-digital-production.up.railway.app/api/crop';
     }
 
     const CROP_API = getCropApiBase();

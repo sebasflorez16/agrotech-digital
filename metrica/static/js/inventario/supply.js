@@ -1,6 +1,10 @@
 // supply.js - Gestión avanzada de insumos (CRUD, multi-tenant, modular)
 // API de proveedores
-const SUPPLIER_API = `http://${window.location.hostname}:8000/api/inventario/suppliers/`;
+const _SUPPLY_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:8000` : 'https://agrotech-digital-production.up.railway.app');
+const SUPPLIER_API = `${_SUPPLY_BASE}/api/inventario/suppliers/`;
 
 // Cargar proveedores en el select múltiple
 async function loadSuppliersSelect(selectId) {
@@ -27,10 +31,10 @@ async function loadSuppliersSelect(selectId) {
     }
 }
 
-const API_URL = `http://${window.location.hostname}:8000/api/inventario/supplies/`;
-const WAREHOUSE_API = `http://${window.location.hostname}:8000/api/inventario/warehouses/`;
-const CATEGORY_API = `http://${window.location.hostname}:8000/api/inventario/categories/`;
-const SUBCATEGORY_API = `http://${window.location.hostname}:8000/api/inventario/subcategories/`;
+const API_URL = `${_SUPPLY_BASE}/api/inventario/supplies/`;
+const WAREHOUSE_API = `${_SUPPLY_BASE}/api/inventario/warehouses/`;
+const CATEGORY_API = `${_SUPPLY_BASE}/api/inventario/categories/`;
+const SUBCATEGORY_API = `${_SUPPLY_BASE}/api/inventario/subcategories/`;
 // Cargar categorías en el select
 async function loadCategoriesSelect(selectId) {
     try {
