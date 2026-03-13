@@ -123,8 +123,8 @@ class ParcelScenesByDateView(APIView):
             }
         }
         logger.info(f"[SCENES_BY_DATE] URL: {request_url}")
-        logger.info(f"[SCENES_BY_DATE] Headers: {headers}")
         logger.info(f"[SCENES_BY_DATE] Payload enviado: {payload}")
+        # NOTA: No loguear headers para no exponer la API key
         import time
         try:
             req_response = requests.post(request_url, json=payload, headers=headers)
@@ -164,13 +164,11 @@ class ParcelScenesByDateView(APIView):
                 scenes_headers = {
                     "x-api-key": settings.EOSDA_API_KEY
                 }
-                max_attempts = 5
-                delay_seconds = 2
+                max_attempts = 10
+                delay_seconds = 3
                 for attempt in range(max_attempts):
                     scenes_response = requests.get(scenes_url, headers=scenes_headers)
-                    logger.info(f"[SCENES_BY_DATE] GET url: {scenes_url}")
-                    logger.info(f"[SCENES_BY_DATE] GET status: {scenes_response.status_code}")
-                    logger.info(f"[SCENES_BY_DATE] GET response: {scenes_response.text}")
+                    logger.info(f"[SCENES_BY_DATE] GET intento {attempt+1}/{max_attempts}: status={scenes_response.status_code}")
                     print(f"[SCENES_BY_DATE] Intento {attempt+1}/{max_attempts} GET status: {scenes_response.status_code}")
                     scenes_response.raise_for_status()
                     scenes_data = scenes_response.json()
@@ -769,7 +767,7 @@ class EosdaScenesView(APIView):
             req_data = req_response.json()
             request_id = req_data.get('request_id')
             
-            # Si hay request_id, hacer GET para obtener escenas
+            # Si hay request_id, hacer GET con POLLING para obtener escenas
             if request_id:
                 print(f"request_id recibido de EOSDA: {request_id}")
                 logger.info(f"request_id recibido de EOSDA: {request_id}")
@@ -777,20 +775,38 @@ class EosdaScenesView(APIView):
                 scenes_headers = {
                     "x-api-key": settings.EOSDA_API_KEY
                 }
-                scenes_response = requests.get(scenes_url, headers=scenes_headers)
-                logger.info(f"EOSDA scenes GET url: {scenes_url}")
-                logger.info(f"EOSDA scenes GET status: {scenes_response.status_code}")
-                logger.info(f"EOSDA scenes GET response: {scenes_response.text}")
-                scenes_response.raise_for_status()
-                scenes_data = scenes_response.json()
-                scenes = scenes_data.get('result', [])
-                print(f"Escenas recibidas de EOSDA (GET): {scenes}")
-                logger.info(f"Escenas recibidas de EOSDA (GET): {scenes}")
                 
-                # Guardar en cache por 6 horas (escenas disponibles no cambian frecuentemente)
+                # POLLING: EOSDA scene-search es asíncrono, puede tardar ~10-15 segundos
+                import time
+                max_attempts = 10
+                delay_seconds = 3
+                scenes = []
+                scenes_data = {}
+                
+                for attempt in range(max_attempts):
+                    scenes_response = requests.get(scenes_url, headers=scenes_headers)
+                    logger.info(f"EOSDA scenes GET intento {attempt+1}/{max_attempts}: status={scenes_response.status_code}")
+                    scenes_response.raise_for_status()
+                    scenes_data = scenes_response.json()
+                    
+                    if scenes_data.get('status') != 'pending':
+                        scenes = scenes_data.get('result', [])
+                        logger.info(f"EOSDA scenes GET completado: {len(scenes)} escenas encontradas")
+                        print(f"Escenas recibidas de EOSDA (GET, intento {attempt+1}): {len(scenes)} escenas")
+                        break
+                    
+                    logger.info(f"EOSDA scenes GET: aún pendiente, esperando {delay_seconds}s...")
+                    time.sleep(delay_seconds)
+                else:
+                    # Se agotaron los intentos
+                    logger.warning(f"EOSDA scenes GET: se agotaron {max_attempts} intentos de polling, aún pendiente")
+                    print(f"EOSDA scenes GET: timeout tras {max_attempts} intentos")
+                
+                # Guardar en cache por 6 horas (solo si hay escenas)
                 response_data = {"request_id": request_id, "scenes": scenes}
-                cache.set(cache_key, response_data, 21600)  # 6 horas
-                logger.info(f"[CACHE SET] Escenas guardadas en cache para field_id: {field_id}")
+                if scenes:
+                    cache.set(cache_key, response_data, 21600)  # 6 horas
+                    logger.info(f"[CACHE SET] {len(scenes)} escenas guardadas en cache para field_id: {field_id}")
                 
                 return Response(response_data, status=200)
             else:

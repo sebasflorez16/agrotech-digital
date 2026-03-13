@@ -95,6 +95,11 @@ function getAuthHeaders(additionalHeaders = {}) {
  * @returns {Promise} Promesa de fetch
  */
 async function authenticatedFetch(url, options = {}) {
+    // Si ya se disparó un auth failure, no hacer más peticiones
+    if (_authFailureTriggered) {
+        throw new Error('session_expired');
+    }
+
     const headers = getAuthHeaders(options.headers);
     
     let response = await fetch(url, {
@@ -114,9 +119,9 @@ async function authenticatedFetch(url, options = {}) {
                 headers: newHeaders
             });
         } else {
-            // Redirigir al login si no se puede refrescar
-            console.warn('[API-UTILS] No se pudo refrescar el token, redirigiendo a login...');
+            // Redirigir al login inmediatamente
             handleAuthFailure();
+            throw new Error('session_expired');
         }
     }
     
@@ -124,62 +129,98 @@ async function authenticatedFetch(url, options = {}) {
 }
 
 /**
- * Intenta refrescar el token de acceso usando el refresh token
+ * Control de concurrencia para el refresh de tokens.
+ * Evita que múltiples peticiones 401 simultáneas disparen múltiples refreshes.
+ */
+let _isRefreshing = false;
+let _refreshPromise = null;
+let _authFailureTriggered = false;
+
+/**
+ * Intenta refrescar el token de acceso usando el refresh token.
+ * Si ya hay un refresh en curso, reutiliza la misma promesa.
  * @returns {Promise<boolean>} true si se refrescó exitosamente
  */
 async function refreshAccessToken() {
+    // Si ya se disparó el logout, no intentar más
+    if (_authFailureTriggered) return false;
+
+    // Si ya hay un refresh en curso, esperar al resultado existente
+    if (_isRefreshing && _refreshPromise) {
+        return _refreshPromise;
+    }
+
     const refreshToken = localStorage.getItem('refreshToken');
     if (!refreshToken) {
         console.warn('[API-UTILS] No hay refresh token disponible');
         return false;
     }
-    
-    try {
-        const refreshUrl = getBackendUrl('/api/token/refresh/');
-        const response = await fetch(refreshUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ refresh: refreshToken })
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            const newAccessToken = data.access || data.accessToken || data.token;
-            if (newAccessToken) {
-                localStorage.setItem('accessToken', newAccessToken);
-                console.log('[API-UTILS] Token refrescado exitosamente');
-                return true;
+
+    _isRefreshing = true;
+    _refreshPromise = (async () => {
+        try {
+            const refreshUrl = getBackendUrl('/api/token/refresh/');
+            const response = await fetch(refreshUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh: refreshToken })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const newAccessToken = data.access || data.accessToken || data.token;
+                if (newAccessToken) {
+                    localStorage.setItem('accessToken', newAccessToken);
+                    console.log('[API-UTILS] Token refrescado exitosamente');
+                    return true;
+                }
             }
+
+            console.warn('[API-UTILS] Fallo al refrescar token:', response.status);
+            return false;
+        } catch (error) {
+            console.error('[API-UTILS] Error al refrescar token:', error);
+            return false;
+        } finally {
+            _isRefreshing = false;
+            _refreshPromise = null;
         }
-        
-        console.warn('[API-UTILS] Fallo al refrescar token:', response.status);
-        return false;
-    } catch (error) {
-        console.error('[API-UTILS] Error al refrescar token:', error);
-        return false;
-    }
+    })();
+
+    return _refreshPromise;
 }
 
 /**
- * Maneja la falla de autenticación redirigiendo al login
+ * Maneja la falla de autenticación redirigiendo al login INMEDIATAMENTE.
+ * Protegido contra múltiples invocaciones simultáneas.
  */
 function handleAuthFailure() {
-    // Limpiar tokens
+    // Evitar múltiples redirects simultáneos
+    if (_authFailureTriggered) return;
+    _authFailureTriggered = true;
+
+    console.warn('[API-UTILS] Sesión expirada. Redirigiendo a login...');
+
+    // Limpiar tokens inmediatamente
     localStorage.removeItem('accessToken');
     localStorage.removeItem('refreshToken');
-    
-    // Mostrar mensaje y redirigir
-    if (typeof showToast === 'function') {
-        showToast('Sesión expirada. Por favor, inicia sesión nuevamente.', 'warning');
+
+    // Determinar URL de login correcta
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isNetlify = window.location.hostname.includes('netlify.app');
+    let loginUrl;
+
+    if (isLocalhost) {
+        loginUrl = '/templates/authentication/login.html';
+    } else if (isNetlify) {
+        loginUrl = '/templates/authentication/login.html';
+    } else {
+        // Django backend (Railway u otro)
+        loginUrl = '/login/';
     }
-    
-    // Redirigir después de un breve delay para que se vea el mensaje
-    setTimeout(() => {
-        const loginUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-            ? '/login.html'
-            : '/login';
-        window.location.href = loginUrl;
-    }, 1500);
+
+    // Redirigir INMEDIATAMENTE sin delay
+    window.location.href = loginUrl;
 }
 
 // Exportar para uso global (siempre funciona)

@@ -291,6 +291,45 @@ function initializeLeaflet() {
         });
         window.axiosInstance = axiosInstance;
 
+        // Interceptor de respuesta: maneja token expirado (401) automáticamente
+        // Usa las funciones de api-utils.js con protección contra múltiples 401 simultáneos
+        axiosInstance.interceptors.response.use(
+            response => response,
+            async error => {
+                const originalRequest = error.config;
+                const status = error.response?.status;
+                
+                if (status === 401 && !originalRequest._retry) {
+                    originalRequest._retry = true;
+                    console.warn('[AUTH] Token expirado (401), intentando refresh...');
+                    
+                    const refreshed = typeof window.refreshAccessToken === 'function'
+                        ? await window.refreshAccessToken()
+                        : false;
+                    
+                    if (refreshed) {
+                        const newToken = localStorage.getItem('accessToken');
+                        axiosInstance.defaults.headers['Authorization'] = `Bearer ${newToken}`;
+                        originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+                        return axiosInstance.request(originalRequest);
+                    } else {
+                        // Redirect inmediato al login
+                        if (typeof window.handleAuthFailure === 'function') {
+                            window.handleAuthFailure();
+                        } else {
+                            // Fallback directo si api-utils.js no cargó
+                            localStorage.removeItem('accessToken');
+                            localStorage.removeItem('refreshToken');
+                            window.location.href = '/templates/authentication/login.html';
+                        }
+                        // Retornar un error silencioso para no mostrar toasts de error
+                        return Promise.reject(new Error('session_expired'));
+                    }
+                }
+                return Promise.reject(error);
+            }
+        );
+
         // Inicializar el mapa Leaflet centrado en Colombia
         map = L.map('mapContainer', {
             center: [4.6097, -74.0817], // Colombia
@@ -682,10 +721,11 @@ function loadParcels() {
             });
         })
         .catch(error => {
+            // Si es error de sesión expirada, no mostrar toast (el interceptor ya redirige)
+            if (error.message === 'session_expired') return;
+            
             const status = error.response?.status;
             if (status === 401) {
-                // Token expirado: el interceptor de axios ya manejó el redirect,
-                // pero por si llega aquí de todas formas lo manejamos explícitamente
                 console.warn('[AUTH] Error 401 en loadParcels, sesión expirada.');
                 if (typeof window.handleAuthFailure === 'function') {
                     window.handleAuthFailure();
@@ -1001,7 +1041,53 @@ window.deleteParcel = deleteParcel;
 
 // Ejecutar al cargar la página
 document.addEventListener("DOMContentLoaded", () => {
-    // PRIMERO: Verificar que Leaflet exista
+    // PRIMERO: Verificar autenticación ANTES de cualquier otra cosa
+    const token = localStorage.getItem('accessToken');
+    if (!token || token === 'null' || token === 'undefined' || token.trim() === '') {
+        console.warn('[AUTH] No hay token de acceso. Redirigiendo a login...');
+        if (typeof window.handleAuthFailure === 'function') {
+            window.handleAuthFailure();
+        } else {
+            window.location.href = '/templates/authentication/login.html';
+        }
+        return;
+    }
+
+    // Verificar si el token JWT ya expiró (sin hacer petición al backend)
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const expTime = payload.exp * 1000; // JWT exp está en segundos
+        const now = Date.now();
+        if (expTime < now) {
+            console.warn('[AUTH] Token JWT ya expirado. Intentando refresh...');
+            // Intentar refresh automático
+            const doRefresh = async () => {
+                const refreshed = typeof window.refreshAccessToken === 'function'
+                    ? await window.refreshAccessToken()
+                    : false;
+                if (refreshed) {
+                    console.log('[AUTH] Token refrescado al inicio. Continuando...');
+                    location.reload(); // Recargar con el token nuevo
+                } else {
+                    console.warn('[AUTH] No se pudo refrescar token al inicio. Redirigiendo a login...');
+                    if (typeof window.handleAuthFailure === 'function') {
+                        window.handleAuthFailure();
+                    } else {
+                        localStorage.removeItem('accessToken');
+                        localStorage.removeItem('refreshToken');
+                        window.location.href = '/templates/authentication/login.html';
+                    }
+                }
+            };
+            doRefresh();
+            return;
+        }
+    } catch (e) {
+        // Si el token no es un JWT válido, continuar y dejar que el backend lo rechace
+        console.warn('[AUTH] No se pudo decodificar el token JWT:', e.message);
+    }
+
+    // SEGUNDO: Verificar que Leaflet exista
     if (typeof L === 'undefined') {
         console.error('[LEAFLET] Leaflet no está disponible. Verifica la importación del script.');
         
