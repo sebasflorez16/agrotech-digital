@@ -3,12 +3,10 @@
  * Maneja la lógica del dashboard principal con diseño Apple-inspired
  */
 
-// Configuración API - usar config.js centralizado
-const API_BASE_URL = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
-    ? window.AGROTECH_CONFIG.API_BASE
-    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-        ? 'http://localhost:8000'
-        : 'https://agrotech-digital-production.up.railway.app');
+// Configuración API
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:8000'
+    : 'https://agrotechcolombia.com';
 
 // Obtener token de autenticación
 function getAuthToken() {
@@ -44,8 +42,26 @@ async function fetchWithAuth(url, options = {}) {
         });
         
         if (response.status === 401) {
-            localStorage.removeItem('accessToken');
-            window.location.href = '../authentication/login.html';
+            // Intentar refresh primero si api-utils está disponible
+            if (typeof window.refreshAccessToken === 'function') {
+                const refreshed = await window.refreshAccessToken();
+                if (refreshed) {
+                    // Reintentar con token nuevo
+                    const newHeaders = getHeaders();
+                    return await fetch(url, {
+                        ...options,
+                        headers: { ...newHeaders, ...options.headers }
+                    });
+                }
+            }
+            // Si no se pudo refrescar, redirect inmediato
+            if (typeof window.handleAuthFailure === 'function') {
+                window.handleAuthFailure();
+            } else {
+                localStorage.removeItem('accessToken');
+                localStorage.removeItem('refreshToken');
+                window.location.href = '../authentication/login.html';
+            }
             return null;
         }
         
@@ -257,6 +273,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Verificar autenticación
     if (!getAuthToken()) {
         return;
+    }
+    
+    // Verificar si el token JWT ya expiró (sin petición al backend)
+    const token = localStorage.getItem('accessToken');
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp * 1000 < Date.now()) {
+            console.warn('[AUTH] Token JWT expirado en dashboard. Intentando refresh...');
+            const refreshed = typeof window.refreshAccessToken === 'function'
+                ? await window.refreshAccessToken()
+                : false;
+            if (refreshed) {
+                location.reload();
+                return;
+            } else {
+                if (typeof window.handleAuthFailure === 'function') {
+                    window.handleAuthFailure();
+                } else {
+                    localStorage.removeItem('accessToken');
+                    localStorage.removeItem('refreshToken');
+                    window.location.href = '../authentication/login.html';
+                }
+                return;
+            }
+        }
+    } catch (e) {
+        // Token no es JWT válido, continuar
     }
     
     // Cargar datos

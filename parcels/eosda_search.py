@@ -64,10 +64,36 @@ def eosda_scenes(request):
     logger.info(f"Respuesta EOSDA scenes: status={resp.status_code}, data={data}")
     if resp.status_code in [200, 201]:
         if "request_id" in data:
-            logger.info(f"Request_id recibido: {data['request_id']}")
-            return JsonResponse({"request_id": data["request_id"], "raw": data})
+            request_id = data["request_id"]
+            logger.info(f"Request_id recibido: {request_id}, iniciando polling...")
+            
+            # POLLING: EOSDA scene-search es asíncrono, hay que esperar el resultado
+            import time
+            max_attempts = 10
+            delay_seconds = 3
+            scenes_url = f"https://api-connect.eos.com/scene-search/for-field/{eosda_id}/{request_id}"
+            scenes_headers = {"x-api-key": settings.EOSDA_API_KEY}
+            
+            for attempt in range(max_attempts):
+                try:
+                    get_resp = requests.get(scenes_url, headers=scenes_headers, timeout=15)
+                    get_data = get_resp.json()
+                    logger.info(f"Polling intento {attempt+1}/{max_attempts}: status={get_data.get('status')}")
+                    
+                    if get_data.get('status') != 'pending':
+                        scenes = get_data.get('result', [])
+                        logger.info(f"Escenas recibidas tras polling: {len(scenes)} escenas")
+                        return JsonResponse({"request_id": request_id, "scenes": scenes, "raw": get_data})
+                except Exception as poll_err:
+                    logger.warning(f"Error en polling intento {attempt+1}: {poll_err}")
+                
+                time.sleep(delay_seconds)
+            
+            # Se agotaron los intentos
+            logger.warning(f"Polling agotado tras {max_attempts} intentos para request_id: {request_id}")
+            return JsonResponse({"request_id": request_id, "scenes": [], "status": "pending", "message": "La búsqueda sigue en proceso. Intente nuevamente."})
         if "result" in data:
-            logger.info(f"Escenas recibidas: {data['result']}")
+            logger.info(f"Escenas recibidas directamente: {len(data['result'])} escenas")
             return JsonResponse({"scenes": data["result"], "raw": data})
         logger.error(f"Respuesta inesperada de EOSDA: {data}")
         return JsonResponse({"error": "Respuesta inesperada de EOSDA", "raw": data}, status=502)
