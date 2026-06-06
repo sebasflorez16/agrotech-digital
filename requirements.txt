@@ -47,6 +47,7 @@ gdown==5.2.0
 geojson==3.2.0
 geopandas==1.1.1
 numpy<2
+scipy>=1.10
 # GDAL se instala desde el sistema en Docker (no pip) — ver Dockerfile
 gunicorn==21.2.0
 idna==3.10

@@ -61,20 +61,27 @@ class EOSDAAnalyticsAPIView(APIView):
             
             view_id = data.get('view_id')
             scene_date = data.get('scene_date', '')
-            parcel_id = request.GET.get('parcel_id')  # ← NUEVO: Aceptar parcel_id directamente
+            parcel_id = data.get('parcel_id') or request.GET.get('parcel_id')
             
             if not view_id:
                 logger.warning("[EOSDA_ANALYTICS_REAL] view_id faltante en request")
-                response = Response({'error': 'view_id es requerido'}, status=400)
-                logger.info(f"[EOSDA_ANALYTICS_REAL] ✅ RETORNANDO 400: {response.data}")
-                return response
+                return Response({'error': 'view_id es requerido'}, status=400)
             
-            # 🎯 NUEVO: Si tenemos parcel_id, usar esa parcela específica
-            if parcel_id:
-                logger.info(f"[EOSDA_ANALYTICS_REAL] 🎯 Usando parcela específica ID: {parcel_id}")
-                parcel_data = self._get_parcel_by_id(parcel_id)
-            else:
-                logger.info(f"[EOSDA_ANALYTICS_REAL] 🔍 Buscando parcela por view_id: {view_id}")
+            # 🔒 SEGURIDAD: parcel_id es obligatorio para garantizar tenant scoping
+            if not parcel_id:
+                logger.error("[EOSDA_ANALYTICS_REAL] parcel_id es requerido para tenant scoping")
+                return Response({
+                    "error": "parcel_id es requerido",
+                    "details": "Debe proporcionar el ID de la parcela para obtener analytics"
+                }, status=400)
+            
+            logger.info(f"[EOSDA_ANALYTICS_REAL] 🎯 Usando parcela especifica ID: {parcel_id}")
+            parcel_data = self._get_parcel_by_id(parcel_id)
+            
+            # Fallback legacy: si no se encuentra por ID, intentar por view_id
+            # solo si el tenant scoping lo permite
+            if not parcel_data:
+                logger.info(f"[EOSDA_ANALYTICS_REAL] Fallback: Buscando parcela por view_id: {view_id}")
                 parcel_data = self._get_real_parcel_from_view_id(view_id)
             
             if not parcel_data:
@@ -282,27 +289,37 @@ class EOSDAAnalyticsAPIView(APIView):
         """
         Obtiene datos reales de la parcela desde la base de datos usando view_id.
         
+        🔒 SEGURIDAD: Solo retorna parcela si el tenant del request coincide
+        con el tenant propietario (defensa en profundidad).
+        
         Args:
             view_id: ID de vista EOSDA (ej: "S2/18/N/ZK/2025/8/19/0")
             
         Returns:
-            dict: Datos de la parcela real o None si no se encuentra
+            dict: Datos de la parcela real o None si no se encuentra o no pertenece al tenant
         """
         try:
             from .models import Parcel
             
             logger.info(f"[REAL_PARCEL] 🔍 Buscando parcela para view_id: {view_id}")
             
-            # TODO: Necesitamos mapear el view_id a la parcela que el usuario seleccionó
-            # Por ahora, como no sabemos qué parcela seleccionó el usuario desde view_id,
-            # vamos a usar una lógica temporal hasta implementar el mapeo correcto
+            # 🔒 Tenant scoping: obtener tenant del request
+            tenant = getattr(self.request, 'tenant', None)
+            tenant_id = tenant.id if (tenant and tenant.schema_name != 'public') else None
             
-            # TEMPORAL: Buscar parcela que tenga eosda_id y geometría válida
-            parcel = Parcel.objects.filter(
+            # Construir queryset base
+            qs = Parcel.objects.filter(
                 eosda_id__isnull=False,
                 is_deleted=False,
                 geom__isnull=False
-            ).first()
+            )
+            
+            # 🔒 Si el modelo tiene tenant_id, filtrar explicitamente
+            if tenant_id is not None and hasattr(Parcel, 'tenant_id'):
+                qs = qs.filter(tenant_id=tenant_id)
+                logger.info(f"[REAL_PARCEL] 🔒 Filtrando por tenant_id={tenant_id}")
+            
+            parcel = qs.first()
             
             if parcel:
                 logger.info(f"[REAL_PARCEL] ✅ Parcela encontrada: {parcel.name} (ID: {parcel.id})")
@@ -397,13 +414,16 @@ class EOSDAAnalyticsAPIView(APIView):
     
     def _get_parcel_by_id(self, parcel_id):
         """
-        Obtiene parcela específica por ID.
+        Obtiene parcela especifica por ID con verificacion de tenant scoping.
+        
+        🔒 SEGURIDAD: Verifica que la parcela pertenezca al tenant del request.
+        Si el usuario tiene tenant asignado, valida que coincida con request.tenant.
         
         Args:
             parcel_id: ID de la parcela
             
         Returns:
-            dict: Datos de la parcela o None si no se encuentra
+            dict: Datos de la parcela o None si no se encuentra o no pertenece al tenant
         """
         try:
             from .models import Parcel
@@ -418,8 +438,21 @@ class EOSDAAnalyticsAPIView(APIView):
             ).first()
             
             if not parcel:
-                logger.error(f"[PARCEL_BY_ID] ❌ Parcela ID {parcel_id} no encontrada o inválida")
+                logger.error(f"[PARCEL_BY_ID] ❌ Parcela ID {parcel_id} no encontrada o invalida")
                 return None
+            
+            # 🔒 VERIFICACION DE TENANT: defensa en profundidad
+            tenant = getattr(self.request, 'tenant', None)
+            if tenant and tenant.schema_name != 'public':
+                user = self.request.user
+                if user.is_authenticated and hasattr(user, 'tenant') and user.tenant:
+                    if user.tenant.id != tenant.id:
+                        logger.warning(
+                            f"[PARCEL_BY_ID] 🚫 CROSS-TENANT BLOCKED: "
+                            f"user={user.id} user_tenant={user.tenant.id} "
+                            f"request_tenant={tenant.id} parcela={parcel_id}"
+                        )
+                        return None
             
             logger.info(f"[PARCEL_BY_ID] ✅ Parcela encontrada: {parcel.name}")
             logger.info(f"[PARCEL_BY_ID] ✅ eosda_id: {parcel.eosda_id}")

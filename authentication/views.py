@@ -137,11 +137,11 @@ class RegisterView(APIView):
             return Response(response_data, status=status.HTTP_201_CREATED)
             
         except RegistrationError as e:
-            logger.error(f"Error de registro: {str(e)}")
+            # Log detallado para administradores (sin exponer al usuario)
+            logger.error(f"Error de registro: {str(e)}", exc_info=True)
             return Response({
                 'success': False,
                 'error': 'Error al crear la cuenta. Por favor intenta de nuevo.',
-                'detail': str(e),
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         except Exception as e:
@@ -196,7 +196,11 @@ class LoginView(APIView):
                 pass
         
         if user is None:
-            logger.warning(f"Intento de login fallido para: {username}")
+            # Log con hash para no exponer emails en logs
+            import hashlib
+            username_hash = hashlib.sha256(username.encode()).hexdigest()[:16]
+            ip = request.META.get('REMOTE_ADDR', 'unknown')
+            logger.warning(f"Intento de login fallido desde IP: {ip} (hash: {username_hash})")
             return Response({
                 'success': False,
                 'error': 'Credenciales inválidas.',
@@ -287,7 +291,7 @@ class MeView(APIView):
 
 class LogoutView(APIView):
     """
-    Cerrar sesión: invalida el refresh token JWT.
+    Cerrar sesion: invalida refresh token y access token JWT.
 
     POST /api/auth/logout/
 
@@ -300,29 +304,60 @@ class LogoutView(APIView):
 
     def post(self, request):
         refresh_token = request.data.get('refresh')
-        if not refresh_token:
-            return Response(
-                {'error': 'Se requiere el refresh token'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        errors = []
+        
+        # 1. Invalidar refresh token
+        if refresh_token:
+            try:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+                logger.info(f"Refresh token invalidado para {request.user.username}")
+            except Exception as e:
+                logger.error(f"Error invalidando refresh token: {e}")
+                errors.append('refresh_invalidation_failed')
+        
+        # 2. Invalidar access token actual
         try:
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-        except Exception:
-            # Si token_blacklist no está instalado o el token ya está expirado,
-            # igual retornamos éxito (el frontend descarta los tokens).
-            pass
+            auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+            if auth_header.startswith('Bearer '):
+                access_token_str = auth_header.split(' ')[1]
+                from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+                outstanding = OutstandingToken.objects.filter(
+                    token=access_token_str
+                ).first()
+                if outstanding:
+                    BlacklistedToken.objects.get_or_create(token=outstanding)
+                    logger.info(f"Access token invalidado para {request.user.username}")
+        except Exception as e:
+            logger.error(f"Error invalidando access token: {e}")
+            errors.append('access_invalidation_failed')
+        
+        if errors:
+            return Response({
+                'success': True,
+                'message': 'Sesion cerrada parcialmente.',
+                'warnings': errors,
+            }, status=status.HTTP_200_OK)
+        
         return Response(
-            {'success': True, 'message': 'Sesión cerrada correctamente'},
+            {'success': True, 'message': 'Sesion cerrada correctamente'},
             status=status.HTTP_200_OK
         )
 
 
 # ── Cambio de contraseña ───────────────────────────────────────────────────────
 
+class PasswordChangeThrottle(AnonRateThrottle):
+    """Maximo 5 cambios de password por hora por usuario."""
+    rate = '5/hour'
+    
+    def get_cache_key(self, request, view):
+        return f"password_change_{request.user.id}"
+
+
 class PasswordChangeView(APIView):
     """
-    Cambiar la contraseña del usuario autenticado.
+    Cambiar la contrasena del usuario autenticado.
 
     POST /api/auth/password/change/
 
@@ -334,6 +369,7 @@ class PasswordChangeView(APIView):
     }
     """
     permission_classes = [IsAuthenticated]
+    throttle_classes = [PasswordChangeThrottle]
 
     def post(self, request):
         user = request.user

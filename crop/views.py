@@ -10,10 +10,11 @@ from .serializers import (
     CropCatalogSerializer, CropCatalogListSerializer, PhenologicalStageSerializer,
     CropCycleSerializer, IndexInterpretationSerializer
 )
+from parcels.models import TenantScopedModelMixin
 
 # Create your views here.
 
-class CropTypeViewSet(viewsets.ModelViewSet):
+class CropTypeViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = CropType.objects.all()
     serializer_class = CropTypeSerializer
     permission_classes = [IsAuthenticated]
@@ -28,7 +29,7 @@ class CropTypeViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=201, headers=headers)
 
-class CropVarietyViewSet(viewsets.ModelViewSet):
+class CropVarietyViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     serializer_class = CropVarietySerializer
     permission_classes = [IsAuthenticated]
 
@@ -39,22 +40,22 @@ class CropVarietyViewSet(viewsets.ModelViewSet):
             qs = qs.filter(crop_type_id=crop_type)
         return qs
 
-class CropViewSet(viewsets.ModelViewSet):
+class CropViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = Crop.objects.all()
     serializer_class = CropSerializer
     permission_classes = [IsAuthenticated]
 
-class CropStageViewSet(viewsets.ModelViewSet):
+class CropStageViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = CropStage.objects.all()
     serializer_class = CropStageSerializer
     permission_classes = [IsAuthenticated]
 
-class CropProgressPhotoViewSet(viewsets.ModelViewSet):
+class CropProgressPhotoViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = CropProgressPhoto.objects.all()
     serializer_class = CropProgressPhotoSerializer
     permission_classes = [IsAuthenticated]
 
-class CropInputViewSet(viewsets.ModelViewSet):
+class CropInputViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = CropInput.objects.all()
     serializer_class = CropInputSerializer
     permission_classes = [IsAuthenticated]

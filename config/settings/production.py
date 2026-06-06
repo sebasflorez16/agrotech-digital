@@ -26,6 +26,7 @@ ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
 # MIDDLEWARE - Agregar WhiteNoise y HealthCheck para producción
 # ------------------------------------------------------------------------------
 MIDDLEWARE = [
+    'config.middleware.PermissionsPolicyMiddleware',  # Encabezado Permissions-Policy
     'config.middleware.HealthCheckMiddleware',  # PRIMERO: Intercepta /health/ para Railway
     'corsheaders.middleware.CorsMiddleware',
     'config.middleware.SmartTenantMiddleware',  # Reemplaza TenantMainMiddleware: fuerza public en billing/auth
@@ -142,7 +143,9 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
-# Railway termina SSL antes de llegar a Django — le decimos que confíe en el header
+# Forzar redireccion HTTP → HTTPS a nivel de aplicacion
+SECURE_SSL_REDIRECT = True
+# Railway termina SSL antes de llegar a Django — le decimos que confie en el header
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Configuración adicional para django-tenants
@@ -179,8 +182,11 @@ CORS_ALLOW_HEADERS = [
 # ------------------------------------------------------------------------------
 # Regex para permitir subdominios de clientes multi-tenant
 CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https://[\w\-]+\.agrotechcolombia\.com$",  # Subdominios de clientes
-    r"^https://[\w\-]+\.railway\.app$",  # Cualquier subdominio de Railway
+    # Solo dominios exactos — sin wildcards de subdominios
+    r"^https://(www\.)?agrotechcolombia\.com$",
+    r"^https://agrotech-digital-production\.up\.railway\.app$",
+    r"^https://agrotechcolombia\.netlify\.app$",
+    r"^https://frontend-cliente-agrotech\.netlify\.app$",
 ]
 
 # URL del sitio para callbacks de pagos (MercadoPago back_url)
@@ -191,6 +197,16 @@ FRONTEND_URL = env('FRONTEND_URL', default='https://frontend-cliente-agrotech.ne
 
 # Redirigir al frontend estático después del login
 LOGIN_REDIRECT_URL = "https://agrotechcolombia.netlify.app/templates/vertical_base.html"
+
+# ── Seguridad adicional ──────────────────────────────────────────────────
+# Referrer-Policy: controla que informacion se envia en el header Referer
+SECURE_REFERRER_POLICY = 'strict-origin-when-cross-origin'
+# No leer archivo .env en produccion bajo ninguna circunstancia
+READ_DOT_ENV_FILE = False
+# Desactivar debug en templates (defensa en profundidad)
+TEMPLATES[0]['OPTIONS']['debug'] = False
+# Admin URL no estandar (reduce ataques de fuerza bruta automatizados)
+ADMIN_URL = "gestion-interna/"
 
 # EMAIL
 # ------------------------------------------------------------------------------

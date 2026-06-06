@@ -4,6 +4,7 @@ from .analytics_views import EOSDAAnalyticsAPIView
 from .simple_analytics import SimpleAnalyticsView
 from django.http import JsonResponse
 from .metereological import WeatherForecastView
+from .elevation import ElevationView
 
 # ELIMINADO: app_name = "parcels" - causaba conflicto con el router DRF
 # El router DRF en parcels.routers no usa app_name, por lo que este tampoco debe usarlo
@@ -20,8 +21,9 @@ def test_analytics_endpoint(request):
 from .proxy import eosda_wmts_proxy
 
 urlpatterns = [
-    # Geocoding Proxy
+    # Geocoding Proxy (Nominatim plugin appends /search to serviceUrl)
     path('geocode/', views.geocode_proxy, name='geocode_proxy'),
+    path('geocode/search', views.geocode_proxy, name='geocode_proxy_search'),
 ## Eliminado: vista dashboard que no existe
     path('eosda-wmts-tile/', eosda_wmts_proxy, name='eosda_wmts_proxy'),
     # Endpoints alineados con el nuevo flujo EOSDA
@@ -50,5 +52,8 @@ urlpatterns = [
     path('weather-forecast/<int:parcel_id>/', WeatherForecastView.as_view(), name='weather_forecast_alt'),
     # Ruta directa extra para evitar posibles conflictos con el router
     path('get-weather-forecast/<int:parcel_id>/', WeatherForecastView.as_view(), name='weather_forecast_direct'),
+
+    # Elevación / Topografía de la parcela (Open-Meteo Elevation API - gratuito)
+    path('parcel/<int:parcel_id>/elevation/', ElevationView.as_view(), name='parcel_elevation'),
 
 ]

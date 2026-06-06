@@ -9,38 +9,45 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from parcels.models import CacheDatosEOSDA, EstadisticaUsoEOSDA
+from parcels.models import CacheDatosEOSDA, EstadisticaUsoEOSDA, TenantScopedQueryMixin
 from django.core.cache import cache
 
 logger = logging.getLogger('parcels.eosda')
 
 
-class EOSDAMetricsViewSet(viewsets.ViewSet):
+class EOSDAMetricsViewSet(TenantScopedQueryMixin, viewsets.ViewSet):
     """
-    ViewSet para métricas y monitoreo de uso de EOSDA API.
+    ViewSet para metricas y monitoreo de uso de EOSDA API.
+    🔒 Todas las queries se filtran por tenant_id del request.
     """
     permission_classes = [IsAuthenticated]
+
+    def _qs_estadistica(self):
+        """QuerySet base de EstadisticaUsoEOSDA filtrado por tenant."""
+        return self.filter_by_tenant(EstadisticaUsoEOSDA.objects.all())
+
+    def _qs_cache(self):
+        """QuerySet base de CacheDatosEOSDA filtrado por tenant."""
+        return self.filter_by_tenant(CacheDatosEOSDA.objects.all())
 
     @action(detail=False, methods=['get'])
     def usage_summary(self, request):
         """
         GET /api/metrics/eosda/usage_summary/
         
-        Retorna resumen de uso de EOSDA API:
-        - Total requests hoy, esta semana, este mes
-        - Requests exitosos vs fallidos
-        - Ahorro por cache
-        - Tipos de requests más comunes
+        Retorna resumen de uso de EOSDA API (scoped al tenant actual).
         """
-        logger.info(f"Usuario {request.user.username} consultó métricas de uso EOSDA")
+        logger.info(f"Usuario {request.user.username} consulto metricas de uso EOSDA")
         
         now = timezone.now()
         today = now.date()
         week_ago = now - timedelta(days=7)
         month_ago = now - timedelta(days=30)
         
-        # Estadísticas de uso
-        stats_today = EstadisticaUsoEOSDA.objects.filter(
+        qs = self._qs_estadistica()
+        
+        # Estadisticas de uso
+        stats_today = qs.filter(
             timestamp__date=today
         ).aggregate(
             total=Count('id'),
@@ -48,7 +55,7 @@ class EOSDAMetricsViewSet(viewsets.ViewSet):
             fallidos=Count('id', filter=Q(exitoso=False))
         )
         
-        stats_week = EstadisticaUsoEOSDA.objects.filter(
+        stats_week = qs.filter(
             timestamp__gte=week_ago
         ).aggregate(
             total=Count('id'),
@@ -56,7 +63,7 @@ class EOSDAMetricsViewSet(viewsets.ViewSet):
             fallidos=Count('id', filter=Q(exitoso=False))
         )
         
-        stats_month = EstadisticaUsoEOSDA.objects.filter(
+        stats_month = qs.filter(
             timestamp__gte=month_ago
         ).aggregate(
             total=Count('id'),
@@ -65,7 +72,7 @@ class EOSDAMetricsViewSet(viewsets.ViewSet):
         )
         
         # Cache hits vs misses
-        cache_stats = EstadisticaUsoEOSDA.objects.filter(
+        cache_stats = qs.filter(
             timestamp__gte=month_ago
         ).aggregate(
             cache_hits=Count('id', filter=Q(desde_cache=True)),
@@ -79,15 +86,15 @@ class EOSDAMetricsViewSet(viewsets.ViewSet):
         ahorro_requests = cache_stats['cache_hits']
         ahorro_porcentaje = cache_hit_rate
         
-        # Tipos de requests más comunes
-        tipos_requests = EstadisticaUsoEOSDA.objects.filter(
+        # Tipos de requests mas comunes
+        tipos_requests = qs.filter(
             timestamp__gte=month_ago
         ).values('tipo_request').annotate(
             count=Count('id')
         ).order_by('-count')[:10]
         
-        # Endpoints más usados
-        endpoints = EstadisticaUsoEOSDA.objects.filter(
+        # Endpoints mas usados
+        endpoints = qs.filter(
             timestamp__gte=month_ago
         ).values('endpoint').annotate(
             count=Count('id')
@@ -120,36 +127,33 @@ class EOSDAMetricsViewSet(viewsets.ViewSet):
         """
         GET /api/metrics/eosda/cache_efficiency/
         
-        Retorna métricas de eficiencia del cache:
-        - Entradas de cache activas
-        - Tamaño promedio de datos cacheados
-        - Tipos de datos más cacheados
-        - Cache hits por tipo de dato
+        Retorna metricas de eficiencia del cache (scoped al tenant actual).
         """
-        logger.info(f"Usuario {request.user.username} consultó eficiencia de cache")
+        logger.info(f"Usuario {request.user.username} consulto eficiencia de cache")
         
         now = timezone.now()
         month_ago = now - timedelta(days=30)
+        qs_cache = self._qs_cache()
         
         # Entradas de cache activas (no expiradas)
-        cache_activo = CacheDatosEOSDA.objects.filter(
+        cache_activo = qs_cache.filter(
             expira_en__gt=now
         ).count()
         
         # Entradas de cache expiradas
-        cache_expirado = CacheDatosEOSDA.objects.filter(
+        cache_expirado = qs_cache.filter(
             expira_en__lte=now
         ).count()
         
-        # Tipos de datos más cacheados
-        tipos_cache = CacheDatosEOSDA.objects.filter(
+        # Tipos de datos mas cacheados
+        tipos_cache = qs_cache.filter(
             timestamp__gte=month_ago
         ).values('tipo_dato').annotate(
             count=Count('id')
         ).order_by('-count')
         
-        # Tiempo promedio de vida del cache antes de expirar
-        avg_cache_lifetime = CacheDatosEOSDA.objects.filter(
+        # Cache activo en el ultimo mes
+        avg_cache_lifetime = qs_cache.filter(
             timestamp__gte=month_ago,
             expira_en__gt=now
         ).count()
@@ -169,32 +173,30 @@ class EOSDAMetricsViewSet(viewsets.ViewSet):
         """
         GET /api/metrics/eosda/error_analysis/
         
-        Retorna análisis de errores de EOSDA API:
-        - Errores más comunes
-        - Tasa de error por endpoint
-        - Errores recientes
+        Retorna analisis de errores de EOSDA API (scoped al tenant actual).
         """
-        logger.info(f"Usuario {request.user.username} consultó análisis de errores")
+        logger.info(f"Usuario {request.user.username} consulto analisis de errores")
         
         now = timezone.now()
         week_ago = now - timedelta(days=7)
+        qs = self._qs_estadistica()
         
         # Errores recientes
-        errores_recientes = EstadisticaUsoEOSDA.objects.filter(
+        errores_recientes = qs.filter(
             exitoso=False,
             timestamp__gte=week_ago
         ).order_by('-timestamp')[:50]
         
-        # Tipos de error más comunes
-        errores_por_tipo = EstadisticaUsoEOSDA.objects.filter(
+        # Tipos de error mas comunes
+        errores_por_tipo = qs.filter(
             exitoso=False,
             timestamp__gte=week_ago
         ).values('codigo_estado').annotate(
             count=Count('id')
         ).order_by('-count')
         
-        # Endpoints con más errores
-        endpoints_con_errores = EstadisticaUsoEOSDA.objects.filter(
+        # Endpoints con mas errores
+        endpoints_con_errores = qs.filter(
             exitoso=False,
             timestamp__gte=week_ago
         ).values('endpoint').annotate(
@@ -223,7 +225,7 @@ class EOSDAMetricsViewSet(viewsets.ViewSet):
         """
         POST /api/metrics/eosda/cleanup_expired_cache/
         
-        Limpia entradas de cache expiradas.
+        Limpia entradas de cache expiradas (scoped al tenant actual).
         Solo accesible para administradores.
         """
         if not request.user.is_staff:
@@ -232,10 +234,11 @@ class EOSDAMetricsViewSet(viewsets.ViewSet):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        logger.warning(f"Admin {request.user.username} inició limpieza de cache expirado")
+        logger.warning(f"Admin {request.user.username} inicio limpieza de cache expirado")
         
         now = timezone.now()
-        deleted = CacheDatosEOSDA.objects.filter(
+        qs_cache = self._qs_cache()
+        deleted = qs_cache.filter(
             expira_en__lt=now
         ).delete()
         

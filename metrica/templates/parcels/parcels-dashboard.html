@@ -644,6 +644,9 @@
                         <button id="analisisMeteorologicoBtn" class="btn btn-info w-100" style="font-weight:500;">
                             <i class="fas fa-cloud-sun me-1"></i> Ver Meteorología
                         </button>
+                        <button id="elevacionTerrenoBtn" class="btn w-100 mt-2" style="font-weight:500; background: linear-gradient(135deg, #8B4513, #2E7D32); border:none; color:white;" disabled title="Selecciona primero una parcela">
+                            <i class="fas fa-mountain me-1"></i> Ver Elevación del Terreno
+                        </button>
                     </div>
                     
                     <!-- Info Parcela -->
@@ -1270,6 +1273,7 @@
     <script src="../../js/parcels/historical-chart.js?v=2025082412"></script>
     <script src="../../js/parcels/meteorological-analysis.js?v=2025102002"></script>
     <script src="../../js/parcels/weather-detail.js?v=2025090101"></script>
+    <script src="../../js/parcels/elevation.js?v=2026032501"></script>
 
     <script>
         // Mostrar el filtro de rango de fechas solo cuando se activa la capa NDVI
@@ -1288,6 +1292,40 @@
                     const isNDVIActive = ndviToggleButton.innerText.includes('Ocultar');
                     toggleNDVIFilter(!isNDVIActive);
                 });
+            }
+
+            // ── Botón de Elevación del Terreno ──
+            const btnElevacion = document.getElementById('elevacionTerrenoBtn');
+            if (btnElevacion) {
+                btnElevacion.onclick = function() {
+                    const parcelId = window.AGROTECH_STATE?.selectedParcelId;
+                    if (!parcelId) {
+                        if (typeof window.showErrorToast === 'function') {
+                            window.showErrorToast('Selecciona primero una parcela para ver la elevación.');
+                        }
+                        return;
+                    }
+                    if (typeof window.solicitarElevacion === 'function') {
+                        window.solicitarElevacion(parcelId);
+                    } else {
+                        console.error('[ELEVATION] Módulo de elevación no cargado');
+                    }
+                };
+
+                // Habilitar/deshabilitar botón según parcela seleccionada
+                let lastElevParcelId = null;
+                setInterval(() => {
+                    const currentId = window.AGROTECH_STATE?.selectedParcelId;
+                    if (currentId && currentId !== lastElevParcelId) {
+                        lastElevParcelId = currentId;
+                        btnElevacion.disabled = false;
+                        btnElevacion.title = 'Ver mapa de elevación del terreno';
+                    } else if (!currentId && lastElevParcelId) {
+                        lastElevParcelId = null;
+                        btnElevacion.disabled = true;
+                        btnElevacion.title = 'Selecciona primero una parcela';
+                    }
+                }, 500);
             }
         });
     </script>

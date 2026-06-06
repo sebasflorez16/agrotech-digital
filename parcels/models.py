@@ -201,3 +201,156 @@ class ParcelSceneCache(models.Model):
         return f"{self.parcel.name} | {self.index_type} | {self.date} | {self.scene_id}"
 
 
+# ── Modelos de cache y estadisticas de EOSDA (con tenant scoping) ──────────
+
+class CacheDatosEOSDA(models.Model):
+    """
+    Cache de datos satelitales EOSDA con tenant scoping.
+    Almacena resultados de Statistics API indexados por tenant y geometria.
+    """
+    tenant_id = models.IntegerField(
+        db_index=True,
+        verbose_name="ID del Tenant",
+        help_text="Client.id del tenant propietario de este cache"
+    )
+    parcela_id = models.IntegerField(null=True, blank=True, verbose_name="ID de Parcela")
+    indice = models.CharField(max_length=10, verbose_name="Indice espectral")  # NDVI, NDMI, SAVI, EVI
+    tipo_dato = models.CharField(max_length=50, verbose_name="Tipo de dato")
+    geometria_hash = models.CharField(
+        max_length=64,
+        db_index=True,
+        verbose_name="Hash SHA-256 de geometria"
+    )
+    datos = models.JSONField(verbose_name="Datos cacheados")
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha de creacion")
+    expira_en = models.DateTimeField(db_index=True, verbose_name="Fecha de expiracion")
+
+    class Meta:
+        verbose_name = "Cache de datos EOSDA"
+        verbose_name_plural = "Cache de datos EOSDA"
+        indexes = [
+            models.Index(fields=["tenant_id", "indice"]),
+            models.Index(fields=["tenant_id", "geometria_hash"]),
+        ]
+
+    def __str__(self):
+        return f"Cache[{self.indice}] tenant={self.tenant_id} | {self.timestamp}"
+
+    @classmethod
+    def limpiar_expirados(cls):
+        """Elimina registros expirados. Retorna cantidad eliminada."""
+        from django.utils import timezone
+        deleted, _ = cls.objects.filter(expira_en__lt=timezone.now()).delete()
+        return deleted
+
+
+class EstadisticaUsoEOSDA(models.Model):
+    """
+    Registro de uso de EOSDA API con tenant scoping.
+    Cada llamada a EOSDA API queda registrada para metricas y auditoria.
+    """
+    tenant_id = models.IntegerField(
+        db_index=True,
+        verbose_name="ID del Tenant",
+        help_text="Client.id del tenant que realizo la solicitud"
+    )
+    endpoint = models.CharField(max_length=200, verbose_name="Endpoint llamado")
+    tipo_request = models.CharField(max_length=50, verbose_name="Tipo de request")
+    exitoso = models.BooleanField(default=True, verbose_name="Fue exitoso?")
+    desde_cache = models.BooleanField(default=False, verbose_name="Provino de cache?")
+    codigo_estado = models.IntegerField(null=True, blank=True, verbose_name="Codigo HTTP")
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha del request")
+
+    class Meta:
+        verbose_name = "Estadistica de uso EOSDA"
+        verbose_name_plural = "Estadisticas de uso EOSDA"
+        indexes = [
+            models.Index(fields=["tenant_id", "timestamp"]),
+            models.Index(fields=["tenant_id", "exitoso"]),
+        ]
+
+    def __str__(self):
+        status = "OK" if self.exitoso else "FAIL"
+        return f"EOSDA[{self.tipo_request}] tenant={self.tenant_id} {status} | {self.timestamp}"
+
+    @classmethod
+    def obtener_metricas_mes_actual(cls, tenant_id=None):
+        """
+        Retorna metricas de uso del mes actual.
+        Si tenant_id es None, retorna metricas globales.
+        """
+        from django.utils import timezone
+        now = timezone.now()
+        inicio_mes = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        qs = cls.objects.filter(timestamp__gte=inicio_mes)
+        if tenant_id is not None:
+            qs = qs.filter(tenant_id=tenant_id)
+        total = qs.count()
+        desde_cache = qs.filter(desde_cache=True).count()
+        errores = qs.filter(exitoso=False).count()
+        return {
+            'total_requests': total,
+            'desde_cache': desde_cache,
+            'desde_api': total - desde_cache,
+            'tasa_cache': round((desde_cache / total * 100) if total > 0 else 0, 2),
+            'errores': errores,
+        }
+
+
+# ── Mixins de seguridad multi-tenant ──────────────────────────────────────
+
+class TenantScopedQueryMixin:
+    """
+    Mixin para Views/ViewSets que fuerza filtrado por tenant_id.
+    Compatible con modelos que tienen campo tenant_id (IntegerField).
+    
+    Uso:
+        class MiVista(TenantScopedQueryMixin, APIView):
+            def get(self, request):
+                qs = self.filter_by_tenant(MiModelo.objects.all())
+    """
+    tenant_field = 'tenant_id'
+
+    def get_tenant_id(self):
+        """
+        Obtiene el tenant_id desde request.tenant.
+        Retorna None si es schema public o no hay tenant.
+        """
+        tenant = getattr(self.request, 'tenant', None)
+        if tenant and tenant.schema_name != 'public':
+            return tenant.id
+        return None
+
+    def filter_by_tenant(self, queryset):
+        """
+        Aplica filtro tenant_id al queryset si el modelo tiene ese campo.
+        Si no tiene el campo o no hay tenant, retorna el queryset sin modificar.
+        """
+        tid = self.get_tenant_id()
+        if tid is not None and hasattr(queryset.model, self.tenant_field):
+            return queryset.filter(**{self.tenant_field: tid})
+        return queryset
+
+
+class TenantScopedModelMixin:
+    """
+    Mixin para ModelViewSet que agrega verificacion de tenant en get_queryset.
+    Defensa en profundidad — no reemplaza el aislamiento por schema de django-tenants,
+    lo complementa.
+    
+    Si el modelo tiene campo 'tenant_id', filtra automaticamente.
+    Si no lo tiene, retorna el queryset sin modificar (cero impacto).
+    
+    Uso:
+        class MiViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
+            queryset = MiModelo.objects.all()
+    """
+    def get_queryset(self):
+        qs = super().get_queryset()
+        tenant = getattr(self.request, 'tenant', None)
+        if tenant and tenant.schema_name != 'public':
+            if hasattr(qs.model, 'tenant_id'):
+                return qs.filter(tenant_id=tenant.id)
+        return qs
+
+

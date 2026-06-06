@@ -153,7 +153,15 @@ class WeatherForecastView(APIView):
             
         # Intentar obtener un pronóstico más amplio (intentemos con 30 días)
         today = datetime.now()
-        end_date = today + timedelta(days=30)  # Extendemos a 30 días para ver si obtenemos más de 3 días
+        end_date = today + timedelta(days=30)
+        
+        # ============ CACHE DE PRONÓSTICO (6 horas) ============
+        # El pronóstico se actualiza ~cada 6-12 horas, no tiene sentido pedirlo más frecuentemente
+        weather_cache_key = f"weather_forecast_{field_id}_{today.strftime('%Y-%m-%d')}"
+        cached_forecast = cache.get(weather_cache_key)
+        if cached_forecast:
+            logger.info(f"[WEATHER_FORECAST] ✅ CACHE HIT: Retornando pronóstico cacheado para {field_id}")
+            return Response(cached_forecast, status=200)
         
         # Parámetros para la API de pronóstico - usando geometry según documentación
         # Usando la fecha actual para asegurar que tenemos datos desde hoy
@@ -234,12 +242,16 @@ class WeatherForecastView(APIView):
             processed_forecast = self._process_forecast_data(forecast)
             
             logger.info(f"[WEATHER_FORECAST] Procesados {len(processed_forecast)} días de pronóstico")
-            return Response({
+            response_data = {
                 "forecast": processed_forecast, 
                 "source": "EOSDA", 
                 "parcel_id": parcel_id,
                 "parcel_name": parcel.name
-            }, status=200)
+            }
+            # Guardar en cache por 6 horas (21600 segundos) — el pronóstico no cambia tan frecuentemente
+            cache.set(weather_cache_key, response_data, 21600)
+            logger.info(f"[WEATHER_FORECAST] ✅ CACHE SET: Pronóstico guardado por 6 horas")
+            return Response(response_data, status=200)
             
         except requests.exceptions.RequestException as e:
             logger.error(f"[WEATHER_FORECAST] Error en la petición a EOSDA: {str(e)}")

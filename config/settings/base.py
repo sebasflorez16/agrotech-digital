@@ -142,38 +142,31 @@ EOSDA_DATASET_ID = os.getenv('EOSDA_DATASET_ID', 'S2L2A')
 # ------------------------------------------------------------------------------
 # SHARED_APPS: aplicaciones que se comparten entre todos los tenants
 SHARED_APPS = [
+    # === Infraestructura core (schema public) ===
     'django_tenants',
     'rest_framework',
     "corsheaders",
     'django.contrib.contenttypes',
     "django.contrib.auth",
-    # 'django.contrib.gis',  # GIS deshabilitado temporalmente
-    # 'rest_framework_gis', # GIS deshabilitado temporalmente
     "django.contrib.sessions",
     "django.contrib.sites",
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.admin",
     "django.forms",
-    "base_agrotech", 
-    "RRHH",
-    "parcels",
-    "labores",  # Gestión de labores agrícolas
     
-    # Aplicaciones de terceros
+    # === Apps compartidas cross-tenant ===
+    "base_agrotech",  # Contiene Client (tenant model) y Domain — REQUERIDO por django-tenants
+    "metrica.users.apps.UsersConfig",  # Modelo User con FK a Client
+    "authentication",  # Login/registro cross-tenant
+    "billing",  # Facturacion y suscripciones
+    
+    # === Terceros ===
     "crispy_forms",
     "crispy_bootstrap5",
     "allauth",
     "allauth.account",
     "allauth.socialaccount",
-    # "leaflet",  # Deshabilitado para evitar dependencias GIS
-    
-    # Tus aplicaciones locales que deben ser accesibles por todos los tenants
-    "metrica.users.apps.UsersConfig",  
-    "inventario",  # Registro de la app de inventario
-    "crop",  # Gestión de cultivos
-    "authentication",  # Registro de la app de autenticación
-    "billing",  # Sistema de facturación y suscripciones
 ]
 
 TENANT_APPS = [
@@ -435,8 +428,9 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_THROTTLE_RATES': {
         'anon': '30/minute',
-        'user': '120/minute',
-        'checkout': '10/hour',  # Limite para crear checkout y confirmar pago
+    'user': '120/minute',
+    'checkout': '10/hour',  # Limite para crear checkout y confirmar pago
+    'analytics': '30/hour',  # Limite para endpoints de analytics (VULN-013)
     },
 }
 
@@ -497,6 +491,7 @@ MERCADOPAGO_WEBHOOK_SECRET = env('MERCADOPAGO_WEBHOOK_SECRET', default='')
 PADDLE_VENDOR_ID = env('PADDLE_VENDOR_ID', default='')
 PADDLE_API_KEY = env('PADDLE_API_KEY', default='')
 PADDLE_PUBLIC_KEY = env('PADDLE_PUBLIC_KEY', default='')
+PADDLE_WEBHOOK_SECRET = env('PADDLE_WEBHOOK_SECRET', default='')
 PADDLE_SANDBOX = env.bool('PADDLE_SANDBOX', default=True)  # True para testing
 
 # Default country para billing (cuando no se puede detectar)

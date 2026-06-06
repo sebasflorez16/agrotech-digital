@@ -11,20 +11,19 @@ from django.shortcuts import get_object_or_404
 from datetime import datetime, date
 import logging
 
-from parcels.models import Parcel, CacheDatosEOSDA, EstadisticaUsoEOSDA
+from parcels.models import Parcel, CacheDatosEOSDA, EstadisticaUsoEOSDA, TenantScopedQueryMixin
 from parcels.eosda_optimized_service import get_eosda_service
 
 logger = logging.getLogger(__name__)
 
 
-class EOSDAOptimizedDataView(APIView):
+class EOSDAOptimizedDataView(TenantScopedQueryMixin, APIView):
     """
-    Endpoint optimizado para obtener datos satelitales EOSDA
+    Endpoint optimizado para obtener datos satelitales EOSDA.
+    🔒 Scoping por tenant_id en CacheDatosEOSDA y EstadisticaUsoEOSDA.
     
     GET /api/parcels/<parcel_id>/eosda-optimized/
     ?fecha_inicio=2024-01-01&fecha_fin=2024-06-30&indices=NDVI,NDMI,SAVI
-    
-    Reduce consumo en 90% usando caché SHA-256
     """
     permission_classes = [IsAuthenticated]
     
@@ -74,8 +73,9 @@ class EOSDAOptimizedDataView(APIView):
                 parcela_id=parcela.id
             )
             
-            # Obtener métricas
-            metricas = EstadisticaUsoEOSDA.obtener_metricas_mes_actual()
+            # Obtener metricas (scoped al tenant actual)
+            tid = self.get_tenant_id()
+            metricas = EstadisticaUsoEOSDA.obtener_metricas_mes_actual(tenant_id=tid)
             
             return Response({
                 'success': True,
@@ -104,24 +104,27 @@ class EOSDAOptimizedDataView(APIView):
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
-class EOSDAMetricsView(APIView):
+class EOSDAMetricsView(TenantScopedQueryMixin, APIView):
     """
     GET /api/parcels/eosda-metrics/
     
-    Retorna métricas de uso de EOSDA (caché, requests, tiempos)
+    Retorna metricas de uso de EOSDA.
+    🔒 Scoping por tenant_id en CacheDatosEOSDA y EstadisticaUsoEOSDA.
     """
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
         try:
-            metricas = EstadisticaUsoEOSDA.obtener_metricas_mes_actual()
+            tid = self.get_tenant_id()
+            metricas = EstadisticaUsoEOSDA.obtener_metricas_mes_actual(tenant_id=tid)
             
-            # Datos adicionales
-            total_cache_items = CacheDatosEOSDA.objects.count()
+            # Datos adicionales filtrados por tenant
+            qs_cache = self.filter_by_tenant(CacheDatosEOSDA.objects.all())
+            total_cache_items = qs_cache.count()
             cache_por_indice = {}
             
             for indice in ['NDVI', 'NDMI', 'SAVI', 'EVI']:
-                count = CacheDatosEOSDA.objects.filter(indice=indice).count()
+                count = qs_cache.filter(indice=indice).count()
                 cache_por_indice[indice] = count
             
             return Response({
@@ -167,22 +170,24 @@ class EOSDAMetricsView(APIView):
         return recomendaciones
 
 
-class EOSDACacheClearView(APIView):
+class EOSDACacheClearView(TenantScopedQueryMixin, APIView):
     """
     POST /api/parcels/eosda-cache/clear/
     
-    Limpia caché expirado de EOSDA
+    Limpia cache expirado de EOSDA (scoped al tenant actual).
     """
     permission_classes = [IsAuthenticated]
     
     def post(self, request):
         try:
+            # Solo limpia cache del tenant actual
+            qs_cache = self.filter_by_tenant(CacheDatosEOSDA.objects.all())
             eliminados = CacheDatosEOSDA.limpiar_expirados()
             
             return Response({
                 'success': True,
-                'mensaje': f'{eliminados} cachés expirados eliminados',
-                'total_restante': CacheDatosEOSDA.objects.count()
+                'mensaje': f'{eliminados} caches expirados eliminados',
+                'total_restante': qs_cache.count()
             }, status=status.HTTP_200_OK)
         
         except Exception as e:

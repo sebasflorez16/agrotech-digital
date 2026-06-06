@@ -1084,8 +1084,15 @@ function setupImageFilterUX() {
                 return;
             }
             const parcelId = window.AGROTECH_STATE.selectedParcelId;
-            const startDate = fechaInicio.value;
-            const endDate = fechaFin.value;
+            let startDate = fechaInicio.value;
+            let endDate = fechaFin.value;
+            // Validar y corregir si las fechas están invertidas
+            if (startDate > endDate) {
+                console.warn('[SCENES] Fechas invertidas, corrigiendo automáticamente:', startDate, endDate);
+                [startDate, endDate] = [endDate, startDate];
+                fechaInicio.value = startDate;
+                fechaFin.value = endDate;
+            }
             await buscarEscenasPorRango(parcelId, startDate, endDate);
         };
     }

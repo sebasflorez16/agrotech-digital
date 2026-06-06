@@ -16,6 +16,25 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class PermissionsPolicyMiddleware:
+    """
+    Agrega el encabezado Permissions-Policy a todas las respuestas.
+    Restringe APIs del navegador que no usamos (camara, microfono, etc.).
+    """
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        response = self.get_response(request)
+        response['Permissions-Policy'] = (
+            "camera=(), "
+            "microphone=(), "
+            "geolocation=(self), "
+            "interest-cohort=()"
+        )
+        return response
+
+
 class HealthCheckMiddleware:
     """
     Middleware que responde a /health/ ANTES de que django-tenants procese la petición.
@@ -70,7 +89,11 @@ class SmartTenantMiddleware(TenantMainMiddleware):
             self._set_public_tenant(request)
             return
 
+        # 🔒 Resolver tenant desde JWT primero (verificacion criptografica)
+        tenant_from_jwt = self._resolve_tenant_from_jwt(request)
+        
         # Intentar resolver tenant desde header X-Tenant-Domain
+        tenant_from_header = None
         tenant_domain = request.META.get('HTTP_X_TENANT_DOMAIN', '').strip()
         if tenant_domain:
             try:
@@ -78,45 +101,66 @@ class SmartTenantMiddleware(TenantMainMiddleware):
                 domain_obj = Domain.objects.select_related('tenant').get(
                     domain=tenant_domain
                 )
-                request.tenant = domain_obj.tenant
-                connection.set_tenant(domain_obj.tenant)
-                logger.debug(
-                    f"SmartTenantMiddleware: X-Tenant-Domain={tenant_domain} "
-                    f"→ schema {domain_obj.tenant.schema_name}"
-                )
-                return
+                tenant_from_header = domain_obj.tenant
             except Exception:
                 pass
 
-        # Resolución estándar por hostname
+        # 🔒 VERIFICACION CRITICA DE SEGURIDAD: Cross-tenant access prevention
+        if tenant_from_jwt and tenant_from_header:
+            if tenant_from_jwt.id != tenant_from_header.id:
+                # El usuario esta intentando acceder a un tenant que no le pertenece
+                logger.warning(
+                    f"🚫 CROSS-TENANT ACCESS BLOCKED: "
+                    f"JWT tenant={tenant_from_jwt.schema_name}(id={tenant_from_jwt.id}) "
+                    f"X-Tenant-Domain={tenant_domain} → "
+                    f"header tenant={tenant_from_header.schema_name}(id={tenant_from_header.id})"
+                )
+                # Rechazar: usar SOLO el tenant del JWT (confiable)
+                request.tenant = tenant_from_jwt
+                connection.set_tenant(tenant_from_jwt)
+                if hasattr(request, 'urlconf'):
+                    del request.urlconf
+                logger.debug(
+                    f"SmartTenantMiddleware: 🔒 Forzado JWT tenant={tenant_from_jwt.schema_name} "
+                    f"(header {tenant_domain} rechazado)"
+                )
+                return
+        
+        # Si el header coincide con el JWT, o solo hay header, usar header
+        if tenant_from_header:
+            request.tenant = tenant_from_header
+            connection.set_tenant(tenant_from_header)
+            logger.debug(
+                f"SmartTenantMiddleware: X-Tenant-Domain={tenant_domain} "
+                f"→ schema {tenant_from_header.schema_name}"
+            )
+            return
+
+        # Si solo hay JWT (sin header), usar JWT
+        if tenant_from_jwt:
+            request.tenant = tenant_from_jwt
+            connection.set_tenant(tenant_from_jwt)
+            if hasattr(request, 'urlconf'):
+                del request.urlconf
+            logger.debug(
+                f"SmartTenantMiddleware: JWT → schema {tenant_from_jwt.schema_name}"
+            )
+            return
+
+        # Resolución estándar por hostname (sin header ni JWT)
         super().process_request(request)
 
-        # Si el hostname resolvió a 'public' y hay JWT,
-        # intentar resolver el tenant real desde el token del usuario
+        # Si el hostname resolvió a 'public', intentar desarrollo local
         if (
             hasattr(request, 'tenant')
             and request.tenant.schema_name == get_public_schema_name()
-            and not is_public_path
+            and is_dev
         ):
-            tenant_from_jwt = self._resolve_tenant_from_jwt(request)
-            if tenant_from_jwt:
-                request.tenant = tenant_from_jwt
-                connection.set_tenant(tenant_from_jwt)
-                # NO cambiar request.urlconf — usar ROOT_URLCONF (config.urls)
-                # que tiene TODAS las rutas incluyendo billing, parcels, etc.
-                if hasattr(request, 'urlconf'):
-                    del request.urlconf
-                logger.debug(
-                    f"SmartTenantMiddleware: JWT → schema {tenant_from_jwt.schema_name}"
-                )
-            elif is_dev:
-                # En desarrollo local sin JWT válido, usar ROOT_URLCONF
-                # para poder acceder a todas las rutas de la API
-                if hasattr(request, 'urlconf'):
-                    del request.urlconf
-                logger.debug(
-                    f"SmartTenantMiddleware: Dev mode sin JWT → schema public (ROOT_URLCONF)"
-                )
+            if hasattr(request, 'urlconf'):
+                del request.urlconf
+            logger.debug(
+                f"SmartTenantMiddleware: Dev mode sin JWT → schema public (ROOT_URLCONF)"
+            )
 
     def _set_public_tenant(self, request, use_full_urlconf=False):
         """
