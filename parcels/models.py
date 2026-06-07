@@ -300,6 +300,136 @@ class EstadisticaUsoEOSDA(models.Model):
         }
 
 
+# ── Estado de salud del cultivo (Monitoreo Continuo Fase 1) ────────────
+
+class CropHealthStatus(models.Model):
+    """
+    Estado de salud del cultivo persistente.
+    Mantiene el ultimo estado conocido incluso cuando no hay imagenes nuevas.
+    Permite al agricultor saber que su cultivo sigue siendo monitoreado.
+    """
+    parcel = models.OneToOneField(
+        'Parcel',
+        on_delete=models.CASCADE,
+        related_name='health_status',
+        verbose_name="Parcela"
+    )
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
+
+    # Ultimos indices conocidos
+    ndvi_last = models.FloatField(null=True, blank=True, verbose_name="Ultimo NDVI")
+    ndmi_last = models.FloatField(null=True, blank=True, verbose_name="Ultimo NDMI")
+    evi_last = models.FloatField(null=True, blank=True, verbose_name="Ultimo EVI")
+
+    # Fecha de la ultima observacion valida
+    last_observation_date = models.DateTimeField(null=True, blank=True, verbose_name="Ultima observacion")
+    last_image_date = models.DateField(null=True, blank=True, verbose_name="Fecha de la ultima imagen")
+
+    # Calidad de la observacion
+    QUALITY_CHOICES = [
+        ('excellent', 'Excelente — Imagen reciente, baja nubosidad'),
+        ('good', 'Buena — Imagen utilizable con algunas limitaciones'),
+        ('limited', 'Limitada — Alta nubosidad, analisis parcial'),
+        ('no_observation', 'Sin observacion confiable — No hay datos opticos validos'),
+    ]
+    observation_quality = models.CharField(
+        max_length=20, choices=QUALITY_CHOICES,
+        default='no_observation', verbose_name="Calidad de observacion"
+    )
+
+    # Confianza del estado actual (0-100)
+    confidence_score = models.IntegerField(default=0, verbose_name="Confianza del estado (0-100)")
+
+    # Numero de dias sin observacion optica
+    days_without_observation = models.IntegerField(default=0, verbose_name="Dias sin observacion")
+
+    # Alertas activas
+    active_alerts = models.JSONField(default=list, blank=True, verbose_name="Alertas activas")
+
+    # Fechas de actualizacion
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Estado de salud del cultivo"
+        verbose_name_plural = "Estados de salud de cultivos"
+        indexes = [
+            models.Index(fields=["tenant_id"]),
+            models.Index(fields=["parcel", "updated_at"]),
+        ]
+
+    def __str__(self):
+        return f"Salud {self.parcel.name} | NDVI:{self.ndvi_last} | {self.observation_quality} | {self.updated_at:%Y-%m-%d}"
+
+    @property
+    def status_badge(self):
+        """Retorna el badge visual para el frontend."""
+        if self.observation_quality == 'excellent' and self.confidence_score >= 80:
+            return {'emoji': '🟢', 'label': 'Excelente', 'color': '#22c55e'}
+        elif self.observation_quality in ('good', 'excellent') and self.confidence_score >= 60:
+            return {'emoji': '🟢', 'label': 'Bueno', 'color': '#22c55e'}
+        elif self.observation_quality in ('good', 'limited') and self.confidence_score >= 30:
+            return {'emoji': '🟡', 'label': 'Atencion', 'color': '#eab308'}
+        elif self.observation_quality == 'limited' or self.days_without_observation > 14:
+            return {'emoji': '🟠', 'label': 'Limitado', 'color': '#f97316'}
+        else:
+            return {'emoji': '🔴', 'label': 'Sin datos', 'color': '#ef4444'}
+
+    @property
+    def status_message(self):
+        """Mensaje descriptivo para el agricultor."""
+        if self.days_without_observation == 0:
+            return f"Tu cultivo fue observado hoy. NDVI: {self.ndvi_last:.2f} — {self.get_quality_label()}"
+        elif self.days_without_observation <= 7:
+            return f"Tu cultivo fue observado hace {self.days_without_observation} dias. NDVI estimado: {self.ndvi_last:.2f}. Seguimos monitoreando."
+        elif self.days_without_observation <= 14:
+            return f"Ultima observacion hace {self.days_without_observation} dias. NDVI: {self.ndvi_last:.2f}. Esperando proxima imagen sin nubes."
+        else:
+            return f"Sin observacion reciente ({self.days_without_observation} dias). NDVI historico: {self.ndvi_last:.2f}. Usamos datos complementarios para seguir vigilando."
+
+    def get_quality_label(self):
+        return dict(self.QUALITY_CHOICES).get(self.observation_quality, 'Desconocido')
+
+    def update_from_observation(self, ndvi=None, ndmi=None, evi=None, image_date=None, cloud_cover=None):
+        """Actualiza el estado con una nueva observacion."""
+        from django.utils import timezone
+
+        if ndvi is not None:
+            self.ndvi_last = ndvi
+        if ndmi is not None:
+            self.ndmi_last = ndmi
+        if evi is not None:
+            self.evi_last = evi
+
+        self.last_observation_date = timezone.now()
+        if image_date:
+            self.last_image_date = image_date
+        if cloud_cover is not None:
+            if cloud_cover < 10:
+                self.observation_quality = 'excellent'
+                self.confidence_score = 95
+            elif cloud_cover < 30:
+                self.observation_quality = 'good'
+                self.confidence_score = 75
+            elif cloud_cover < 70:
+                self.observation_quality = 'limited'
+                self.confidence_score = 40
+            else:
+                self.observation_quality = 'limited'
+                self.confidence_score = 20
+        self.days_without_observation = 0
+        self.save()
+
+    @classmethod
+    def get_or_create_for_parcel(cls, parcel):
+        """Obtiene o crea el estado de salud para una parcela."""
+        obj, _ = cls.objects.get_or_create(
+            parcel=parcel,
+            defaults={'tenant_id': parcel.tenant_id}
+        )
+        return obj
+
+
 # ── Mixins de seguridad multi-tenant ──────────────────────────────────────
 
 class TenantScopedQueryMixin:

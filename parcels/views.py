@@ -14,7 +14,7 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view, permission_classes
-from .models import Parcel, ParcelSceneCache
+from .models import Parcel, ParcelSceneCache, CropHealthStatus
 from .serializers import ParcelSerializer
 
 logger = logging.getLogger(__name__)
@@ -2795,6 +2795,78 @@ class ParcelNdviWeatherComparisonView(APIView):
             insights.append(f'{metrics.get("heat_stress_days")} días con temperaturas extremas (>35°C). Implementar medidas de protección.')
         
         return insights
+
+
+# --- CROP HEALTH STATUS (Monitoreo Continuo Fase 1) ---
+
+class CropHealthAPIView(APIView):
+    """
+    Endpoint de salud del cultivo — Monitoreo Continuo Fase 1.
+    GET /api/parcels/parcel/{id}/health/
+    
+    Retorna el ultimo estado conocido del cultivo con badge visual,
+    incluso cuando no hay imagenes nuevas disponibles.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, parcel_id):
+        from django.utils import timezone as dj_timezone
+        parcel = get_object_or_404(Parcel, pk=parcel_id, is_deleted=False)
+
+        # Obtener estado de salud actual
+        health = CropHealthStatus.get_or_create_for_parcel(parcel)
+
+        # Actualizar dias sin observacion
+        if health.last_observation_date:
+            delta = dj_timezone.now() - health.last_observation_date
+            health.days_without_observation = delta.days
+            if health.days_without_observation > 0 and health.observation_quality == 'excellent':
+                health.observation_quality = 'good'
+                health.confidence_score = max(health.confidence_score - 10, 60)
+            elif health.days_without_observation > 7 and health.observation_quality == 'good':
+                health.observation_quality = 'limited'
+                health.confidence_score = max(health.confidence_score - 20, 30)
+            elif health.days_without_observation > 14:
+                health.observation_quality = 'no_observation'
+                health.confidence_score = max(health.confidence_score - 30, 10)
+            health.save()
+
+        # Buscar ultimas escenas cacheadas
+        recent_scenes = ParcelSceneCache.objects.filter(
+            parcel=parcel
+        ).order_by('-date')[:5]
+
+        scenes_data = []
+        for sc in recent_scenes:
+            scenes_data.append({
+                'date': sc.date.isoformat(),
+                'index_type': sc.index_type,
+                'cloudCoverage': sc.metadata.get('cloudCoverage', 0) if sc.metadata else 0,
+            })
+
+        # Construir respuesta
+        badge = health.status_badge
+        return Response({
+            'parcel_id': parcel.id,
+            'parcel_name': parcel.name,
+            'status': {
+                'badge': badge,
+                'quality': health.observation_quality,
+                'quality_label': health.get_quality_label(),
+                'confidence_score': health.confidence_score,
+                'days_without_observation': health.days_without_observation,
+                'message': health.status_message,
+            },
+            'indices': {
+                'ndvi': health.ndvi_last,
+                'ndmi': health.ndmi_last,
+                'evi': health.evi_last,
+            },
+            'last_observation': health.last_observation_date.isoformat() if health.last_observation_date else None,
+            'last_image_date': health.last_image_date.isoformat() if health.last_image_date else None,
+            'recent_scenes': scenes_data,
+            'alerts': health.active_alerts if health.active_alerts else [],
+        }, status=200)
 
 
 # --- GEOCODING PROXY ---

@@ -56,4 +56,7 @@ urlpatterns = [
     # Elevación / Topografía de la parcela (Open-Meteo Elevation API - gratuito)
     path('parcel/<int:parcel_id>/elevation/', ElevationView.as_view(), name='parcel_elevation'),
 
+    # Salud del cultivo — Monitoreo Continuo Fase 1
+    path('parcel/<int:parcel_id>/health/', views.CropHealthAPIView.as_view(), name='parcel_health'),
+
 ]
