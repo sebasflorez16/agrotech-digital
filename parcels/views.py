@@ -255,6 +255,27 @@ class ParcelScenesByDateView(APIView):
                     logger.warning(f"[CACHE] Error guardando escena {scene}: {scene_error}")
             
             logger.info(f"[CACHE] ✅ {len(scenes)} escenas guardadas en cache")
+
+            # Actualizar estado de salud (Monitoreo Continuo Fase 2)
+            if scenes:
+                try:
+                    best_scene = min(scenes, key=lambda s: s.get('cloudCoverage', s.get('cloud', 100)))
+                    health = CropHealthStatus.get_or_create_for_parcel(parcel)
+                    scene_date = best_scene.get('date')
+                    if scene_date:
+                        from datetime import datetime
+                        if 'T' in str(scene_date):
+                            image_date = datetime.strptime(str(scene_date).split('T')[0], '%Y-%m-%d').date()
+                        else:
+                            image_date = datetime.strptime(str(scene_date), '%Y-%m-%d').date()
+                        health.update_from_observation(
+                            image_date=image_date,
+                            cloud_cover=best_scene.get('cloudCoverage', best_scene.get('cloud', 0))
+                        )
+                        logger.info(f"[HEALTH] Estado actualizado para {parcel.name}")
+                except Exception as he:
+                    logger.warning(f"[HEALTH] Error actualizando estado: {he}")
+
         except Exception as e:
             logger.warning(f"[CACHE] Error guardando escenas en cache: {e}")
 
@@ -1908,7 +1929,28 @@ class ParcelHistoricalIndicesView(APIView):
             # Guardar en cache por 6 horas
             cache.set(cache_key, response_data, 21600)
             logger.info(f"[HISTORICAL_INDICES] Datos guardados en cache: {cache_key}")
-            
+
+            # Actualizar estado de salud (Monitoreo Continuo Fase 2)
+            try:
+                health = CropHealthStatus.get_or_create_for_parcel(parcel)
+                latest_ndvi = None
+                latest_ndmi = None
+                latest_evi = None
+                if 'ndvi' in historical_data and historical_data['ndvi']:
+                    latest_ndvi = historical_data['ndvi'][-1].get('mean')
+                if 'ndmi' in historical_data and historical_data['ndmi']:
+                    latest_ndmi = historical_data['ndmi'][-1].get('mean')
+                if 'evi' in historical_data and historical_data['evi']:
+                    latest_evi = historical_data['evi'][-1].get('mean')
+                if latest_ndvi or latest_ndmi or latest_evi:
+                    health.update_from_observation(
+                        ndvi=latest_ndvi, ndmi=latest_ndmi, evi=latest_evi,
+                        image_date=datetime.now().date()
+                    )
+                    logger.info(f"[HEALTH] Estado actualizado con indices historicos para {parcel.name}")
+            except Exception as he:
+                logger.warning(f"[HEALTH] Error: {he}")
+
             return Response(response_data)
             
         except Exception as e:

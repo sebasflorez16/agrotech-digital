@@ -232,7 +232,11 @@ window.clearEOSDACache = function() {
 // BASE_URL: Detectar correctamente el backend en desarrollo local
 // En localhost, el frontend puede estar en puerto diferente (8080, 3000) que el backend (8000)
 function getBaseUrl() {
-    // Si ApiUrls está disponible, usarlo
+    // Usar config.js centralizado como fuente principal
+    if (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE) {
+        return window.AGROTECH_CONFIG.API_BASE + '/api/parcels';
+    }
+    // Fallback: Si ApiUrls está disponible, usarlo
     if (window.ApiUrls) {
         return window.ApiUrls.parcels();
     }
@@ -241,12 +245,11 @@ function getBaseUrl() {
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     
     if (isLocalhost) {
-        // En desarrollo local, el backend Django está en puerto 8000
         return 'http://localhost:8000/api/parcels';
     }
     
-    // En producción (Netlify), usar rutas relativas que el proxy redirige
-    return '/api/parcels';
+    // En producción, usar URL de Railway
+    return 'https://agrotech-digital-production.up.railway.app/api/parcels';
 }
 
 const BASE_URL = getBaseUrl();
@@ -292,7 +295,7 @@ function initializeLeaflet() {
         window.axiosInstance = axiosInstance;
 
         // Interceptor de respuesta: maneja token expirado (401) automáticamente
-        // Usa las funciones de api-utils.js con protección contra múltiples 401 simultáneos
+        // Protección contra múltiples 401 simultáneos con _retry flag
         axiosInstance.interceptors.response.use(
             response => response,
             async error => {
@@ -322,7 +325,7 @@ function initializeLeaflet() {
                             localStorage.removeItem('refreshToken');
                             window.location.href = '/templates/authentication/login.html';
                         }
-                        // Retornar un error silencioso para no mostrar toasts de error
+                        // Retornar error silencioso para no mostrar toasts
                         return Promise.reject(new Error('session_expired'));
                     }
                 }
@@ -782,11 +785,6 @@ function selectParcel(parcel) {
     if (typeof showInfoToast === 'function') {
         showInfoToast(`📍 Parcela "${parcelData.name}" seleccionada`);
     }
-    
-    // Cargar ciclo de cultivo activo (si el módulo está disponible)
-    if (window.AgrotechCropCycles && typeof window.AgrotechCropCycles.showCropCycleBadge === 'function') {
-        window.AgrotechCropCycles.showCropCycleBadge(parcel.id);
-    }
 }
 window.selectParcel = selectParcel;
 
@@ -1060,14 +1058,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const now = Date.now();
         if (expTime < now) {
             console.warn('[AUTH] Token JWT ya expirado. Intentando refresh...');
-            // Intentar refresh automático
             const doRefresh = async () => {
                 const refreshed = typeof window.refreshAccessToken === 'function'
                     ? await window.refreshAccessToken()
                     : false;
                 if (refreshed) {
                     console.log('[AUTH] Token refrescado al inicio. Continuando...');
-                    location.reload(); // Recargar con el token nuevo
+                    location.reload();
                 } else {
                     console.warn('[AUTH] No se pudo refrescar token al inicio. Redirigiendo a login...');
                     if (typeof window.handleAuthFailure === 'function') {
@@ -1083,7 +1080,6 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
     } catch (e) {
-        // Si el token no es un JWT válido, continuar y dejar que el backend lo rechace
         console.warn('[AUTH] No se pudo decodificar el token JWT:', e.message);
     }
 
@@ -1170,15 +1166,8 @@ function setupImageFilterUX() {
                 return;
             }
             const parcelId = window.AGROTECH_STATE.selectedParcelId;
-            let startDate = fechaInicio.value;
-            let endDate = fechaFin.value;
-            // Validar y corregir si las fechas están invertidas
-            if (startDate > endDate) {
-                console.warn('[SCENES] Fechas invertidas, corrigiendo automáticamente:', startDate, endDate);
-                [startDate, endDate] = [endDate, startDate];
-                fechaInicio.value = startDate;
-                fechaFin.value = endDate;
-            }
+            const startDate = fechaInicio.value;
+            const endDate = fechaFin.value;
             await buscarEscenasPorRango(parcelId, startDate, endDate);
         };
     }
@@ -1310,8 +1299,13 @@ async function fetchEosdaWmtsUrls(polygonGeoJson) {
     const fechaNDVI = new Date(today.getFullYear(), today.getMonth(), today.getDate() - daysAgo)
         .toISOString().split('T')[0];
     // Usar hostname dinámico para el proxy WMTS
+    const _pxBase = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+        ? window.AGROTECH_CONFIG.API_BASE
+        : (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+            ? 'http://localhost:8000'
+            : 'https://agrotech-digital-production.up.railway.app';
     const baseProxy = window.ApiUrls ? window.ApiUrls.eosdaWmts() + '/' : 
-                     `${window.location.protocol}//${window.location.hostname}:8000/api/parcels/eosda-wmts-tile/`;
+                     `${_pxBase}/api/parcels/eosda-wmts-tile/`;
     // const ndviUrl = ...; const ndmiUrl = ...; Eliminado. Usar Render API.
     return { ndvi: ndviUrl, ndmi: ndmiUrl };
 }
@@ -2747,61 +2741,6 @@ window.mostrarImagenNDVIConAnalisis = async function(imageSrc, tipo = 'ndvi', sc
                     } catch (interpError) {
                         console.warn('[IMAGE_ANALYSIS] Error al generar interpretación profesional:', interpError);
                     }
-                    
-                    // CONTEXTUALIZACIÓN CON CICLO DE CULTIVO (si existe)
-                    // No modifica el análisis existente, solo agrega información adicional debajo
-                    try {
-                        if (window.AgrotechCropCycles && typeof window.AgrotechCropCycles.getContextualInterpretation === 'function') {
-                            const parcelId = window.AGROTECH_STATE?.selectedParcelId;
-                            if (parcelId) {
-                                // Calcular valor promedio ponderado del índice a partir de los resultados del análisis
-                                // Usar la categoría dominante para estimar un valor representativo
-                                const indexRanges = {
-                                    ndvi: {
-                                        'Vegetación Muy Densa': 0.85, 'Vegetación Densa': 0.65,
-                                        'Vegetación Moderada': 0.45, 'Vegetación Escasa': 0.25,
-                                        'Estrés Severo': 0.10, 'Suelo Desnudo': 0.02
-                                    },
-                                    ndmi: {
-                                        'Muy Húmedo': 0.50, 'Húmedo': 0.30, 'Moderado': 0.10,
-                                        'Seco': -0.10, 'Muy Seco': -0.30, 'Estrés Hídrico': -0.50
-                                    },
-                                    savi: {
-                                        'Vegetación Muy Densa': 0.75, 'Vegetación Densa': 0.55,
-                                        'Vegetación Moderada': 0.35, 'Vegetación Escasa': 0.18,
-                                        'Suelo con poca vegetación': 0.08, 'Suelo Desnudo': 0.02
-                                    }
-                                };
-                                const ranges = indexRanges[tipo.toLowerCase()] || {};
-                                let weightedSum = 0;
-                                let totalPercent = 0;
-                                for (const r of resultsWithColors) {
-                                    const refValue = ranges[r.name] ?? 0.5;
-                                    weightedSum += refValue * r.percent;
-                                    totalPercent += r.percent;
-                                }
-                                const avgValue = totalPercent > 0 ? parseFloat((weightedSum / totalPercent).toFixed(3)) : 0.5;
-                                
-                                const contextResult = await window.AgrotechCropCycles.getContextualInterpretation(parcelId, tipo.toLowerCase(), avgValue);
-                                if (contextResult && contextResult.status !== 'unknown') {
-                                    let cropContextContainer = legendContainer.querySelector('.crop-context-interpretation');
-                                    if (!cropContextContainer) {
-                                        cropContextContainer = document.createElement('div');
-                                        cropContextContainer.className = 'crop-context-interpretation mt-3';
-                                        legendContainer.appendChild(cropContextContainer);
-                                    }
-                                    // renderContextualBadge es async y genera su propio HTML internamente
-                                    const badgeHtml = await window.AgrotechCropCycles.renderContextualBadge(parcelId, tipo.toLowerCase(), avgValue);
-                                    if (badgeHtml) {
-                                        cropContextContainer.innerHTML = badgeHtml;
-                                    }
-                                    console.log(`[IMAGE_ANALYSIS] Contexto de ciclo de cultivo agregado para ${tipo.toUpperCase()} (valor estimado: ${avgValue})`);
-                                }
-                            }
-                        }
-                    } catch (cropContextError) {
-                        console.warn('[IMAGE_ANALYSIS] Ciclo de cultivo no disponible (esperado si no hay ciclo activo):', cropContextError.message);
-                    }
                 }
                 
                 return;
@@ -3007,3 +2946,37 @@ window.changeMapProvider = changeMapProvider;
 window.switchMapProvider = switchMapProvider;
 window.reinitializeCesium = reinitializeCesium;
 window.getCurrentMapProvider = getCurrentMapProvider;
+
+// ============================================================
+// MONITOREO CONTINUO Fase 3 — Badge de salud del cultivo
+// ============================================================
+async function loadCropHealth(parcelId) {
+    try {
+        const response = await window.axiosInstance.get(`/parcel/${parcelId}/health/`);
+        const health = response.data;
+        const badge = health.status.badge;
+
+        const badgeEl = document.getElementById('crop-health-badge');
+        if (badgeEl) {
+            badgeEl.innerHTML = `<span style="font-size:1.5em">${badge.emoji}</span> 
+                <span style="color:${badge.color};font-weight:bold">${badge.label}</span>`;
+        }
+
+        const msgEl = document.getElementById('crop-health-message');
+        if (msgEl) msgEl.textContent = health.status.message;
+
+        if (health.indices.ndvi) {
+            const ndviEl = document.getElementById('crop-ndvi-value');
+            if (ndviEl) ndviEl.textContent = health.indices.ndvi.toFixed(2);
+        }
+    } catch (e) {
+        console.warn('[HEALTH] No se pudo cargar estado de salud:', e.message);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const parcelId = window.currentParcelId || (window.selectedParcel && window.selectedParcel.id);
+    if (parcelId) loadCropHealth(parcelId);
+});
+
+window.loadCropHealth = loadCropHealth;

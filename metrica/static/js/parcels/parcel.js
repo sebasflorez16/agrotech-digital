@@ -2946,3 +2946,37 @@ window.changeMapProvider = changeMapProvider;
 window.switchMapProvider = switchMapProvider;
 window.reinitializeCesium = reinitializeCesium;
 window.getCurrentMapProvider = getCurrentMapProvider;
+
+// ============================================================
+// MONITOREO CONTINUO Fase 3 — Badge de salud del cultivo
+// ============================================================
+async function loadCropHealth(parcelId) {
+    try {
+        const response = await window.axiosInstance.get(`/parcel/${parcelId}/health/`);
+        const health = response.data;
+        const badge = health.status.badge;
+
+        const badgeEl = document.getElementById('crop-health-badge');
+        if (badgeEl) {
+            badgeEl.innerHTML = `<span style="font-size:1.5em">${badge.emoji}</span> 
+                <span style="color:${badge.color};font-weight:bold">${badge.label}</span>`;
+        }
+
+        const msgEl = document.getElementById('crop-health-message');
+        if (msgEl) msgEl.textContent = health.status.message;
+
+        if (health.indices.ndvi) {
+            const ndviEl = document.getElementById('crop-ndvi-value');
+            if (ndviEl) ndviEl.textContent = health.indices.ndvi.toFixed(2);
+        }
+    } catch (e) {
+        console.warn('[HEALTH] No se pudo cargar estado de salud:', e.message);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const parcelId = window.currentParcelId || (window.selectedParcel && window.selectedParcel.id);
+    if (parcelId) loadCropHealth(parcelId);
+});
+
+window.loadCropHealth = loadCropHealth;
