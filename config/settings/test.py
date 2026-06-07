@@ -8,10 +8,7 @@ from .base import env
 # GENERAL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
-SECRET_KEY = env(
-    "DJANGO_SECRET_KEY",
-    default="django-insecure-*eavrb@@3e%_qbd8#*4kvr%rq@nhkw3=k_pkxvw$+g&huq%!pj",
-)
+SECRET_KEY = env("DJANGO_SECRET_KEY")
 # https://docs.djangoproject.com/en/dev/ref/settings/#test-runner
 TEST_RUNNER = "django.test.runner.DiscoverRunner"
 
@@ -45,11 +42,11 @@ TEST_RUNNER = 'config.testrunner.SimpleTestRunner'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'test_prueba2',
-        'USER': 'postgres',
-        'PASSWORD': 'guibsonsid.16',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': env('TEST_DB_NAME', default='test_prueba2'),
+        'USER': env('TEST_DB_USER', default='postgres'),
+        'PASSWORD': env('TEST_DB_PASSWORD', default=''),
+        'HOST': env('TEST_DB_HOST', default='localhost'),
+        'PORT': env('TEST_DB_PORT', default='5432'),
     }
 }
 

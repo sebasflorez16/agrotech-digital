@@ -5,6 +5,7 @@ from RRHH.models import Employee
 from crop.models import Crop
 
 class LaborType(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     nombre = models.CharField(max_length=100, unique=True, verbose_name="Tipo de labor")
     descripcion = models.TextField(blank=True, null=True)
 
@@ -21,6 +22,7 @@ class Labor(models.Model):
     Representa una labor agrícola realizada o planificada sobre una o varias parcelas.
     Ejemplos: Siembra, fertilización, riego, cosecha, aplicación de fitosanitarios, etc.
     """
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     nombre = models.CharField(max_length=100, verbose_name="Nombre de la labor")
     tipo = models.ForeignKey(LaborType, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Tipo de labor")
     descripcion = models.TextField(blank=True, null=True, verbose_name="Descripción")

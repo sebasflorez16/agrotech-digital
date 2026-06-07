@@ -7,6 +7,7 @@ from simple_history.models import HistoricalRecords
 from django.conf import settings
 
 class CropType(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     name = models.CharField(max_length=100, unique=True, verbose_name="Tipo de cultivo")
     description = models.TextField(blank=True, null=True)
 
@@ -20,6 +21,7 @@ class CropType(models.Model):
 
 class CropVariety(models.Model):
     """Variedad de un tipo de cultivo (ej. Arroz IR-64, Maíz ICA V-305)"""
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     name = models.CharField(max_length=150, verbose_name="Nombre de la variedad")
     crop_type = models.ForeignKey(
         CropType, on_delete=models.CASCADE,
@@ -42,6 +44,7 @@ class CropVariety(models.Model):
 
 
 class Crop(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     name = models.CharField(max_length=100, verbose_name="Nombre del cultivo")
     crop_type = models.ForeignKey(CropType, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Tipo de cultivo")
     variety = models.ForeignKey(CropVariety, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Variedad")
@@ -254,6 +257,7 @@ class CropCycle(models.Model):
     durante un periodo. Permite interpretar indices satelitales segun la etapa
     fenologica actual del cultivo.
     """
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     parcel = models.ForeignKey(Parcel, on_delete=models.CASCADE, related_name='crop_cycles')
     crop_catalog = models.ForeignKey(CropCatalog, on_delete=models.PROTECT, related_name='cycles')
 

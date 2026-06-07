@@ -4,6 +4,7 @@ from simple_history.models import HistoricalRecords
 
 # Define las categorías de insumos
 class Category(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     name = models.CharField("Nombre", max_length=100)
     description = models.TextField("Descripción", blank=True, null=True)
     created = models.DateTimeField("Fecha de creación", auto_now_add=True)
@@ -15,6 +16,7 @@ class Category(models.Model):
 
 # Define las subcategorías de insumos
 class Subcategory(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     name = models.CharField("Nombre", max_length=100)
     description = models.TextField("Descripción", blank=True, null=True)
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='subcategories', verbose_name="Categoría")
@@ -30,6 +32,7 @@ class Subcategory(models.Model):
 
 # Define las empresas proveedoras
 class Company(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     name = models.CharField("Nombre", max_length=150)
     address = models.CharField("Dirección", max_length=255, blank=True, null=True)
     phone = models.CharField("Teléfono", max_length=30, blank=True, null=True)
@@ -50,6 +53,7 @@ class Company(models.Model):
 
 # Define los proveedores de insumos
 class Supplier(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     name = models.CharField("Nombre", max_length=150)
     contact = models.CharField("Persona de contacto", max_length=100, blank=True, null=True)
     phone = models.CharField("Teléfono", max_length=30, blank=True, null=True)
@@ -66,6 +70,7 @@ class Supplier(models.Model):
     history = HistoricalRecords()
 # Modelo para personas naturales/contactos simples
 class Person(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     name = models.CharField("Nombre", max_length=150)
     phone = models.CharField("Teléfono", max_length=30, blank=True, null=True)
     email = models.EmailField("Email", blank=True, null=True)
@@ -83,6 +88,7 @@ class Person(models.Model):
 
 # Define los insumos agrícolas
 class Warehouse(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     name = models.CharField("Nombre", max_length=100)
     address = models.CharField("Dirección", max_length=255, blank=True, null=True)
     location = models.CharField("Ubicación", max_length=255, blank=True, null=True)
@@ -96,6 +102,7 @@ class Warehouse(models.Model):
         return self.name
 
 class Supply(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     UNIT_CHOICES = [
         ("litros", "Litros"),
         ("mililitros", "Mililitros"),
@@ -139,6 +146,7 @@ class Supply(models.Model):
         return self.quantity * self.unit_value
 
 class Machinery(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     name = models.CharField("Nombre", max_length=150)
     brand = models.CharField("Marca", max_length=100, blank=True, null=True)
     model = models.CharField("Modelo", max_length=100, blank=True, null=True)
@@ -170,6 +178,7 @@ class Machinery(models.Model):
 
 # Define los movimientos de inventario
 class InventoryMovement(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     from django.contrib.contenttypes.fields import GenericForeignKey
     from django.contrib.contenttypes.models import ContentType
     MOVEMENT_TYPE_CHOICES = (

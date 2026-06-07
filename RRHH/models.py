@@ -7,6 +7,7 @@ from base_agrotech.models import BaseModel, EmployeesBase
 # Create your models here.
 
 class Department(BaseModel):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     name = models.CharField('Nombre', max_length=50)
     description = models.TextField('Descripción', blank=True, null=True)
     historical = HistoricalRecords()
@@ -29,6 +30,7 @@ class Department(BaseModel):
 
 
 class Position(BaseModel):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     name = models.CharField('Nombre', max_length=50)
     description = models.TextField('Descripción', blank=True, null=True)
     historical = HistoricalRecords()
@@ -50,7 +52,7 @@ class Position(BaseModel):
 
 
 class Employee(EmployeesBase):
-    
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     position = models.ForeignKey(Position, on_delete=models.CASCADE, verbose_name='Cargo', null=True)
     department = models.ForeignKey(Department, on_delete=models.CASCADE, null=True, verbose_name='Departamento')
 
@@ -73,6 +75,7 @@ class Employee(EmployeesBase):
 
 
 class TemporaryEmployee(EmployeesBase):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     description = models.CharField('Descripción', max_length=100, help_text='Pon apuntes consideres necesarios ')
 
     class Meta:
@@ -84,6 +87,7 @@ class TemporaryEmployee(EmployeesBase):
 
 
 class ContractorEmployee(EmployeesBase):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     description = models.CharField('Descripción', max_length=100, blank=True, null=True,
                                    help_text='Pon apuntes consideres necesarios ')
     rut = models.CharField('RUT', unique=True)
@@ -102,6 +106,7 @@ biometrica"""
 
 
 class Attendance(BaseModel):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
     date = models.DateField()
     check_in_time = models.TimeField(null=True, blank=True)

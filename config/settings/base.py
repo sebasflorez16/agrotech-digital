@@ -145,6 +145,7 @@ SHARED_APPS = [
     # === Infraestructura core (schema public) ===
     'django_tenants',
     'rest_framework',
+    'rest_framework_simplejwt.token_blacklist',
     "corsheaders",
     'django.contrib.contenttypes',
     "django.contrib.auth",

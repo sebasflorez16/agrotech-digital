@@ -8,6 +8,7 @@ from django.db import models
 from RRHH.models import Employee
 
 class Parcel(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     eosda_id = models.CharField(max_length=32, blank=True, null=True, unique=True, verbose_name="ID EOSDA", help_text="ID del campo en EOSDA")
     name = models.CharField(max_length=100, verbose_name="Nombre del campo", blank=True, null=True)
     description = models.TextField(verbose_name="Descripción del campo", blank=True, null=True)
@@ -149,6 +150,7 @@ class Parcel(models.Model):
 #Registra cada accion relevante sobre la parcela
 # Se puede usar para auditoría o para mostrar en el frontend
 class ParcelActionLog(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     ACTION_CHOICES = [
         ("create", "Creación"),
         ("update", "Actualización"),
@@ -179,6 +181,7 @@ class ParcelActionLog(models.Model):
 
 # Modelo para cachear escenas NDVI/NDMI de EOSDA por parcela y tipo de índice
 class ParcelSceneCache(models.Model):
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
     parcel = models.ForeignKey('Parcel', on_delete=models.CASCADE, related_name='scene_caches')
     scene_id = models.CharField(max_length=64, verbose_name="ID de escena EOSDA")
     date = models.DateField(verbose_name="Fecha de la escena")
