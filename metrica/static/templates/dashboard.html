@@ -11,8 +11,21 @@
     <!-- Liquid Glass Design System -->
     <link rel="stylesheet" href="../css/liquid-glass-system.css">
     
-    <!-- 🌍 Configuración global (debe cargarse primero) -->
+    <!-- 🌍 Configuración global -->
     <script src="../js/config.js"></script>
+    
+    <!-- 🔐 Verificación de autenticación -->
+    <script>
+        (function() {
+            const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+            if (!token) {
+                const currentPath = window.location.pathname + window.location.search;
+                if (currentPath && !currentPath.includes('auth-login')) {
+                    window.location.href = '/auth-login.html?next=' + encodeURIComponent(currentPath);
+                }
+            }
+        })();
+    </script>
     
     <!-- Tabler Icons -->
     <link rel="stylesheet" href="https://unpkg.com/@tabler/icons-webfont@latest/tabler-icons.min.css" />
@@ -248,18 +261,17 @@
                     </a>
                 </div>
                 
-                <!-- 
                 <div class="nav-section">
                     <div class="nav-section-title">Gestión</div>
-                    <a href="http://localhost:8080/templates/inventory/inventario-dashboard.html" class="nav-item-glass">
+                    <a href="inventory/inventario-dashboard.html" class="nav-item-glass">
                         <i class="ti ti-box"></i>
                         <span>Inventario</span>
                     </a>
-                    <a href="http://localhost:8080/templates/employees/RRHH-dashboard.html" class="nav-item-glass">
+                    <a href="employees/RRHH-dashboard.html" class="nav-item-glass">
                         <i class="ti ti-users"></i>
                         <span>Empleados</span>
                     </a>
-                    <a href="http://localhost:8080/templates/labores/labores-dashboard.html" class="nav-item-glass">
+                    <a href="labores/labores-dashboard.html" class="nav-item-glass">
                         <i class="ti ti-checkbox"></i>
                         <span>Labores</span>
                     </a>
@@ -279,22 +291,21 @@
                 
                 <div class="nav-section">
                     <div class="nav-section-title">Cuenta</div>
-                    <a href="http://localhost:8080/templates/pages/profile.html" class="nav-item-glass">
+                    <a href="pages/profile.html" class="nav-item-glass">
                         <i class="ti ti-settings"></i>
                         <span>Configuración</span>
                     </a>
-                    <a href="#" class="nav-item-glass" onclick="logout()">
+                    <a href="#" class="nav-item-glass" onclick="if(confirm('¿Cerrar sesión?')){localStorage.clear();sessionStorage.clear();window.location.href='/auth-login.html';}return false;">
                         <i class="ti ti-logout"></i>
                         <span>Cerrar Sesión</span>
                     </a>
                 </div>
-                -->
             </nav>
         </aside>
         
-        <!-- Main Content -->
+        <!-- Contenido Principal -->
         <main class="main-content">
-            <!-- Header -->
+            <!-- Encabezado -->
             <header class="header">
                 <div class="header-title">
                     <h1>Bienvenido de nuevo 👋</h1>
@@ -311,7 +322,7 @@
                 </div>
             </header>
             
-            <!-- Stats Grid -->
+            <!-- Estadísticas -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="icon-circle green">
@@ -346,26 +357,39 @@
                 </div>
             </div>
             
-            <!-- Content Grid -->
+            <!-- Panel de Suscripción + Acciones -->
             <div class="content-grid">
-                <!-- Subscription Status -->
+                <!-- Estado de Suscripción -->
                 <div class="glass-card">
                     <h2 style="margin-bottom: var(--space-lg); font-size: 1.25rem;">Estado de Suscripción</h2>
                     <div id="subscriptionInfo">
-                        <div class="skeleton" style="height: 100px; margin-bottom: var(--space-md);"></div>
-                        <div class="skeleton" style="height: 60px;"></div>
+                        <div style="display: flex; align-items: center; gap: 16px; padding: 16px 0;">
+                            <div style="font-size: 2.5rem;">
+                                <i class="ti ti-credit-card" style="color: var(--agrotech-primary);"></i>
+                            </div>
+                            <div>
+                                <p id="subPlanName" style="font-weight: 600; font-size: 1.1rem; margin: 0;">Plan Básico</p>
+                                <p id="subStatus" style="color: var(--text-secondary); margin: 4px 0 0 0; font-size: 0.9rem;">Activo</p>
+                            </div>
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <button class="btn-glass" style="width: 100%; justify-content: center;" onclick="window.location.href='billing.html'">
+                                <i class="ti ti-arrow-right"></i>
+                                <span>Gestionar Suscripción</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- Quick Actions -->
+                <!-- Acciones Rápidas -->
                 <div class="glass-card">
                     <h2 style="margin-bottom: var(--space-lg); font-size: 1.25rem;">Acciones Rápidas</h2>
                     <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
-                        <button class="btn-glass" style="justify-content: flex-start; width: 100%;" onclick="location.href='parcels.html'">
+                        <button class="btn-glass" style="justify-content: flex-start; width: 100%;" onclick="location.href='parcels/parcels-dashboard.html'">
                             <i class="ti ti-plus"></i>
                             <span>Nueva Parcela</span>
                         </button>
-                        <button class="btn-glass" style="justify-content: flex-start; width: 100%;" onclick="location.href='crops.html'">
+                        <button class="btn-glass" style="justify-content: flex-start; width: 100%;" onclick="location.href='crop/crop_list.html'">
                             <i class="ti ti-plant"></i>
                             <span>Registrar Cultivo</span>
                         </button>
@@ -377,13 +401,26 @@
                 </div>
             </div>
             
-            <!-- Recent Activity -->
+            <!-- Actividad Reciente -->
             <div class="glass-card">
                 <h2 style="margin-bottom: var(--space-lg); font-size: 1.25rem;">Actividad Reciente</h2>
                 <div id="recentActivity">
-                    <p style="color: var(--text-secondary); text-align: center; padding: var(--space-xl);">
-                        Cargando actividad...
-                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div style="display: flex; align-items: center; gap: 14px; padding: 12px; background: rgba(47, 179, 68, 0.05); border-radius: 12px;">
+                            <div style="font-size: 1.5rem;">🌾</div>
+                            <div style="flex: 1;">
+                                <p style="font-weight: 600; margin: 0; font-size: 0.95rem;" id="activityText1">Sin actividad reciente</p>
+                                <p style="color: var(--text-tertiary); margin: 2px 0 0 0; font-size: 0.8rem;" id="activityDate1">--</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 14px; padding: 12px; background: rgba(47, 179, 68, 0.03); border-radius: 12px;">
+                            <div style="font-size: 1.5rem;">📋</div>
+                            <div style="flex: 1;">
+                                <p style="font-weight: 600; margin: 0; font-size: 0.95rem;" id="activityText2">Explora las herramientas disponibles</p>
+                                <p style="color: var(--text-tertiary); margin: 2px 0 0 0; font-size: 0.8rem;" id="activityDate2">--</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>

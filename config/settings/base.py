@@ -34,6 +34,9 @@ else:
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#debug
 DEBUG = env.bool("DJANGO_DEBUG", False)
+DEVELOPER_MODE = env.bool("DEVELOPER_MODE", default=False)  # Modo desarrollador: sin límites de suscripción (NO en producción)
+DEVELOPER_PIN = env.str("DEVELOPER_PIN", default="")  # PIN para activar modo desarrollador desde el frontend
+
 
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
 # Configuración base para ALLOWED_HOSTS - se sobrescribe en production.py

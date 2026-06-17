@@ -162,17 +162,22 @@
     <!-- Navigation -->
     <ul class="nav-menu">
         <li class="nav-section">Principal</li>
-        <li><a href="../dashboard.html"><i class="ti ti-home"></i> Dashboard</a></li>
-        <!-- <li><a href="../employees/RRHH-dashboard.html"><i class="ti ti-users"></i> Recursos Humanos</a></li> -->
+        <li><a href="/templates/dashboard.html"><i class="ti ti-home"></i> Dashboard</a></li>
+        <li><a href="/templates/parcels/parcels-dashboard.html"><i class="ti ti-map-2"></i> Parcelas</a></li>
+        <li><a href="/templates/crop/crop_list.html"><i class="ti ti-plant"></i> Cultivos</a></li>
         
-        <li class="nav-section">Operaciones</li>
-        <!-- <li><a href="../inventario/dashboard_inventario.html"><i class="ti ti-box"></i> Inventario</a></li> -->
-        <li><a href="parcels-dashboard.html" class="active"><i class="ti ti-map-2"></i> Parcelas</a></li>
-        <!-- <li><a href="../labores.html"><i class="ti ti-clipboard-list"></i> Labores</a></li> -->
-        <li><a href="../crop/crop_list.html"><i class="ti ti-plant"></i> Cultivos</a></li>
+        <li class="nav-section">Gestión</li>
+        <li><a href="/templates/inventory/inventario-dashboard.html"><i class="ti ti-box"></i> Inventario</a></li>
+        <li><a href="/templates/employees/RRHH-dashboard.html"><i class="ti ti-users"></i> Empleados</a></li>
+        <li><a href="/templates/labores/labores-dashboard.html"><i class="ti ti-checkbox"></i> Labores</a></li>
         
-        <!-- <li class="nav-section">Sistema</li>
-        <li><a href="../settings.html"><i class="ti ti-settings"></i> Configuración</a></li> -->
+        <li class="nav-section">Suscripción</li>
+        <li><a href="/templates/billing.html"><i class="ti ti-credit-card"></i> Facturación</a></li>
+        <li><a href="/templates/billing.html#usage"><i class="ti ti-chart-bar"></i> Uso & Límites</a></li>
+        
+        <li class="nav-section">Cuenta</li>
+        <li><a href="/templates/pages/profile.html"><i class="ti ti-settings"></i> Configuración</a></li>
+        <li><a href="#" onclick="localStorage.clear(); sessionStorage.clear(); window.location.href='/auth-login.html'; return false;"><i class="ti ti-logout"></i> Cerrar Sesión</a></li>
     </ul>
 
     <!-- Footer -->

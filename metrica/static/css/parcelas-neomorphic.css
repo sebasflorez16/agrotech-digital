@@ -1,0 +1,3 @@
+/* Alias de compatibilidad para rutas antiguas.
+   Redirige a la hoja vigente del dashboard de parcelas. */
+@import url('./parcelas-neomorphic-override.css');

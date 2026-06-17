@@ -212,14 +212,39 @@ class SmartTenantMiddleware(TenantMainMiddleware):
             
             token_str = auth_header.split(' ')[1]
             token = AccessToken(token_str)
-            user_id = token.get('user_id')
             
+            # Primero intentar obtener tenant_id directamente del token (más rápido y evita problemas de schema)
+            tenant_id = token.get('tenant_id')
+            if tenant_id:
+                from base_agrotech.models import Client
+                try:
+                    tenant = Client.objects.get(id=tenant_id)
+                    if tenant.schema_name != get_public_schema_name():
+                        return tenant
+                except Client.DoesNotExist:
+                    pass
+            
+            # EN DESARROLLO LOCAL: buscar usuario en schemas de tenant
+            user_id = token.get('user_id')
             if not user_id:
                 return None
             
+            # Si estamos en localhost, buscar en TODOS los schemas
+            hostname = request.get_host().split(':')[0].lower()
+            if hostname in ['localhost', '127.0.0.1']:
+                from base_agrotech.models import Client as TCdev
+                from django_tenants.utils import schema_context
+                User = get_user_model()
+                for t in TCdev.objects.exclude(schema_name='public'):
+                    try:
+                        with schema_context(t.schema_name):
+                            if User.objects.filter(id=user_id).exists():
+                                return t
+                    except Exception:
+                        continue
+            
             User = get_user_model()
             user = User.objects.select_related('tenant').get(id=user_id)
-            
             if user.tenant and user.tenant.schema_name != get_public_schema_name():
                 return user.tenant
         except Exception as exc:

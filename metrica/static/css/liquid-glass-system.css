@@ -332,3 +332,115 @@ body {
 
 .blur-light { backdrop-filter: var(--glass-blur-light); }
 .blur-strong { backdrop-filter: var(--glass-blur); }
+
+/* ================================================================
+   🎨 GLASS NAV / HEADER (NUEVO)
+   ================================================================ */
+.glass-nav {
+    background: rgba(255, 255, 255, 0.6) !important;
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border-bottom: 1px solid var(--glass-border);
+}
+
+/* ================================================================
+   🔘 NEURO BUTTON VARIANTS (NUEVO)
+   ================================================================ */
+.neuro-button-ghost {
+    background: var(--glass-white);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: var(--text-primary);
+    border: 1px solid var(--glass-border);
+}
+
+.neuro-button-ghost:hover {
+    background: rgba(255, 255, 255, 0.9);
+    transform: translateY(-1px);
+}
+
+.neuro-button-accent {
+    background: rgba(255, 159, 10, 0.12);
+    color: var(--agrotech-accent);
+    border: 1px solid rgba(255, 159, 10, 0.25);
+}
+
+.neuro-button-accent:hover {
+    background: rgba(255, 159, 10, 0.2);
+    transform: translateY(-1px);
+}
+
+/* ================================================================
+   📝 GLASS INPUT (NUEVO)
+   ================================================================ */
+.glass-input {
+    width: 100%;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.glass-input:focus {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: var(--agrotech-primary);
+    box-shadow: 0 0 0 3px rgba(47, 179, 68, 0.15);
+}
+
+.glass-input::placeholder {
+    color: var(--text-tertiary);
+}
+
+/* ================================================================
+   🏷️ GLASS BADGE / PILL (NUEVO)
+   ================================================================ */
+.glass-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: var(--radius-full);
+    padding: 6px 16px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--agrotech-primary-dark);
+}
+
+/* ================================================================
+   🌑 DARK GLASS (NUEVO — para overlays sobre mapas)
+   ================================================================ */
+.dark-glass {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-lg);
+    color: white;
+}
+
+/* ================================================================
+   🔄 ANIMATIONS (NUEVO)
+   ================================================================ */
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.6s ease-out;
+}
+
+/* ── Scrollbar estilizado ── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.15); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.25); }

@@ -212,10 +212,14 @@ class LoginView(APIView):
                 'error': 'Esta cuenta está desactivada.',
             }, status=status.HTTP_403_FORBIDDEN)
         
-        # Generar tokens
+        # Generar tokens con tenant_id en el payload
         refresh = RefreshToken.for_user(user)
+        # Incluir tenant_id en el token para que el middleware resuelva el schema
+        if hasattr(user, 'tenant_id') and user.tenant_id:
+            refresh['tenant_id'] = user.tenant_id
+            refresh.access_token['tenant_id'] = user.tenant_id
         
-        logger.info(f"Login exitoso: {user.username}")
+        logger.info(f"Login exitoso: {user.username} (tenant_id={getattr(user, 'tenant_id', 'N/A')})")
         
         return Response({
             'success': True,

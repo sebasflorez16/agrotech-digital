@@ -49,7 +49,7 @@ window.mostrarModalEscenasEOSDA = async function(parcelId) {
     // Obtener eosda_id
     let eosda_id = null;
     try {
-        const parcelResp = await axiosInstance.get(`/parcel/${parcelId}/`);
+        const parcelResp = await axiosInstance.get(`parcel/${parcelId}/`);
         eosda_id = parcelResp.data.eosda_id;
         if (!eosda_id) {
             document.getElementById('eosdaScenesTableContainer').innerHTML = '<div class="alert alert-danger">La parcela no tiene eosda_id configurado.</div>';
@@ -601,7 +601,7 @@ function savePolygon() {
     };
 
     // Enviar los datos al backend (POST crea también en EOSDA y retorna el id)
-    axiosInstance.post("/parcel/", {
+    axiosInstance.post("parcel/", {
         name,
         description,
         field_type: fieldType,
@@ -635,20 +635,38 @@ function loadParcels() {
         return;
     }
 
-    axiosInstance.get("/parcel/")
+    // 🔧 LIMPIAR polígonos antiguos del mapa antes de recargar la tabla
+    if (map && mapReady) {
+        map.eachLayer(function (layer) {
+            // Eliminar solo polígonos de parcelas (no tiles, no controles, no dibujos)
+            if (layer instanceof L.Polygon && layer.parcelId && !layer._drawnByUser) {
+                map.removeLayer(layer);
+            }
+        });
+        // También remover el resaltado de selección si existe
+        if (window.selectedParcelLayer) {
+            map.removeLayer(window.selectedParcelLayer);
+            window.selectedParcelLayer = null;
+        }
+    }
+
+    axiosInstance.get("parcel/")
         .then(response => {
             console.log("Respuesta del backend para parcelas:", response.data);
             
             // Manejar diferentes formatos de respuesta
             let data;
-            if (response.data.parcels && Array.isArray(response.data.parcels)) {
+            // Formato: { cesium_token, parcels: { count, results: [...] } }
+            if (response.data.parcels && response.data.parcels.results && Array.isArray(response.data.parcels.results)) {
+                data = response.data.parcels.results;
+            } else if (response.data.parcels && Array.isArray(response.data.parcels)) {
                 data = response.data.parcels;
             } else if (response.data.results && Array.isArray(response.data.results)) {
                 data = response.data.results;
             } else if (Array.isArray(response.data)) {
                 data = response.data;
             } else {
-                console.warn("Formato de respuesta inesperado:", response.data);
+                console.warn("Formato de respuesta no reconocido:", response.data);
                 data = [];
             }
             
@@ -872,7 +890,7 @@ function flyToParcel(parcelId) {
     });
 
     // Obtener la geometría y centrar el mapa
-    axiosInstance.get(`/parcel/${parcelId}/`)
+    axiosInstance.get(`parcel/${parcelId}/`)
         .then(async response => {
             const feature = response.data;
             let coordinates = [];
@@ -975,7 +993,30 @@ function flyToParcel(parcelId) {
         })
         .catch(error => {
             console.error("Error al centrar en la parcela:", error);
-            alert("Hubo un error al centrar el mapa en la parcela.\n" + (error.message || JSON.stringify(error)));
+            const status = error.response?.status;
+            if (status === 404) {
+                // La parcela fue eliminada — refrescar la tabla para limpiarla
+                if (typeof showInfoToast === 'function') {
+                    showInfoToast('Esta parcela ya no existe. Actualizando lista...');
+                }
+                loadParcels();
+                // Limpiar panel de datos
+                const parcelNameCell = document.getElementById("parcelNameCell");
+                if (parcelNameCell) parcelNameCell.textContent = 'Selecciona una parcela';
+                const parcelAreaCell = document.getElementById("parcelAreaCell");
+                if (parcelAreaCell) parcelAreaCell.textContent = '-';
+                const parcelDateCell = document.getElementById("parcelDateCell");
+                if (parcelDateCell) parcelDateCell.textContent = '-';
+                // Limpiar resaltados
+                if (window.selectedParcelLayer) {
+                    map.removeLayer(window.selectedParcelLayer);
+                    window.selectedParcelLayer = null;
+                }
+            } else if (error.message !== 'session_expired') {
+                if (typeof showErrorToast === 'function') {
+                    showErrorToast('No se pudo cargar la parcela. Intenta de nuevo.');
+                }
+            }
         });
 }
 
@@ -998,7 +1039,7 @@ function saveEditedParcel() {
     }
 
     // Enviar los datos al backend
-    axiosInstance.put(`/parcel/${parcelId}/`, {
+    axiosInstance.put(`parcel/${parcelId}/`, {
         name: name,
         description: description,
         field_type: fieldType,
@@ -1017,7 +1058,7 @@ function saveEditedParcel() {
 }
 function deleteParcel(parcelId) {
     if (confirm("¿Estás seguro de que deseas eliminar esta parcela?")) {
-        axiosInstance.delete(`/parcel/${parcelId}/`)
+        axiosInstance.delete(`parcel/${parcelId}/`)
             .then(response => {
                 alert("Parcela eliminada con éxito.");
                 loadParcels(); // Recargar la tabla
@@ -1220,7 +1261,7 @@ async function buscarEscenasPorRango(parcelId, startDate, endDate) {
     }
     try {
         showSpinner();
-        const resp = await axiosInstance.get(`/parcel/${parcelId}/scenes/?start_date=${startDate}&end_date=${endDate}`);
+        const resp = await axiosInstance.get(`parcel/${parcelId}/scenes/?start_date=${startDate}&end_date=${endDate}`);
         hideSpinner();
         const scenes = resp.data.scenes || [];
         window.EOSDA_SCENES_CACHE[cacheKey] = scenes;
@@ -1926,7 +1967,7 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
     if (window.EOSDA_IMAGE_CACHE[cacheKey]) {
         console.log('[CACHE HIT] Imagen encontrada en cache frontend');
         // Obtener el polígono de la parcela seleccionada
-        const parcelResp = await axiosInstance.get(`/parcel/${parcelId}/`);
+        const parcelResp = await axiosInstance.get(`parcel/${parcelId}/`);
         let coords = [];
         if (parcelResp.data.geometry && parcelResp.data.geometry.coordinates) {
             coords = parcelResp.data.geometry.coordinates[0];
@@ -2029,7 +2070,7 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
                     hideSpinner();
                     
                     // Obtener el polígono de la parcela seleccionada
-                    const parcelResp = await axiosInstance.get(`/parcel/${parcelId}/`);
+                    const parcelResp = await axiosInstance.get(`parcel/${parcelId}/`);
                     let coords = [];
                     if (parcelResp.data.geometry && parcelResp.data.geometry.coordinates) {
                         coords = parcelResp.data.geometry.coordinates[0];
@@ -2952,8 +2993,7 @@ window.getCurrentMapProvider = getCurrentMapProvider;
 // ============================================================
 async function loadCropHealth(parcelId) {
     try {
-        const response = await window.axiosInstance.get(`/parcel/${parcelId}/health/`);
-        const health = response.data;
+        const response = await window.axiosInstance.get(`parcel/${parcelId}/health/`);
         const badge = health.status.badge;
 
         const badgeEl = document.getElementById('crop-health-badge');

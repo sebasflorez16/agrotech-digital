@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{{ alerta.titulo }}</title>
+</head>
+<body style="margin:0;padding:0;background:#0f1418;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e8eef2;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f1418;padding:24px 0;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="background:#171d22;border-radius:16px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.4);">
+
+          <!-- Header con barra de severidad -->
+          <tr>
+            <td style="padding:0;">
+              <div style="
+                background:{% if alerta.severidad == 'critical' %}linear-gradient(90deg,#ef4444,#b91c1c){% elif alerta.severidad == 'warning' %}linear-gradient(90deg,#f59e0b,#d97706){% else %}linear-gradient(90deg,#10b981,#059669){% endif %};
+                padding:18px 24px;color:#fff;font-weight:600;font-size:13px;letter-spacing:0.5px;text-transform:uppercase;">
+                {{ severidad_label }} · {{ tipo_label }}
+              </div>
+            </td>
+          </tr>
+
+          <!-- Título y parcela -->
+          <tr>
+            <td style="padding:24px 28px 8px 28px;">
+              <h1 style="margin:0 0 6px 0;font-size:22px;color:#f8fafc;line-height:1.3;">{{ alerta.titulo }}</h1>
+              <p style="margin:0;color:#94a3b8;font-size:14px;">
+                <strong style="color:#cbd5e1;">{{ parcela.name }}</strong>
+                {% if zona %}· Zona: {{ zona }}{% endif %}
+                · Escena del {{ fecha_escena|date:"d M Y" }}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Bloques QUÉ / POR QUÉ / QUÉ HACER / CUÁNDO -->
+          <tr>
+            <td style="padding:20px 28px 4px 28px;">
+              <div style="background:#0f1418;border-radius:12px;padding:18px;margin-bottom:14px;border:1px solid #1e293b;">
+                <p style="margin:0 0 6px 0;color:#7dd3fc;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">¿Qué pasa?</p>
+                <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.55;">{{ causa }}</p>
+              </div>
+
+              <div style="background:#0f1418;border-radius:12px;padding:18px;margin-bottom:14px;border:1px solid #1e293b;">
+                <p style="margin:0 0 6px 0;color:#fbbf24;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">¿Qué hacer?</p>
+                <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.55;">{{ recomendacion }}</p>
+              </div>
+
+              <div style="background:#0f1418;border-radius:12px;padding:18px;margin-bottom:14px;border:1px solid #1e293b;">
+                <p style="margin:0 0 6px 0;color:#f472b6;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">¿Cuándo?</p>
+                <p style="margin:0;color:#e2e8f0;font-size:14px;line-height:1.55;">
+                  Actuar dentro de los próximos <strong style="color:#fbbf24;">{{ ventana_dias }} día{{ ventana_dias|pluralize }}</strong>.
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Datos técnicos -->
+          <tr>
+            <td style="padding:8px 28px 24px 28px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b1014;border-radius:12px;border:1px solid #1e293b;">
+                <tr>
+                  <td style="padding:14px 18px;color:#94a3b8;font-size:12px;">
+                    <strong style="color:#cbd5e1;">{{ indice_label }}</strong> observado:
+                    <span style="color:#fbbf24;font-weight:700;">{{ valor|floatformat:2 }}</span>
+                    {% if umbral_min is not None and umbral_max is not None %}
+                      · rango esperado <span style="color:#cbd5e1;">{{ umbral_min|floatformat:2 }}–{{ umbral_max|floatformat:2 }}</span>
+                    {% endif %}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:0 28px 28px 28px;">
+              <p style="margin:0;color:#64748b;font-size:12px;line-height:1.5;">
+                Este correo se envió automáticamente desde {{ site_name }}.
+                Ingresa al dashboard para marcar como atendida o dejar tu feedback —
+                tus respuestas mejoran las próximas alertas.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

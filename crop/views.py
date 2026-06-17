@@ -180,3 +180,62 @@ class CropCycleViewSet(viewsets.ModelViewSet):
         
         interpretation = cycle.get_index_interpretation(index_type, value)
         return Response(interpretation)
+
+
+# =============================================================================
+# VIEWSET PARA PREPARACIÓN DE DATOS ML (SOLO LECTURA)
+# =============================================================================
+
+from rest_framework.views import APIView
+from .ml_preparation import export_alert_training_dataset, export_cycle_yield_dataset, get_dataset_stats
+
+
+class MLDatasetStatsView(APIView):
+    """
+    GET /api/crop/ml/stats/
+    Retorna estadísticas de los datasets disponibles para entrenar modelos ML.
+    Indica si hay suficientes datos para clasificador y regresión.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant_id = getattr(request, 'tenant', None)
+        tid = tenant_id.id if tenant_id and tenant_id.schema_name != 'public' else None
+        stats = get_dataset_stats(tenant_id=tid)
+        return Response(stats)
+
+
+class MLAlertDatasetView(APIView):
+    """
+    GET /api/crop/ml/alert-dataset/?format=json|jsonl|csv
+    Exporta el dataset etiquetado de alertas agronómicas (features + label de feedback).
+    Listo para entrenar un clasificador de falsos positivos.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant_id = getattr(request, 'tenant', None)
+        tid = tenant_id.id if tenant_id and tenant_id.schema_name != 'public' else None
+        fmt = request.query_params.get('format', 'json')
+        data = export_alert_training_dataset(tenant_id=tid, output_format='csv' if fmt == 'csv' else 'json')
+        if fmt == 'csv' or fmt == 'jsonl':
+            return Response(data, content_type='text/plain; charset=utf-8')
+        return Response(data)
+
+
+class MLCycleDatasetView(APIView):
+    """
+    GET /api/crop/ml/cycle-dataset/?format=json|csv
+    Exporta el dataset de ciclos de cultivo con índices satelitales y rendimiento.
+    Listo para entrenar un modelo de regresión de rendimiento (ton/ha).
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        tenant_id = getattr(request, 'tenant', None)
+        tid = tenant_id.id if tenant_id and tenant_id.schema_name != 'public' else None
+        fmt = request.query_params.get('format', 'json')
+        data = export_cycle_yield_dataset(tenant_id=tid, output_format='csv' if fmt == 'csv' else 'json')
+        if fmt == 'csv':
+            return Response(data, content_type='text/plain; charset=utf-8')
+        return Response(data)

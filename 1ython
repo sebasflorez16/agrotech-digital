@@ -1,0 +1,6 @@
+usage: manage.py shell [-h] [--no-startup] [-i {ipython,bpython,python}] [-c COMMAND] [--version] [-v {0,1,2,3}]
+                       [--settings SETTINGS] [--pythonpath PYTHONPATH] [--traceback] [--no-color] [--force-color]
+usage: manage.py shell [-h] [--no-startup] [-i {ipython,bpython,python}] [-c COMMAND] [--version] [-v {0,1,2,3}]
+                       [--settings SETTINGS] [--pythonpath PYTHONPATH] [--traceback] [--no-color] [--force-color]
+manage.py shell: error: unrecognized arguments: manage.py shell manage.py tenant_command shell --schema=prueba
+manage.py shell: error: unrecognized arguments: manage.py shell manage.py tenant_command shell --schema=prueba

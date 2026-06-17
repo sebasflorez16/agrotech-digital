@@ -1,0 +1,19 @@
+{{ severidad_label|upper }} — {{ alerta.titulo }}
+
+PARCELA: {{ parcela.name }}{% if zona %} · Zona: {{ zona }}{% endif %}
+ÍNDICE: {{ indice_label }}  |  TIPO: {{ tipo_label }}
+ESCENA: {{ fecha_escena|date:"d/m/Y" }}
+
+QUÉ PASA
+{{ causa }}
+
+QUÉ HACER
+{{ recomendacion }}
+
+CUÁNDO
+Actuar dentro de los próximos {{ ventana_dias }} día(s).
+
+VALOR OBSERVADO: {{ valor|floatformat:2 }}{% if umbral_min is not None and umbral_max is not None %}  (rango esperado {{ umbral_min|floatformat:2 }} – {{ umbral_max|floatformat:2 }}){% endif %}
+
+— {{ site_name }}
+Este correo se envió automáticamente. Ingresa al dashboard para gestionar la alerta y dejar tu feedback.

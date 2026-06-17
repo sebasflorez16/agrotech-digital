@@ -58,6 +58,8 @@
     <link href="../../css/agrotech-neomorphic.css" rel="stylesheet" type="text/css" />
     <!-- ⭐ OVERRIDE NEUMÓRFICO PARA DASHBOARD PARCELAS ⭐ -->
     <link href="../../css/parcelas-neomorphic-override.css" rel="stylesheet" type="text/css" />
+    <!-- 🍎 LIQUID GLASS DESIGN SYSTEM ⭐ -->
+    <link href="../../css/liquid-glass-system.css" rel="stylesheet" type="text/css" />
     
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <!-- Tabler Icons for Sidebar -->
@@ -460,7 +462,7 @@
 </head>
 <body class="neomorphic-theme">  
     <!-- Topbar móvil (solo visible en móvil < 768px) -->
-    <div class="topbar" style="display: none;">
+    <div class="topbar glass-nav" style="display: none;">
         <button class="menu-toggle button-menu-mobile" aria-label="Abrir menú" onclick="toggleMobileSidebar()">
             <i class="fas fa-bars"></i>
         </button>
@@ -615,7 +617,7 @@
                     </div>
                     
                     <!-- Análisis de Imagen Satelital -->
-                    <div style="background:#f8f9fa;border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:24px;">
+                    <div class="glass-card" style="margin-bottom:24px;">
                         <h5 style="font-weight:bold;color:#145A32;margin-bottom:15px;">🛰️ Análisis de Imagen Satelital</h5>
                         
                         <!-- Selector rápido de rango de fechas -->
@@ -669,7 +671,7 @@
                 <!-- Columna derecha: Panel de estado rápido + análisis -->
                 <div style="flex:1;min-width:320px;">
                     <!-- 📊 Panel de Estado Rápido de la Parcela -->
-                    <div id="quickStatusPanel" style="background:linear-gradient(135deg, #f8f9fa, #e9ecef);border-radius:12px;padding:18px 20px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:24px;">
+                    <div id="quickStatusPanel" class="glass-card" style="margin-bottom:24px;">
                         <div style="font-weight:600;color:#145A32;font-size:14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">
                             <i class="fas fa-tachometer-alt"></i> Estado Rápido
                         </div>
@@ -720,7 +722,7 @@
                     </div>
                     
                     <!-- Análisis automático de imagen satelital -->
-                    <div id="analysisTableCard" style="background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(0,0,0,0.06);padding:18px 20px;">
+                    <div id="analysisTableCard" class="glass-card">
                         <h5 style="font-weight: bold; color: #333; margin-bottom: 15px;">📊 Análisis de Imagen</h5>
                         <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
                             <!-- Imagen satelital -->

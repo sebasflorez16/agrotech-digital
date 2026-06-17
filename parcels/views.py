@@ -351,6 +351,11 @@ class ParcelViewSet(viewsets.ModelViewSet):
         subscription = getattr(request, 'subscription', None)
         
         if not subscription:
+            # 🛡️ MODO DESARROLLADOR: bypass para superusuarios
+            if getattr(settings, 'DEVELOPER_MODE', False) and request.user.is_authenticated and request.user.is_superuser:
+                logger.info(f"[ParcelViewSet] 🔓 DEVELOPER MODE: {request.user.username} creando parcela sin suscripción")
+                return True, None
+
             logger.warning("Intento de crear parcela sin suscripción activa")
             return False, Response({
                 'error': 'No tienes una suscripción activa',
@@ -555,6 +560,11 @@ class ParcelViewSet(viewsets.ModelViewSet):
         tenant = getattr(request, 'tenant', None)
         
         if not subscription:
+            # 🛡️ MODO DESARROLLADOR: bypass para superusuarios
+            if getattr(settings, 'DEVELOPER_MODE', False) and request.user.is_authenticated and request.user.is_superuser:
+                logger.info(f"[ParcelViewSet] 🔓 DEVELOPER MODE: {request.user.username} creando parcela sin suscripción")
+                return True, None
+
             return Response({
                 'error': 'No tienes una suscripción activa',
                 'code': 'no_subscription'
@@ -633,6 +643,11 @@ class ParcelViewSet(viewsets.ModelViewSet):
         tenant = getattr(request, 'tenant', None)
         
         if not subscription:
+            # 🛡️ MODO DESARROLLADOR: bypass para superusuarios
+            if getattr(settings, 'DEVELOPER_MODE', False) and request.user.is_authenticated and request.user.is_superuser:
+                logger.info(f"[ParcelViewSet] 🔓 DEVELOPER MODE: {request.user.username} creando parcela sin suscripción")
+                return True, None
+
             return Response({
                 'error': 'No tienes una suscripción activa',
                 'code': 'no_subscription'
@@ -2914,7 +2929,6 @@ class CropHealthAPIView(APIView):
 # --- GEOCODING PROXY ---
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
 def geocode_proxy(request):
     """
     Proxy para geocodificación usando Nominatim.
