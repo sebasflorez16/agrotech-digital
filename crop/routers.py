@@ -23,9 +23,10 @@ router.register(r'catalog', CropCatalogViewSet)
 router.register(r'cycles', CropCycleViewSet, basename='cropcycle')
 
 from django.urls import path
-from .views import MLDatasetStatsView, MLAlertDatasetView, MLCycleDatasetView
+from .views import MLDatasetStatsView, MLAlertDatasetView, MLCycleDatasetView, LaborSuggestionsView
 
 urlpatterns = router.urls + [
+    path('labor-suggestions/', LaborSuggestionsView.as_view(), name='labor-suggestions'),
     path('ml/stats/', MLDatasetStatsView.as_view(), name='ml-stats'),
     path('ml/alert-dataset/', MLAlertDatasetView.as_view(), name='ml-alert-dataset'),
     path('ml/cycle-dataset/', MLCycleDatasetView.as_view(), name='ml-cycle-dataset'),

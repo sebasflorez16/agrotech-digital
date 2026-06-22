@@ -21,14 +21,14 @@ class ParcelZoneSerializer(serializers.ModelSerializer):
 
 class ParcelZonificationSerializer(serializers.ModelSerializer):
     zones = ParcelZoneSerializer(many=True, read_only=True)
-    parcel_name = serializers.CharField(source='parcel.name', read_only=True)
+    parcel_name = serializers.SerializerMethodField()
     method_display = serializers.CharField(source='get_method_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
 
     class Meta:
         model = ParcelZonification
         fields = [
-            'id', 'parcel', 'parcel_name', 'scene_date',
+            'id', 'parcel_id', 'parcel_name', 'scene_date',
             'index_base', 'method', 'method_display',
             'k_zones', 'status', 'status_display',
             'total_pixels', 'pixel_resolution_m',
@@ -36,3 +36,10 @@ class ParcelZonificationSerializer(serializers.ModelSerializer):
             'zones',
         ]
         read_only_fields = ['created_at', 'updated_at', 'status', 'total_pixels']
+
+    def get_parcel_name(self, obj):
+        try:
+            from .models import Parcel
+            return Parcel.objects.filter(id=obj.parcel_id).values_list('name', flat=True).first() or ''
+        except Exception:
+            return ''

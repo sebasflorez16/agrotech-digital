@@ -12,7 +12,8 @@ Uso:
   python manage.py tenant_command seed_crop_varieties --schema=prueba
 """
 from django.core.management.base import BaseCommand
-from crop.models import CropCatalog, CropVariety
+from crop.models import CropVariety, CropType
+from crop.bootstrap_catalogs import ensure_core_agro_defaults
 
 
 VARIETIES = {
@@ -113,7 +114,7 @@ VARIETIES = {
         },
     ],
     # ---------------------------- CAFÉ ----------------------------
-    'Cafe Arabica': [
+    'Cafe': [
         {
             'name': 'Castillo',
             'casa_registradora': 'Cenicafé',
@@ -170,31 +171,50 @@ class Command(BaseCommand):
     help = 'Sembrar variedades profesionales para cultivos del catálogo'
 
     def handle(self, *args, **options):
+        # Obtener tenant_id del schema actual (buscando desde schema public)
+        from django.db import connection
+        from base_agrotech.models import Client
+        schema_name = connection.schema_name
+        tenant_id = None
+        if schema_name != 'public':
+            connection.set_schema_to_public()
+            tenant = Client.objects.filter(schema_name=schema_name).first()
+            tenant_id = tenant.id if tenant else None
+            connection.set_schema(schema_name)
+
+        # 1. Asegurar que existan los catálogos base y tipos de labor
+        ensure_core_agro_defaults(tenant_id=tenant_id)
+        self.stdout.write(self.style.SUCCESS(f"✓ Catálogos base y tipos de labor verificados (tenant_id={tenant_id})"))
+
         total_created = 0
         total_skipped = 0
 
         for crop_name, varieties in VARIETIES.items():
-            catalog = CropCatalog.objects.filter(name__iexact=crop_name).first()
-            if not catalog:
+            crop_type = CropType.objects.filter(name__iexact=crop_name, tenant_id=tenant_id).first()
+            if not crop_type:
                 self.stdout.write(self.style.WARNING(
-                    f"⚠ Cultivo '{crop_name}' no encontrado en catálogo, omitido"
+                    f"⚠ Cultivo '{crop_name}' no encontrado como CropType, omitido"
                 ))
                 continue
 
             for v in varieties:
+                valid_fields = {f.name for f in CropVariety._meta.get_fields() if not f.auto_created}
+                valid_defaults = {k: v for k, v in v.items() if k in valid_fields}
+                valid_defaults['tenant_id'] = tenant_id
                 obj, created = CropVariety.objects.get_or_create(
                     name=v['name'],
-                    crop_catalog=catalog,
-                    defaults=v,
+                    crop_type=crop_type,
+                    tenant_id=tenant_id,
+                    defaults=valid_defaults,
                 )
                 if created:
                     total_created += 1
                     self.stdout.write(self.style.SUCCESS(
-                        f"  ✓ {catalog.name} → {obj.name}"
+                        f"  ✓ {crop_type.name} → {obj.name}"
                     ))
                 else:
                     total_skipped += 1
-                    self.stdout.write(f"  • {catalog.name} → {obj.name} (ya existe)")
+                    self.stdout.write(f"  • {crop_type.name} → {obj.name} (ya existe)")
 
         self.stdout.write(self.style.SUCCESS(
             f"\nCompletado. Creadas: {total_created}, ya existentes: {total_skipped}"

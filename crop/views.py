@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -188,6 +188,25 @@ class CropCycleViewSet(viewsets.ModelViewSet):
 
 from rest_framework.views import APIView
 from .ml_preparation import export_alert_training_dataset, export_cycle_yield_dataset, get_dataset_stats
+
+from .labor_suggestions import build_crop_labor_suggestions
+from .models import Crop
+
+
+class LaborSuggestionsView(APIView):
+    """
+    GET /api/crop/labor-suggestions/?crop_id=<id>
+    Retorna sugerencias de labores según la etapa fenológica del cultivo.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        crop_id = request.query_params.get('crop_id')
+        if not crop_id:
+            return Response({'error': 'crop_id es requerido'}, status=400)
+        crop = get_object_or_404(Crop, id=crop_id)
+        result = build_crop_labor_suggestions(crop)
+        return Response(result)
 
 
 class MLDatasetStatsView(APIView):

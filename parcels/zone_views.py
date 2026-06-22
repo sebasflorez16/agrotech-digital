@@ -14,7 +14,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import ParcelZonification, ParcelZone
+from .models import ParcelZonification, ParcelZone, Parcel
 from .zone_serializers import ParcelZonificationSerializer, ParcelZoneSerializer
 from .zonification_pipeline import run_zonification
 
@@ -24,7 +24,7 @@ class ParcelZonificationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = ParcelZonification.objects.select_related('parcel').prefetch_related('zones').all()
+        qs = ParcelZonification.objects.prefetch_related('zones').all()
         parcel_id = self.request.query_params.get('parcel') or self.request.query_params.get('parcela')
         if parcel_id:
             qs = qs.filter(parcel_id=parcel_id)

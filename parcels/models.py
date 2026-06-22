@@ -487,3 +487,95 @@ class TenantScopedModelMixin:
         return qs
 
 
+# ---------------------------------------------------------------------------
+# Zonificación de manejo (precision farming)
+# ---------------------------------------------------------------------------
+
+class ParcelZonification(models.Model):
+    """Agrupa K zonas de manejo derivadas de un índice satelital."""
+
+    parcel_id = models.IntegerField(db_index=True, verbose_name="Parcela")
+
+    scene_date = models.DateField(verbose_name="Fecha de la escena base")
+    index_base = models.CharField(
+        max_length=10, default="ndvi",
+        choices=[
+            ("ndvi", "NDVI"), ("ndmi", "NDMI"),
+            ("savi", "SAVI"), ("ndre", "NDRE"),
+        ],
+        help_text="Índice satelital usado para clusterizar",
+    )
+    method = models.CharField(
+        max_length=20, default="kmeans",
+        choices=[
+            ("kmeans", "K-means"), ("isodata", "ISODATA"),
+            ("jenks", "Jenks (natural breaks)"),
+            ("percentiles", "Percentiles fijos"), ("manual", "Manual"),
+        ],
+    )
+    k_zones = models.IntegerField(default=5, verbose_name="Número de zonas (k)")
+    status = models.CharField(
+        max_length=20, default="pending",
+        choices=[
+            ("pending", "Pendiente"), ("processing", "Procesando"),
+            ("ready", "Lista"), ("failed", "Fallo"),
+        ],
+    )
+    total_pixels = models.IntegerField(default=0)
+    pixel_resolution_m = models.FloatField(default=10.0, verbose_name="Resolución del pixel (m)")
+    notes = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Zonificación de parcela"
+        verbose_name_plural = "Zonificaciones de parcela"
+        ordering = ["-scene_date", "-created_at"]
+        indexes = [
+            models.Index(fields=["parcel_id", "-scene_date"]),
+        ]
+
+    def __str__(self):
+        return f"Zonif #{self.id} parcela={self.parcel_id} ({self.index_base}, k={self.k_zones})"
+
+
+class ParcelZone(models.Model):
+    """Zona de manejo individual dentro de una zonificación."""
+
+    zonification = models.ForeignKey(
+        ParcelZonification, on_delete=models.CASCADE,
+        related_name="zones",
+    )
+    cluster_id = models.IntegerField(verbose_name="ID de cluster (k-means)")
+    label = models.CharField(max_length=40, verbose_name="Etiqueta")
+    category = models.CharField(
+        max_length=20, default="mid",
+        choices=[
+            ("low", "Bajo vigor"), ("mid_low", "Vigor medio-bajo"),
+            ("mid", "Vigor medio"), ("mid_high", "Vigor medio-alto"),
+            ("high", "Alto vigor"),
+        ],
+    )
+    pixel_count = models.IntegerField(default=0)
+    area_ha = models.FloatField(default=0.0)
+    ndvi_mean = models.FloatField(null=True, blank=True)
+    ndvi_std = models.FloatField(null=True, blank=True)
+    ndvi_min = models.FloatField(null=True, blank=True)
+    ndvi_max = models.FloatField(null=True, blank=True)
+    ndmi_mean = models.FloatField(null=True, blank=True)
+    ndmi_std = models.FloatField(null=True, blank=True)
+    savi_mean = models.FloatField(null=True, blank=True)
+    savi_std = models.FloatField(null=True, blank=True)
+    ndre_mean = models.FloatField(null=True, blank=True)
+    ndre_std = models.FloatField(null=True, blank=True)
+    geometry_geojson = models.JSONField(null=True, blank=True, verbose_name="Polígono GeoJSON")
+    recomendacion = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = "Zona de manejo"
+        verbose_name_plural = "Zonas de manejo"
+        ordering = ["zonification", "cluster_id"]
+        unique_together = [["zonification", "cluster_id"]]
+
+    def __str__(self):
+        return f"Zona {self.cluster_id} ({self.label})"

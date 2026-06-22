@@ -736,6 +736,23 @@ class ParcelViewSet(viewsets.ModelViewSet):
         ]
         return Response(parcels_data, status=200)
 
+    @action(detail=True, methods=['get'], url_path='fusion-assessment')
+    def fusion_assessment(self, request, pk=None):
+        """Fusion Engine — evalúa el estado del cultivo combinando óptico + radar + clima"""
+        from .fusion_engine import quick_assessment
+        parcel = self.get_object()
+        return Response(quick_assessment(parcel))
+
+    @action(detail=True, methods=['get'], url_path='radar-changes')
+    def radar_changes(self, request, pk=None):
+        """Sentinel-1 — detección de cambios vía radar (penetra nubes)"""
+        from .sentinel1 import get_crop_status_from_radar
+        parcel = self.get_object()
+        if not parcel.geom:
+            return Response({'error': 'Parcela sin geometría', 'code': 'no_geometry'}, status=400)
+        result = get_crop_status_from_radar(parcel.geom, days_back=30)
+        return Response(result)
+
     # Esta acción fue eliminada para evitar conflictos con la implementación en metereological.py
     # La API de pronóstico del tiempo ahora está implementada en WeatherForecastView
         

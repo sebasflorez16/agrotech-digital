@@ -56,41 +56,52 @@ DEFAULT_LABOR_TYPES = [
 ]
 
 
-def ensure_crop_catalog_defaults() -> None:
-    if CropType.objects.exists() and CropVariety.objects.exists():
-        return
+def ensure_crop_catalog_defaults(tenant_id=None) -> None:
+    if tenant_id is None:
+        if CropType.objects.exists() and CropVariety.objects.exists():
+            return
+    else:
+        if CropType.objects.filter(tenant_id=tenant_id).exists() and CropVariety.objects.filter(tenant_id=tenant_id).exists():
+            return
 
     for type_name, type_desc in DEFAULT_CROP_TYPES:
         crop_type, _ = CropType.objects.get_or_create(
             name=type_name,
-            defaults={"description": type_desc},
+            tenant_id=tenant_id,
+            defaults={"description": type_desc, "tenant_id": tenant_id},
         )
 
         for variety_name, cycle_days in DEFAULT_VARIETIES_BY_TYPE.get(type_name, []):
             CropVariety.objects.get_or_create(
                 name=variety_name,
                 crop_type=crop_type,
+                tenant_id=tenant_id,
                 defaults={
                     "cycle_days": cycle_days,
                     "description": f"Variedad recomendada para {type_name.lower()}.",
-                    "is_active": True,
+                    "tenant_id": tenant_id,
                 },
             )
 
 
-def ensure_labor_type_defaults() -> None:
+def ensure_labor_type_defaults(tenant_id=None) -> None:
     from labores.models import LaborType
 
-    if LaborType.objects.exists():
-        return
+    if tenant_id is None:
+        if LaborType.objects.exists():
+            return
+    else:
+        if LaborType.objects.filter(tenant_id=tenant_id).exists():
+            return
 
     for nombre, descripcion in DEFAULT_LABOR_TYPES:
         LaborType.objects.get_or_create(
             nombre=nombre,
-            defaults={"descripcion": descripcion},
+            tenant_id=tenant_id,
+            defaults={"descripcion": descripcion, "tenant_id": tenant_id},
         )
 
 
-def ensure_core_agro_defaults() -> None:
-    ensure_crop_catalog_defaults()
-    ensure_labor_type_defaults()
+def ensure_core_agro_defaults(tenant_id=None) -> None:
+    ensure_crop_catalog_defaults(tenant_id=tenant_id)
+    ensure_labor_type_defaults(tenant_id=tenant_id)
