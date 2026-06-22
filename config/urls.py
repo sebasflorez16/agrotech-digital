@@ -40,6 +40,9 @@ urlpatterns = [
     path("inventario/", include("inventario.urls")),
     path("api/crop/", include("crop.routers", namespace="crop")),  # Gestión de cultivos
 
+    # 🔹 Alertas Agronómicas
+    path("api/agronomic-alerts/", include("agronomic_alerts.urls")),
+
     # 🔹 Billing y Suscripciones
     path("billing/", include("billing.urls", namespace="billing")),  # Sistema de facturación
 

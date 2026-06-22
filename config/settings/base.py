@@ -187,6 +187,7 @@ TENANT_APPS = [
     "inventario",
     "labores",  # Gestión de labores agrícolas
     "crop",  # Gestión de cultivos
+    "agronomic_alerts",  # Alertas agronómicas operativas
 ]
 
 # Combina las aplicaciones compartidas y específicas de los tenants

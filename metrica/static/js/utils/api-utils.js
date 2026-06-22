@@ -171,6 +171,19 @@ async function refreshAccessToken() {
                 const data = await response.json();
                 const newAccessToken = data.access || data.accessToken || data.token;
                 if (newAccessToken) {
+                    // Verificar que el token refrescado tenga tenant_id antes de guardarlo
+                    try {
+                        var tp = JSON.parse(atob(newAccessToken.split('.')[1]));
+                        if (!tp.tenant_id) {
+                            console.warn('[API-UTILS] Token refrescado sin tenant_id — forzando logout');
+                            handleAuthFailure();
+                            return false;
+                        }
+                    } catch(e) {
+                        console.warn('[API-UTILS] No se pudo validar tenant_id del token refrescado');
+                        handleAuthFailure();
+                        return false;
+                    }
                     localStorage.setItem('accessToken', newAccessToken);
                     console.log('[API-UTILS] Token refrescado exitosamente');
                     return true;

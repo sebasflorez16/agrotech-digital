@@ -303,13 +303,22 @@ class ParcelViewSet(viewsets.ModelViewSet):
     Los límites se verifican contra el plan de suscripción del tenant antes de
     permitir crear o actualizar parcelas.
     """
-    queryset = Parcel.objects.filter(is_deleted=False)
     serializer_class = ParcelSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        qs = Parcel.objects.filter(is_deleted=False)
+        if hasattr(self.request, 'tenant') and self.request.tenant:
+            qs = qs.filter(tenant_id=self.request.tenant.id)
+        return qs
+
+    def perform_create(self, serializer):
+        tenant = getattr(self.request, 'tenant', None)
+        serializer.save(tenant_id=tenant.id if tenant else None)
+
     def _get_current_hectares(self, exclude_parcel_id=None):
         """Calcula el total de hectáreas actuales del tenant."""
-        qs = Parcel.objects.filter(is_deleted=False)
+        qs = self.get_queryset()
         if exclude_parcel_id:
             qs = qs.exclude(pk=exclude_parcel_id)
         
@@ -351,8 +360,9 @@ class ParcelViewSet(viewsets.ModelViewSet):
         subscription = getattr(request, 'subscription', None)
         
         if not subscription:
-            # 🛡️ MODO DESARROLLADOR: bypass para superusuarios
-            if getattr(settings, 'DEVELOPER_MODE', False) and request.user.is_authenticated and request.user.is_superuser:
+            # 🛡️ MODO DESARROLLADOR: bypass para superusuarios con toggle activo
+            from config.devmode import is_dev_mode_active
+            if is_dev_mode_active(request):
                 logger.info(f"[ParcelViewSet] 🔓 DEVELOPER MODE: {request.user.username} creando parcela sin suscripción")
                 return True, None
 
@@ -413,7 +423,7 @@ class ParcelViewSet(viewsets.ModelViewSet):
         # 1. Verificar límite de parcelas
         subscription = getattr(request, 'subscription', None)
         if subscription:
-            current_parcels = Parcel.objects.filter(is_deleted=False).count()
+            current_parcels = self.get_queryset().count()
             is_within, limit = subscription.check_limit('parcels', current_parcels + 1)
             if not is_within:
                 logger.warning(
@@ -491,7 +501,7 @@ class ParcelViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="summary")
     def summary(self, request):
-        qs = Parcel.objects.filter(is_deleted=False)
+        qs = self.get_queryset()
         total = qs.count()
         total_area = 0
         activas = qs.filter(state=True).count()
@@ -556,30 +566,29 @@ class ParcelViewSet(viewsets.ModelViewSet):
         """
         # === VERIFICACIÓN DE LÍMITE EOSDA ===
         from billing.models import UsageMetrics
+        from config.devmode import is_dev_mode_active
         subscription = getattr(request, 'subscription', None)
         tenant = getattr(request, 'tenant', None)
-        
-        if not subscription:
-            # 🛡️ MODO DESARROLLADOR: bypass para superusuarios
-            if getattr(settings, 'DEVELOPER_MODE', False) and request.user.is_authenticated and request.user.is_superuser:
-                logger.info(f"[ParcelViewSet] 🔓 DEVELOPER MODE: {request.user.username} creando parcela sin suscripción")
-                return True, None
+        dev_mode = is_dev_mode_active(request)
 
+        if not subscription and not dev_mode:
             return Response({
                 'error': 'No tienes una suscripción activa',
                 'code': 'no_subscription'
             }, status=402)
-        
-        if tenant:
+
+        if dev_mode:
+            logger.info(f"[ParcelViewSet] 🔓 DEVELOPER MODE: {request.user.username} — EOSDA ndvi sin límites")
+        elif subscription and tenant:
             metrics = UsageMetrics.get_or_create_current(tenant)
             is_within, limit = subscription.check_limit('eosda_requests', metrics.eosda_requests + 1)
-            
+
             if not is_within:
                 from django.utils import timezone
                 now = timezone.now()
                 next_month = now.replace(day=1) + timezone.timedelta(days=32)
                 reset_date = next_month.replace(day=1)
-                
+
                 return Response({
                     'error': 'Límite de análisis satelitales excedido',
                     'code': 'eosda_limit_exceeded',
@@ -639,30 +648,29 @@ class ParcelViewSet(viewsets.ModelViewSet):
         """
         # === VERIFICACIÓN DE LÍMITE EOSDA ===
         from billing.models import UsageMetrics
+        from config.devmode import is_dev_mode_active
         subscription = getattr(request, 'subscription', None)
         tenant = getattr(request, 'tenant', None)
-        
-        if not subscription:
-            # 🛡️ MODO DESARROLLADOR: bypass para superusuarios
-            if getattr(settings, 'DEVELOPER_MODE', False) and request.user.is_authenticated and request.user.is_superuser:
-                logger.info(f"[ParcelViewSet] 🔓 DEVELOPER MODE: {request.user.username} creando parcela sin suscripción")
-                return True, None
+        dev_mode = is_dev_mode_active(request)
 
+        if not subscription and not dev_mode:
             return Response({
                 'error': 'No tienes una suscripción activa',
                 'code': 'no_subscription'
             }, status=402)
-        
-        if tenant:
+
+        if dev_mode:
+            logger.info(f"[ParcelViewSet] 🔓 DEVELOPER MODE: {request.user.username} — EOSDA water_stress sin límites")
+        elif subscription and tenant:
             metrics = UsageMetrics.get_or_create_current(tenant)
             is_within, limit = subscription.check_limit('eosda_requests', metrics.eosda_requests + 1)
-            
+
             if not is_within:
                 from django.utils import timezone
                 now = timezone.now()
                 next_month = now.replace(day=1) + timezone.timedelta(days=32)
                 reset_date = next_month.replace(day=1)
-                
+
                 return Response({
                     'error': 'Límite de análisis satelitales excedido',
                     'code': 'eosda_limit_exceeded',
@@ -673,7 +681,7 @@ class ParcelViewSet(viewsets.ModelViewSet):
                     'upgrade_url': '/billing/upgrade/'
                 }, status=429)
         # === FIN VERIFICACIÓN ===
-        
+
         logger.debug(f"Request data: {request.data}")
         polygon = request.data.get("polygon")
         start_date = request.data.get("start_date")
@@ -717,7 +725,7 @@ class ParcelViewSet(viewsets.ModelViewSet):
         """
         Endpoint para listar todas las parcelas con sus polígonos y nombres.
         """
-        qs = Parcel.objects.filter(is_deleted=False)
+        qs = self.get_queryset()
         parcels_data = [
             {
                 "id": parcel.id,

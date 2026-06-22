@@ -19,6 +19,7 @@ from rest_framework import status
 from rest_framework.throttling import AnonRateThrottle
 
 from django.contrib.auth import authenticate, get_user_model
+from django.conf import settings
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializers import RegisterSerializer
@@ -212,9 +213,8 @@ class LoginView(APIView):
                 'error': 'Esta cuenta está desactivada.',
             }, status=status.HTTP_403_FORBIDDEN)
         
-        # Generar tokens con tenant_id en el payload
+        # Generar tokens con tenant_id en el payload (sin fallback: si no existe, no se incluye)
         refresh = RefreshToken.for_user(user)
-        # Incluir tenant_id en el token para que el middleware resuelva el schema
         if hasattr(user, 'tenant_id') and user.tenant_id:
             refresh['tenant_id'] = user.tenant_id
             refresh.access_token['tenant_id'] = user.tenant_id
@@ -234,6 +234,7 @@ class LoginView(APIView):
                 'name': user.name,
                 'last_name': user.last_name,
                 'role': user.role,
+                'is_superuser': user.is_superuser,
             },
         })
 
@@ -428,6 +429,135 @@ class PasswordChangeView(APIView):
 
 
 # ── Actualizar perfil ─────────────────────────────────────────────────────────
+
+class DeveloperModeActivateView(APIView):
+    """
+    Activar modo desarrollador para el usuario autenticado.
+    Solo disponible si el usuario es superusuario.
+    
+    POST /api/auth/devmode/activate/
+    
+    Body:
+    {
+        "pin": "dev2026agro"
+    }
+    
+    Response 200:
+    {
+        "success": true,
+        "dev_mode": true,
+        "message": "🔓 Modo desarrollador activado."
+    }
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        
+        # Solo superusuarios pueden activar dev mode
+        if not user.is_superuser:
+            logger.warning(f"DevMode: acceso denegado para {user.username} (no superuser)")
+            return Response({
+                'success': False,
+                'error': 'Acceso denegado. Solo administradores del sistema.',
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        # Validar PIN
+        pin = request.data.get('pin', '').strip()
+        expected_pin = getattr(settings, 'DEVELOPER_PIN', '')
+        
+        if not expected_pin:
+            return Response({
+                'success': False,
+                'error': 'DEVELOPER_PIN no está configurado en el servidor.',
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        if pin != expected_pin:
+            logger.warning(f"DevMode: PIN inválido para {user.username}")
+            return Response({
+                'success': False,
+                'error': 'PIN de desarrollador incorrecto.',
+            }, status=status.HTTP_401_UNAUTHORIZED)
+        
+        # Guardar flag en caché para que middleware/decorators la detecten
+        from config.devmode import set_dev_mode
+        set_dev_mode(user.id, True)
+        
+        logger.info(f"🔓 DevMode activado para superuser: {user.username}")
+        
+        return Response({
+            'success': True,
+            'dev_mode': True,
+            'message': '🔓 Modo desarrollador activado. Sin límites de suscripción.',
+            'user': {
+                'id': user.id,
+                'username': user.username,
+                'is_superuser': user.is_superuser,
+            }
+        })
+
+
+class DeveloperModeDeactivateView(APIView):
+    """
+    Desactivar modo desarrollador.
+    
+    POST /api/auth/devmode/deactivate/
+    
+    Response 200:
+    {
+        "success": true,
+        "dev_mode": false,
+        "message": "🔒 Modo desarrollador desactivado."
+    }
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        
+        if not user.is_superuser:
+            return Response({
+                'success': False,
+                'error': 'Acceso denegado.',
+            }, status=status.HTTP_403_FORBIDDEN)
+        
+        from config.devmode import set_dev_mode
+        set_dev_mode(user.id, False)
+        
+        logger.info(f"🔒 DevMode desactivado para superuser: {user.username}")
+        
+        return Response({
+            'success': True,
+            'dev_mode': False,
+            'message': '🔒 Modo desarrollador desactivado. Límites de suscripción restaurados.',
+        })
+
+
+class DeveloperModeStatusView(APIView):
+    """
+    Consultar estado del modo desarrollador.
+    
+    GET /api/auth/devmode/status/
+    
+    Response 200:
+    {
+        "dev_mode": true,
+        "user": "admin",
+        "is_superuser": true
+    }
+    """
+    permission_classes = [IsAuthenticated]
+    
+    def get(self, request):
+        from config.devmode import is_dev_mode_active
+        dev_mode = is_dev_mode_active(request)
+        
+        return Response({
+            'dev_mode': dev_mode,
+            'user': request.user.username if dev_mode else None,
+            'is_superuser': request.user.is_superuser,
+        })
+
 
 class ProfileUpdateView(APIView):
     """

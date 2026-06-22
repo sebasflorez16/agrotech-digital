@@ -17,7 +17,7 @@
     
     <!-- Auth Global (config + token refresh) -->
     <script src="../../js/config.js"></script>
-    <script>(function(){var t=localStorage.getItem("accessToken");if(t){try{var p=JSON.parse(atob(t.split(".")[1]));if(!p.tenant_id){localStorage.clear();location.href="/auth-login.html?next="+encodeURIComponent(location.pathname)}}catch(e){localStorage.clear();location.href="/auth-login.html"}}})();</script>
+    <script>(function(){var t=localStorage.getItem("accessToken");if(t){try{var p=JSON.parse(atob(t.split(".")[1]));if(!p.tenant_id){document.body.innerHTML='';window.stop();localStorage.clear();location.replace("/auth-login.html?next="+encodeURIComponent(location.pathname))}}catch(e){document.body.innerHTML='';window.stop();localStorage.clear();location.replace("/auth-login.html")}}})();</script>
     
     <!-- 🔐 Verificación de autenticación: redirige al login si no hay token -->
     <script>
@@ -74,6 +74,8 @@
     
     <!-- ⭐ SISTEMA NEUMÓRFICO AGROTECH ⭐ -->
     <link href="../../css/agrotech-neomorphic.css" rel="stylesheet" type="text/css" />
+    <!-- 🔔 Alertas Agronómicas -->
+    <link href="../../css/parcels/agronomic-alerts.css" rel="stylesheet" type="text/css" />
     <!-- Global Mobile Responsive (archivo no existe, estilos inlineados) -->
     <!-- Override neumórfico para parcelas -->
     <link href="../../css/parcelas-neomorphic-override.css" rel="stylesheet" type="text/css" />
@@ -968,6 +970,9 @@
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- 🔔 Alertas Agronómicas -->
+                    <div id="agro-alerts-host" class="agro-alerts-host"></div>
                 </div>
                 
                 <!-- Columna derecha: Análisis de imagen satelital -->
@@ -1530,6 +1535,8 @@
     <script src="../../js/parcels/meteorological-analysis.js?v=2025102002"></script>
     <script src="../../js/parcels/weather-detail.js?v=2025090101"></script>
     <script src="../../js/parcels/elevation.js?v=2026032601"></script>
+    <!-- 🔔 Alertas Agronómicas -->
+    <script src="../../js/parcels/agronomic-alerts.js"></script>
 
     <script>
         // Mostrar el filtro de rango de fechas solo cuando se activa la capa NDVI

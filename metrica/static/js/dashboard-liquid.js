@@ -279,11 +279,125 @@ function logout() {
     if (confirm('¿Estás seguro que deseas cerrar sesión?')) {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
+        localStorage.removeItem('devMode');
+        localStorage.removeItem('devModeUser');
         window.location.href = '/auth-login.html';
     }
 }
 
-// Inicialización
+// ── 🔧 Developer Mode Toggle ──────────────────────────────────────
+async function checkDevModeStatus() {
+    const btn = document.getElementById('devModeToggle');
+    if (!btn) return;
+
+    const token = getAuthToken();
+    if (!token) return;
+
+    try {
+        const res = await fetchWithAuth(`${API_BASE_URL}/api/auth/devmode/status/`);
+        if (res && res.ok) {
+            const data = await res.json();
+            // Solo mostrar toggle si es superuser
+            if (!data.is_superuser) return;
+            btn.style.display = 'flex';
+            updateDevModeUI(data.dev_mode === true);
+        }
+    } catch { /* silencioso */ }
+}
+
+function updateDevModeUI(active) {
+    const btn = document.getElementById('devModeToggle');
+    if (!btn) return;
+
+    const label = btn.querySelector('.devmode-label');
+    if (active) {
+        btn.classList.add('devmode-on');
+        btn.classList.remove('devmode-off');
+        if (label) label.textContent = '🔧 DEV ON';
+    } else {
+        btn.classList.remove('devmode-on');
+        btn.classList.add('devmode-off');
+        if (label) label.textContent = 'DEV OFF';
+    }
+}
+
+async function toggleDevMode() {
+    const btn = document.getElementById('devModeToggle');
+    const isActive = btn.classList.contains('devmode-on');
+
+    if (isActive) {
+        // Desactivar directamente
+        const res = await fetchWithAuth(`${API_BASE_URL}/api/auth/devmode/deactivate/`, { method: 'POST' });
+        if (res && res.ok) {
+            updateDevModeUI(false);
+        }
+    } else {
+        // Pedir PIN para activar
+        showDevModePinModal(async (pin) => {
+            const res = await fetchWithAuth(`${API_BASE_URL}/api/auth/devmode/activate/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin })
+            });
+            if (res && res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                    updateDevModeUI(true);
+                    return;
+                }
+            }
+            alert('PIN incorrecto. Usa el PIN de desarrollador configurado en el servidor.');
+        });
+    }
+}
+
+function showDevModePinModal(onSubmit) {
+    // Eliminar modal existente si hay
+    const existing = document.querySelector('.devmode-modal-overlay');
+    if (existing) existing.remove();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'devmode-modal-overlay';
+    overlay.innerHTML = `
+        <div class="devmode-modal">
+            <h3>🔐 Acceso Desarrollador</h3>
+            <p style="font-size:0.85rem;color:#64748b;margin:0 0 16px;">Ingresa el PIN de desarrollador para activar el modo sin límites.</p>
+            <input type="password" id="devmodePinInput" placeholder="PIN de desarrollador" autofocus />
+            <div class="devmode-modal-actions">
+                <button class="btn-cancel" id="devmodeCancel">Cancelar</button>
+                <button class="btn-confirm" id="devmodeConfirm">Activar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+
+    const input = overlay.querySelector('#devmodePinInput');
+    const confirmBtn = overlay.querySelector('#devmodeConfirm');
+    const cancelBtn = overlay.querySelector('#devmodeCancel');
+
+    const cleanup = () => overlay.remove();
+
+    confirmBtn.addEventListener('click', () => {
+        const pin = input.value.trim();
+        if (!pin) { alert('Ingresa el PIN'); return; }
+        cleanup();
+        onSubmit(pin);
+    });
+
+    cancelBtn.addEventListener('click', cleanup);
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) cleanup();
+    });
+
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmBtn.click();
+        if (e.key === 'Escape') cleanup();
+    });
+
+    input.focus();
+}
+
+// ── Inicialización ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('🍎 Dashboard Liquid Glass - Iniciando...');
     
@@ -317,6 +431,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Cargar datos secuencialmente con manejo de errores
     await loadUserInfo();
     await loadDashboardStats();
-    
+    await checkDevModeStatus();
+
+    // Vincular toggle de dev mode
+    const devBtn = document.getElementById('devModeToggle');
+    if (devBtn) {
+        devBtn.addEventListener('click', toggleDevMode);
+    }
+
     console.log('✅ Dashboard cargado');
 });

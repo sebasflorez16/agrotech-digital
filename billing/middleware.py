@@ -63,8 +63,9 @@ class SubscriptionLimitMiddleware(MiddlewareMixin):
         try:
             subscription = tenant.subscription
         except Subscription.DoesNotExist:
-            # 🛡️ MODO DESARROLLADOR: superusuario + DEVELOPER_MODE = sin límites
-            if getattr(settings, 'DEVELOPER_MODE', False) and request.user.is_authenticated and request.user.is_superuser:
+            # 🛡️ MODO DESARROLLADOR: superusuario + DEVELOPER_MODE + toggle activo = sin límites
+            from config.devmode import is_dev_mode_active
+            if is_dev_mode_active(request):
                 logger.info(f"[SubscriptionLimitMiddleware] 🔓 DEVELOPER MODE: {request.user.username} sin límites en {tenant.schema_name}")
                 request.subscription = None
                 return None

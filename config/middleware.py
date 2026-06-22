@@ -6,7 +6,7 @@ Incluye:
 - SmartTenantMiddleware: reemplaza TenantMainMiddleware con resolución
   inteligente de tenant: por header, JWT o hostname.
 """
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.conf import settings
 from django.db import connection
 from django_tenants.middleware.main import TenantMainMiddleware
@@ -147,20 +147,17 @@ class SmartTenantMiddleware(TenantMainMiddleware):
             )
             return
 
-        # Resolución estándar por hostname (sin header ni JWT)
-        super().process_request(request)
-
-        # Si el hostname resolvió a 'public', intentar desarrollo local
-        if (
-            hasattr(request, 'tenant')
-            and request.tenant.schema_name == get_public_schema_name()
-            and is_dev
-        ):
-            if hasattr(request, 'urlconf'):
-                del request.urlconf
-            logger.debug(
-                f"SmartTenantMiddleware: Dev mode sin JWT → schema public (ROOT_URLCONF)"
-            )
+        # Sin JWT ni header en ruta no pública → acceso denegado
+        # Sin fallbacks: si no hay tenant en el JWT, no hay acceso a datos
+        logger.warning(
+            "SmartTenantMiddleware: ACCESO DENEGADO — %s sin tenant_id en JWT ni header",
+            request.path
+        )
+        return JsonResponse({
+            'error': 'No se pudo resolver el tenant',
+            'code': 'tenant_not_found',
+            'message': 'Tu sesión no tiene una organización asignada. Vuelve a iniciar sesión.',
+        }, status=401)
 
     def _set_public_tenant(self, request, use_full_urlconf=False):
         """
@@ -213,40 +210,29 @@ class SmartTenantMiddleware(TenantMainMiddleware):
             token_str = auth_header.split(' ')[1]
             token = AccessToken(token_str)
             
-            # Primero intentar obtener tenant_id directamente del token (más rápido y evita problemas de schema)
+            # 1. tenant_id directo del JWT (ruta preferida)
             tenant_id = token.get('tenant_id')
             if tenant_id:
                 from base_agrotech.models import Client
                 try:
+                    # Garantizar que la consulta se ejecuta en schema public
+                    connection.set_schema_to_public()
                     tenant = Client.objects.get(id=tenant_id)
                     if tenant.schema_name != get_public_schema_name():
                         return tenant
+                    logger.warning(
+                        "SmartTenantMiddleware: tenant_id=%s es public schema, ignorando",
+                        tenant_id
+                    )
                 except Client.DoesNotExist:
-                    pass
+                    logger.warning(
+                        "SmartTenantMiddleware: tenant_id=%s del JWT no existe en BD",
+                        tenant_id
+                    )
+                    return None
             
-            # EN DESARROLLO LOCAL: buscar usuario en schemas de tenant
-            user_id = token.get('user_id')
-            if not user_id:
-                return None
-            
-            # Si estamos en localhost, buscar en TODOS los schemas
-            hostname = request.get_host().split(':')[0].lower()
-            if hostname in ['localhost', '127.0.0.1']:
-                from base_agrotech.models import Client as TCdev
-                from django_tenants.utils import schema_context
-                User = get_user_model()
-                for t in TCdev.objects.exclude(schema_name='public'):
-                    try:
-                        with schema_context(t.schema_name):
-                            if User.objects.filter(id=user_id).exists():
-                                return t
-                    except Exception:
-                        continue
-            
-            User = get_user_model()
-            user = User.objects.select_related('tenant').get(id=user_id)
-            if user.tenant and user.tenant.schema_name != get_public_schema_name():
-                return user.tenant
+            # Sin tenant_id en JWT → usar public schema
+            return None
         except Exception as exc:
             logger.debug(f"SmartTenantMiddleware: JWT resolve failed: {exc}")
         

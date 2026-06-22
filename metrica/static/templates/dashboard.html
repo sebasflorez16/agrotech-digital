@@ -14,15 +14,31 @@
     <!-- 🌍 Configuración global -->
     <script src="../js/config.js"></script>
     
-    <!-- 🔐 Verificación de autenticación -->
+    <!-- 🔐 Verificación de autenticación y tenant_id -->
     <script>
         (function() {
-            const token = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
-            if (!token) {
-                const currentPath = window.location.pathname + window.location.search;
-                if (currentPath && !currentPath.includes('auth-login')) {
-                    window.location.href = '/auth-login.html?next=' + encodeURIComponent(currentPath);
+            var t = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+            if (!t) {
+                var cp = window.location.pathname + window.location.search;
+                if (cp && cp.indexOf('auth-login') === -1) {
+                    window.location.href = '/auth-login.html?next=' + encodeURIComponent(cp);
                 }
+                return;
+            }
+            // Validar que el token incluya tenant_id
+            try {
+                var p = JSON.parse(atob(t.split('.')[1]));
+                if (!p.tenant_id) {
+                    document.body.innerHTML = '';
+                    window.stop();
+                    localStorage.clear();
+                    location.replace('/auth-login.html?next=' + encodeURIComponent(location.pathname));
+                }
+            } catch(e) {
+                document.body.innerHTML = '';
+                window.stop();
+                localStorage.clear();
+                location.replace('/auth-login.html');
             }
         })();
     </script>
@@ -233,6 +249,108 @@
             background: linear-gradient(135deg, rgba(0, 122, 255, 0.15) 0%, rgba(0, 122, 255, 0.05) 100%);
             color: #0A7AFF;
         }
+
+        /* Dev Mode Toggle */
+        .devmode-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        .devmode-toggle.devmode-on {
+            background: rgba(245, 158, 11, 0.15);
+            color: #b45309;
+            box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.3);
+        }
+        .devmode-toggle.devmode-on:hover {
+            background: rgba(245, 158, 11, 0.25);
+        }
+        .devmode-toggle.devmode-off {
+            background: rgba(148, 163, 184, 0.12);
+            color: #64748b;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.2);
+        }
+        .devmode-toggle.devmode-off:hover {
+            background: rgba(148, 163, 184, 0.22);
+        }
+        .devmode-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        .devmode-on .devmode-dot {
+            background: #f59e0b;
+            animation: devmode-pulse 1.5s ease-in-out infinite;
+        }
+        .devmode-off .devmode-dot {
+            background: #94a3b8;
+        }
+        @keyframes devmode-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* 🔐 Modal para PIN de desarrollador */
+        .devmode-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .devmode-modal {
+            background: var(--glass-white, #fff);
+            border-radius: 16px;
+            padding: 24px;
+            width: 360px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        .devmode-modal h3 {
+            margin: 0 0 12px;
+            font-size: 1.1rem;
+        }
+        .devmode-modal input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            font-size: 1rem;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+        }
+        .devmode-modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        .devmode-modal-actions button {
+            padding: 8px 18px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .devmode-modal-actions .btn-cancel {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .devmode-modal-actions .btn-confirm {
+            background: var(--agrotech-primary, #2FB344);
+            color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -312,6 +430,10 @@
                     <p class="header-subtitle">Aquí está el resumen de tu operación agrícola</p>
                 </div>
                 <div class="header-actions">
+                    <button id="devModeToggle" class="devmode-toggle devmode-off" style="display:none" title="Modo Desarrollador">
+                        <span class="devmode-dot"></span>
+                        <span class="devmode-label">DEV OFF</span>
+                    </button>
                     <button class="btn-glass">
                         <i class="ti ti-bell"></i>
                     </button>

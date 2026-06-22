@@ -27,9 +27,21 @@ def check_hectare_limit(view_func):
     
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        from django.conf import settings
+        
+        # 🛡️ MODO DESARROLLADOR: superusuario + DEVELOPER_MODE + toggle activo = sin límites
+        from config.devmode import is_dev_mode_active
+        if is_dev_mode_active(request):
+            logger.info(f"[check_hectare_limit] 🔓 DEVELOPER MODE: {request.user.username} sin límites de hectáreas")
+            return view_func(request, *args, **kwargs)
+        
         subscription = getattr(request, 'subscription', None)
         
         if not subscription:
+            # En modo DEBUG, permitir continuar sin suscripción (desarrollo local)
+            if getattr(settings, 'DEBUG', False):
+                logger.warning("[check_hectare_limit] DEBUG MODE: Permitiendo crear parcela sin suscripción")
+                return view_func(request, *args, **kwargs)
             return JsonResponse({
                 'error': 'No subscription found'
             }, status=402)
@@ -134,6 +146,12 @@ def check_eosda_limit(view_func):
                     logger.warning(f"[check_eosda_limit] No subscription for tenant {tenant.schema_name}")
         
         if not subscription:
+            # 🛡️ MODO DESARROLLADOR: bypass para superusuarios
+            from config.devmode import is_dev_mode_active
+            if is_dev_mode_active(request):
+                logger.info(f"[check_eosda_limit] 🔓 DEVELOPER MODE: {request.user.username} sin límites EOSDA")
+                return view_func(*args, **kwargs)
+            
             # En modo DEBUG, permitir continuar sin suscripción (desarrollo local)
             if getattr(settings, 'DEBUG', False):
                 logger.warning("[check_eosda_limit] DEBUG MODE: Permitiendo acceso sin suscripción")
@@ -223,6 +241,12 @@ def feature_required(feature_name):
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
+            # 🛡️ MODO DESARROLLADOR: bypass para superusuarios
+            from config.devmode import is_dev_mode_active
+            if is_dev_mode_active(request):
+                logger.info(f"[feature_required] 🔓 DEVELOPER MODE: {request.user.username} — feature '{feature_name}' sin restricción")
+                return view_func(request, *args, **kwargs)
+            
             subscription = getattr(request, 'subscription', None)
             
             if not subscription:
@@ -283,6 +307,12 @@ def users_limit_check(view_func):
     
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
+        # 🛡️ MODO DESARROLLADOR: bypass para superusuarios
+        from config.devmode import is_dev_mode_active
+        if is_dev_mode_active(request):
+            logger.info(f"[users_limit_check] 🔓 DEVELOPER MODE: {request.user.username} sin límite de usuarios")
+            return view_func(request, *args, **kwargs)
+        
         subscription = getattr(request, 'subscription', None)
         
         if not subscription:

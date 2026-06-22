@@ -11,7 +11,11 @@ Endpoints:
 """
 
 from django.urls import path
-from .views import RegisterView, LoginView, MeView, LogoutView, PasswordChangeView, ProfileUpdateView
+from .views import (
+    RegisterView, LoginView, MeView, LogoutView,
+    PasswordChangeView, ProfileUpdateView,
+    DeveloperModeActivateView, DeveloperModeDeactivateView, DeveloperModeStatusView,
+)
 
 app_name = "authentication"
 
@@ -22,4 +26,7 @@ urlpatterns = [
     path("logout/", LogoutView.as_view(), name="logout"),
     path("password/change/", PasswordChangeView.as_view(), name="password_change"),
     path("profile/", ProfileUpdateView.as_view(), name="profile_update"),
+    path("devmode/activate/", DeveloperModeActivateView.as_view(), name="devmode_activate"),
+    path("devmode/deactivate/", DeveloperModeDeactivateView.as_view(), name="devmode_deactivate"),
+    path("devmode/status/", DeveloperModeStatusView.as_view(), name="devmode_status"),
 ]

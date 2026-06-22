@@ -990,6 +990,11 @@ function flyToParcel(parcelId) {
             }).catch(err => {
                 console.warn('[FLY_TO_PARCEL] No se pudo cargar layers.js:', err);
             });
+
+            // 🔔 Cargar alertas agronómicas de la parcela
+            if (window.AgroAlerts && typeof window.AgroAlerts.loadForParcel === 'function') {
+                window.AgroAlerts.loadForParcel(parcelId);
+            }
         })
         .catch(error => {
             console.error("Error al centrar en la parcela:", error);
@@ -1025,6 +1030,11 @@ function saveEditedParcel() {
     const form = document.getElementById("editParcelForm");
     const parcelId = form.getAttribute("data-parcel-id");
 
+    if (!parcelId) {
+        alert("No se pudo identificar la parcela a editar.");
+        return;
+    }
+
     // Obtener los valores del formulario
     const name = document.getElementById("editParcelName").value.trim();
     const description = document.getElementById("editParcelDescription").value.trim();
@@ -1038,24 +1048,76 @@ function saveEditedParcel() {
         return;
     }
 
-    // Enviar los datos al backend
-    axiosInstance.put(`parcel/${parcelId}/`, {
-        name: name,
-        description: description,
+    const payload = {
+        name,
+        description,
         field_type: fieldType,
         soil_type: soilType,
-        topography: topography
-    })
-    .then(response => {
-        alert("Parcela actualizada con éxito.");
-        closeEditModal(); // Cerrar el modal
-        loadParcels(); // Recargar la tabla
-    })
-    .catch(error => {
-        console.error("Error al actualizar la parcela:", error);
-        alert("Hubo un error al actualizar la parcela. Revisa la consola para más detalles.");
-    });
+        topography
+    };
+
+    axiosInstance.patch(`parcel/${parcelId}/`, payload)
+        .then(response => {
+            alert("Parcela actualizada con éxito.");
+            closeEditModal();
+            loadParcels();
+        })
+        .catch(error => {
+            console.error("Error al actualizar la parcela:", error);
+            const msg = error.response?.data?.error || error.response?.data?.detail || "Error desconocido";
+            alert("Hubo un error al actualizar la parcela: " + msg);
+        });
 }
+
+// ═══ Abrir modal de edición con datos de la parcela ═══
+function editParcel(parcelId) {
+    const modal = document.getElementById("editParcelModal");
+    const form = document.getElementById("editParcelForm");
+    if (!modal || !form) return;
+
+    // Mostrar loading en el modal
+    modal.style.display = "block";
+    document.getElementById("editParcelName").value = "Cargando...";
+    document.getElementById("editParcelDescription").value = "";
+    document.getElementById("editParcelFieldType").value = "";
+    document.getElementById("editParcelSoilType").value = "";
+    document.getElementById("editParcelTopography").value = "";
+
+    // Cargar datos de la parcela
+    axiosInstance.get(`parcel/${parcelId}/`)
+        .then(response => {
+            const parcel = response.data;
+            form.setAttribute("data-parcel-id", parcel.id);
+            document.getElementById("editParcelName").value = parcel.name || "";
+            document.getElementById("editParcelDescription").value = parcel.description || "";
+            document.getElementById("editParcelFieldType").value = parcel.field_type || "";
+            document.getElementById("editParcelSoilType").value = parcel.soil_type || "";
+            document.getElementById("editParcelTopography").value = parcel.topography || "";
+        })
+        .catch(error => {
+            console.error("Error al cargar parcela para editar:", error);
+            if (error.response?.status === 404) {
+                alert("Esta parcela ya no existe. Actualizando lista...");
+                closeEditModal();
+                loadParcels();
+            } else {
+                alert("No se pudo cargar la parcela para editar.");
+                closeEditModal();
+            }
+        });
+}
+
+// ═══ Cerrar modal de edición ═══
+function closeEditModal() {
+    const modal = document.getElementById("editParcelModal");
+    const form = document.getElementById("editParcelForm");
+    if (modal) modal.style.display = "none";
+    if (form) {
+        form.reset();
+        form.removeAttribute("data-parcel-id");
+    }
+}
+
 function deleteParcel(parcelId) {
     if (confirm("¿Estás seguro de que deseas eliminar esta parcela?")) {
         axiosInstance.delete(`parcel/${parcelId}/`)
@@ -1076,6 +1138,8 @@ function deleteParcel(parcelId) {
 window.flyToParcel = flyToParcel;
 window.savePolygon = savePolygon;
 window.saveEditedParcel = saveEditedParcel;
+window.editParcel = editParcel;
+window.closeEditModal = closeEditModal;
 window.deleteParcel = deleteParcel; 
 
 // Ejecutar al cargar la página
