@@ -177,11 +177,11 @@ async function loadSubscriptionInfo() {
             const usageRes = await fetchWithAuth(`${API_BASE_URL}/billing/api/usage/dashboard/`);
             if (usageRes && usageRes.ok) {
                 const usageData = await usageRes.json();
-                const eosda = usageData.current_usage?.eosda_requests;
-                const eosdaUsage = document.getElementById('eosdaUsage');
-                if (eosdaUsage && eosda) {
-                    const used = eosda.used || 0;
-                    const limit = eosda.limit || 100;
+                const satData = usageData.current_usage?.eosda_requests;
+                const satUsage = document.getElementById('eosdaUsage');
+                if (satUsage && satData) {
+                    const used = satData.used || 0;
+                    const limit = satData.limit || 100;
                     eosdaUsage.textContent = `${used}/${limit}`;
                 }
             }

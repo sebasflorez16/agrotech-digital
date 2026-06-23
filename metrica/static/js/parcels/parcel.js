@@ -1,9 +1,10 @@
-// Modal Bootstrap para mostrar escenas EOSDA
-function crearModalEscenasEOSDA() {
-    let modal = document.getElementById('eosdaScenesModal');
-    if (modal) return modal; // Ya existe
+// Modal Bootstrap para mostrar escenas satelitales
+function crearModalEscenasSatelitales() {
+    let modal = document.getElementById('sateliteScenesModal');
+    if (modal) return modal;
+
     modal = document.createElement('div');
-    modal.id = 'eosdaScenesModal';
+    modal.id = 'sateliteScenesModal';
     modal.className = 'modal fade';
     modal.tabIndex = -1;
     // Estilos para hacer el modal responsive y con scroll
@@ -11,11 +12,11 @@ function crearModalEscenasEOSDA() {
       <div class="modal-dialog modal-lg modal-dialog-centered" style="max-width: 95vw;">
         <div class="modal-content" style="max-height: 90vh; overflow: hidden;">
           <div class="modal-header">
-            <h5 class="modal-title">Escenas satelitales EOSDA</h5>
+            <h5 class="modal-title">Escenas satelitales</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
           </div>
           <div class="modal-body" style="overflow-y: auto; max-height: 65vh;">
-            <div id="eosdaScenesTableContainer">
+            <div id="sateliteScenesTableContainer">
               <div class="text-center">Cargando escenas...</div>
             </div>
           </div>
@@ -38,12 +39,12 @@ function crearModalEscenasEOSDA() {
 
 
 // Función para abrir el modal y mostrar las escenas
-window.mostrarModalEscenasEOSDA = async function(parcelId) {
-    const modal = crearModalEscenasEOSDA();
+window.mostrarModalEscenasSatelitales = async function(parcelId) {
+    const modal = crearModalEscenasSatelitales();
     // Usar Bootstrap 5
     const bsModal = new bootstrap.Modal(modal);
     // Limpiar contenido
-    document.getElementById('eosdaScenesTableContainer').innerHTML = '<div class="text-center">Cargando escenas...</div>';
+    document.getElementById('sateliteScenesTableContainer').innerHTML = '<div class="text-center">Cargando escenas...</div>';
     bsModal.show();
     
     // Obtener eosda_id
@@ -52,14 +53,14 @@ window.mostrarModalEscenasEOSDA = async function(parcelId) {
         const parcelResp = await axiosInstance.get(`parcel/${parcelId}/`);
         eosda_id = parcelResp.data.eosda_id;
         if (!eosda_id) {
-            document.getElementById('eosdaScenesTableContainer').innerHTML = '<div class="alert alert-danger">La parcela no tiene eosda_id configurado.</div>';
+            document.getElementById('sateliteScenesTableContainer').innerHTML = '<div class="alert alert-danger">La parcela no tiene identificador satelital configurado.</div>';
             return;
         }
         // Actualizar el estado global EOSDA para asegurar que esté disponible
         window.AGROTECH_STATE.selectedParcelId = parcelId;
         window.AGROTECH_STATE.selectedSatelliteId = eosda_id;
     } catch (err) {
-        document.getElementById('eosdaScenesTableContainer').innerHTML = '<div class="alert alert-danger">Error al obtener la parcela.</div>';
+        document.getElementById('sateliteScenesTableContainer').innerHTML = '<div class="alert alert-danger">Error al obtener la parcela.</div>';
         return;
     }
     
@@ -92,20 +93,20 @@ window.mostrarModalEscenasEOSDA = async function(parcelId) {
         console.log('[CACHE SET] Escenas guardadas en cache frontend');
         
         if (!scenes.length) {
-            document.getElementById('eosdaScenesTableContainer').innerHTML = '<div class="alert alert-warning">No hay escenas disponibles para este campo.</div>';
+            document.getElementById('sateliteScenesTableContainer').innerHTML = '<div class="alert alert-warning">No hay escenas disponibles para este campo.</div>';
             return;
         }
         
         renderScenesTable(scenes);
     } catch (err) {
-        document.getElementById('eosdaScenesTableContainer').innerHTML = '<div class="alert alert-danger">Error al consultar escenas EOSDA.</div>';
+        document.getElementById('sateliteScenesTableContainer').innerHTML = '<div class="alert alert-danger">Error al consultar escenas satelitales.</div>';
     }
 };
 
 // Función helper para renderizar tabla de escenas
 function renderScenesTable(scenes) {
     if (!scenes || scenes.length === 0) {
-        document.getElementById('eosdaScenesTableContainer').innerHTML = '<p>No hay escenas disponibles.</p>';
+        document.getElementById('sateliteScenesTableContainer').innerHTML = '<p>No hay escenas disponibles.</p>';
         return;
     }
 
@@ -160,18 +161,18 @@ function renderScenesTable(scenes) {
                         <td>${scene.date || '-'}</td>
                         <td>${scene.view_id || '-'}</td>
                         <td>${cloudText}</td>
-                        <td><button class="btn btn-success btn-sm" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndvi', this)">Ver NDVI</button></td>
-                        <td><button class="btn btn-info btn-sm" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndmi', this)">Ver NDMI</button></td>
-                        <td><button class="btn btn-secondary btn-sm" style="background: linear-gradient(135deg, #8B4513, #228B22); border: none;" onclick="procesarImagenEOSDA('${scene.view_id}', 'savi', this)">Ver SAVI</button></td>
+                        <td><button class="btn btn-sm btn-outline-success" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndvi', this, '${scene.date}')">NDVI</button></td>
+                        <td><button class="btn btn-sm btn-outline-info" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndmi', this, '${scene.date}')">NDMI</button></td>
+                        <td><button class="btn btn-sm btn-outline-warning" onclick="procesarImagenEOSDA('${scene.view_id}', 'savi', this, '${scene.date}')">SAVI</button></td>
                         <td>
-                            <button class="btn btn-warning btn-sm" onclick="obtenerAnalyticsEscena('${scene.view_id}', '${scene.date}')">📊 Stats</button>
+                            <button class="btn btn-sm btn-outline-warning" onclick="obtenerAnalyticsEscena('${scene.view_id}', '${scene.date}')">Stats</button>
                         </td>
                     </tr>
                 `;
             }).join('')}
         </tbody>
     </table>`;
-    document.getElementById('eosdaScenesTableContainer').innerHTML = html;
+    document.getElementById('sateliteScenesTableContainer').innerHTML = html;
 }
 
 // Función para obtener analíticas científicas de una escena
@@ -199,12 +200,21 @@ window.obtenerAnalyticsEscena = async function(viewId, sceneDate) {
     }
 };
 
-// Función para buscar escenas EOSDA y mostrar el modal
-export async function buscarEscenas(parcelId, viewer) {
-  // Eliminado: toda la lógica de escenas EOSDA y NDVI. Esta función ya no realiza ninguna acción.
-  // Si necesitas mostrar NDVI, hazlo directamente desde el botón o el flujo principal.
+// ── SceneCache helper ──
+function saveToSceneHistory(viewId, sceneDate, indexType, value) {
+    if (!window.SceneCache || !sceneDate) return;
+    const parcelId = window.AGROTECH_STATE?.selectedParcelId;
+    const parcelName = document.getElementById('parcelNameCell')?.textContent || '';
+    window.SceneCache.addToHistory({
+        viewId: viewId, sceneDate: sceneDate, indexType: indexType,
+        parcelId: parcelId, parcelName: parcelName, value: value,
+    });
+    const section = document.getElementById('sceneHistorySection');
+    if (section) section.style.display = 'block';
+    if (typeof renderSceneHistory === 'function') renderSceneHistory();
 }
-// Estado global centralizado para EOSDA
+
+// Estado global centralizado (compartido entre módulos)
 window.AGROTECH_STATE = {
   selectedParcelId: null,
   selectedSatelliteId: null,
@@ -216,6 +226,8 @@ window.AGROTECH_STATE = {
   // Nuevo: tracking de capa activa en analytics
   activeAnalyticsLayer: 'ndvi' // 'ndvi' o 'ndmi'
 };
+// Alias de compatibilidad (migración pendiente de EOSDA_STATE → AGROTECH_STATE)
+window.EOSDA_STATE = window.AGROTECH_STATE;
 // --- CACHE DE IMÁGENES NDVI/NDMI ---
 window.EOSDA_IMAGE_CACHE = window.EOSDA_IMAGE_CACHE || {};
 // --- CACHE DE ESCENAS POR FIELD_ID ---
@@ -341,6 +353,9 @@ function initializeLeaflet() {
             attributionControl: true,
             fullscreenControl: false // Lo agregamos manualmente después
         });
+
+        // Exponer mapa al scope global para otros módulos (elevation, layers)
+        window.map = map;
 
         // Agregar la capa satelital Esri World Imagery
         const esriSatellite = L.tileLayer(
@@ -614,7 +629,7 @@ function savePolygon() {
         if (data.eosda_id) {
             showInfoToast("Parcela guardada y sincronizada con EOSDA (ID: " + data.eosda_id + ")");
         } else {
-            showErrorToast("Parcela guardada localmente, pero NO sincronizada con EOSDA.");
+            showErrorToast("Parcela guardada localmente, pero NO sincronizada con el proveedor satelital.");
         }
         closeModal();
         location.reload();
@@ -699,13 +714,11 @@ function loadParcels() {
                     <td>${props.soil_type || "N/A"}</td>
                     <td>${props.topography || "N/A"}</td>
                     <td>
-                        <button class="btn btn-info btn-sm" onclick="flyToParcel(${parcel.id});" title="Ver Parcela">
-                            <i class="bi bi-eye"></i> Ver
+                        <button class="btn btn-sm btn-outline-success" onclick="flyToParcel(${parcel.id});" title="Ver Parcela">
+                            Ver
                         </button>
-                    </td>
-                    <td>
-                        <button class="btn btn-primary btn-sm" onclick="editParcel('${parcel.id}')">Editar</button>
-                        <button class="btn btn-danger btn-sm" onclick="deleteParcel('${parcel.id}')">Eliminar</button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="editParcel('${parcel.id}')">Editar</button>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deleteParcel('${parcel.id}')">Eliminar</button>
                     </td>
                 `;
                 tableBody.appendChild(row);
@@ -1464,215 +1477,96 @@ async function showSceneSelectionTable(scenes) {
         const filteredCount = uniqueScenes.length - lowCloudScenes.length;
         const finalScenes = lowCloudScenes.length > 0 ? lowCloudScenes : uniqueScenes.slice(0, 5); // Fallback: mostrar las 5 mejores
 
-        // Crear modal con estilo neomórfico mejorado
+        // Crear modal profesional — clean white, no emojis, outline buttons
         const modal = document.createElement("div");
         modal.id = "sceneSelectionModal";
         modal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(4px);
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: fadeIn 0.2s ease;
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+            z-index: 9999; display: flex; align-items: center; justify-content: center;
         `;
 
-        // Contenido del modal con diseño profesional
         const content = document.createElement("div");
         content.style.cssText = `
-            background: linear-gradient(145deg, #ffffff, #f5f7fa);
-            padding: 0;
-            border-radius: 20px;
-            box-shadow: 0 25px 50px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.1);
-            max-width: 750px;
-            width: 95%;
-            max-height: 85vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
+            background: #fff; padding: 0; border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+            max-width: 780px; width: 95%; max-height: 85vh;
+            display: flex; flex-direction: column; overflow: hidden;
         `;
 
-        // Header del modal
+        // Header
         const header = document.createElement("div");
         header.style.cssText = `
-            background: linear-gradient(135deg, #2E7D32, #4CAF50);
-            padding: 20px 28px;
-            color: white;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
+            padding: 20px 28px; display: flex; justify-content: space-between;
+            align-items: center; border-bottom: 1px solid rgba(0,0,0,0.06);
         `;
         header.innerHTML = `
             <div>
-                <h4 style="margin:0;font-weight:700;font-size:18px;">�️ Imágenes Satelitales Disponibles</h4>
-                <p style="margin:5px 0 0;font-size:13px;opacity:0.9;">${finalScenes.length} escenas encontradas</p>
+                <h4 style="margin:0;font-weight:600;font-size:18px;color:#1D1D1F;">Imagenes Satelitales Disponibles</h4>
+                <p style="margin:4px 0 0;font-size:13px;color:#86868B;">${finalScenes.length} escenas encontradas</p>
             </div>
-            <button id="closeSceneModal" style="background:rgba(255,255,255,0.2);border:none;color:white;width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;">
-                <i class="fas fa-times"></i>
-            </button>
+            <button id="closeSceneModal" style="background:none;border:1px solid rgba(0,0,0,0.1);color:#86868B;width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;">x</button>
         `;
         content.appendChild(header);
 
-        // Cuerpo con scroll
+        // Body
         const body = document.createElement("div");
-        body.style.cssText = `
-            padding: 20px 28px;
-            overflow-y: auto;
-            flex: 1;
-            max-height: calc(85vh - 140px);
-        `;
+        body.style.cssText = `padding: 20px 28px; overflow-y: auto; flex:1;`;
 
-        // Mensaje informativo sobre nubosidad
-        const infoBox = document.createElement("div");
-        infoBox.style.cssText = `
-            margin-bottom: 16px;
-            padding: 14px 16px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-            border-left: 4px solid #2196F3;
-            font-size: 13px;
-            line-height: 1.5;
-        `;
-        infoBox.innerHTML = `
-            <strong>💡 Sobre la nubosidad:</strong> Las imágenes con <span style="color:#28a745;font-weight:600;">menos del 30% de nubes</span> 
-            proporcionan análisis más precisos. Las marcadas en rojo tienen alta nubosidad.
-        `;
-        body.appendChild(infoBox);
-
-        // Mensaje informativo sobre filtrado
+        // Info sobre nubosidad
         if (filteredCount > 0) {
-            const filterMessage = document.createElement("div");
-            filterMessage.style.cssText = `
-                margin-bottom: 16px;
-                padding: 12px 16px;
-                border-radius: 12px;
-                font-size: 13px;
-                ${lowCloudScenes.length > 0 
-                    ? 'background: #d1ecf1; color: #0c5460; border-left: 4px solid #17a2b8;' 
-                    : 'background: #fff3cd; color: #856404; border-left: 4px solid #ffc107;'}
-            `;
-            filterMessage.innerHTML = lowCloudScenes.length > 0
-                ? `<i class="fas fa-filter"></i> Se ocultaron ${filteredCount} imagen(es) con más del 75% de nubes.`
-                : `<i class="fas fa-exclamation-triangle"></i> <strong>Atención:</strong> Todas las imágenes tienen alta nubosidad. Considera otro rango de fechas.`;
-            body.appendChild(filterMessage);
+            const filterMsg = document.createElement("div");
+            filterMsg.style.cssText = `margin-bottom:14px;padding:10px 14px;border-radius:10px;font-size:13px;color:#6E6E73;background:#F5F5F7;`;
+            filterMsg.textContent = `${filteredCount} escenas con mas del 75% de nubes ocultas.`;
+            body.appendChild(filterMsg);
         }
 
-        // Tabla con diseño glassmorphism mejorado
-        const tableContainer = document.createElement("div");
-        tableContainer.style.cssText = `
-            border-radius: 16px;
-            overflow: hidden;
-            background: rgba(255,255,255,0.6);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05),
-                        inset 0 1px 1px rgba(255,255,255,0.8);
-            border: 1px solid rgba(255,255,255,0.5);
-        `;
-        
+        // Tabla
         const table = document.createElement("table");
-        table.style.cssText = `
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 14px;
-        `;
+        table.style.cssText = `width:100%;border-collapse:collapse;font-size:13px;`;
         table.innerHTML = `
             <thead>
-                <tr style="background: linear-gradient(135deg, rgba(46,125,50,0.1), rgba(76,175,80,0.05));">
-                    <th style="padding:16px 14px;text-align:left;font-weight:700;color:#2E7D32;border-bottom:2px solid rgba(46,125,50,0.2);font-size:13px;">📅 Fecha</th>
-                    <th style="padding:16px 14px;text-align:center;font-weight:700;color:#2E7D32;border-bottom:2px solid rgba(46,125,50,0.2);font-size:13px;">☁️ Nubes</th>
-                    <th style="padding:16px 14px;text-align:center;font-weight:700;color:#2E7D32;border-bottom:2px solid rgba(46,125,50,0.2);font-size:13px;">🌱 NDVI</th>
-                    <th style="padding:16px 14px;text-align:center;font-weight:700;color:#2E7D32;border-bottom:2px solid rgba(46,125,50,0.2);font-size:13px;">💧 NDMI</th>
-                    <th style="padding:16px 14px;text-align:center;font-weight:700;color:#2E7D32;border-bottom:2px solid rgba(46,125,50,0.2);font-size:13px;">🌿 SAVI</th>
-                    <th style="padding:16px 14px;text-align:center;font-weight:700;color:#2E7D32;border-bottom:2px solid rgba(46,125,50,0.2);font-size:13px;">📊 Stats</th>
+                <tr style="border-bottom:1px solid rgba(0,0,0,0.06);">
+                    <th style="padding:10px 12px;text-align:left;font-weight:600;color:#86868B;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Fecha</th>
+                    <th style="padding:10px 12px;text-align:center;font-weight:600;color:#86868B;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Nubes</th>
+                    <th style="padding:10px 12px;text-align:center;font-weight:600;color:#86868B;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">NDVI</th>
+                    <th style="padding:10px 12px;text-align:center;font-weight:600;color:#86868B;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">NDMI</th>
+                    <th style="padding:10px 12px;text-align:center;font-weight:600;color:#86868B;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">SAVI</th>
+                    <th style="padding:10px 12px;text-align:center;font-weight:600;color:#86868B;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Stats</th>
                 </tr>
             </thead>
             <tbody>
-                ${finalScenes.map((scene, idx) => {
+                ${finalScenes.map((scene) => {
                     let cloud = scene.cloudCoverage ?? scene.cloud ?? scene.nubosidad;
-                    let cloudText = (typeof cloud === 'number') ? cloud.toFixed(1) : (cloud ? cloud : '-');
-                    
-                    // Badge y estilo por nivel de nubosidad
-                    let cloudBadge = '', rowBg = '';
-                    if (typeof cloud === 'number') {
-                        if (cloud <= 30) {
-                            cloudBadge = '<span style="background:linear-gradient(135deg,#28a745,#20c997);color:#fff;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(40,167,69,0.3);">✓ Óptima</span>';
-                            rowBg = 'background:rgba(240,255,244,0.7);';
-                        } else if (cloud <= 50) {
-                            cloudBadge = '<span style="background:linear-gradient(135deg,#ffc107,#ffca2c);color:#000;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(255,193,7,0.3);">⚠ Aceptable</span>';
-                            rowBg = 'background:rgba(255,251,240,0.7);';
-                        } else {
-                            cloudBadge = '<span style="background:linear-gradient(135deg,#dc3545,#c82333);color:#fff;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600;box-shadow:0 2px 8px rgba(220,53,69,0.3);">✗ No recomendada</span>';
-                            rowBg = 'background:rgba(255,245,245,0.7);';
-                        }
-                    }
+                    let cloudPct = (typeof cloud === 'number') ? cloud.toFixed(0) : '-';
+                    let cloudColor = typeof cloud === 'number' ? (cloud <= 30 ? '#2FB344' : cloud <= 50 ? '#F59E0B' : '#EF4444') : '#86868B';
                     
                     const dateFormatted = scene.date ? new Date(scene.date).toLocaleDateString('es-ES', { 
-                        weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' 
+                        weekday: 'short', month: 'short', day: 'numeric' 
                     }) : '-';
                     
-                    return `
-                        <tr style="${rowBg} transition: all 0.3s ease;" 
-                            onmouseover="this.style.background='rgba(232,245,233,0.9)';this.style.transform='scale(1.01)'" 
-                            onmouseout="this.style.background='${rowBg.replace('background:', '').replace(';', '') || 'transparent'}';this.style.transform='scale(1)'">
-                            <td style="padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);font-weight:600;color:#333;">${dateFormatted}</td>
-                            <td style="padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);text-align:center;">
-                                <div style="font-weight:600;color:#555;">${cloudText}%</div>
-                                <div style="margin-top:6px;">${cloudBadge}</div>
-                            </td>
-                            <td style="padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);text-align:center;">
-                                <button class="btn btn-sm" data-ndvi-idx="${idx}" style="background:linear-gradient(135deg,#4CAF50,#2E7D32);color:white;border:none;padding:10px 18px;border-radius:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 15px rgba(76,175,80,0.3);transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(76,175,80,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(76,175,80,0.3)'">
-                                    <i class="fas fa-leaf"></i> Ver
-                                </button>
-                            </td>
-                            <td style="padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);text-align:center;">
-                                <button class="btn btn-sm" data-ndmi-idx="${idx}" style="background:linear-gradient(135deg,#2196F3,#1565C0);color:white;border:none;padding:10px 18px;border-radius:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 15px rgba(33,150,243,0.3);transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(33,150,243,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(33,150,243,0.3)'">
-                                    <i class="fas fa-tint"></i> Ver
-                                </button>
-                            </td>
-                            <td style="padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);text-align:center;">
-                                <button class="btn btn-sm" data-savi-idx="${idx}" style="background:linear-gradient(135deg,#8B4513,#228B22);color:white;border:none;padding:10px 18px;border-radius:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 15px rgba(139,69,19,0.3);transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(139,69,19,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(139,69,19,0.3)'">
-                                    <i class="fas fa-seedling"></i> Ver
-                                </button>
-                            </td>
-                            <td style="padding:14px;border-bottom:1px solid rgba(0,0,0,0.05);text-align:center;">
-                                <button class="btn btn-sm" onclick="obtenerAnalyticsEscena('${scene.view_id}', '${scene.date}')" style="background:linear-gradient(135deg,#FF9800,#F57C00);color:white;border:none;padding:10px 18px;border-radius:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 15px rgba(255,152,0,0.3);transition:all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 6px 20px rgba(255,152,0,0.4)'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 4px 15px rgba(255,152,0,0.3)'">
-                                    <i class="fas fa-chart-bar"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    `;
+                    return `<tr style="border-bottom:1px solid rgba(0,0,0,0.03);" 
+                        onmouseover="this.style.background='#F5F5F7'" onmouseout="this.style.background=''">
+                        <td style="padding:10px 12px;font-weight:500;color:#1D1D1F;">${dateFormatted}</td>
+                        <td style="padding:10px 12px;text-align:center;color:${cloudColor};font-weight:500;">${cloudPct}%</td>
+                        <td style="padding:8px 12px;text-align:center;">
+                            <button class="btn btn-sm btn-outline-success" onclick="procesarImagenEOSDA('${scene.view_id}','ndvi',this,'${scene.date}')">NDVI</button>
+                        </td>
+                        <td style="padding:8px 12px;text-align:center;">
+                            <button class="btn btn-sm btn-outline-info" onclick="procesarImagenEOSDA('${scene.view_id}','ndmi',this,'${scene.date}')">NDMI</button>
+                        </td>
+                        <td style="padding:8px 12px;text-align:center;">
+                            <button class="btn btn-sm btn-outline-warning" onclick="procesarImagenEOSDA('${scene.view_id}','savi',this,'${scene.date}')">SAVI</button>
+                        </td>
+                        <td style="padding:8px 12px;text-align:center;">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="obtenerAnalyticsEscena('${scene.view_id}','${scene.date}')">Stats</button>
+                        </td>
+                    </tr>`;
                 }).join('')}
             </tbody>
         `;
-        tableContainer.appendChild(table);
-        body.appendChild(tableContainer);
-
+        body.appendChild(table);
         content.appendChild(body);
-
-        // Footer
-        const footer = document.createElement("div");
-        footer.style.cssText = `
-            padding: 16px 28px;
-            background: #f8f9fa;
-            border-top: 1px solid #e0e0e0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        `;
-        footer.innerHTML = `
-            <span style="font-size:12px;color:#666;">
-                <i class="fas fa-info-circle"></i> Los datos provienen de satélites Sentinel-2 via EOSDA
-            </span>
-            <button id="closeSceneModalFooter" class="btn" style="background:#6c757d;color:white;border:none;padding:10px 24px;border-radius:8px;font-weight:500;cursor:pointer;">
-                Cerrar
-            </button>
-        `;
-        content.appendChild(footer);
 
         modal.appendChild(content);
         document.body.appendChild(modal);
@@ -1697,7 +1591,7 @@ async function showSceneSelectionTable(scenes) {
                 // Deshabilitar todos los botones del modal durante procesamiento
                 const modalButtons = modal.querySelectorAll('button');
                 modalButtons.forEach(b => b.disabled = true);
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                btn.innerHTML = 'Cargando...';
                 
                 try {
                     const result = await window.verImagenEscenaEOSDA(scene.view_id || scene.id, 'ndvi', scene.date);
@@ -1711,11 +1605,11 @@ async function showSceneSelectionTable(scenes) {
                         modalButtons.forEach(b => {
                             b.disabled = false;
                             if (b.getAttribute('data-ndvi-idx')) {
-                                b.innerHTML = '<i class="fas fa-leaf"></i> Ver';
+                                b.innerHTML = 'NDVI';
                             } else if (b.getAttribute('data-ndmi-idx')) {
-                                b.innerHTML = '<i class="fas fa-tint"></i> Ver';
+                                b.innerHTML = 'NDMI';
                             } else if (b.getAttribute('data-savi-idx')) {
-                                b.innerHTML = '<i class="fas fa-seedling"></i> Ver';
+                                b.innerHTML = 'SAVI';
                             }
                         });
                     }
@@ -1731,7 +1625,7 @@ async function showSceneSelectionTable(scenes) {
                 // Deshabilitar todos los botones del modal durante procesamiento
                 const modalButtons = modal.querySelectorAll('button');
                 modalButtons.forEach(b => b.disabled = true);
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                btn.innerHTML = 'Cargando...';
                 
                 try {
                     const result = await window.verImagenEscenaEOSDA(scene.view_id || scene.id, 'ndmi', scene.date);
@@ -1745,11 +1639,11 @@ async function showSceneSelectionTable(scenes) {
                         modalButtons.forEach(b => {
                             b.disabled = false;
                             if (b.getAttribute('data-ndvi-idx')) {
-                                b.innerHTML = '<i class="fas fa-leaf"></i> Ver';
+                                b.innerHTML = 'NDVI';
                             } else if (b.getAttribute('data-ndmi-idx')) {
-                                b.innerHTML = '<i class="fas fa-tint"></i> Ver';
+                                b.innerHTML = 'NDMI';
                             } else if (b.getAttribute('data-savi-idx')) {
-                                b.innerHTML = '<i class="fas fa-seedling"></i> Ver';
+                                b.innerHTML = 'SAVI';
                             }
                         });
                     }
@@ -1766,7 +1660,7 @@ async function showSceneSelectionTable(scenes) {
                 // Deshabilitar todos los botones del modal durante procesamiento
                 const modalButtons = modal.querySelectorAll('button');
                 modalButtons.forEach(b => b.disabled = true);
-                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+                btn.innerHTML = 'Cargando...';
                 
                 try {
                     const result = await window.verImagenEscenaEOSDA(scene.view_id || scene.id, 'savi', scene.date);
@@ -1780,11 +1674,11 @@ async function showSceneSelectionTable(scenes) {
                         modalButtons.forEach(b => {
                             b.disabled = false;
                             if (b.getAttribute('data-ndvi-idx')) {
-                                b.innerHTML = '<i class="fas fa-leaf"></i> Ver';
+                                b.innerHTML = 'NDVI';
                             } else if (b.getAttribute('data-ndmi-idx')) {
-                                b.innerHTML = '<i class="fas fa-tint"></i> Ver';
+                                b.innerHTML = 'NDMI';
                             } else if (b.getAttribute('data-savi-idx')) {
-                                b.innerHTML = '<i class="fas fa-seedling"></i> Ver';
+                                b.innerHTML = 'SAVI';
                             }
                         });
                     }
@@ -1985,7 +1879,7 @@ window.showSpinner = showSpinner;
 window.hideSpinner = hideSpinner;
 
 // Función wrapper para manejar botones durante procesamiento de imágenes
-window.procesarImagenEOSDA = async function(viewId, tipo, buttonElement = null) {
+window.procesarImagenEOSDA = async function(viewId, tipo, buttonElement = null, sceneDate = null) {
     // Deshabilitar el botón específico y todos los botones de imágenes para evitar clics múltiples
     const allImageButtons = document.querySelectorAll('button[onclick*="verImagenEscenaEOSDA"], button[onclick*="procesarImagenEOSDA"]');
     const originalTexts = new Map();
@@ -1993,12 +1887,12 @@ window.procesarImagenEOSDA = async function(viewId, tipo, buttonElement = null) 
     allImageButtons.forEach(btn => {
         originalTexts.set(btn, btn.innerHTML);
         btn.disabled = true;
-        if (btn.innerHTML.includes('Ver NDVI')) {
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-        } else if (btn.innerHTML.includes('Ver NDMI')) {
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
-        } else if (btn.innerHTML.includes('Ver SAVI')) {
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+        if (btn.innerHTML.includes('NDVI')) {
+            btn.innerHTML = 'Cargando...';
+        } else if (btn.innerHTML.includes('NDMI')) {
+            btn.innerHTML = 'Cargando...';
+        } else if (btn.innerHTML.includes('SAVI')) {
+            btn.innerHTML = 'Cargando...';
         }
     });
     
@@ -2057,6 +1951,7 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
         }
         
         showInfoToast(`Imagen ${tipo.toUpperCase()} cargada desde cache con análisis.`);
+        saveToSceneHistory(viewId, sceneDate, tipo, null);
         return { success: true };
     }
     

@@ -8,6 +8,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from django.conf import settings
 from django.core.cache import cache
+from django.http import Http404
 from django.shortcuts import get_object_or_404, render
 from rest_framework.views import APIView
 from rest_framework import status, viewsets
@@ -49,8 +50,8 @@ class ParcelScenesByDateView(APIView):
         logger.info(f"[SCENES_BY_DATE] field_id de parcela: {field_id}")
         
         if not field_id:
-            logger.error("[SCENES_BY_DATE] La parcela no tiene un field_id EOSDA válido.")
-            return Response({"error": "La parcela no tiene un field_id EOSDA válido."}, status=404)
+            logger.error("[SCENES_BY_DATE] La parcela no tiene un field_id satelital válido.")
+            return Response({"error": "La parcela no tiene un identificador satelital válido."}, status=404)
         
         # ============ CACHE EN BASE DE DATOS ============
         # Verificar si tenemos escenas cacheadas para este rango de fechas
@@ -136,9 +137,9 @@ class ParcelScenesByDateView(APIView):
                 error_data = req_response.json() if req_response.content else {}
                 logger.error(f"[SCENES_BY_DATE] Límite de requests EOSDA excedido: {error_data}")
                 return Response({
-                    "error": "EOSDA API: Límite de requests excedido",
-                    "message": "Se ha alcanzado el límite mensual de consultas a EOSDA API Connect. Contacte al administrador.",
-                    "error_code": "EOSDA_LIMIT_EXCEEDED",
+                    "error": "API Satelital: Límite de consultas excedido",
+                    "message": "Se ha alcanzado el límite mensual de consultas al proveedor de datos satelitales. Contacte al administrador.",
+                    "error_code": "SATELITAL_LIMIT_EXCEEDED",
                     "limit_info": error_data
                 }, status=402)
                 
@@ -147,9 +148,9 @@ class ParcelScenesByDateView(APIView):
                 error_data = req_response.json() if req_response.content else {}
                 logger.error(f"[SCENES_BY_DATE] Campo no encontrado en EOSDA: {error_data}")
                 return Response({
-                    "error": "EOSDA API: Campo no encontrado",
-                    "message": f"El campo con ID {field_id} no existe en EOSDA API Connect. Verifique que el campo esté correctamente registrado.",
-                    "error_code": "EOSDA_FIELD_NOT_FOUND",
+                    "error": "API Satelital: Campo no encontrado",
+                    "message": f"El campo con ID {field_id} no existe en el proveedor de datos satelitales. Verifique que el campo esté correctamente registrado.",
+                    "error_code": "SATELITAL_FIELD_NOT_FOUND",
                     "field_id": field_id,
                     "details": error_data
                 }, status=404)
@@ -202,9 +203,9 @@ class ParcelScenesByDateView(APIView):
             if hasattr(e, 'response') and e.response is not None:
                 if e.response.status_code == 402:
                     return Response({
-                        "error": "EOSDA API: Límite de requests excedido",
-                        "message": "Se ha alcanzado el límite mensual de consultas a EOSDA API Connect. Contacte al administrador.",
-                        "error_code": "EOSDA_LIMIT_EXCEEDED"
+                        "error": "API Satelital: Límite de consultas excedido",
+                        "message": "Se ha alcanzado el límite mensual de consultas al proveedor de datos satelitales. Contacte al administrador.",
+                        "error_code": "SATELITAL_LIMIT_EXCEEDED"
                     }, status=402)
             
             return Response({"error": str(e)}, status=500)
@@ -912,31 +913,33 @@ class EosdaImageView(APIView):
                 return Response({"error": "Parámetros inválidos."}, status=400)
             
             # ── Restricción de índices por plan ──
-            subscription = getattr(request, 'subscription', None)
-            if subscription:
-                allowed_indices = subscription.plan.features_included or []
-                if index_type not in allowed_indices:
-                    plan_name = subscription.plan.name
-                    index_names = {
-                        'ndvi': 'NDVI',
-                        'savi': 'SAVI',
-                        'ndmi': 'NDMI',
-                        'evi': 'EVI',
-                    }
-                    logger.warning(
-                        f"[EOSDA_IMAGE] Índice '{index_type}' no permitido en plan {plan_name}. "
-                        f"Permitidos: {allowed_indices}"
-                    )
-                    return Response({
-                        'error': f'El índice {index_names.get(index_type, index_type.upper())} no está disponible en tu plan',
-                        'code': 'index_not_available',
-                        'index': index_type,
-                        'allowed_indices': [i for i in allowed_indices if i in ['ndvi', 'savi', 'ndmi', 'evi']],
-                        'plan': plan_name,
-                        'message': f'Tu plan {plan_name} no incluye análisis {index_names.get(index_type, index_type.upper())}. '
-                                   f'Mejora tu plan para acceder a más índices satelitales.',
-                        'upgrade_url': '/billing/upgrade/'
-                    }, status=403)
+            from config.devmode import is_dev_mode_active
+            if not is_dev_mode_active(request):
+                subscription = getattr(request, 'subscription', None)
+                if subscription:
+                    allowed_indices = subscription.plan.features_included or []
+                    if index_type not in allowed_indices:
+                        plan_name = subscription.plan.name
+                        index_names = {
+                            'ndvi': 'NDVI',
+                            'savi': 'SAVI',
+                            'ndmi': 'NDMI',
+                            'evi': 'EVI',
+                        }
+                        logger.warning(
+                            f"[EOSDA_IMAGE] Índice '{index_type}' no permitido en plan {plan_name}. "
+                            f"Permitidos: {allowed_indices}"
+                        )
+                        return Response({
+                            'error': f'El índice {index_names.get(index_type, index_type.upper())} no está disponible en tu plan',
+                            'code': 'index_not_available',
+                            'index': index_type,
+                            'allowed_indices': [i for i in allowed_indices if i in ['ndvi', 'savi', 'ndmi', 'evi']],
+                            'plan': plan_name,
+                            'message': f'Tu plan {plan_name} no incluye análisis {index_names.get(index_type, index_type.upper())}. '
+                                       f'Mejora tu plan para acceder a más índices satelitales.',
+                            'upgrade_url': '/billing/upgrade/'
+                        }, status=403)
             
             # Verificar cache de request_id por combinación field_id+view_id+type (cache por 30 minutos)
             cache_key = f"eosda_image_request_{field_id}_{view_id}_{index_type}"
@@ -1881,8 +1884,8 @@ class ParcelHistoricalIndicesView(APIView):
                             
                             # Intentar obtener el resultado (puede requerir espera)
                             import time
-                            max_attempts = 10
-                            wait_time = 3  # segundos
+                            max_attempts = 2  # reducido: cada intento es una request a EOSDA
+                            wait_time = 5  # segundos
                             
                             for attempt in range(max_attempts):
                                 try:
@@ -2143,7 +2146,7 @@ class ParcelNdviWeatherComparisonView(APIView):
                 "metadata": {
                     "total_points": len(weather_data),
                     "ndvi_source": "eosda_historical",
-                    "weather_source": "eosda_weather_api",
+                    "weather_source": "open_meteo",
                     "generated_at": datetime.now().isoformat()
                 }
             }
@@ -2154,179 +2157,75 @@ class ParcelNdviWeatherComparisonView(APIView):
             
             return Response(response_data)
             
+        except Http404:
+            raise
         except Exception as e:
             logger.error(f"[NDVI_WEATHER] Error: {str(e)}")
             return Response({"error": f"Error en análisis comparativo: {str(e)}"}, status=500)
     
     def _get_weather_data(self, latitude, longitude):
         """
-        Obtiene datos meteorológicos históricos desde EOSDA Weather API
-        Usando endpoint historical-accumulated desde el inicio del año actual hasta la fecha de consulta
+        Obtiene datos meteorológicos históricos desde Open-Meteo Archive API.
+        Gratuito, sin API key, desde inicio del año actual hasta hoy.
         """
         try:
-            # Configurar fechas automáticamente: desde enero del año actual hasta hoy
             from datetime import datetime, timedelta
             end_date = datetime.now()
-            # Obtener el año actual y configurar inicio desde enero 1
             current_year = end_date.year
             start_date = datetime(current_year, 1, 1)
             start_date_str = start_date.strftime("%Y-%m-%d")
             end_date_str = end_date.strftime("%Y-%m-%d")
-            
-            weather_data = []
-            
-            # Obtener el field_id de EOSDA
-            field_id = self._get_eosda_field_id(latitude, longitude)
-            logger.info(f"[EOSDA_WEATHER] field_id usado: {field_id} para lat={latitude}, lon={longitude}")
-            
-            if not field_id:
-                logger.error(f"[EOSDA_WEATHER] No se pudo obtener field_id para lat={latitude}, lon={longitude}")
-                return []
-            
-            # Usar endpoint historical-accumulated que funciona
-            weather_url = f"https://api-connect.eos.com/weather/historical-accumulated/{field_id}"
-            headers = {
-                "x-api-key": settings.EOSDA_API_KEY,
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "params": {
-                    "date_start": start_date_str,
-                    "date_end": end_date_str,
-                    "sum_of_active_temperatures": 10
-                },
-                "provider": "weather-online"
-            }
-            
-            logger.info(f"[EOSDA_WEATHER] Request URL: {weather_url}")
-            logger.info(f"[EOSDA_WEATHER] Período: {start_date_str} a {end_date_str}")
-            
-            response = requests.post(weather_url, headers=headers, json=payload, timeout=60)
-            logger.info(f"[EOSDA_WEATHER] Status code: {response.status_code}")
-            logger.info(f"[EOSDA_WEATHER] Response content length: {len(response.content)}")
-            # No imprimir el contenido completo para evitar saturar los logs
-            
-            if response.status_code == 200:
-                if not response.content or response.content.strip() == b'':
-                    logger.warning(f"[EOSDA_WEATHER] EOSDA devolvió respuesta vacía para field_id={field_id}, período {start_date_str} a {end_date_str}")
-                    
-                    # Fallback: Si no hay datos desde enero del año actual, intentar desde enero del año anterior
-                    if start_date.year == current_year:
-                        logger.info(f"[EOSDA_WEATHER] Intentando fallback: desde enero del año anterior")
-                        fallback_start = datetime(current_year - 1, 1, 1)
-                        fallback_start_str = fallback_start.strftime("%Y-%m-%d")
-                        
-                        fallback_payload = {
-                            "params": {
-                                "date_start": fallback_start_str,
-                                "date_end": end_date_str,
-                                "sum_of_active_temperatures": 10
-                            },
-                            "provider": "weather-online"
-                        }
-                        
-                        logger.info(f"[EOSDA_WEATHER] Fallback request: {fallback_start_str} a {end_date_str}")
-                        fallback_response = requests.post(weather_url, headers=headers, json=fallback_payload, timeout=60)
-                        
-                        if fallback_response.status_code == 200 and fallback_response.content:
-                            response = fallback_response
-                            start_date_str = fallback_start_str
-                            logger.info(f"[EOSDA_WEATHER] Fallback exitoso con datos desde {fallback_start_str}")
-                        else:
-                            logger.warning(f"[EOSDA_WEATHER] Fallback también falló")
-                            return []
-                    else:
-                        return []
-                
-                try:
-                    data = response.json()
-                    logger.info(f"[EOSDA_WEATHER] JSON parseado correctamente")
-                    logger.info(f"[EOSDA_WEATHER] Datos recibidos: {len(data)} días" if isinstance(data, list) else f"[EOSDA_WEATHER] Tipo de respuesta: {type(data)}")
-                    
-                    if isinstance(data, list) and len(data) == 0:
-                        logger.warning(f"[EOSDA_WEATHER] EOSDA devolvió lista vacía para field_id={field_id}, período {start_date_str} a {end_date_str}")
-                        return []
-                    
-                    if not isinstance(data, list):
-                        logger.error(f"[EOSDA_WEATHER] Respuesta no es una lista. Tipo: {type(data)}, Contenido: {data}")
-                        return []
-                    
-                    for day_data in data:
-                        date = day_data.get("date")
-                        rainfall = day_data.get("rainfall_accumulated_avg", 0)
-                        temp_accumulated = day_data.get("temperature_accumulated_avg", 0)
-                        
-                        # Convertir temperatura acumulada a promedio diario (aproximación)
-                        days_from_start = len(weather_data) + 1
-                        temp_avg = temp_accumulated / days_from_start if days_from_start > 0 else 0
-                        
-                        # Calcular precipitación diaria (diferencia con día anterior)
-                        if weather_data:
-                            prev_rainfall = weather_data[-1].get("precipitation_accumulated", 0)
-                            daily_rainfall = max(0, rainfall - prev_rainfall)
-                        else:
-                            daily_rainfall = rainfall
-                        
-                        weather_data.append({
-                            "date": date,
-                            "temperature": round(temp_avg, 1),
-                            "temperature_max": round(temp_avg + 5, 1),  # Estimación
-                            "temperature_min": round(temp_avg - 5, 1),  # Estimación
-                            "precipitation": round(daily_rainfall, 1),
-                            "precipitation_accumulated": round(rainfall, 1),
-                            "humidity": 70,  # Valor por defecto
-                            "wind_speed": 10,  # Valor por defecto
-                            "solar_radiation": 20,  # Valor por defecto
-                            "pressure": 1013,  # Valor por defecto
-                            "data_type": "eosda_accumulated"
-                        })
-                    
-                    logger.info(f"[EOSDA_WEATHER] Procesados {len(weather_data)} días correctamente")
-                    return weather_data
-                    
-                except Exception as e:
-                    logger.error(f"[EOSDA_WEATHER] Error parseando datos: {str(e)}")
-                    return []
-            else:
-                logger.error(f"[EOSDA_WEATHER] Error HTTP: {response.status_code} - {response.text}")
-                return []
-                
-        except Exception as e:
-            logger.error(f"[EOSDA_WEATHER] Error general: {str(e)}")
-            return []
 
-    def _get_eosda_field_id(self, latitude, longitude):
-        """
-        Obtiene el field_id de EOSDA para una parcela dada lat/lon.
-        Debes implementar la lógica para obtener el field_id según tu modelo Parcel.
-        """
-        # Ejemplo: buscar el Parcel más cercano y devolver su eosda_id
-        # Este método debe ser adaptado según tu modelo y lógica de negocio
-        try:
-            from parcels.models import Parcel
-            from django.contrib.gis.geos import Point, GEOSGeometry
-            # Crear el punto
-            point = Point(float(longitude), float(latitude))
-            # Buscar todas las parcelas no eliminadas
-            parcels = Parcel.objects.filter(is_deleted=False)
-            for parcel in parcels:
-                geom = parcel.geom
-                # Si es dict (GeoJSON), convertir a GEOSGeometry
-                if isinstance(geom, dict):
-                    import json
-                    geom_obj = GEOSGeometry(json.dumps(geom))
-                elif isinstance(geom, str):
-                    geom_obj = GEOSGeometry(geom)
-                else:
-                    geom_obj = geom
-                # Verificar si el punto está contenido en la geometría
-                if geom_obj and geom_obj.contains(point):
-                    eosda_id = getattr(parcel, "eosda_id", None)
-                    if eosda_id:
-                        return eosda_id
+            meteo_url = "https://archive-api.open-meteo.com/v1/archive"
+            params = {
+                "latitude": latitude,
+                "longitude": longitude,
+                "start_date": start_date_str,
+                "end_date": end_date_str,
+                "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,relative_humidity_2m_mean,pressure_msl_mean",
+                "timezone": "America/Bogota",
+            }
+
+            logger.info(f"[WEATHER] Consultando Open-Meteo Archive: lat={latitude}, lng={longitude}")
+            response = requests.get(meteo_url, params=params, timeout=30)
+            logger.info(f"[WEATHER] Status: {response.status_code}")
+
+            if response.status_code != 200 or not response.content:
+                logger.warning(f"[WEATHER] Open-Meteo falló o respuesta vacía, usando datos sintéticos")
+                return self._generate_synthetic_weather_data(start_date_str, end_date_str, latitude)
+
+            data = response.json()
+            daily = data.get("daily", {})
+            if not daily or "time" not in daily:
+                logger.warning(f"[WEATHER] Respuesta sin datos daily, usando sintéticos")
+                return self._generate_synthetic_weather_data(start_date_str, end_date_str, latitude)
+
+            weather_data = []
+            days = daily["time"]
+            for i, date_str in enumerate(days):
+                t_max = daily.get("temperature_2m_max", [None])[i]
+                t_min = daily.get("temperature_2m_min", [None])[i]
+                if t_max is None or t_min is None:
+                    continue
+                weather_data.append({
+                    "date": date_str,
+                    "temperature": round((t_max + t_min) / 2, 1),
+                    "temperature_max": round(t_max, 1),
+                    "temperature_min": round(t_min, 1),
+                    "precipitation": round(daily.get("precipitation_sum", [0])[i] or 0, 1),
+                    "humidity": round(daily.get("relative_humidity_2m_mean", [0])[i] or 0, 1),
+                    "wind_speed": round(daily.get("wind_speed_10m_max", [0])[i] or 0, 1),
+                    "pressure": round(daily.get("pressure_msl_mean", [0])[i] or 0, 1),
+                    "data_type": "open_meteo_archive",
+                })
+
+            logger.info(f"[WEATHER] Procesados {len(weather_data)} días históricos")
+            return weather_data
+
         except Exception as e:
-            logger.error(f"[EOSDA_WEATHER] Error obteniendo field_id: {str(e)}")
+            logger.error(f"[WEATHER] Error: {str(e)}")
+            return self._generate_synthetic_weather_data(start_date_str, end_date_str, latitude)
+
         return None
     
     def _generate_synthetic_weather_data(self, start_date, end_date, latitude):

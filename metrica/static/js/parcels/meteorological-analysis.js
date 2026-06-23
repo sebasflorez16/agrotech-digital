@@ -8,6 +8,15 @@ let meteorologicalChartInstance = null;
 let currentParcelId = null;
 let meteorologicalData = [];
 
+// ── URL helper: usa el backend correcto en local (8000) y Netlify proxy en prod ──
+function getMeteoApiUrl(path) {
+    if (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE) {
+        return window.AGROTECH_CONFIG.API_BASE + path;
+    }
+    // Fallback: Netlify proxy (rutas relativas)
+    return path;
+}
+
 // ===============================
 // FUNCIONES GLOBALES - DISPONIBLES INMEDIATAMENTE
 // ===============================
@@ -64,7 +73,7 @@ function refreshMeteorologicalAnalysis() {
         
         // Mostrar toast de inicio de actualización
         if (typeof showToast === 'function') {
-            showToast('🔄 Actualizando datos meteorológicos EOSDA...', 'info');
+            showToast('🔄 Actualizando datos meteorológicos...', 'info');
         }
         
         // Llamar a la función de carga con indicador de actualización
@@ -181,7 +190,7 @@ function loadMeteorologicalAnalysisWithRefresh(parcelId) {
     
     // Usar rutas relativas para aprovechar los redirects de Netlify
     // Netlify redirige /api/* → backend preservando el tenant (django-tenants)
-    const endpoint = `/api/parcels/parcel/${parcelId}/ndvi-weather-comparison/?refresh=${Date.now()}`;
+    const endpoint = getMeteoApiUrl(`/api/parcels/parcel/${parcelId}/ndvi-weather-comparison/?refresh=${Date.now()}`);
     
     console.log(`[METEOROLOGICAL] Haciendo petición de actualización a: ${endpoint}`);
     
@@ -260,7 +269,7 @@ function loadMeteorologicalAnalysisInternal(parcelId) {
     
     // Usar rutas relativas para aprovechar los redirects de Netlify
     // Netlify redirige /api/* → backend preservando el tenant (django-tenants)
-    const endpoint = `/api/parcels/parcel/${parcelId}/ndvi-weather-comparison/`;
+    const endpoint = getMeteoApiUrl(`/api/parcels/parcel/${parcelId}/ndvi-weather-comparison/`);
     
     console.log(`[METEOROLOGICAL] Haciendo petición a: ${endpoint}`);
     
@@ -336,18 +345,20 @@ function processRealEOSDADataWithRefresh(data) {
     
     console.log('[METEOROLOGICAL] Datos convertidos para gráfico actualizado:', meteorologicalData.length);
     
-    // Renderizar gráfico y actualizar datos
-    renderMeteorologicalChart(meteorologicalData);
-    updateCorrelations(correlations);
-    updateInsights(insights);
+    // Mostrar contenedor antes de renderizar — dar un frame para que el layout calcule dimensiones
     showMeteorologicalLoading(false);
+    requestAnimationFrame(() => {
+        renderMeteorologicalChart(meteorologicalData);
+        updateCorrelations(correlations);
+        updateInsights(insights);
+    });
     
     // Mostrar aviso de actualización exitosa
     const totalPoints = data.metadata?.total_points || meteorologicalData.length;
     const lastUpdate = new Date().toLocaleString('es-ES');
     
     if (typeof showToast === 'function') {
-        showToast(`✅ Datos actualizados: ${totalPoints} puntos EOSDA (${lastUpdate})`, 'success');
+        showToast(`✅ Datos actualizados: ${totalPoints} puntos satelitales (${lastUpdate})`, 'success');
     }
     
     console.log(`[METEOROLOGICAL] ✅ Análisis actualizado completado con datos reales`);
@@ -393,11 +404,13 @@ function processRealEOSDAData(data) {
     
     console.log('[METEOROLOGICAL] Datos convertidos para gráfico:', meteorologicalData.length);
     
-    // Renderizar gráfico y actualizar datos
-    renderMeteorologicalChart(meteorologicalData);
-    updateCorrelations(correlations);
-    updateInsights(insights);
+    // Mostrar contenedor antes de renderizar — dar un frame para que el layout calcule dimensiones
     showMeteorologicalLoading(false);
+    requestAnimationFrame(() => {
+        renderMeteorologicalChart(meteorologicalData);
+        updateCorrelations(correlations);
+        updateInsights(insights);
+    });
     
     // Mostrar información sobre la fuente de datos
     const totalPoints = data.metadata?.total_points || meteorologicalData.length;
@@ -405,7 +418,7 @@ function processRealEOSDAData(data) {
     if (typeof showToast === 'function') {
         const currentYear = new Date().getFullYear();
         const currentMonth = new Date().toLocaleDateString('es-ES', { month: 'long' });
-        showToast(`Datos meteorológicos EOSDA cargados: ${totalPoints} puntos (enero ${currentYear} - ${currentMonth})`, 'success');
+        showToast(`Datos meteorológicos cargados: ${totalPoints} puntos (enero ${currentYear} - ${currentMonth})`, 'success');
     }
     
     console.log(`[METEOROLOGICAL] Análisis completado con datos reales de EOSDA`);
@@ -415,10 +428,20 @@ function processRealEOSDAData(data) {
  * Renderiza el gráfico meteorológico con zoom y pan
  */
 function renderMeteorologicalChart(data) {
-    const ctx = document.getElementById('meteorologicalChart');
+    let ctx = document.getElementById('meteorologicalChart');
     if (!ctx) {
-        console.error('[METEOROLOGICAL] Canvas del gráfico no encontrado');
-        return;
+        // Recrear canvas si fue destruido (ej. por innerHTML)
+        const container = document.getElementById('meteorologicalAnalysisContainer');
+        if (!container) {
+            console.error('[METEOROLOGICAL] Contenedor del gráfico no encontrado');
+            return;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.id = 'meteorologicalChart';
+        canvas.style.width = '100%';
+        canvas.style.height = '400px';
+        container.appendChild(canvas);
+        ctx = canvas;
     }
 
     if (meteorologicalChartInstance) {
@@ -701,7 +724,7 @@ function renderMeteorologicalChart(data) {
             if (zoomAvailable) {
                 showToast('� Gráfico meteorológico cargado', 'info');
             } else {
-                showToast('📊 Gráfico de datos EOSDA reales cargado exitosamente', 'success');
+                showToast('📊 Gráfico de datos satelitales reales cargado exitosamente', 'success');
             }
         }, 1000);
     }
@@ -744,7 +767,7 @@ function loadWeatherForecast(parcelId) {
     
     // Usar rutas relativas para aprovechar los redirects de Netlify
     // Netlify redirige /api/* → backend preservando el tenant (django-tenants)
-    const endpoint = `/api/parcels/get-weather-forecast/${parcelId}/`;
+    const endpoint = getMeteoApiUrl(`/api/parcels/get-weather-forecast/${parcelId}/`);
     
     console.log(`[METEOROLOGICAL] Haciendo petición al pronóstico (ruta directa): ${endpoint}`);
     
@@ -809,7 +832,7 @@ function loadWeatherForecast(parcelId) {
     })
     .catch(error => {
         console.error('[METEOROLOGICAL] Error cargando pronóstico del tiempo:', error);
-        showMeteorologicalError('Error al cargar el pronóstico meteorológico. No se pudieron obtener datos reales de EOSDA.');
+        showMeteorologicalError('Error al cargar el pronóstico meteorológico. No se pudieron obtener datos reales.');
     });
 }
 
@@ -1532,7 +1555,7 @@ function showMeteorologicalError(errorMessage) {
                 <h5 class="mb-0">Error cargando datos meteorológicos reales</h5>
             </div>
             <p class="mb-3">${errorMessage}</p>
-            <p class="small mb-3"><i class="fas fa-info-circle me-1"></i> No se están utilizando datos ficticios. El sistema solo muestra datos reales de EOSDA.</p>
+            <p class="small mb-3"><i class="fas fa-info-circle me-1"></i> No se están utilizando datos ficticios. El sistema solo muestra datos reales.</p>
             <div class="d-flex gap-2">
                 <button class="btn btn-outline-danger" onclick="loadWeatherForecast(window.EOSDA_STATE.selectedParcelId)">
                     <i class="fas fa-sync-alt me-2"></i>Reintentar

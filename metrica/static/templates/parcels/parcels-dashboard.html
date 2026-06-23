@@ -12,8 +12,9 @@
                    connect-src 'self' 'unsafe-inline' http: https: data: blob: ws: wss:; 
                    worker-src 'self' 'unsafe-eval' 'unsafe-inline' http: https: data: blob:; 
                    child-src 'self' 'unsafe-eval' 'unsafe-inline' http: https: data: blob:;">
+    <meta name="color-scheme" content="light">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa Satelital - AgroTech Digital</title>
+    <title>AgroTech Digital</title>
     
     <!-- Auth Global (config + token refresh) -->
     <script src="../../js/config.js"></script>
@@ -55,10 +56,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" 
           integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
     
-    <!-- Font Awesome 6.4.2 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" 
-          integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" 
-          crossorigin="anonymous" referrerpolicy="no-referrer"/>
+    <!-- Font Awesome 6 (local) -->
+    <link rel="stylesheet" href="../../css/fontawesome/all.min.css"/>
     
     <!-- Google Fonts - Inter & Poppins -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -73,16 +72,15 @@
     <link href="../../css/mobile-clean-redesign.css" rel="stylesheet" type="text/css" />
     
     <!-- ⭐ SISTEMA NEUMÓRFICO AGROTECH ⭐ -->
-    <link href="../../css/agrotech-neomorphic.css" rel="stylesheet" type="text/css" />
+    <link href="../../css/agrotech-neomorphic.css?v=20260623" rel="stylesheet" type="text/css" />
     <!-- 🔔 Alertas Agronómicas -->
-    <link href="../../css/parcels/agronomic-alerts.css" rel="stylesheet" type="text/css" />
+    <link href="../../css/parcels/agronomic-alerts.css?v=20260623" rel="stylesheet" type="text/css" />
     <!-- Global Mobile Responsive (archivo no existe, estilos inlineados) -->
     <!-- Override neumórfico para parcelas -->
     <link href="../../css/parcelas-neomorphic-override.css" rel="stylesheet" type="text/css" />
     <!-- 🍎 LIQUID GLASS DESIGN SYSTEM -->
-    <link href="../../css/liquid-glass-system.css" rel="stylesheet" type="text/css" />
+    <link href="../../css/liquid-glass-system.css?v=20260623" rel="stylesheet" type="text/css" />
     
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <!-- Tabler Icons for Sidebar -->
     <link href="https://cdn.jsdelivr.net/npm/@tabler/icons@latest/tabler-sprite.svg" as="image">
     <link href="https://unpkg.com/@tabler/icons-webfont@latest/tabler-icons.min.css" rel="stylesheet" />
@@ -108,8 +106,13 @@
         }
         
         /* 🎯 Estilos para parcela seleccionada */
-        #parcelTable tbody tr.selected-parcel {
-            background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(46, 125, 50, 0.1)) !important;
+        #parcelTable { background: #fff !important; }
+        #parcelTable.table { --bs-table-bg: #fff !important; --bs-table-accent-bg: #fff !important; --bs-table-color: #1D1D1F !important; }
+        #parcelTable.table-striped > tbody > tr:nth-of-type(odd) > * { --bs-table-accent-bg: #FAFAFA !important; color: #1D1D1F !important; }
+        #parcelTable.table-striped > tbody > tr:nth-of-type(even) > * { --bs-table-accent-bg: #fff !important; color: #1D1D1F !important; }
+        #parcelTable tbody tr.selected-parcel,
+        #parcelTable tbody tr.table-success {
+            background: #F0F9F0 !important;
             border-left: 4px solid #4CAF50;
             position: relative;
         }
@@ -505,272 +508,63 @@
         }
 
         /* ============================================
-           MOBILE DARK MODE - PARCELAS UI FIX
-           Material Design Dark Theme
-           Surface: #121212 base, elevation overlays
-           Colors: desaturated 200-tones, 15.8:1 contrast
+           MOBILE RESPONSIVE — Light theme, same palette as desktop
            ============================================ */
         @media (max-width: 767px) {
-            /* --- Clases dark mode (reemplazan inline styles) --- */
-            .parcels-container {
-                background: rgba(22, 28, 36, 0.92) !important;
-                border: 1px solid rgba(255, 255, 255, 0.08) !important;
-                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
-            }
-            .parcels-inner-card {
-                background: rgba(255, 255, 255, 0.05) !important;
-                border: 1px solid rgba(255, 255, 255, 0.06) !important;
-                box-shadow: none !important;
-            }
-            .parcels-section-title {
-                color: rgba(255, 255, 255, 0.95) !important;
-            }
-            .parcels-label-muted {
-                color: rgba(255, 255, 255, 0.45) !important;
-            }
+            .parcels-container { background: #fff !important; border: 1px solid rgba(0,0,0,0.06) !important; box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important; }
+            .parcels-inner-card { background: #f8f9fa !important; border: 1px solid rgba(0,0,0,0.04) !important; }
+            .parcels-section-title { color: #1D1D1F !important; }
+            .parcels-label-muted { color: #86868B !important; }
 
-            /* --- Panel principal del dashboard --- */
-            #dashboardFlexRow {
-                padding: 16px 12px !important;
-                gap: 16px !important;
-            }
+            #dashboardFlexRow { padding: 12px 8px !important; gap: 12px !important; }
 
-            /* --- Tarjeta de Análisis de Imagen --- */
-            #analysisTableCard {
-                background: rgba(255, 255, 255, 0.05) !important;
-                border: 1px solid rgba(255, 255, 255, 0.06) !important;
-                box-shadow: none !important;
-            }
+            #parcelTable { color: #1D1D1F !important; border-color: rgba(0,0,0,0.06) !important; }
+            #parcelTable thead th { background: #F0F9F0 !important; color: #2FB344 !important; border-color: rgba(0,0,0,0.04) !important; }
+            #parcelTable tbody td { color: #1D1D1F !important; border-color: rgba(0,0,0,0.03) !important; }
+            #parcelTable tbody tr:hover { background: #FAFAFA !important; }
+            #parcelTable tbody tr.selected-parcel, #parcelTable tbody tr.table-success { background: #F0F9F0 !important; }
 
-            /* --- Tabla de parcelas --- */
-            #parcelTable {
-                --bs-table-bg: transparent !important;
-                --bs-table-striped-bg: rgba(255, 255, 255, 0.03) !important;
-                color: rgba(255, 255, 255, 0.85) !important;
-                border-color: rgba(255, 255, 255, 0.06) !important;
-            }
+            #fechaInicioInput, #fechaFinInput { background: #fff !important; border: 1px solid rgba(0,0,0,0.1) !important; color: #1D1D1F !important; }
+            #fechaInicioInput:focus, #fechaFinInput:focus { border-color: #2FB344 !important; box-shadow: 0 0 0 3px rgba(47,179,68,0.1) !important; }
 
-            #parcelTable thead th {
-                background: linear-gradient(135deg, #1a5e2f, #0d4a1a) !important;
-                color: rgba(255, 255, 255, 0.95) !important;
-                border-color: rgba(255, 255, 255, 0.1) !important;
-            }
+            #button-container { background: #fff !important; border: 1px solid rgba(0,0,0,0.06) !important; box-shadow: 0 2px 8px rgba(0,0,0,0.04) !important; }
+            #button-container h3 { color: #1D1D1F !important; }
+            .custom-button { background: #2FB344 !important; color: #fff !important; border: none !important; border-radius: 12px !important; font-weight: 600 !important; }
 
-            #parcelTable tbody td {
-                color: rgba(255, 255, 255, 0.8) !important;
-                border-color: rgba(255, 255, 255, 0.06) !important;
-            }
+            #dashboardFlexRow .form-label, #dashboardFlexRow label { color: #86868B !important; }
 
-            #parcelTable tbody tr:hover {
-                background: rgba(53, 184, 53, 0.08) !important;
-            }
+            #parcelDataTable td { color: #1D1D1F !important; }
+            #dashboardFlexRow .table-borderless td { color: #1D1D1F !important; }
+            #dashboardFlexRow .table-borderless td:first-child { color: #86868B !important; padding: 8px 10px !important; }
 
-            #parcelTable tbody tr.selected-parcel {
-                background: rgba(53, 184, 53, 0.12) !important;
-            }
+            #mapContainer { border-radius: 14px !important; border: 1px solid rgba(0,0,0,0.04) !important; }
+            #cesium-credit { background: rgba(255,255,255,0.7) !important; color: #86868B !important; }
 
-            /* --- Labels de tabla de datos con color:#888 inline --- */
-            #parcelDataTable td[style*="color:#888"],
-            #parcelDataTable td[style*="color: #888"] {
-                color: rgba(255, 255, 255, 0.5) !important;
-            }
+            #dashboardFlexRow .btn-warning { color: #1D1D1F !important; }
 
-            #parcelDataTable td {
-                color: rgba(255, 255, 255, 0.85) !important;
-            }
+            /* Meteorologia mobile */
+            #meteorologicalAnalysisSection .card { background: #fff !important; }
+            #meteorologicalAnalysisSection .card-header { background: #FAFAFA !important; border-bottom: 1px solid rgba(0,0,0,0.04) !important; }
+            #meteorologicalAnalysisSection .card-header h5 { color: #1D1D1F !important; }
+            #meteorologicalChart { height: 250px !important; }
+            #meteorologicalAnalysisContainer .row { flex-direction: column; }
+            #meteorologicalAnalysisContainer .col-md-8, #meteorologicalAnalysisContainer .col-md-4 { width: 100% !important; max-width: 100% !important; flex: 0 0 100% !important; }
+            #meteorologicalAnalysisContainer .btn { font-size: 0.8rem; padding: 6px 12px; }
+            #meteorologicalAnalysisSection .btn-close { filter: none !important; opacity: 0.5; }
+            .weather-day-card { width: 120px !important; min-width: 120px !important; font-size: 0.75rem; }
+            .weather-day-card .card-body { padding: 6px !important; }
+            .weather-icon { width: 50px !important; height: 50px !important; }
 
-            /* --- Labels del formulario con color inline --- */
-            #dashboardFlexRow .form-label,
-            #dashboardFlexRow label {
-                color: rgba(255, 255, 255, 0.7) !important;
-            }
+            /* Parcel table mobile */
+            #parcelTable th, #parcelTable td { font-size: 0.7rem; padding: 6px 4px !important; }
+            #parcelTable .btn { font-size: 0.65rem; padding: 3px 6px; }
 
-            /* --- Inputs de fecha --- */
-            #fechaInicioInput,
-            #fechaFinInput {
-                background: rgba(255, 255, 255, 0.1) !important;
-                border: 1px solid rgba(255, 255, 255, 0.15) !important;
-                color: #fff !important;
-                color-scheme: dark;
-            }
-
-            #fechaInicioInput:focus,
-            #fechaFinInput:focus {
-                border-color: rgba(53, 184, 53, 0.5) !important;
-                box-shadow: 0 0 0 3px rgba(53, 184, 53, 0.15) !important;
-                background: rgba(255, 255, 255, 0.12) !important;
-            }
-
-            /* --- Botones de Análisis (más compactos en móvil) --- */
-            #escenasSatelitalesBtn {
-                background: linear-gradient(135deg, #e67e22, #d35400) !important;
-                color: #fff !important;
-                border: none !important;
-                border-radius: 12px !important;
-            }
-
-            #graficoHistoricoBtn {
-                background: linear-gradient(135deg, #27ae60, #1e8449) !important;
-                color: #fff !important;
-                border: none !important;
-                border-radius: 12px !important;
-            }
-
-            #analisisMeteorologicoBtn {
-                background: linear-gradient(135deg, #2980b9, #1a6ea0) !important;
-                color: #fff !important;
-                border: none !important;
-                border-radius: 12px !important;
-            }
-
-            /* --- Grupo de botones de rango --- */
-            #dashboardFlexRow .btn-group .btn-outline-success {
-                background: rgba(255, 255, 255, 0.06) !important;
-                border-color: rgba(255, 255, 255, 0.12) !important;
-                color: rgba(255, 255, 255, 0.7) !important;
-                font-size: 0.8rem !important;
-            }
-
-            #dashboardFlexRow .btn-group .btn-outline-success.active,
-            #dashboardFlexRow .btn-group .btn-outline-success:active {
-                background: rgba(53, 184, 53, 0.2) !important;
-                border-color: rgba(53, 184, 53, 0.4) !important;
-                color: #4ade80 !important;
-            }
-
-            /* --- Panel de opciones (Dibujo) --- */
-            #button-container {
-                background: rgba(22, 28, 36, 0.92) !important;
-                border: 1px solid rgba(255, 255, 255, 0.08) !important;
-                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
-                backdrop-filter: blur(20px) !important;
-                -webkit-backdrop-filter: blur(20px) !important;
-            }
-
-            #button-container h3 {
-                color: rgba(255, 255, 255, 0.85) !important;
-            }
-
-            .custom-button {
-                background: linear-gradient(135deg, #27ae60, #1e8449) !important;
-                color: #fff !important;
-                border: none !important;
-                border-radius: 12px !important;
-                font-weight: 600 !important;
-            }
-
-            .custom-button:hover,
-            .custom-button:active {
-                background: linear-gradient(135deg, #2ecc71, #27ae60) !important;
-            }
-
-            /* --- Modal de crear/editar parcela --- */
-            #parcelModal {
-                background: rgba(17, 22, 30, 0.97) !important;
-                border: 1px solid rgba(255, 255, 255, 0.1) !important;
-                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
-                backdrop-filter: blur(30px) !important;
-                -webkit-backdrop-filter: blur(30px) !important;
-            }
-
-            #parcelModal h4 {
-                color: rgba(255, 255, 255, 0.95) !important;
-            }
-
-            #parcelModal .form-control,
-            #parcelModal .form-select,
-            #parcelModal textarea {
-                background: rgba(255, 255, 255, 0.08) !important;
-                border: 1px solid rgba(255, 255, 255, 0.12) !important;
-                color: #fff !important;
-                border-radius: 12px !important;
-            }
-
-            #parcelModal .form-control:focus,
-            #parcelModal .form-select:focus,
-            #parcelModal textarea:focus {
-                border-color: rgba(53, 184, 53, 0.5) !important;
-                box-shadow: 0 0 0 3px rgba(53, 184, 53, 0.15) !important;
-                background: rgba(255, 255, 255, 0.1) !important;
-            }
-
-            #parcelModal label {
-                color: rgba(255, 255, 255, 0.7) !important;
-            }
-
-            /* --- Topbar móvil --- */
-            .topbar {
-                background: rgba(11, 15, 20, 0.95) !important;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-                box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3) !important;
-                backdrop-filter: blur(20px) !important;
-                -webkit-backdrop-filter: blur(20px) !important;
-            }
-
-            .topbar .topbar-title {
-                color: #4ade80 !important;
-            }
-
-            .topbar .menu-toggle {
-                color: rgba(255, 255, 255, 0.85) !important;
-            }
-
-            /* --- Sidebar móvil --- */
-            #mobile-sidebar .brand {
-                background: rgba(11, 15, 20, 0.95) !important;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-            }
-
-            /* --- Mapa --- */
-            #mapContainer {
-                border-radius: 14px !important;
-                border: 1px solid rgba(255, 255, 255, 0.06) !important;
-            }
-
-            /* --- CesiumJS credit --- */
-            #cesium-credit {
-                background: rgba(0, 0, 0, 0.5) !important;
-                color: rgba(255, 255, 255, 0.5) !important;
-            }
-
-            /* --- Tabla table-borderless (Info Parcela) --- */
-            #dashboardFlexRow .table-borderless td {
-                color: rgba(255, 255, 255, 0.85) !important;
-                padding: 8px 10px !important;
-            }
-
-            #dashboardFlexRow .table-borderless td:first-child {
-                color: rgba(255, 255, 255, 0.45) !important;
-                font-weight: 500;
-            }
-
-            /* --- Modal de escenas satelitales --- */
-            #sceneSelectionModal .modal-content {
-                background: rgba(17, 22, 30, 0.97) !important;
-                border: 1px solid rgba(255, 255, 255, 0.08) !important;
-            }
-
-            #sceneSelectionModal table {
-                color: rgba(255, 255, 255, 0.85) !important;
-            }
-
-            #sceneSelectionModal table thead th {
-                background: rgba(53, 184, 53, 0.1) !important;
-                color: rgba(255, 255, 255, 0.7) !important;
-            }
-
-            #sceneSelectionModal table tbody td {
-                border-color: rgba(255, 255, 255, 0.06) !important;
-            }
-
-            /* --- Fix contraste en botón Ocultar imagen satelital --- */
-            #dashboardFlexRow .btn-warning {
-                color: #fff !important;
-            }
+            /* Weather animations mobile */
+            #weatherAnimationContainer lottie-player { width: 150px !important; max-width: 100% !important; }
         }
     </style>
 </head>
-<body class="neomorphic-theme">  
+<body class="neomorphic-theme" data-bs-theme="light">  
     <!-- Topbar móvil (solo visible en móvil < 768px) -->
     <div class="topbar" style="display: none;">
         <button class="menu-toggle button-menu-mobile" aria-label="Abrir menú" onclick="toggleMobileSidebar()">
@@ -778,8 +572,8 @@
         </button>
         <div class="topbar-title" style="font-size: 1.1rem; font-weight: 600; color: #4ade80;">Parcelas - Agrotech</div>
         <div class="topbar-actions">
-            <button onclick="if(confirm('¿Cerrar sesión?')){localStorage.clear();location.href='/auth-login.html';}" style="background:none;border:none;color:rgba(255,255,255,0.7);font-size:13px;cursor:pointer;padding:4px 8px;">
-                🚪 Salir
+            <button onclick="if(confirm('Cerrar sesion?')){localStorage.clear();location.href='/auth-login.html';}" style="background:none;border:none;color:#86868B;font-size:13px;cursor:pointer;padding:4px 8px;">
+                Salir
             </button>
         </div>
     </div>
@@ -881,7 +675,7 @@
             <!-- Lista de Parcelas SIEMPRE visible encima del dashboard -->
             <div id="parcelTableContainer" class="parcels-container" style="margin: 30px auto 0 auto; max-width:90%; min-width:320px; overflow-x:auto; clear: both; border-radius: 14px; padding: 18px 12px 12px 12px; display: block !important; position: relative; z-index:2;">
                 <h4 class="parcels-section-title" style="font-weight: bold;">Lista de Parcelas</h4>
-                <table id="parcelTable" class="table table-striped table-bordered" style="min-width:600px;">
+                <table id="parcelTable" class="table table-striped table-bordered" style="min-width:600px;background:#fff !important;">
                     <thead class="thead-dark">
                         <tr>
                             <th>Nombre</th>
@@ -922,16 +716,16 @@
                     
                     <!-- Análisis de Imagen Satelital -->
                     <div class="parcels-inner-card" style="border-radius:12px;padding:18px 20px;margin-bottom:24px;">
-                        <h5 class="parcels-section-title" style="font-weight:bold;margin-bottom:15px;">🛰️ Análisis de Imagen Satelital</h5>
+                        <h5 class="parcels-section-title" style="font-weight:bold;margin-bottom:15px;">Analisis de Imagen Satelital</h5>
                         
                         <!-- Selector rápido de rango de fechas -->
                         <div class="mb-3">
-                            <label class="form-label parcels-label-muted" style="font-weight:500;font-size:13px;">Rango rápido:</label>
-                            <div class="btn-group w-100" role="group" aria-label="Selector de rango de fechas">
-                                <button type="button" class="btn btn-outline-success btn-sm" onclick="setDateRange(7)">7 días</button>
-                                <button type="button" class="btn btn-outline-success btn-sm active" onclick="setDateRange(30)">30 días</button>
-                                <button type="button" class="btn btn-outline-success btn-sm" onclick="setDateRange(90)">3 meses</button>
-                                <button type="button" class="btn btn-outline-success btn-sm" onclick="setDateRange(180)">6 meses</button>
+                            <label class="form-label" style="font-weight:500;font-size:13px;color:#86868B;">Rango rápido</label>
+                            <div class="btn-group w-100" role="group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDateRange(7)">7 d</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary active" onclick="setDateRange(30)">30 d</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDateRange(90)">3 m</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setDateRange(180)">6 m</button>
                             </div>
                         </div>
                         
@@ -945,23 +739,23 @@
                                 <input type="date" id="fechaFinInput" class="form-control form-control-sm">
                             </div>
                         </div>
-                        <button id="escenasSatelitalesBtn" class="btn btn-warning w-100 mb-2" style="font-weight:500;">
-                            <i class="fas fa-satellite me-1"></i> Buscar escenas satelitales
+                        <button id="escenasSatelitalesBtn" class="btn btn-outline-secondary w-100 mb-2">
+                            Buscar escenas satelitales
                         </button>
-                        <button id="graficoHistoricoBtn" class="btn btn-success w-100 mb-2" style="font-weight:500;">
-                            <i class="fas fa-chart-line me-1"></i> Ver Gráfico Histórico
+                        <button id="graficoHistoricoBtn" class="btn btn-outline-secondary w-100 mb-2">
+                            Ver Gráfico Histórico
                         </button>
-                        <button id="analisisMeteorologicoBtn" class="btn btn-info w-100 mb-2" style="font-weight:500;">
-                            <i class="fas fa-cloud-sun me-1"></i> Ver Meteorología
+                        <button id="analisisMeteorologicoBtn" class="btn btn-outline-secondary w-100 mb-2">
+                            Ver Meteorología
                         </button>
-                        <button id="elevacionTerrenoBtn" class="btn w-100" style="font-weight:500; background: linear-gradient(135deg, #8B4513, #2E7D32); color: white; border: none;" disabled title="Selecciona una parcela primero">
-                            <i class="fas fa-mountain me-1"></i> Elevación del Terreno
+                        <button id="elevacionTerrenoBtn" class="btn btn-outline-secondary w-100" disabled title="Selecciona una parcela primero">
+                            Elevación del Terreno
                         </button>
                     </div>
                     
                     <!-- Info Parcela -->
                     <div>
-                        <h5 class="parcels-section-title" style="font-weight:bold;margin-bottom:16px;">📋 Info Parcela</h5>
+                        <h5 class="parcels-section-title" style="font-weight:bold;margin-bottom:16px;">Info Parcela</h5>
                         <table class="table table-borderless mb-0" style="background:transparent;">
                             <tbody id="parcelDataTable">
                                 <tr><td class="parcels-label-muted" style="width:40%;">Nombre:</td><td id="parcelNameCell" style="font-weight:500;">Selecciona una parcela</td></tr>
@@ -970,9 +764,6 @@
                             </tbody>
                         </table>
                     </div>
-
-                    <!-- 🔔 Alertas Agronómicas -->
-                    <div id="agro-alerts-host" class="agro-alerts-host"></div>
                 </div>
                 
                 <!-- Columna derecha: Análisis de imagen satelital -->
@@ -980,7 +771,7 @@
                     
                     <!-- Análisis automático de imagen satelital -->
                     <div id="analysisTableCard" class="parcels-inner-card" style="border-radius:14px;padding:18px 20px;">
-                        <h5 class="parcels-section-title" style="font-weight: bold; margin-bottom: 15px;">📊 Análisis de Imagen</h5>
+                        <h5 class="parcels-section-title" style="font-weight: bold; margin-bottom: 15px;">Analisis de Imagen</h5>
                         <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start;">
                             <!-- Imagen satelital -->
                             <div id="satelliteImageContainer" style="flex:1;min-width:300px;max-width:400px;">
@@ -993,7 +784,18 @@
                 </div>
             </div>
         </div>
-        
+
+        <!-- 🗂️ Historial de Escenas -->
+        <div id="sceneHistorySection" class="parcels-container" style="display:none; margin:30px auto 0 auto; max-width:90%; min-width:320px; border-radius:14px; padding:18px 12px 12px 12px;">
+            <h4 class="parcels-section-title" style="font-weight:bold;">Historial de Escenas</h4>
+            <ul class="nav nav-tabs mb-3" id="sceneTabs">
+                <li class="nav-item"><button class="nav-link active" onclick="switchSceneTab('current')">Escena actual</button></li>
+                <li class="nav-item"><button class="nav-link" onclick="switchSceneTab('history')">Historial <span id="historyCount" class="badge bg-secondary ms-1">0</span></button></li>
+            </ul>
+            <div id="tabCurrentScene"><div id="currentSceneStats" class="row g-2"><div class="col-12 text-muted text-center py-3">Seleccione una escena</div></div></div>
+            <div id="tabHistoryScene" style="display:none"><div id="historyList" class="list-group list-group-flush small"></div></div>
+        </div>
+
         <!-- Modal para editar parcela -->
         <div id="editParcelModal" class="modal" tabindex="-1" role="dialog" style="display: none;">
             <div class="modal-dialog" role="document">
@@ -1153,7 +955,7 @@
                                                     <div class="small text-muted">Velocidad del viento</div>
                                                     <div class="fw-bold" id="detailWindSpeed">-- km/h</div>
                                                 </div>
-                                                <!-- Presión atmosférica NO disponible en EOSDA -->
+                                                <!-- Presión atmosférica NO disponible en este proveedor -->
                                                 <div class="d-flex justify-content-between align-items-center" style="display: none !important;">
                                                     <div class="small text-muted">Presión atmosférica</div>
                                                     <div class="fw-bold" id="detailPressure">No disponible</div>
@@ -1173,7 +975,7 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Radiación Solar NO disponible en EOSDA -->
+                                <!-- Radiación Solar NO disponible en este proveedor -->
                                 <div class="card mt-3" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); display: none !important;">
                                     <div class="card-body">
                                         <h6 class="card-title fw-bold text-success mb-2">Radiación Solar</h6>
@@ -1187,7 +989,7 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Campos NO disponibles en EOSDA - OCULTOS -->
+                                <!-- Campos NO disponibles - OCULTOS -->
                                 <div class="card mt-3" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); display: none !important;">
                                     <div class="card-body">
                                         <h6 class="card-title fw-bold text-info mb-2">Condiciones Adicionales</h6>
@@ -1229,8 +1031,8 @@
         <!-- Sección de Análisis NDVI + Meteorología (estática, no modal) -->
         <div id="meteorologicalAnalysisSection" style="display: none; margin-top: 30px;">
             <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(135deg, #4CAF50, #FF9800); color: white;">
-                    <h5 class="mb-0" style="color: white;">Análisis Comparativo Meteorológico</h5>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Análisis Comparativo Meteorológico</h5>
                     <button type="button" class="btn-close btn-close-white" aria-label="Cerrar" onclick="closeMeterologicalAnalysis()" style="filter: brightness(0) invert(1);"></button>
                 </div>
                 <div class="card-body">
@@ -1247,7 +1049,7 @@
                         <!-- Controles -->
                         <div class="row mb-4">
                             <div class="col-md-12 d-flex justify-content-between align-items-center">
-                                <button class="btn btn-primary" onclick="loadWeatherForecast(window.EOSDA_STATE.selectedParcelId)">
+                                <button class="btn btn-primary" onclick="loadWeatherForecast(window.AGROTECH_STATE.selectedParcelId)">
                                     <i class="fas fa-cloud-sun me-1"></i> Ver Pronóstico
                                 </button>
                                 <div>
@@ -1367,10 +1169,34 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </div>
         </div>
+        </div>
+        </div>
+        </div>
+
+        <script>
+        function switchSceneTab(tab){
+            document.querySelectorAll('#sceneTabs .nav-link').forEach(b=>b.classList.remove('active'));
+            document.querySelector('#sceneTabs [onclick*="'+tab+'"]')?.classList.add('active');
+            document.getElementById('tabCurrentScene').style.display=tab==='current'?'block':'none';
+            document.getElementById('tabHistoryScene').style.display=tab==='history'?'block':'none';
+        }
+        function renderSceneHistory(){
+            const list=document.getElementById('historyList'),count=document.getElementById('historyCount');
+            if(!list||!count)return;
+            const h=window.SceneCache?window.SceneCache.getHistory():[];
+            count.textContent=h.length;
+            if(!h.length){list.innerHTML='<div class="text-muted text-center py-2">Sin escenas consultadas</div>';return;}
+            const sc={high:'success',mid:'warning',low:'danger'},ic={ndvi:'NDVI',ndmi:'NDMI',evi:'EVI',savi:'SAVI'};
+            list.innerHTML=h.map(e=>'<div class="list-group-item d-flex justify-content-between align-items-center py-1 px-2"><div><span>'+ic[e.indexType]+'?</span> <strong>'+e.sceneDate+'</strong><span class="badge bg-'+sc[e.status]+' ms-1">'+(e.value!=null?e.value.toFixed(2):'--')+'</span><small class="text-muted ms-1">'+e.parcelName+'</small></div><button class="btn btn-sm text-danger" onclick="window.SceneCache.removeFromHistory(\''+e.viewId+'\',\''+e.sceneDate+'\',\''+e.indexType+'\');renderSceneHistory()">x</button></div>').join('');
+        }
+        function updateCurrentSceneStats(data,sceneDate,viewId,parcelName){
+            const s=data?.interpreted_data||data?.statistics||data||{};
+            document.getElementById('currentSceneStats').innerHTML=
+            '<div class="col-md-6"><div class="stat-card"><div class="stat-card-header ndvi">NDVI</div><div class="stat-card-body"><h5>'+(s.ndvi?.latest||s.ndvi?.average||s.ndvi?.mean||'--')+'</h5><small class="text-muted">'+sceneDate+'</small></div></div></div>'+
+            '<div class="col-md-6"><div class="stat-card"><div class="stat-card-header ndmi">NDMI</div><div class="stat-card-body"><h5>'+(s.ndmi?.latest||s.ndmi?.average||s.ndmi?.mean||'--')+'</h5><small class="text-muted">'+parcelName+'</small></div></div></div>';
+        }
+        </script>
 
         <!-- Modal para Gráfico Histórico de Índices Satelitales -->
         <div class="modal fade" id="historicalChartModal" tabindex="-1" aria-labelledby="historicalChartModalLabel" aria-hidden="true">
@@ -1525,9 +1351,10 @@
     <script src="https://cdn.jsdelivr.net/npm/qs/dist/qs.js"></script>
     <!-- api-utils.js debe cargarse SIN type="module" para garantizar que window.ApiUrls esté disponible -->
     <script src="../../js/utils/api-utils.js"></script>
-    <script type="module" src="../../js/auth/dev-auth-helper.js"></script>
+    <script src="../../js/auth/dev-auth-helper.js"></script>
     <script src="../../js/app.js"></script>
-    <script type="module" src="../../js/parcels/parcel.js?v=20260616b"></script>
+    <script src="../../js/parcels/scene-cache.js?v=20260623"></script>
+    <script type="module" src="../../js/parcels/parcel.js?v=20260623"></script>
     <script src="../../js/parcels/crop-cycles.js"></script>
     <script type="module" src="../../js/parcels/layers.js"></script>
     <script src="../../js/parcels/analytics-cientifico.js"></script>

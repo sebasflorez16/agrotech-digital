@@ -60,14 +60,14 @@
         let host = document.getElementById('agroAlertsContainer');
         if (host) return host;
 
-        // Insertar antes del quickStatusPanel si existe; si no, al inicio del main.
-        const anchor = document.getElementById('quickStatusPanel');
+        // Insertar al final del contenedor de parcelas, debajo del mapa
+        const anchor = document.getElementById('parcelTableContainer');
         host = el('div', { id: 'agroAlertsContainer', class: 'agro-alerts-host' });
         if (anchor && anchor.parentNode) {
             anchor.parentNode.insertBefore(host, anchor);
         } else {
-            const main = document.querySelector('main') || document.body;
-            main.insertBefore(host, main.firstChild);
+            const main = document.querySelector('#main-content') || document.body;
+            main.appendChild(host);
         }
         return host;
     }

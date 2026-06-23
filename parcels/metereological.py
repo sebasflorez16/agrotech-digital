@@ -1,7 +1,7 @@
 """
 Módulo de funcionalidades meteorológicas para parcelas.
 Contiene toda la lógica relacionada con pronósticos del tiempo, análisis comparativos
-NDVI vs meteorología, y obtención de datos meteorológicos de EOSDA.
+NDVI vs meteorología. Datos climáticos vía Open-Meteo (gratuito, sin API key).
 """
 import logging
 import requests
@@ -42,226 +42,147 @@ class WeatherForecastView(APIView):
             - Empresarial (pro): Clima completo (weather_full)
         """
         # ── Verificar si el plan incluye pronóstico climático ──
-        subscription = getattr(request, 'subscription', None)
-        if subscription:
-            features = subscription.plan.features_included or []
-            has_weather = any(f in features for f in ['weather_basic', 'weather_full'])
-            if not has_weather:
-                logger.warning(
-                    f"[WEATHER_FORECAST] Plan '{subscription.plan.name}' no incluye clima. "
-                    f"Features: {features}"
-                )
-                return Response({
-                    'error': 'Tu plan no incluye pronóstico climático',
-                    'code': 'weather_not_available',
-                    'plan': subscription.plan.name,
-                    'message': f'El plan {subscription.plan.name} no incluye pronóstico meteorológico. '
-                               f'Mejora al plan Agricultor o superior para acceder al clima.',
-                    'upgrade_url': '/billing/upgrade/'
-                }, status=403)
+        from config.devmode import is_dev_mode_active
+        if not is_dev_mode_active(request):
+            subscription = getattr(request, 'subscription', None)
+            if subscription:
+                features = subscription.plan.features_included or []
+                has_weather = any(f in features for f in ['weather_basic', 'weather_full'])
+                if not has_weather:
+                    logger.warning(
+                        f"[WEATHER_FORECAST] Plan '{subscription.plan.name}' no incluye clima. "
+                        f"Features: {features}"
+                    )
+                    return Response({
+                        'error': 'Tu plan no incluye pronóstico climático',
+                        'code': 'weather_not_available',
+                        'plan': subscription.plan.name,
+                        'message': f'El plan {subscription.plan.name} no incluye pronóstico meteorológico. '
+                                   f'Mejora al plan Agricultor o superior para acceder al clima.',
+                        'upgrade_url': '/billing/upgrade/'
+                    }, status=403)
         
         logger.info(f"[WEATHER_FORECAST] Parámetros recibidos: parcel_id={parcel_id}")
         parcel = get_object_or_404(Parcel, pk=parcel_id, is_deleted=False)
-        field_id = getattr(parcel, "eosda_id", None)
         
-        if not field_id:
-            logger.error("[WEATHER_FORECAST] La parcela no tiene un field_id EOSDA válido.")
-            return Response({"error": "La parcela no tiene un field_id EOSDA válido."}, status=404)
-        
-        # Obtener coordenadas del centroide de la parcela para usar en la API de pronóstico
+        # Obtener coordenadas del centroide de la parcela
         if hasattr(parcel.geom, 'centroid'):
             centroid = parcel.geom.centroid
             lat = centroid.y
             lng = centroid.x
-            logger.info(f"[WEATHER_FORECAST] Coordenadas obtenidas del centroide: lat={lat}, lng={lng}")
+            logger.info(f"[WEATHER_FORECAST] Coordenadas del centroide: lat={lat}, lng={lng}")
         else:
             # Extraer coordenadas del GeoJSON
             try:
                 geom = parcel.geom
                 if isinstance(geom, dict):
-                    # Calcular centroide aproximado del polígono GeoJSON
                     coordinates = geom.get('coordinates', [])
                     if coordinates and len(coordinates) > 0:
-                        # Para polígonos, tomar el primer anillo
                         coords = coordinates[0] if isinstance(coordinates[0], list) else coordinates
-                        # Calcular centroide simple
                         lng = sum(coord[0] for coord in coords) / len(coords)
                         lat = sum(coord[1] for coord in coords) / len(coords)
                         logger.info(f"[WEATHER_FORECAST] Coordenadas calculadas del GeoJSON: lat={lat}, lng={lng}")
                     else:
-                        # No usar fallback, devolver error si no hay geometría
-                        logger.warning(f"[WEATHER_FORECAST] No se pudo determinar las coordenadas de la parcela: geometría vacía o inválida")
+                        logger.warning(f"[WEATHER_FORECAST] Geometría vacía o inválida")
                         return Response(
                             {"error": "No se pudo determinar las coordenadas de la parcela: geometría vacía o inválida"}, 
                             status=400
                         )
                 else:
-                    # No usar fallback, devolver error si no hay geometría
-                    logger.warning(f"[WEATHER_FORECAST] No se pudo determinar las coordenadas de la parcela: formato de geometría incorrecto")
+                    logger.warning(f"[WEATHER_FORECAST] Formato de geometría incorrecto")
                     return Response(
                         {"error": "No se pudo determinar las coordenadas de la parcela: formato de geometría incorrecto"}, 
                         status=400
                     )
             except Exception as e:
-                # No usar fallback, reportar el error específico
-                logger.error(f"[WEATHER_FORECAST] Error al obtener coordenadas: {str(e)}")
                 return Response(
                     {"error": f"Error al obtener coordenadas de la parcela: {str(e)}"}, 
                     status=400
                 )
         
-        # Usar la API de pronóstico meteorológico
-        # Según la documentación: https://doc.eos.com/docs/weather/basic-weather-providers/#weather-forecast-without-data-aggregation
-        # La URL correcta es https://api-connect.eos.com/api/forecast/weather/forecast/
-        request_url = f"https://api-connect.eos.com/api/forecast/weather/forecast/"
-        headers = {
-            "x-api-key": settings.EOSDA_API_KEY,
-            "Content-Type": "application/json"
-        }
-        logger.info(f"[WEATHER_FORECAST] URL: {request_url}")
-        logger.info(f"[WEATHER_FORECAST] API Key presente: {'Sí' if settings.EOSDA_API_KEY else 'No'}")
-        logger.info(f"[WEATHER_FORECAST] Field ID: {field_id}")
-        logger.info(f"[WEATHER_FORECAST] Coordenadas: lat={lat}, lng={lng}")
-        
-        # Crear polígono GeoJSON de la parcela para la API
-        # Usar la geometría de la parcela o crear un polígono simple basado en el centroide
-        # Según documentación, necesitamos geometry en formato GeoJSON
-        try:
-            if hasattr(parcel, 'geom') and hasattr(parcel.geom, 'json'):
-                # Usar la geometría existente si está disponible en formato GeoJSON
-                geometry = json.loads(parcel.geom.json)
-            else:
-                # Crear un cuadrado simple alrededor del centroide (aproximadamente 100 metros)
-                offset = 0.001  # aproximadamente 100 metros en grados
-                geometry = {
-                    "type": "Polygon",
-                    "coordinates": [[
-                        [lng - offset, lat - offset],
-                        [lng + offset, lat - offset],
-                        [lng + offset, lat + offset],
-                        [lng - offset, lat + offset],
-                        [lng - offset, lat - offset]  # cerrar el polígono
-                    ]]
-                }
-        except Exception as e:
-            logger.error(f"[WEATHER_FORECAST] Error creando geometría: {str(e)}")
-            return Response({
-                "error": "Error creando geometría para la consulta meteorológica",
-                "message": str(e),
-                "parcel_id": parcel_id
-            }, status=400)
-            
-        # Intentar obtener un pronóstico más amplio (intentemos con 30 días)
+        # === Open-Meteo: pronóstico gratuito, sin API key ===
         today = datetime.now()
-        end_date = today + timedelta(days=30)
         
-        # ============ CACHE DE PRONÓSTICO (6 horas) ============
-        # El pronóstico se actualiza ~cada 6-12 horas, no tiene sentido pedirlo más frecuentemente
-        weather_cache_key = f"weather_forecast_{field_id}_{today.strftime('%Y-%m-%d')}"
+        # Cache por 6 horas
+        weather_cache_key = f"weather_forecast_openmeteo_{parcel_id}_{today.strftime('%Y-%m-%d')}"
         cached_forecast = cache.get(weather_cache_key)
         if cached_forecast:
-            logger.info(f"[WEATHER_FORECAST] ✅ CACHE HIT: Retornando pronóstico cacheado para {field_id}")
+            logger.info(f"[WEATHER_FORECAST] ✅ CACHE HIT: Retornando pronóstico cacheado")
             return Response(cached_forecast, status=200)
         
-        # Parámetros para la API de pronóstico - usando geometry según documentación
-        # Usando la fecha actual para asegurar que tenemos datos desde hoy
-        payload = {
-            "geometry": geometry,
-            "date_from": today.strftime("%Y-%m-%dT00:00"),  # Comenzamos desde hoy
-            "date_to": end_date.strftime("%Y-%m-%dT00:00"),
-            "is_hourly": False,  # Solicitamos datos diarios, no horarios
-            "aggregation": "daily",  # Agregamos este parámetro para indicar que queremos datos diarios
-            "variables": ["temperature", "precipitation", "humidity", "wind_speed"]  # Especificamos variables
+        # Llamar a Open-Meteo API
+        meteo_url = "https://api.open-meteo.com/v1/forecast"
+        params = {
+            "latitude": lat,
+            "longitude": lng,
+            "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,relative_humidity_2m_mean,pressure_msl_mean,cloud_cover_mean",
+            "timezone": "America/Bogota",
+            "forecast_days": 16,
         }
         
         try:
-            logger.info(f"[WEATHER_FORECAST] Iniciando solicitud a EOSDA para field_id: {field_id}")
-            logger.info(f"[WEATHER_FORECAST] Payload: {payload}")
+            logger.info(f"[WEATHER_FORECAST] Consultando Open-Meteo: lat={lat}, lng={lng}")
+            response = requests.get(meteo_url, params=params, timeout=15)
+            logger.info(f"[WEATHER_FORECAST] Status: {response.status_code}")
             
-            # Según la documentación se usa POST, no GET
-            response = requests.post(request_url, json=payload, headers=headers, timeout=30)
-            logger.info(f"[WEATHER_FORECAST] POST Status: {response.status_code}")
-            logger.info(f"[WEATHER_FORECAST] POST Response length: {len(response.text)} caracteres")
-            logger.info(f"[WEATHER_FORECAST] Primeros 200 caracteres: {response.text[:200]}")
-            
-            if response.status_code == 402:
-                logger.error(f"[WEATHER_FORECAST] Límite de requests EOSDA excedido: {response.text}")
+            if response.status_code != 200:
+                logger.error(f"[WEATHER_FORECAST] Error Open-Meteo HTTP {response.status_code}: {response.text[:200]}")
                 return Response({
-                    "error": "EOSDA API: Límite de requests excedido",
-                    "message": "No se pudo obtener el pronóstico del tiempo: límite de solicitudes excedido",
+                    "error": f"Error del proveedor meteorológico HTTP {response.status_code}",
+                    "message": "No se pudo obtener el pronóstico del tiempo",
                     "parcel_id": parcel_id,
                     "parcel_name": parcel.name
-                }, status=429)  # Devolvemos 429 Too Many Requests
-                
-            if response.status_code == 404:
-                logger.error(f"[WEATHER_FORECAST] Field ID no encontrado en EOSDA: {response.text}")
+                }, status=503)
+            
+            data = response.json()
+            daily = data.get("daily", {})
+            if not daily or "time" not in daily:
+                logger.error(f"[WEATHER_FORECAST] Respuesta Open-Meteo sin datos daily: {data}")
                 return Response({
-                    "error": "Field ID no encontrado en EOSDA",
-                    "message": "No se encontraron datos meteorológicos para esta parcela",
-                    "field_id": field_id,
-                    "coordinates": {"lat": lat, "lng": lng},
+                    "error": "Formato de respuesta inesperado",
+                    "message": "No se pudo obtener datos meteorológicos",
                     "parcel_id": parcel_id,
                     "parcel_name": parcel.name
-                }, status=404)  # Devolvemos 404 Not Found
+                }, status=404)
             
-            # Para otros errores HTTP
-            if response.status_code >= 400:
-                logger.error(f"[WEATHER_FORECAST] Error EOSDA HTTP {response.status_code}: {response.text}")
-                return Response({
-                    "error": f"Error EOSDA HTTP {response.status_code}",
-                    "message": f"No se pudo obtener datos meteorológicos reales: {response.text[:100]}...",
-                    "field_id": field_id,
-                    "coordinates": {"lat": lat, "lng": lng},
-                    "parcel_id": parcel_id,
-                    "parcel_name": parcel.name
-                }, status=response.status_code)  # Devolvemos el mismo código de error
-            
-            try:
-                data = response.json()
-                forecast = data
-                # La API devuelve un array directamente, no un objeto con propiedad "forecast"
-                if not isinstance(forecast, list) or len(forecast) == 0:
-                    logger.error(f"[WEATHER_FORECAST] Formato de respuesta inesperado: {response.text[:500]}")
-                    return Response({
-                        "error": "Formato de respuesta inesperado de EOSDA",
-                        "message": "No se pudo obtener datos meteorológicos en el formato esperado",
-                        "parcel_id": parcel_id,
-                        "parcel_name": parcel.name
-                    }, status=404)
-                logger.info(f"[WEATHER_FORECAST] Datos recibidos correctamente con {len(forecast)} días de pronóstico")
-            except ValueError as json_err:
-                logger.error(f"[WEATHER_FORECAST] Error al parsear JSON: {str(json_err)} - Contenido: {response.text[:500]}")
-                return Response({
-                    "error": f"Error al parsear respuesta de EOSDA: {str(json_err)}",
-                    "message": "La API de EOSDA no devolvió un formato JSON válido",
-                    "parcel_id": parcel_id,
-                    "parcel_name": parcel.name
-                }, status=400)  # Devolvemos 400 Bad Request
-            
-            # Procesar y estandarizar los datos del pronóstico para el frontend
-            processed_forecast = self._process_forecast_data(forecast)
+            # Procesar datos al formato del frontend
+            processed_forecast = []
+            days = daily["time"]
+            for i, date_str in enumerate(days):
+                t_max = daily.get("temperature_2m_max", [None])[i] or 0
+                t_min = daily.get("temperature_2m_min", [None])[i] or 0
+                processed_forecast.append({
+                    "date": date_str,
+                    "temperature_max": round(t_max, 1),
+                    "temperature_min": round(t_min, 1),
+                    "temperature": round((t_max + t_min) / 2, 1),
+                    "precipitation": round(daily.get("precipitation_sum", [0])[i] or 0, 1),
+                    "humidity": round(daily.get("relative_humidity_2m_mean", [0])[i] or 0, 1),
+                    "wind_speed": round(daily.get("wind_speed_10m_max", [0])[i] or 0, 1),
+                    "pressure": round(daily.get("pressure_msl_mean", [0])[i] or 0, 1),
+                    "cloud_cover": round(daily.get("cloud_cover_mean", [0])[i] or 0, 1),
+                    "is_real_data": True,
+                })
             
             logger.info(f"[WEATHER_FORECAST] Procesados {len(processed_forecast)} días de pronóstico")
+            
             response_data = {
-                "forecast": processed_forecast, 
-                "source": "EOSDA", 
+                "forecast": processed_forecast,
+                "source": "Open-Meteo",
                 "parcel_id": parcel_id,
-                "parcel_name": parcel.name
+                "parcel_name": parcel.name,
             }
-            # Guardar en cache por 6 horas (21600 segundos) — el pronóstico no cambia tan frecuentemente
             cache.set(weather_cache_key, response_data, 21600)
-            logger.info(f"[WEATHER_FORECAST] ✅ CACHE SET: Pronóstico guardado por 6 horas")
             return Response(response_data, status=200)
             
         except requests.exceptions.RequestException as e:
-            logger.error(f"[WEATHER_FORECAST] Error en la petición a EOSDA: {str(e)}")
-            # Devolver un error claro sin datos de prueba
+            logger.error(f"[WEATHER_FORECAST] Error de conexión: {str(e)}")
             return Response({
-                "error": "Error de conexión con la API meteorológica", 
+                "error": "Error de conexión con la API meteorológica",
                 "message": str(e),
                 "parcel_id": parcel_id,
                 "parcel_name": parcel.name
-            }, status=503)  # 503 Service Unavailable
+            }, status=503)
 
     def _process_forecast_data(self, forecast):
         """

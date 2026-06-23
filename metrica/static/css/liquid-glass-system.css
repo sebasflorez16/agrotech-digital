@@ -11,6 +11,17 @@
     --agrotech-primary-light: #4ADE5E;
     --agrotech-accent: #FF9F0A;
     
+    /* 🔬 Índices satelitales — un color por índice */
+    --index-ndvi: #2FB344;
+    --index-ndmi: #0EA5E9;
+    --index-savi: #F59E0B;
+    --index-evi: #8B5CF6;
+    
+    /* 🚦 Semáforo de datos — solo para valores, no para UI */
+    --alert-high: #2FB344;
+    --alert-mid: #F59E0B;
+    --alert-low: #EF4444;
+    
     /* Apple Grays */
     --glass-white: rgba(255, 255, 255, 0.7);
     --glass-light: rgba(255, 255, 255, 0.5);
@@ -454,3 +465,42 @@ body {
 .leaflet-popup-close-button { box-sizing: content-box; }
 .leaflet-control-layers, .leaflet-control-zoom, .leaflet-control-attribution { box-sizing: content-box; }
 .leaflet-control-layers *, .leaflet-control-zoom *, .leaflet-control-attribution * { box-sizing: content-box; }
+
+/* ── Botones de índice satelital ── */
+.btn-index {
+    border: none; border-radius: var(--radius-sm); padding: 8px 16px;
+    font-weight: var(--font-weight-semibold); font-size: 0.85rem;
+    cursor: pointer; transition: all 0.2s ease;
+    color: #fff; box-shadow: var(--shadow-sm);
+}
+.btn-index:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+.btn-index-ndvi { background: var(--index-ndvi); }
+.btn-index-ndmi { background: var(--index-ndmi); }
+.btn-index-savi { background: var(--index-savi); }
+
+/* ── Paneles glass ── */
+.panel-glass {
+    background: var(--glass-white); backdrop-filter: var(--glass-blur-light);
+    border: 1px solid var(--glass-border); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-glass); padding: var(--space-lg);
+}
+.panel-glass-header {
+    background: rgba(47,179,68,0.08); border-bottom: 1px solid rgba(47,179,68,0.15);
+    padding: var(--space-md) var(--space-lg); border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    font-weight: var(--font-weight-semibold); color: var(--text-primary);
+}
+
+/* ── Stats cards ── */
+.stat-card {
+    background: var(--glass-white); backdrop-filter: var(--glass-blur-light);
+    border: 1px solid var(--glass-border); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.stat-card-header {
+    padding: 6px 14px; font-size: 0.75rem; font-weight: var(--font-weight-semibold);
+    text-transform: uppercase; letter-spacing: 0.5px;
+}
+.stat-card-header.ndvi { background: rgba(47,179,68,0.12); color: var(--index-ndvi); }
+.stat-card-header.ndmi { background: rgba(14,165,233,0.12); color: var(--index-ndmi); }
+.stat-card-body { padding: 10px 14px; text-align: center; }
+.stat-card-body h5 { margin: 0; font-size: 1.25rem; color: var(--text-primary); }

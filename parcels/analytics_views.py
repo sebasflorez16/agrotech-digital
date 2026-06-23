@@ -138,10 +138,8 @@ class EOSDAAnalyticsAPIView(APIView):
             # EOSDA hace timeout para escena específica - Error más específico
             if not real_analytics:
                 logger.error(f"[EOSDA_ANALYTICS_REAL] ❌ NO se obtuvieron datos para ESCENA ESPECÍFICA")
-                logger.error(f"[EOSDA_ANALYTICS_REAL] ❌ Escena: {view_id} - Fecha: {scene_date}")
-                logger.error(f"[EOSDA_ANALYTICS_REAL] ❌ Parcela: {parcel_data.get('name', 'Unknown')}")
                 
-                return Response({
+                response_503 = {
                     "error": "No se obtuvieron datos para la escena específica",
                     "details": f"EOSDA no pudo procesar la escena {view_id} del {scene_date}",
                     "view_id": view_id,
@@ -160,7 +158,10 @@ class EOSDAAnalyticsAPIView(APIView):
                         "step3": "Seleccione otra escena de fecha cercana",
                         "step4": "Contacte soporte si persiste el problema"
                     }
-                }, status=503)
+                }
+                # Cachear el 503 por 60s para no repetir requests a EOSDA
+                cache.set(cache_key, response_503, 60)
+                return Response(response_503, status=503)
             
             # Interpretar datos reales con contexto agronómico
             interpreted_data = self._interpret_real_analytics(real_analytics, scene_date, view_id)

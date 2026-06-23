@@ -130,6 +130,12 @@ def check_eosda_limit(view_func):
         else:
             logger.error("[check_eosda_limit] No se pudo determinar el request")
             return JsonResponse({'error': 'Internal error'}, status=500)
+
+        # 🛡️ MODO DESARROLLADOR: primer chequeo, antes de cualquier lógica de suscripción
+        from config.devmode import is_dev_mode_active
+        if is_dev_mode_active(request):
+            logger.info(f"[check_eosda_limit] 🔓 DEVELOPER MODE: {request.user.username} sin límites EOSDA")
+            return view_func(*args, **kwargs)
         
         # Intentar obtener subscription del request primero
         subscription = getattr(request, 'subscription', None)
@@ -146,12 +152,6 @@ def check_eosda_limit(view_func):
                     logger.warning(f"[check_eosda_limit] No subscription for tenant {tenant.schema_name}")
         
         if not subscription:
-            # 🛡️ MODO DESARROLLADOR: bypass para superusuarios
-            from config.devmode import is_dev_mode_active
-            if is_dev_mode_active(request):
-                logger.info(f"[check_eosda_limit] 🔓 DEVELOPER MODE: {request.user.username} sin límites EOSDA")
-                return view_func(*args, **kwargs)
-            
             # En modo DEBUG, permitir continuar sin suscripción (desarrollo local)
             if getattr(settings, 'DEBUG', False):
                 logger.warning("[check_eosda_limit] DEBUG MODE: Permitiendo acceso sin suscripción")
