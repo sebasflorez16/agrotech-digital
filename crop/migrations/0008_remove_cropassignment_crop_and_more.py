@@ -35,41 +35,6 @@ class Migration(migrations.Migration):
             name="cropvariety",
             unique_together={("name", "crop_type")},
         ),
-        migrations.AddField(
-            model_name="crop",
-            name="tenant_id",
-            field=models.IntegerField(
-                blank=True, db_index=True, null=True, verbose_name="ID del Tenant"
-            ),
-        ),
-        migrations.AddField(
-            model_name="cropcycle",
-            name="tenant_id",
-            field=models.IntegerField(
-                blank=True, db_index=True, null=True, verbose_name="ID del Tenant"
-            ),
-        ),
-        migrations.AddField(
-            model_name="croptype",
-            name="tenant_id",
-            field=models.IntegerField(
-                blank=True, db_index=True, null=True, verbose_name="ID del Tenant"
-            ),
-        ),
-        migrations.AddField(
-            model_name="cropvariety",
-            name="tenant_id",
-            field=models.IntegerField(
-                blank=True, db_index=True, null=True, verbose_name="ID del Tenant"
-            ),
-        ),
-        migrations.AddField(
-            model_name="historicalcrop",
-            name="tenant_id",
-            field=models.IntegerField(
-                blank=True, db_index=True, null=True, verbose_name="ID del Tenant"
-            ),
-        ),
         migrations.AlterField(
             model_name="cropvariety",
             name="crop_type",
