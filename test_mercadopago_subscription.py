@@ -20,8 +20,8 @@ preapproval_data = {
         'transaction_amount': 79000,
         'currency_id': 'COP'
     },
-    'back_url': 'https://unmellifluous-benton-emotional.ngrok-free.app/billing/success/',
-    'payer_email': 'juansebastianflorezescobar@gmail.com',
+    'back_url': os.environ.get('MP_BACK_URL', 'http://localhost:8000/billing/success/'),
+    'payer_email': os.environ.get('MP_PAYER_EMAIL', 'admin@example.com'),
     'external_reference': 'test_subscription_001'
 }
 

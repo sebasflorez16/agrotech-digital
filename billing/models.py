@@ -21,6 +21,7 @@ class Plan(models.Model):
         ('free', 'Explorador'),
         ('basic', 'Agricultor'),
         ('pro', 'Empresarial'),
+        ('enterprise', 'Corporativo'),
     ]
     
     FREQUENCY_CHOICES = [

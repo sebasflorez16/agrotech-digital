@@ -114,7 +114,7 @@ def create_tenant(info, plans):
         defaults={
             "plan": plan,
             "status": status,
-            "payment_gateway": random.choice(["wompi", "stripe"]),
+            "payment_gateway": random.choice(["mercadopago", "paddle"]),
             "current_period_start": now - timedelta(days=random.randint(5, 25)),
             "current_period_end": now + timedelta(days=random.randint(5, 30)),
             "trial_end": (now + timedelta(days=14)) if is_trial else None,

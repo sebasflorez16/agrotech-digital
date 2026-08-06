@@ -430,6 +430,105 @@ class CropHealthStatus(models.Model):
         return obj
 
 
+# ── Historial de eventos del monitoreo (Monitoreo Continuo Fase 6) ──────
+
+class MonitoringEvent(models.Model):
+    """
+    Registro cronologico de eventos del monitoreo por parcela.
+    Permite al agricultor ver que el sistema esta trabajando constantemente.
+    """
+    EVENT_TYPES = [
+        ('image_processed', 'Imagen procesada'),
+        ('no_observation', 'Sin observacion'),
+        ('weather_update', 'Actualizacion clima'),
+        ('ndvi_change', 'Cambio en NDVI'),
+        ('alert', 'Alerta'),
+        ('system_check', 'Verificacion del sistema'),
+    ]
+    parcel = models.ForeignKey(
+        'Parcel', on_delete=models.CASCADE, related_name='monitoring_events'
+    )
+    tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
+    event_type = models.CharField(max_length=30, choices=EVENT_TYPES, verbose_name="Tipo de evento")
+    title = models.CharField(max_length=200, verbose_name="Titulo")
+    description = models.TextField(blank=True, null=True, verbose_name="Descripcion")
+    metadata = models.JSONField(default=dict, blank=True, verbose_name="Metadatos")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="Fecha del evento")
+
+    class Meta:
+        verbose_name = "Evento de monitoreo"
+        verbose_name_plural = "Eventos de monitoreo"
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['parcel', '-created_at']),
+            models.Index(fields=['tenant_id', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"[{self.get_event_type_display()}] {self.parcel.name} — {self.created_at:%d/%m/%Y}"
+
+    @classmethod
+    def log_event(cls, parcel, event_type, title, description='', metadata=None):
+        """Registra un evento de monitoreo para una parcela."""
+        return cls.objects.create(
+            parcel=parcel,
+            tenant_id=parcel.tenant_id,
+            event_type=event_type,
+            title=title,
+            description=description,
+            metadata=metadata or {},
+        )
+
+    @classmethod
+    def get_recent_activity(cls, parcel, limit=8):
+        """Obtiene los eventos mas recientes para mostrar actividad."""
+        return list(cls.objects.filter(parcel=parcel).order_by('-created_at')[:limit])
+
+    @classmethod
+    def get_recent_activity_display(cls, parcel, limit=5):
+        """
+        Retorna una lista de strings legibles para mostrar en el frontend
+        como seccion de actividad reciente.
+        """
+        events = cls.get_recent_activity(parcel, limit)
+        activity = []
+        for ev in events:
+            time_ago = cls._time_ago(ev.created_at)
+            activity.append({
+                'event': ev.event_type,
+                'title': ev.title,
+                'description': ev.description,
+                'time_ago': time_ago,
+                'icon': cls._event_icon(ev.event_type),
+            })
+        return activity
+
+    @staticmethod
+    def _time_ago(dt):
+        from django.utils import timezone
+        delta = timezone.now() - dt
+        if delta.days > 30:
+            return f"hace {delta.days // 30} meses"
+        if delta.days > 0:
+            return f"hace {delta.days} dias"
+        hours = delta.seconds // 3600
+        if hours > 0:
+            return f"hace {hours} horas"
+        return "hace unos minutos"
+
+    @staticmethod
+    def _event_icon(event_type):
+        icons = {
+            'image_processed': '🛰️',
+            'no_observation': '☁️',
+            'weather_update': '🌧️',
+            'ndvi_change': '📊',
+            'alert': '⚠️',
+            'system_check': '✅',
+        }
+        return icons.get(event_type, '📌')
+
+
 # ── Mixins de seguridad multi-tenant ──────────────────────────────────────
 
 class TenantScopedQueryMixin:

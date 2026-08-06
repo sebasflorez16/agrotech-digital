@@ -8,7 +8,9 @@ from .base import env
 # GENERAL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#secret-key
-SECRET_KEY = env("DJANGO_SECRET_KEY")
+# Para tests: si no existe DJANGO_SECRET_KEY se genera una aleatoria.
+import secrets
+SECRET_KEY = env("DJANGO_SECRET_KEY", default=secrets.token_urlsafe(50))
 # https://docs.djangoproject.com/en/dev/ref/settings/#test-runner
 TEST_RUNNER = "django.test.runner.DiscoverRunner"
 

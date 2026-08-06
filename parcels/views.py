@@ -15,7 +15,7 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view, permission_classes
-from .models import Parcel, ParcelSceneCache, CropHealthStatus
+from .models import Parcel, ParcelSceneCache, CropHealthStatus, MonitoringEvent
 from .serializers import ParcelSerializer
 
 logger = logging.getLogger(__name__)
@@ -455,7 +455,69 @@ class ParcelViewSet(viewsets.ModelViewSet):
             return error_response
         
         logger.info(f"Creando parcela de {new_hectares:.2f} ha - Límites verificados OK")
-        return super().create(request, *args, **kwargs)
+        response = super().create(request, *args, **kwargs)
+
+        # ── Onboarding asistido: enriquecer la respuesta con guía y contexto del plan ──
+        try:
+            data = response.data if hasattr(response, 'data') else None
+            if isinstance(data, dict):
+                from billing.models import UsageMetrics
+
+                onboarding = {'area_hectares': round(new_hectares, 2)}
+                subscription = getattr(request, 'subscription', None)
+                if subscription:
+                    plan = subscription.plan
+                    metrics = None
+                    try:
+                        tenant = getattr(request, 'tenant', None)
+                        if tenant:
+                            metrics = UsageMetrics.get_or_create_current(tenant)
+                    except Exception:
+                        metrics = None
+
+                    parcela_limit = plan.get_limit('parcels', 0)
+                    total_parcelas_actuales = Parcel.objects.filter(is_deleted=False).count()
+                    onboarding['plan'] = {
+                        'tier': plan.tier,
+                        'name': plan.name,
+                        'remaining_hectares': max(
+                            float(plan.get_limit('hectares', 0)) - float(new_hectares), 0
+                        ) if plan.get_limit('hectares', 0) != 'unlimited' else 'unlimited',
+                        'remaining_parcels': max(
+                            int(parcela_limit) - total_parcelas_actuales, 0
+                        ) if parcela_limit != 'unlimited' else 'unlimited',
+                        'eosda_requests_used': metrics.eosda_requests if metrics else 0,
+                        'eosda_requests_limit': plan.get_limit('eosda_requests', 0),
+                    }
+
+                # Guía de siguientes pasos para el agricultor
+                onboarding['next_steps'] = [
+                    {
+                        'step': 1,
+                        'title': 'Dibuja o selecciona tu parcela en el mapa',
+                        'detail': 'Verifica que el polígono corresponda al lote real.',
+                    },
+                    {
+                        'step': 2,
+                        'title': 'Ejecuta tu primer análisis satelital NDVI',
+                        'detail': 'El análisis muestra el vigor de tu cultivo y toma ~30 segundos.',
+                    },
+                    {
+                        'step': 3,
+                        'title': 'Crea un ciclo de cultivo',
+                        'detail': 'Vincular un cultivo activa la interpretación agronómica automática.',
+                    },
+                    {
+                        'step': 4,
+                        'title': 'Activa el Monitoreo Continuo (Pro)',
+                        'detail': 'Recibe el estado de salud de tu cultivo con cada nueva imagen satelital.',
+                    },
+                ]
+                data['onboarding'] = onboarding
+        except Exception as onboarding_err:
+            logger.warning(f"[ONBOARDING] No se pudo enriquecer la respuesta: {onboarding_err}")
+
+        return response
 
     def update(self, request, *args, **kwargs):
         """
@@ -534,15 +596,57 @@ class ParcelViewSet(viewsets.ModelViewSet):
         AREA_LIMIT = 300  # en hectáreas
         area_restante = max(AREA_LIMIT - total_area, 0)  # en hectáreas
 
-        # Simulación de datos NDVI desde enero hasta junio
-        ndvi_data = {
-            "Enero": 0.45,
-            "Febrero": 0.50,
-            "Marzo": 0.60,
-            "Abril": 0.55,
-            "Mayo": 0.58,
-            "Junio": 0.62
+        # Datos satelitales REALES (nunca simulados):
+        # - ndvi_data: observaciones reales por mes desde el cache de escenas EOSDA
+        # - latest_ndvi: último NDVI real registrado por CropHealthStatus
+        MESES_ES = {
+            1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril",
+            5: "Mayo", 6: "Junio", 7: "Julio", 8: "Agosto",
+            9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre",
         }
+        ndvi_data = {}
+        latest_scene_date = None
+        try:
+            scenes_qs = ParcelSceneCache.objects.filter(
+                parcel__is_deleted=False
+            ).order_by('date')
+            for scene in scenes_qs.iterator():
+                month_key = MESES_ES.get(scene.date.month, scene.date.strftime('%m'))
+                ndvi_data[month_key] = ndvi_data.get(month_key, 0) + 1
+                if latest_scene_date is None or scene.date > latest_scene_date:
+                    latest_scene_date = scene.date
+        except Exception as cache_err:
+            logger.warning(f"[SUMMARY] No se pudo leer cache de escenas: {cache_err}")
+
+        # Último NDVI real conocido por parcela (Monitoreo Continuo)
+        latest_ndvi = None
+        latest_ndvi_parcel = None
+        try:
+            health_qs = CropHealthStatus.objects.filter(parcel__is_deleted=False)
+            best = None
+            for health in health_qs.iterator():
+                if health.ndvi_last is None:
+                    continue
+                if best is None or health.ndvi_last > best['ndvi']:
+                    best = {'ndvi': health.ndvi_last, 'parcel': health.parcel.name,
+                            'date': health.last_image_date or health.last_observation_date}
+            if best:
+                latest_ndvi = round(best['ndvi'], 3)
+                latest_ndvi_parcel = best['parcel']
+        except Exception as health_err:
+            logger.warning(f"[SUMMARY] No se pudo leer estado de salud: {health_err}")
+
+        ndvi_available = len(ndvi_data) > 0
+        if not ndvi_available:
+            ndvi_message = (
+                "Aún no hay observaciones satelitales. "
+                "Ejecuta un análisis en la sección Parcelas para ver tu primer NDVI real."
+            )
+        else:
+            ndvi_message = (
+                f"Observaciones satelitales reales por mes. "
+                f"Última escena: {latest_scene_date}."
+            )
 
         return Response({
             "total": total,
@@ -554,7 +658,12 @@ class ParcelViewSet(viewsets.ModelViewSet):
             "last_parcel": last_parcel.name if last_parcel else None,
             "last_parcel_date": last_parcel.created_on.strftime('%d/%m/%Y %H:%M') if last_parcel and last_parcel.created_on else None,
             "area_restante": round(area_restante, 2),
-            "ndvi_data": ndvi_data
+            "ndvi_data": ndvi_data,
+            "ndvi_available": ndvi_available,
+            "ndvi_message": ndvi_message,
+            "latest_ndvi": latest_ndvi,
+            "latest_ndvi_parcel": latest_ndvi_parcel,
+            "latest_scene_date": latest_scene_date.isoformat() if latest_scene_date else None,
         })
 
     @action(detail=False, methods=["post"], url_path="ndvi-historical")
@@ -777,7 +886,7 @@ from rest_framework.response import Response
 from django.conf import settings
 import requests
 import json
-from billing.decorators import check_eosda_limit
+from billing.decorators import check_eosda_limit, require_feature
 
 class EosdaScenesView(APIView):
     permission_classes = [IsAuthenticated]
@@ -2787,9 +2896,12 @@ class CropHealthAPIView(APIView):
     
     Retorna el ultimo estado conocido del cultivo con badge visual,
     incluso cuando no hay imagenes nuevas disponibles.
+    
+    Feature gated: 'continuous_monitoring' (planes Pro+).
     """
     permission_classes = [IsAuthenticated]
 
+    @require_feature('continuous_monitoring')
     def get(self, request, parcel_id):
         from django.utils import timezone as dj_timezone
         parcel = get_object_or_404(Parcel, pk=parcel_id, is_deleted=False)
@@ -2825,6 +2937,9 @@ class CropHealthAPIView(APIView):
                 'cloudCoverage': sc.metadata.get('cloudCoverage', 0) if sc.metadata else 0,
             })
 
+        # Obtener actividad reciente del monitoreo
+        recent_activity = MonitoringEvent.get_recent_activity_display(parcel, limit=5)
+
         # Construir respuesta
         badge = health.status_badge
         return Response({
@@ -2846,8 +2961,16 @@ class CropHealthAPIView(APIView):
             'last_observation': health.last_observation_date.isoformat() if health.last_observation_date else None,
             'last_image_date': health.last_image_date.isoformat() if health.last_image_date else None,
             'recent_scenes': scenes_data,
+            'recent_activity': recent_activity,
             'alerts': health.active_alerts if health.active_alerts else [],
         }, status=200)
+
+
+# --- DASHBOARD HTML VIEW ---
+
+def parcels_dashboard_view(request):
+    """Renderiza el dashboard de parcelas con todos los modulos cargados."""
+    return render(request, 'parcels/parcels-dashboard.html')
 
 
 # --- GEOCODING PROXY ---

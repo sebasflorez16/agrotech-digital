@@ -254,10 +254,13 @@ function getBaseUrl() {
     }
     
     // Detectar si estamos en localhost/desarrollo
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const hostname = window.location.hostname;
+    const isLocalDev = hostname === 'localhost' || hostname === '127.0.0.1' || hostname.endsWith('.localhost');
     
-    if (isLocalhost) {
-        return 'http://localhost:8000/api/parcels';
+    if (isLocalDev) {
+        const port = window.location.port || '8000';
+        const protocol = window.location.protocol;
+        return `${protocol}//${hostname}:${port}/api/parcels`;
     }
     
     // En producción, usar URL de Railway
@@ -2968,6 +2971,18 @@ async function loadCropHealth(parcelId) {
             const ndviEl = document.getElementById('crop-ndvi-value');
             if (ndviEl) ndviEl.textContent = health.indices.ndvi.toFixed(2);
         }
+
+        // Actualizar actividad reciente
+        const activityEl = document.getElementById('crop-activity-list');
+        if (activityEl && health.recent_activity) {
+            activityEl.innerHTML = health.recent_activity.map(a =>
+                `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:0.85em;border-bottom:1px solid #eee">
+                    <span>${a.icon}</span>
+                    <span style="flex:1">${a.title}</span>
+                    <span style="color:#999;font-size:0.8em">${a.time_ago}</span>
+                </div>`
+            ).join('');
+        }
     } catch (e) {
         console.warn('[HEALTH] No se pudo cargar estado de salud:', e.message);
     }
@@ -2978,4 +2993,45 @@ document.addEventListener('DOMContentLoaded', function() {
     if (parcelId) loadCropHealth(parcelId);
 });
 
+// ============================================================
+// REPORTE PDF EJECUTIVO (planes Pro+) — botón en la UI
+// ============================================================
+async function downloadCropReport() {
+    const parcelId = window.currentParcelId || (window.selectedParcel && window.selectedParcel.id)
+        || (window.AGROTECH_STATE && window.AGROTECH_STATE.selectedParcelId);
+    if (!parcelId) {
+        alert('Primero selecciona una parcela en el mapa o en la lista.');
+        return;
+    }
+    try {
+        const response = await window.axiosInstance.get(`/parcel/${parcelId}/report/`, {
+            responseType: 'blob'
+        });
+        const blob = response.data;
+        const disposition = response.headers['content-disposition'] || '';
+        let filename = 'reporte_cultivo.pdf';
+        const match = disposition.match(/filename="?([^";]+)"?/);
+        if (match) filename = match[1];
+
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+    } catch (e) {
+        if (e.response && e.response.status === 403) {
+            alert('El reporte PDF está disponible en los planes Empresarial y Corporativo. Mejora tu plan para descargarlo.');
+        } else if (e.response && e.response.status === 402) {
+            alert('Necesitas una suscripción activa para descargar el reporte.');
+        } else {
+            console.error('[REPORT] Error descargando reporte:', e);
+            alert('No se pudo generar el reporte. Intenta de nuevo.');
+        }
+    }
+}
+
 window.loadCropHealth = loadCropHealth;
+window.downloadCropReport = downloadCropReport;

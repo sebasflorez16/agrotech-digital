@@ -9,15 +9,15 @@ Responsabilidades:
 
 Reglas de negocio:
 ┌─────────────────────────────────────────────────────────────────┐
-│  PLAN GRATUITO (free trial)                                     │
-│  - Se crea tenant al registrar suscripción free                 │
-│  - Si el trial expira sin upgrade → ELIMINAR tenant y schema    │
-│                                                                 │
-│  PLAN PAGO (basic, pro)                                         │
-│  - Se crea tenant al confirmar primer pago                      │
-│  - Si deja de pagar → DESACTIVAR (on_trial=False, paid_until=   │
+│  PLAN GRATUITO (free)                                            │
+│  - Se crea tenant al registrar. Permanente (embudo de conversión)│
+│  - Límites estrictos: solo NDVI, 20 análisis/mes, 50ha           │
+│                                                                  │
+│  PLAN PAGO (basic, pro, enterprise)                              │
+│  - Se crea tenant al confirmar primer pago (trial 14 días)       │
+│  - Si deja de pagar → DESACTIVAR (on_trial=False, paid_until=    │
 │    fecha pasada). Los datos se conservan en la DB.              │
-│  - Si renueva pago → REACTIVAR (paid_until extendida)          │
+│  - Si renueva pago → REACTIVAR (paid_until extendida)           │
 └─────────────────────────────────────────────────────────────────┘
 """
 
@@ -150,12 +150,11 @@ class TenantService:
         now = timezone.now()
 
         if plan_tier == 'free':
-            # Trial gratuito
-            trial_days = plan.trial_days or 14
-            paid_until = (now + timedelta(days=trial_days)).date()
-            status = 'trialing'
-            trial_end = now + timedelta(days=trial_days)
-            period_end = trial_end
+            # Plan FREE = embudo permanente (no expira)
+            paid_until = (now + timedelta(days=365)).date()
+            status = 'active'
+            trial_end = None
+            period_end = now + timedelta(days=365)
         else:
             # Plan pago — periodo según ciclo
             if billing_cycle == 'yearly':
@@ -804,24 +803,6 @@ El equipo de AgroTech Digital
             results['checked'] += 1
 
             try:
-                # ── Trial gratuito expirado ──
-                if sub.plan.tier == 'free' and sub.status == 'trialing':
-                    if sub.trial_end and now > sub.trial_end:
-                        result = cls.delete_tenant(
-                            sub.tenant,
-                            reason='trial_expired_no_conversion'
-                        )
-                        if result['success']:
-                            results['trials_deleted'] += 1
-                            logger.info(
-                                f"🗑️ Trial expirado eliminado: {sub.tenant.name}"
-                            )
-                        else:
-                            results['errors'].append(
-                                f"Error eliminando trial {sub.tenant.name}: {result.get('error')}"
-                            )
-                        continue
-
                 # ── Plan pago vencido ──
                 if sub.plan.tier != 'free' and sub.current_period_end:
                     if now > sub.current_period_end:

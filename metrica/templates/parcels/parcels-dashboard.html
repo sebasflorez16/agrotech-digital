@@ -60,6 +60,7 @@
     <link href="../../css/parcelas-neomorphic-override.css" rel="stylesheet" type="text/css" />
     <!-- 🍎 LIQUID GLASS DESIGN SYSTEM ⭐ -->
     <link href="../../css/liquid-glass-system.css" rel="stylesheet" type="text/css" />
+    <link href="../../css/monitoring-responsive-pro.css" rel="stylesheet" type="text/css" />
     
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <!-- Tabler Icons for Sidebar -->
@@ -600,6 +601,14 @@
                     <!-- Monitoreo Continuo Fase 3 — Badge de salud del cultivo -->
                     <div id="crop-health-badge" style="margin:10px 0;font-size:1.2em;text-align:center"></div>
                     <div id="crop-health-message" style="color:#666;margin-bottom:8px;font-size:0.9em;text-align:center"></div>
+
+                    <!-- Monitoreo Continuo Fase 6 — Actividad Reciente -->
+                    <div id="crop-activity-section" style="background:#f8f9fa;border-radius:8px;padding:10px 14px;margin-bottom:12px">
+                        <div style="font-weight:600;font-size:0.85em;color:#666;margin-bottom:6px">📋 Actividad reciente</div>
+                        <div id="crop-activity-list" style="max-height:160px;overflow-y:auto">
+                            <div style="color:#999;font-size:0.8em;text-align:center;padding:8px">Selecciona una parcela para ver actividad</div>
+                        </div>
+                    </div>
 
                     <div id="selectedParcelBanner" style="display:none;background:linear-gradient(135deg, #4CAF50, #2E7D32);border-radius:12px;padding:14px 18px;margin-bottom:16px;color:white;box-shadow:0 3px 12px rgba(46,125,50,0.3);">
                         <div style="display:flex;align-items:center;justify-content:space-between;">

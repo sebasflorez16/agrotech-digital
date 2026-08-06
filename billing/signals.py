@@ -36,19 +36,17 @@ def create_free_subscription_for_new_tenant(sender, instance, created, **kwargs)
             # Obtener el plan FREE
             free_plan = Plan.objects.get(tier='free', is_active=True)
             
-            # Crear suscripción con trial
+            # Plan FREE = embudo permanente (no trial con expiración).
+            # Los planes pagos otorgan trial de 14 días al suscribirse vía checkout.
             now = timezone.now()
-            trial_end = now + timedelta(days=free_plan.trial_days)
-            period_end = trial_end  # El trial dura 14 días
-            
             subscription = Subscription.objects.create(
                 tenant=instance,
                 plan=free_plan,
                 payment_gateway='manual',  # FREE no requiere pago
-                status='trialing',
+                status='active',  # Nunca expira — evita bloquear el embudo
                 current_period_start=now,
-                current_period_end=period_end,
-                trial_end=trial_end,
+                current_period_end=now + timedelta(days=365),  # Rolling anual
+                trial_end=None,
                 auto_renew=False  # FREE no se renueva automáticamente
             )
             
@@ -59,9 +57,8 @@ def create_free_subscription_for_new_tenant(sender, instance, created, **kwargs)
                 event_type='trial.started',
                 event_data={
                     'plan': free_plan.tier,
-                    'trial_days': free_plan.trial_days,
-                    'trial_end': trial_end.isoformat(),
                     'created_via': 'signal_fallback',
+                    'note': 'Plan FREE permanente — embudo de conversión',
                 }
             )
             

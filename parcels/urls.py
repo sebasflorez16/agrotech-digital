@@ -1,10 +1,12 @@
 from django.urls import path
 from . import views
+from .views import parcels_dashboard_view
 from .analytics_views import EOSDAAnalyticsAPIView
 from .simple_analytics import SimpleAnalyticsView
 from django.http import JsonResponse
 from .metereological import WeatherForecastView
 from .elevation import ElevationView
+from .report_views import CropCycleReportView
 
 # ELIMINADO: app_name = "parcels" - causaba conflicto con el router DRF
 # El router DRF en parcels.routers no usa app_name, por lo que este tampoco debe usarlo
@@ -58,5 +60,13 @@ urlpatterns = [
 
     # Salud del cultivo — Monitoreo Continuo Fase 1
     path('parcel/<int:parcel_id>/health/', views.CropHealthAPIView.as_view(), name='parcel_health'),
+
+    # Reporte PDF ejecutivo por parcela / ciclo de cultivo (planes Pro+)
+    path('parcel/<int:parcel_id>/report/', CropCycleReportView.as_view(), name='parcel_report'),
+    path('parcel/<int:parcel_id>/report/<int:crop_cycle_id>/', CropCycleReportView.as_view(), name='crop_cycle_report'),
+
+    # Dashboard HTML — acceso directo
+    path('parcels-dashboard.html', parcels_dashboard_view, name='parcels_dashboard'),
+    path('', parcels_dashboard_view, name='parcels_dashboard_root'),
 
 ]

@@ -74,7 +74,7 @@
 ```python
 DATABASES = {
     'default': {
-        'PASSWORD': 'guibsonsid.16',  # ← CONTRASEÑA REAL
+        'PASSWORD': '<password-eliminada-de-git>',  # ← CONTRASEÑA REAL (rotar y purgar de git history)
         ...
     }
 }
@@ -340,7 +340,7 @@ Aunque menciona no loguear headers (lo cual es correcto), los payloads y respues
 
 | ID | Acción | Archivos | Esfuerzo |
 |----|--------|----------|----------|
-| CRIT-3 | **Rotar contraseña BD**: Cambiar `guibsonsid.16` inmediatamente. Eliminar hardcodeo. Usar variable de entorno. | `config/settings/test.py` | 30 min |
+| CRIT-3 | **Rotar contraseña BD**: Cambiar `<password-eliminada-de-git>` inmediatamente. Eliminar hardcodeo. Usar variable de entorno. | `config/settings/test.py` | 30 min |
 | CRIT-4 | **Eliminar default inseguro de SECRET_KEY**: Sin fallback en local/test. | `config/settings/local.py`, `config/settings/test.py` | 15 min |
 | CRIT-5 | **Revisar CORS en producción**: Verificar `CORS_ALLOWED_ORIGINS` en Railway. Poner `CORS_ALLOW_ALL_ORIGINS = False`. | `config/settings/production.py`, Railway env vars | 30 min |
 | HIGH-4 | **Activar refresh token rotation y blacklist**: `ROTATE_REFRESH_TOKENS=True`, `BLACKLIST_AFTER_ROTATION=True`. Migrar blacklist. | `config/settings/base.py`, migraciones | 45 min |

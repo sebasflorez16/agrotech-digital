@@ -3,7 +3,9 @@ Comando para diagnosticar y arreglar el login del superusuario.
 Verifica el estado del usuario, su tenant, y resetea la contraseña
 usando set_password() de Django (hash correcto con Argon2).
 """
-from django.core.management.base import BaseCommand
+import os
+
+from django.core.management.base import BaseCommand, CommandError
 from django.contrib.auth import get_user_model, authenticate
 from django.db import connection
 from django_tenants.utils import get_public_schema_name
@@ -16,9 +18,20 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--fix', action='store_true', help='Arreglar el usuario automáticamente')
-        parser.add_argument('--username', type=str, default='sebasflorez16')
-        parser.add_argument('--password', type=str, default='guibsonsid.16')
-        parser.add_argument('--email', type=str, default='juansebastianflorezescobar@gmail.com')
+        parser.add_argument('--username', type=str, default=os.environ.get('FIX_LOGIN_USERNAME', ''))
+        parser.add_argument('--password', type=str, default=os.environ.get('FIX_LOGIN_PASSWORD', ''))
+        parser.add_argument('--email', type=str, default=os.environ.get('FIX_LOGIN_EMAIL', ''))
+
+    def handle(self, *args, **options):
+        username = options['username']
+        password = options['password']
+        email = options['email']
+
+        if not username or not password:
+            raise CommandError(
+                'Debes proporcionar --username y --password (o las variables de entorno '
+                'FIX_LOGIN_USERNAME / FIX_LOGIN_PASSWORD). No se usan credenciales por defecto.'
+            )
 
     def handle(self, *args, **options):
         username = options['username']

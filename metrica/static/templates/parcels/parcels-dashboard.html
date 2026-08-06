@@ -33,6 +33,7 @@
             }
         })();
     </script>
+    <script src="../../js/utils/api-utils.js"></script>
     
     <!-- Leaflet CSS y JS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
@@ -714,6 +715,29 @@
                         </div>
                     </div>
                     
+                    <!-- Monitoreo Continuo — Salud del cultivo (planes Pro+) -->
+                    <div class="parcels-inner-card" style="border-radius:12px;padding:18px 20px;margin-bottom:24px;">
+                        <h5 class="parcels-section-title" style="font-weight:bold;margin-bottom:15px;">🌱 Monitoreo Continuo de Salud</h5>
+                        <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                            <div id="crop-health-badge" style="font-size:1.4em;">
+                                <span style="color:#999;">—</span>
+                            </div>
+                            <div style="flex:1;min-width:200px;">
+                                <div id="crop-health-message" style="color:#666;font-size:13px;">Selecciona una parcela para ver su estado de salud.</div>
+                                <div id="crop-activity-list" style="margin-top:8px;"></div>
+                            </div>
+                        </div>
+                        <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;">
+                            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 16px;text-align:center;">
+                                <div style="font-size:11px;color:#666;text-transform:uppercase;">Último NDVI</div>
+                                <div id="crop-ndvi-value" style="font-weight:700;color:#166534;font-size:1.2em;">—</div>
+                            </div>
+                            <button class="btn btn-success" style="border-radius:10px;" onclick="downloadCropReport()">
+                                <i class="fas fa-file-pdf me-1"></i> Descargar Reporte PDF
+                            </button>
+                        </div>
+                    </div>
+                    
                     <!-- Análisis de Imagen Satelital -->
                     <div class="parcels-inner-card" style="border-radius:12px;padding:18px 20px;margin-bottom:24px;">
                         <h5 class="parcels-section-title" style="font-weight:bold;margin-bottom:15px;">Analisis de Imagen Satelital</h5>
@@ -1349,9 +1373,8 @@
     <!-- El token de Cesium Ion se configura en parcel.js después de verificar que Cesium esté cargado -->
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qs/dist/qs.js"></script>
-    <!-- api-utils.js debe cargarse SIN type="module" para garantizar que window.ApiUrls esté disponible -->
-    <script src="../../js/utils/api-utils.js"></script>
-    <script src="../../js/auth/dev-auth-helper.js"></script>
+    <!-- api-utils.js se carga arriba (en <head>) para que window.ApiUrls esté disponible -->
+    <script type="module" src="../../js/auth/dev-auth-helper.js"></script>
     <script src="../../js/app.js"></script>
     <script src="../../js/parcels/scene-cache.js?v=20260623"></script>
     <script type="module" src="../../js/parcels/parcel.js?v=20260623"></script>

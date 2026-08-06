@@ -68,33 +68,42 @@ async function fetchParcelSummary() {
         // Actualizar el gráfico Tickets_Status
         const chartElement = document.querySelector("#Tickets_Status");
         if (chartElement) {
-            const optionsTickets = {
-                chart: {
-                    type: "area",
-                    height: 350,
-                    toolbar: { show: false }
-                },
-                colors: ["#39b54a"],
-                series: [
-                    {
-                        name: "NDVI Promedio",
-                        data: ndviData
+            if (!data.ndvi_available) {
+                chartElement.innerHTML = `
+                    <div class="text-center py-5 text-muted">
+                        <i class="mdi mdi-satellite-variant d-block mb-2" style="font-size:2.5rem;opacity:.4"></i>
+                        <p class="mb-1"><strong>Sin observaciones satelitales aún</strong></p>
+                        <p class="mb-0 small">Ejecuta un análisis en la sección Parcelas para ver tu primer NDVI real.</p>
+                    </div>`;
+            } else {
+                const optionsTickets = {
+                    chart: {
+                        type: "area",
+                        height: 350,
+                        toolbar: { show: false }
+                    },
+                    colors: ["#39b54a"],
+                    series: [
+                        {
+                            name: "Observaciones Satelitales",
+                            data: ndviData
+                        }
+                    ],
+                    xaxis: {
+                        categories: ndviMonths
+                    },
+                    stroke: {
+                        curve: "smooth",
+                        width: 2
+                    },
+                    fill: {
+                        type: "gradient",
+                        gradient: { shadeIntensity: 1, opacityFrom: 0.5, opacityTo: 0 }
                     }
-                ],
-                xaxis: {
-                    categories: ndviMonths
-                },
-                stroke: {
-                    curve: "smooth",
-                    width: 2
-                },
-                fill: {
-                    type: "gradient",
-                    gradient: { shadeIntensity: 1, opacityFrom: 0.5, opacityTo: 0 }
-                }
-            };
+                };
 
-            new ApexCharts(chartElement, optionsTickets).render();
+                new ApexCharts(chartElement, optionsTickets).render();
+            }
         }
     } catch (e) {
         console.error("Error al obtener el resumen de parcelas:", e);

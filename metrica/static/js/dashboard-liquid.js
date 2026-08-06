@@ -3,10 +3,12 @@
  * Maneja la lógica del dashboard principal con diseño Apple-inspired
  */
 
-// Configuración API
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:8000'
-    : window.location.origin;
+// Configuración API - usar config.js centralizado
+const API_BASE_URL = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:8000'
+        : window.location.origin);
 
 // Obtener token de autenticación
 function getAuthToken() {

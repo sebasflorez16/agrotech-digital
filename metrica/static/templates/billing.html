@@ -197,17 +197,58 @@
         /* Mobile Responsive */
         @media (max-width: 768px) {
             .sidebar {
-                display: none;
+                display: flex;
+                position: fixed;
+                left: -280px;
+                top: 0;
+                bottom: 0;
+                width: 260px;
+                z-index: 1050;
+                transition: left 0.25s ease;
+                box-shadow: 0 0 40px rgba(0,0,0,0.35);
             }
-            
+
+            .sidebar.open {
+                left: 0;
+            }
+
+            .sidebar-backdrop {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 1040;
+            }
+
+            .sidebar-backdrop.show {
+                display: block;
+            }
+
             .main-content {
                 margin-left: 0;
                 padding: var(--space-lg);
             }
-            
+
             .metrics-grid {
                 grid-template-columns: 1fr;
             }
+
+            .nav-toggle {
+                display: inline-flex !important;
+            }
+        }
+
+        .nav-toggle {
+            display: none;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid var(--glass-dark);
+            color: var(--text-primary, #fff);
+            border-radius: var(--radius-md);
+            padding: 8px 12px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            margin-right: 12px;
+            line-height: 1;
         }
     </style>
 </head>
@@ -227,11 +268,11 @@
                         <i class="ti ti-home"></i>
                         <span>Dashboard</span>
                     </a>
-                    <a href="http://localhost:8080/templates/parcels/parcels-dashboard.html" class="nav-item-glass">
+                    <a href="parcels/parcels-dashboard.html" class="nav-item-glass">
                         <i class="ti ti-map"></i>
                         <span>Parcelas</span>
                     </a>
-                    <a href="http://localhost:8080/templates/crop/crop_list.html" class="nav-item-glass">
+                    <a href="crop/crop_list.html" class="nav-item-glass">
                         <i class="ti ti-plant"></i>
                         <span>Cultivos</span>
                     </a>
@@ -239,15 +280,15 @@
                 
                 <div class="nav-section">
                     <div class="nav-section-title">Gestión</div>
-                    <a href="http://localhost:8080/templates/inventory/inventario-dashboard.html" class="nav-item-glass">
+                    <a href="inventory/inventario-dashboard.html" class="nav-item-glass">
                         <i class="ti ti-box"></i>
                         <span>Inventario</span>
                     </a>
-                    <a href="http://localhost:8080/templates/employees/RRHH-dashboard.html" class="nav-item-glass">
+                    <a href="employees/RRHH-dashboard.html" class="nav-item-glass">
                         <i class="ti ti-users"></i>
                         <span>Empleados</span>
                     </a>
-                    <a href="http://localhost:8080/templates/labores/labores-dashboard.html" class="nav-item-glass">
+                    <a href="labores/labores-dashboard.html" class="nav-item-glass">
                         <i class="ti ti-checkbox"></i>
                         <span>Labores</span>
                     </a>
@@ -267,7 +308,7 @@
                 
                 <div class="nav-section">
                     <div class="nav-section-title">Cuenta</div>
-                    <a href="http://localhost:8080/templates/pages/profile.html" class="nav-item-glass">
+                    <a href="pages/profile.html" class="nav-item-glass">
                         <i class="ti ti-settings"></i>
                         <span>Configuración</span>
                     </a>
@@ -278,13 +319,23 @@
                 </div>
             </nav>
         </aside>
+
+        <!-- Backdrop móvil para cerrar el menú -->
+        <div class="sidebar-backdrop" onclick="document.querySelector('.sidebar').classList.remove('open');this.classList.remove('show');"></div>
         
         <!-- Main Content -->
         <main class="main-content">
             <!-- Page Header -->
             <div class="page-header">
-                <h1>Facturación y Uso</h1>
-                <p class="page-subtitle">Monitorea tu consumo y gestiona tu suscripción</p>
+                <div style="display:flex;align-items:center;">
+                    <button class="nav-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open');document.querySelector('.sidebar-backdrop').classList.toggle('show');" aria-label="Abrir menú">
+                        ☰
+                    </button>
+                    <div>
+                        <h1>Facturación y Uso</h1>
+                        <p class="page-subtitle">Monitorea tu consumo y gestiona tu suscripción</p>
+                    </div>
+                </div>
             </div>
             
             <!-- Usage Metrics -->
@@ -333,6 +384,7 @@
     </div>
     
     <!-- Scripts -->
+    <script src="../js/utils/api-utils.js"></script>
     <script src="../js/billing-liquid.js"></script>
 </body>
 </html>

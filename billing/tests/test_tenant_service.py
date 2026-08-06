@@ -90,11 +90,11 @@ class TestTenantServiceCreateMocked:
     @patch('billing.tenant_service.Client')
     @patch('billing.tenant_service.Plan')
     def test_create_free_trial_returns_success(self, MockPlan, MockClient, MockDomain, MockSub, MockEvent):
-        """Crear tenant con plan free → success=True, status=trialing."""
+        """Crear tenant con plan free → success=True, status=active (permanente, embudo)."""
         from billing.tenant_service import TenantService
 
         mock_plan = Mock()
-        mock_plan.trial_days = 14
+        mock_plan.trial_days = 0
         MockPlan.objects.get.return_value = mock_plan
         # Mock: no existe suscripción previa con ese email
         MockSub.objects.filter.return_value.select_related.return_value.exists.return_value = False
@@ -113,7 +113,11 @@ class TestTenantServiceCreateMocked:
         )
 
         assert result['success'] is True
-        assert result['status'] == 'trialing'
+        # El plan FREE es permanente: active, sin trial_end y con auto_renew=False
+        assert result['status'] == 'active'
+        defaults = MockSub.objects.update_or_create.call_args.kwargs['defaults']
+        assert defaults['trial_end'] is None
+        assert defaults['auto_renew'] is False
         MockClient.objects.get_or_create.assert_called_once()
         MockDomain.objects.get_or_create.assert_called_once()
         MockSub.objects.update_or_create.assert_called_once()
@@ -447,7 +451,7 @@ class TestCheckAllSubscriptions:
     @patch('billing.tenant_service.TenantService.delete_tenant')
     @patch('billing.tenant_service.Subscription')
     def test_expired_trial_gets_deleted(self, MockSub, mock_delete):
-        """Trial expirado → se elimina."""
+        """El plan FREE ya no se elimina: es permanente (embudo de conversión)."""
         from billing.tenant_service import TenantService
 
         mock_tenant = Mock()
@@ -456,20 +460,21 @@ class TestCheckAllSubscriptions:
 
         mock_sub = Mock()
         mock_sub.id = 1
-        mock_sub.status = 'trialing'
+        mock_sub.status = 'active'  # FREE ya no usa status trialing
         mock_sub.plan.tier = 'free'
         mock_sub.tenant = mock_tenant
-        mock_sub.trial_end = timezone.now() - timedelta(days=1)
-        mock_sub.current_period_end = timezone.now() - timedelta(days=1)
+        mock_sub.trial_end = None
+        mock_sub.current_period_end = timezone.now() + timedelta(days=30)
 
         MockSub.objects.select_related.return_value.exclude.return_value.exclude.return_value = [mock_sub]
-        mock_delete.return_value = {'success': True}
 
         result = TenantService.check_all_subscriptions()
 
+        # No se elimina ni se desactiva ningún tenant free
         assert result['checked'] == 1
-        assert result['trials_deleted'] == 1
-        mock_delete.assert_called_once()
+        assert result['trials_deleted'] == 0
+        assert result['paid_deactivated'] == 0
+        mock_delete.assert_not_called()
 
     @patch('billing.tenant_service.TenantService.deactivate_tenant')
     @patch('billing.tenant_service.Subscription')
@@ -800,7 +805,7 @@ class TestTenantLifecycleIntegration:
             pass
 
     def test_free_trial_create_and_delete(self):
-        """Ciclo completo: crear trial → verificar → eliminar."""
+        """Ciclo completo: crear free (permanente) → verificar → eliminar."""
         from billing.tenant_service import TenantService
         from base_agrotech.models import Client
         from billing.models import Subscription
@@ -818,16 +823,19 @@ class TestTenantLifecycleIntegration:
                 payer_email='intfree@test.com',
             )
             assert result['success'] is True
-            assert result['status'] == 'trialing'
+            # FREE es permanente: status active y sin trial_end
+            assert result['status'] == 'active'
 
             # Verificar en DB
             tenant = Client.objects.get(schema_name=schema)
             assert tenant.on_trial is True
             sub = Subscription.objects.get(tenant=tenant)
-            assert sub.status == 'trialing'
+            assert sub.status == 'active'
             assert sub.plan.tier == 'free'
+            assert sub.trial_end is None
+            assert sub.auto_renew is False
 
-            # Eliminar
+            # Eliminar (limpieza explícita en el test)
             del_result = TenantService.delete_tenant(tenant, reason='test')
             assert del_result['success'] is True
             assert not Client.objects.filter(schema_name=schema).exists()
