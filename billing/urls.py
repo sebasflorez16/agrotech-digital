@@ -54,4 +54,5 @@ urlpatterns = [
     # ============== WEBHOOKS ==============
     path('webhooks/mercadopago/', webhooks.mercadopago_webhook, name='webhook_mercadopago'),
     path('webhooks/paddle/', webhooks.paddle_webhook, name='webhook_paddle'),
+    path('webhooks/wompi/', webhooks.wompi_webhook, name='webhook_wompi'),
 ]

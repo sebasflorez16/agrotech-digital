@@ -305,9 +305,46 @@ function displayInvoice(invoice) {
     }
 }
 
-// Procesar pago
-function processPayment() {
-    alert('🚧 Integración de pago en desarrollo\n\nPróximamente: MercadoPago');
+// Procesar pago (Wompi Colombia)
+async function processPayment() {
+    const planTier = window._selectedPlanTier || document.querySelector('.plan-card.selected')?.dataset?.tier;
+    const email = localStorage.getItem('userEmail') || '';
+    if (!planTier || planTier === 'free') {
+        alert('Selecciona un plan pago (Agricultor, Empresarial o Corporativo).');
+        return;
+    }
+    if (!email) {
+        alert('No se pudo identificar tu correo. Inicia sesion nuevamente.');
+        return;
+    }
+    try {
+        const btn = event?.target || document.querySelector('button[onclick*="processPayment"]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Redirigiendo a Wompi...'; }
+        const token = localStorage.getItem('accessToken');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        const resp = await fetch(API_BASE_URL + '/billing/api/create-checkout/', {
+            method: 'POST', headers,
+            body: JSON.stringify({ plan_tier: planTier, gateway: 'wompi', payer_email: email }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            alert('Error: ' + (data.error || 'No se pudo iniciar el pago.'));
+            if (btn) { btn.disabled = false; btn.textContent = 'Pagar Ahora'; }
+            return;
+        }
+        if (data.checkout_url) {
+            window.location.href = data.checkout_url;
+        } else {
+            alert('Enlace de pago no disponible.');
+            if (btn) { btn.disabled = false; btn.textContent = 'Pagar Ahora'; }
+        }
+    } catch (e) {
+        console.error('[PAGO] Error:', e);
+        alert('Error de conexion al iniciar el pago. Intenta de nuevo.');
+        const btn = document.querySelector('button[onclick*="processPayment"]');
+        if (btn) { btn.disabled = false; btn.textContent = 'Pagar Ahora'; }
+    }
 }
 
 // Logout

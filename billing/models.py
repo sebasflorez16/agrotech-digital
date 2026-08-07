@@ -214,6 +214,7 @@ class Subscription(models.Model):
         ('mercadopago', 'MercadoPago'),
         ('paddle', 'Paddle'),
         ('stripe', 'Stripe'),
+        ('wompi', 'Wompi'),
         ('manual', 'Manual'),
     ]
     

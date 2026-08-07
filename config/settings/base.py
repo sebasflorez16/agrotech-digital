@@ -376,6 +376,12 @@ X_FRAME_OPTIONS = "DENY"
 # En producción se configura via variable de entorno (sin fallback).
 STAFF_ACCESS_KEY = env("STAFF_ACCESS_KEY", default="agrotech-staff-dev-key")
 
+# Wompi — pasarela de pago Colombia
+WOMPI_PUBLIC_KEY = env("WOMPI_PUBLIC_KEY", default="")
+WOMPI_PRIVATE_KEY = env("WOMPI_PRIVATE_KEY", default="")
+WOMPI_EVENTS_KEY = env("WOMPI_EVENTS_KEY", default="")
+WOMPI_SANDBOX = env("WOMPI_SANDBOX", default="true")
+
 # EMAIL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend

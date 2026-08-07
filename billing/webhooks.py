@@ -161,3 +161,73 @@ def paddle_webhook(request):
             'status': 'error',
             'error': 'Internal error - logged for investigation'
         }, status=200)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@throttle_classes([WebhookRateThrottle])
+def wompi_webhook(request):
+    """Webhook de Wompi (payment_links)."""
+    try:
+        gateway = PaymentGatewayFactory.create("wompi")
+        result = gateway.handle_webhook(request)
+
+        if not result.get("success"):
+            logger.warning(f"[WOMPI WEBHOOK] Firma invalida: {result.get('error')}")
+            return Response({"status": "error", "error": "invalid_signature"}, status=401)
+
+        action = result.get("action", "")
+        reference = result.get("reference", "")
+
+        if action == "payment_approved":
+            logger.info(f"[WOMPI WEBHOOK] Pago aprobado: ref={reference}")
+            _process_wompi_payment(result, reference)
+
+        return Response({"status": "ok", "action": action}, status=200)
+
+    except Exception as e:
+        logger.exception(f"[WOMPI WEBHOOK] Error: {e}")
+        return Response({"status": "processed", "error": str(e)}, status=200)
+
+
+def _process_wompi_payment(payment_data, reference):
+    """Activa o crea la suscripcion cuando Wompi confirma pago."""
+    import re
+    from billing.models import Subscription
+    from django.utils import timezone
+    from datetime import timedelta
+
+    match = re.search(r"sub_(\d+)_", reference)
+    if not match:
+        logger.warning(f"[WOMPI] No se puede extraer user_id de referencia: {reference}")
+        return
+
+    user_id = int(match.group(1))
+    try:
+        from base_agrotech.models import Client
+        tenant = Client.objects.filter(owner_id=user_id).first()
+        if not tenant:
+            logger.warning(f"[WOMPI] Tenant no encontrado para user_id={user_id}")
+            return
+
+        sub = Subscription.objects.filter(tenant=tenant).first()
+        now = timezone.now()
+        if sub:
+            if sub.status in ("trialing", "canceled"):
+                sub.status = "active"
+                sub.current_period_start = now
+                sub.current_period_end = now + timedelta(days=30)
+                sub.payment_gateway = "wompi"
+                sub.save()
+        else:
+            from billing.models import Plan
+            plan = Plan.objects.filter(is_active=True).exclude(tier="free").first()
+            Subscription.objects.create(
+                tenant=tenant, plan=plan, payment_gateway="wompi",
+                status="active", current_period_start=now,
+                current_period_end=now + timedelta(days=30),
+            )
+
+        logger.info(f"[WOMPI] Suscripcion activada: tenant_id={tenant.id}")
+    except Exception as e:
+        logger.error(f"[WOMPI] Error activando suscripcion: {e}")

@@ -1104,150 +1104,135 @@ def subscription_page_view(request):
 @throttle_classes([CheckoutRateThrottle])
 def create_checkout_view(request):
     """
-    Crear sesión de checkout y redirigir a MercadoPago.
-    
+    Crear sesion de checkout y redirigir a la pasarela de pago.
+
     POST /billing/api/create-checkout/
-    Body: {"plan_tier": "basic", "billing_cycle": "monthly", "payer_email": "...", "tenant_name": "..."}
-    
-    Flujo:
-    1. Recibe datos del plan y email
-    2. Crea preapproval en MercadoPago
-    3. Devuelve checkout_url para redirigir al usuario
-    4. Cuando MercadoPago confirma pago → webhook crea el tenant automáticamente
+    Body: {
+        "plan_tier": "basic",
+        "billing_cycle": "monthly",
+        "payer_email": "...",
+        "tenant_name": "...",
+        "gateway": "mercadopago|wompi"  (opcional, default: mercadopago)
+    }
+
+    Flujo MercadoPago:
+    1. Crea preapproval en MercadoPago
+    2. Devuelve checkout_url para redirigir
+
+    Flujo Wompi:
+    1. Crea payment link en Wompi
+    2. Devuelve checkout_url (hosted por Wompi)
+    3. Wompi envia webhook al confirmar pago → activa suscripcion
     """
     try:
         data = json.loads(request.body)
         plan_tier = data.get('plan_tier')
+        gateway = data.get('gateway', 'mercadopago')
         billing_cycle = data.get('billing_cycle', 'monthly')
         tenant_name = data.get('tenant_name', '')
         username = data.get('username', '')
         password = data.get('password', '')
-        
+
         if not plan_tier:
             return JsonResponse({'error': 'plan_tier is required'}, status=400)
-        
-        # Obtener el plan
+
         try:
             plan = Plan.objects.get(tier=plan_tier, is_active=True)
         except Plan.DoesNotExist:
             return JsonResponse({'error': 'Plan no encontrado'}, status=404)
-        
-        # Plan gratuito: crear tenant + usuario directamente sin pasar por MercadoPago
+
+        payer_email = data.get('payer_email', '')
+        if not payer_email and request.user.is_authenticated:
+            payer_email = request.user.email
+        if not payer_email:
+            return JsonResponse({'error': 'Se requiere un email para continuar'}, status=400)
+
+        if not tenant_name:
+            tenant_name = payer_email.split('@')[0]
+
+        if not username:
+            username = payer_email.split('@')[0].replace('.', '_').replace('-', '_')
+
+        # ── Plan gratuito ──────────────────────────────────────────
         if plan_tier == 'free':
-            payer_email = data.get('payer_email', '')
-            if not tenant_name:
-                tenant_name = payer_email.split('@')[0] if payer_email else 'finca_nueva'
-            
-            # Generar username si no se proporcionó
-            if not username:
-                username = payer_email.split('@')[0].replace('.', '_').replace('-', '_') if payer_email else 'admin'
-            
             result = TenantService.create_tenant_for_subscription(
-                tenant_name=tenant_name,
-                plan_tier='free',
-                payer_email=payer_email,
-                payment_gateway='manual',
-                username=username,
-                password=password or None,
-                user_name=data.get('user_name', ''),
-                user_last_name=data.get('user_last_name', ''),
+                tenant_name=tenant_name, plan_tier='free', payer_email=payer_email,
+                payment_gateway='manual', username=username, password=password or None,
+                user_name=data.get('user_name', ''), user_last_name=data.get('user_last_name', ''),
             )
-            
             if result['success']:
                 response_data = {
-                    'success': True,
-                    'plan': 'free',
-                    'tenant_created': True,
-                    'schema_name': result['schema_name'],
-                    'domain': result['domain'],
+                    'success': True, 'plan': 'free', 'tenant_created': True,
+                    'schema_name': result['schema_name'], 'domain': result['domain'],
                     'username': result.get('username', username),
-                    'message': 'Trial gratuito activado. Tu finca está lista.',
+                    'message': 'Trial gratuito activado. Tu finca esta lista.',
                 }
-                # Incluir tokens JWT para auto-login
                 if result.get('tokens'):
                     response_data['tokens'] = result['tokens']
                 return JsonResponse(response_data)
             else:
-                # Diferenciar errores de duplicado (409) de errores internos (500)
                 error_status = 409 if result.get('existing_tenant') else 500
+                return JsonResponse({'error': result.get('error', 'Error creando tenant')}, status=error_status)
+
+        # ── WOMPI ──────────────────────────────────────────────────
+        if gateway == 'wompi':
+            from .wompi_gateway import WompiGateway
+            wompi = WompiGateway()
+            result = wompi.create_subscription(request.user if request.user.is_authenticated else None, plan)
+            if result.get('success'):
                 return JsonResponse({
-                    'error': result.get('error', 'Error creando tenant'),
-                    'existing_tenant': result.get('existing_tenant', ''),
-                    'existing_schema': result.get('existing_schema', ''),
-                }, status=error_status)
-        
-        # Calcular precio para planes pagos
+                    'success': True,
+                    'checkout_url': result['checkout_url'],
+                    'gateway': 'wompi',
+                    'wompi_link_id': result.get('wompi_link_id'),
+                    'reference': result.get('reference'),
+                })
+            return JsonResponse({'error': result.get('error', 'Error creando checkout Wompi')}, status=400)
+
+        # ── MERCADOPAGO (default) ──────────────────────────────────
         if billing_cycle == 'yearly':
-            price = float(plan.price_cop) * 12 * 0.8  # 20% descuento
+            price = float(plan.price_cop) * 12 * 0.8
             frequency = 12
             frequency_type = 'months'
         else:
             price = float(plan.price_cop)
             frequency = 1
             frequency_type = 'months'
-        
-        # Obtener email del payer
-        payer_email = data.get('payer_email', '')
-        if not payer_email and request.user.is_authenticated:
-            payer_email = request.user.email
-        if not payer_email:
-            return JsonResponse({'error': 'Se requiere un email para continuar'}, status=400)
-        
-        # Nombre del tenant (para crear después del pago)
-        if not tenant_name:
-            tenant_name = payer_email.split('@')[0]
-        
-        # Crear suscripción en MercadoPago
+
         sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
-        
-        # URL base para callbacks
+
         site_url = getattr(settings, 'SITE_URL', 'https://agrotech-digital-production.up.railway.app')
         if 'localhost' in site_url or '127.0.0.1' in site_url:
             site_url = 'https://agrotech-digital-production.up.railway.app'
-        
-        # Frontend URL para redirección después del pago
-        frontend_url = getattr(
-            settings, 'FRONTEND_URL',
-            'https://frontend-cliente-agrotech.netlify.app'
-        )
-        
-        # external_reference incluye toda la info necesaria para crear el tenant
-        # Codificar username para poder crear el usuario al confirmar pago
+
+        frontend_url = getattr(settings, 'FRONTEND_URL', 'https://frontend-cliente-agrotech.netlify.app')
         ext_username = username or payer_email.split('@')[0].replace('.', '_').replace('-', '_')
         external_ref = f"plan_{plan_tier}_{billing_cycle}__email_{payer_email}__tenant_{tenant_name}__user_{ext_username}"
-        
+
         preapproval_data = {
             'reason': f'AgroTech Digital - {plan.name}',
             'auto_recurring': {
-                'frequency': frequency,
-                'frequency_type': frequency_type,
-                'transaction_amount': int(price),
-                'currency_id': 'COP'
+                'frequency': frequency, 'frequency_type': frequency_type,
+                'transaction_amount': int(price), 'currency_id': 'COP'
             },
             'back_url': f'{frontend_url}/templates/billing/success.html?plan={plan_tier}&cycle={billing_cycle}',
             'payer_email': payer_email,
             'external_reference': external_ref,
         }
-        
+
         result = sdk.preapproval().create(preapproval_data)
-        
+
         if result['status'] == 201:
             checkout_url = result['response'].get('init_point')
             preapproval_id = result['response'].get('id')
-            
-            logger.info(f"Checkout creado: {preapproval_id} para plan {plan_tier} email={payer_email}")
-            
-            return JsonResponse({
-                'success': True,
-                'checkout_url': checkout_url,
-                'preapproval_id': preapproval_id,
-            })
+            logger.info(f"Checkout creado: {preapproval_id} para plan {plan_tier}")
+            return JsonResponse({'success': True, 'checkout_url': checkout_url, 'preapproval_id': preapproval_id})
         else:
             logger.error(f"Error creando checkout: {result}")
             return JsonResponse({
                 'error': result.get('response', {}).get('message', 'Error creando checkout')
             }, status=400)
-            
+
     except json.JSONDecodeError:
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     except Exception as e:
