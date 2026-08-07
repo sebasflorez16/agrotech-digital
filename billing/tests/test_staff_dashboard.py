@@ -62,10 +62,10 @@ def _normal_user():
     return u
 
 
-def _make_get_request(user=None):
-    """Crea una Request GET con usuario dado."""
+def _make_get_request(user=None, path="/staff/api/metrics/"):
+    """Crea una Request GET con usuario dado y clave de staff."""
     rf = RequestFactory()
-    req = rf.get("/staff/api/metrics/")
+    req = rf.get(path, HTTP_X_STAFF_ACCESS_KEY="agrotech-staff-dev-key")
     req.user = user or _staff_user()
     return req
 
@@ -79,9 +79,15 @@ class TestStaffViewsImport:
     """Verifica que las vistas se importan correctamente."""
 
     def test_views_importable(self):
-        from billing.views_staff import StaffMetricsAPI, StaffTenantsAPI
+        from billing.views_staff import (
+            StaffFinancialsAPI, StaffMetricsAPI, StaffTenantActionsAPI,
+            StaffTenantDetailAPI, StaffTenantsAPI,
+        )
         assert StaffMetricsAPI is not None
         assert StaffTenantsAPI is not None
+        assert StaffTenantDetailAPI is not None
+        assert StaffTenantActionsAPI is not None
+        assert StaffFinancialsAPI is not None
 
     def test_metrics_api_has_correct_permissions(self):
         from billing.views_staff import StaffMetricsAPI
@@ -100,15 +106,16 @@ class TestStaffViewsImport:
     def test_urls_importable(self):
         from billing import urls_staff
         assert hasattr(urls_staff, "urlpatterns")
-        assert len(urls_staff.urlpatterns) == 2  # solo API: metrics + tenants
+        assert len(urls_staff.urlpatterns) >= 4
 
     def test_urls_have_correct_names(self):
         from billing.urls_staff import urlpatterns
         names = {p.name for p in urlpatterns}
         assert "staff_metrics" in names
         assert "staff_tenants" in names
-        # El HTML vive en el frontend (Netlify), no en el backend
-        assert "staff_dashboard" not in names
+        assert "staff_tenant_detail" in names
+        assert "staff_tenant_action" in names
+        assert "staff_financials" in names
 
 
 # ──────────────────────────────────────────────────────────────
@@ -170,7 +177,10 @@ class TestStaffMetricsAPIUnit:
         from rest_framework.test import APIRequestFactory
 
         factory = APIRequestFactory()
-        request = factory.get("/staff/api/metrics/")
+        request = factory.get(
+            "/staff/api/metrics/",
+            HTTP_X_STAFF_ACCESS_KEY="agrotech-staff-dev-key",
+        )
         request.user = _staff_user()
 
         view = StaffMetricsAPI()
@@ -205,9 +215,11 @@ class TestStaffMetricsAPIUnit:
             mc.exclude.return_value.count.return_value = 5
             mc.exclude.return_value.filter.return_value.count.return_value = 2
 
-            # Subscription — 4 .filter().count() calls: active, trialing, canceled, past_due
-            ms.filter.return_value.count.side_effect = [3, 1, 0, 0]
-            ms.filter.return_value.aggregate.return_value = {"mrr": Decimal("1050000")}
+            # Subscription — .select_related().filter().count() (6 calls)
+            ms.select_related.return_value.filter.return_value.count.side_effect = [3, 1, 0, 0, 4, 8]
+            # Subscription — .select_related().filter().aggregate()
+            ms.select_related.return_value.filter.return_value.aggregate.return_value = {"mrr": Decimal("1050000")}
+            # Subscription — .filter().values().annotate().order_by() (by_plan)
             ms.filter.return_value.values.return_value.annotate.return_value.order_by.return_value = [
                 {"plan__name": "Empresarial", "plan__tier": "pro", "count": 3}
             ]
@@ -239,9 +251,9 @@ class TestStaffMetricsAPIUnit:
         resp = self._get_mocked_response()
         kpis = resp.data["kpis"]
         required = [
-            "total_tenants", "new_this_month", "active_subs",
+            "total_tenants", "new_this_month", "active_subscriptions",
             "trialing_subs", "canceled_subs", "past_due_subs",
-            "mrr_cop", "revenue_this_month_cop",
+            "mrr_cop", "revenue_this_month",
         ]
         for field in required:
             assert field in kpis, f"Campo faltante en kpis: {field}"
@@ -250,10 +262,9 @@ class TestStaffMetricsAPIUnit:
         resp = self._get_mocked_response()
         assert "revenue_history" in resp.data
 
-    def test_revenue_history_has_6_months(self):
+    def test_revenue_history_has_12_months(self):
         resp = self._get_mocked_response()
-        # Puede ser menos si algunos meses no tienen facturas (zeros)
-        assert len(resp.data["revenue_history"]) == 6
+        assert len(resp.data["revenue_history"]) == 12
 
     def test_has_by_plan_key(self):
         resp = self._get_mocked_response()
@@ -287,7 +298,10 @@ class TestStaffTenantsAPIUnit:
 
         factory = APIRequestFactory()
         url = f"/staff/api/tenants/?search={search}" if search else "/staff/api/tenants/"
-        request = factory.get(url)
+        request = factory.get(
+            url,
+            HTTP_X_STAFF_ACCESS_KEY="agrotech-staff-dev-key",
+        )
         request.user = _staff_user()
 
         drf_request = Request(request)
@@ -321,11 +335,13 @@ class TestStaffTenantsAPIUnit:
         mock_qs.__iter__ = MagicMock(return_value=iter([mock_tenant]))
 
         with patch("billing.views_staff.Client.objects") as mc, \
-             patch("billing.views_staff.UsageMetrics.objects") as mu:
+             patch("billing.views_staff.UsageMetrics.objects") as mu, \
+             patch("billing.views_staff.Invoice.objects") as mi:
 
             mc.exclude.return_value.prefetch_related.return_value.order_by.return_value = mock_qs
             mc.exclude.return_value.prefetch_related.return_value.order_by.return_value.filter.return_value = mock_qs
             mu.filter.return_value.select_related.return_value.first.return_value = None
+            mi.filter.return_value.order_by.return_value.first.return_value = None
 
             response = view.get(view.request)
 

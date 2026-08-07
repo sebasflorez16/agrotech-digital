@@ -371,6 +371,11 @@ SECURE_CONTENT_TYPE_NOSNIFF = True
 # https://docs.djangoproject.com/en/dev/ref/settings/#x-frame-options
 X_FRAME_OPTIONS = "DENY"
 
+# Doble verificación del panel de operador (super-admin)
+# Segundo factor: clave de acceso que debe pasarse como header X-Staff-Access-Key
+# En producción se configura via variable de entorno (sin fallback).
+STAFF_ACCESS_KEY = env("STAFF_ACCESS_KEY", default="agrotech-staff-dev-key")
+
 # EMAIL
 # ------------------------------------------------------------------------------
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
