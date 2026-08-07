@@ -61,6 +61,12 @@ urlpatterns = [
     # Salud del cultivo — Monitoreo Continuo Fase 1
     path('parcel/<int:parcel_id>/health/', views.CropHealthAPIView.as_view(), name='parcel_health'),
 
+    # Radar Sentinel-1 — Monitoreo Continuo Fase 4 (operativo)
+    path('parcel/<int:parcel_id>/radar/', views.RadarAssessmentView.as_view(), name='parcel_radar'),
+
+    # Fusión multi-fuente — Monitoreo Continuo Fase 5
+    path('parcel/<int:parcel_id>/fusion-assessment/', views.FusionAssessmentView.as_view(), name='parcel_fusion'),
+
     # Reporte PDF ejecutivo por parcela / ciclo de cultivo (planes Pro+)
     path('parcel/<int:parcel_id>/report/', CropCycleReportView.as_view(), name='parcel_report'),
     path('parcel/<int:parcel_id>/report/<int:crop_cycle_id>/', CropCycleReportView.as_view(), name='crop_cycle_report'),

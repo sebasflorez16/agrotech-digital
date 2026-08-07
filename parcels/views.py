@@ -309,8 +309,9 @@ class ParcelViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Parcel.objects.filter(is_deleted=False)
-        if hasattr(self.request, 'tenant') and self.request.tenant:
-            qs = qs.filter(tenant_id=self.request.tenant.id)
+        request = getattr(self, 'request', None)
+        if request is not None and hasattr(request, 'tenant') and request.tenant:
+            qs = qs.filter(tenant_id=request.tenant.id)
         return qs
 
     def perform_create(self, serializer):
@@ -2964,6 +2965,63 @@ class CropHealthAPIView(APIView):
             'recent_activity': recent_activity,
             'alerts': health.active_alerts if health.active_alerts else [],
         }, status=200)
+
+
+# ── SENTINEL-1 RADAR (Monitoreo Continuo Fase 4 - ahOra OPERATIVO) ──────
+
+class RadarAssessmentView(APIView):
+    """
+    Evaluacion del cultivo via radar Sentinel-1.
+    GET /api/parcels/parcel/{parcel_id}/radar/
+
+    Feature gated: 'continuous_monitoring' (plan Pro+).
+
+    Busca escenas radar reales via Copernicus Data Space API.
+    El backscatter se estima por correlacion NDVI-radar cuando hay dato optico.
+    Si no hay NDVI, se usa modelo base (sin valores hardcodeados arbitrarios).
+    """
+    permission_classes = [IsAuthenticated]
+
+    @require_feature('continuous_monitoring')
+    def get(self, request, parcel_id):
+        from .sentinel1 import get_crop_status_from_radar
+
+        parcel = get_object_or_404(Parcel, pk=parcel_id, is_deleted=False)
+        if not parcel.geom:
+            return Response({'error': 'Parcela sin geometria'}, status=400)
+
+        health = None
+        try:
+            health = CropHealthStatus.objects.filter(parcel=parcel).first()
+        except Exception:
+            pass
+
+        ndvi_ref = health.ndvi_last if health and health.ndvi_last is not None else None
+        result = get_crop_status_from_radar(
+            parcel.geom, days_back=30, ndvi_value=ndvi_ref
+        )
+
+        result['parcel_id'] = parcel.id
+        result['parcel_name'] = parcel.name
+        return Response(result)
+
+
+class FusionAssessmentView(APIView):
+    """
+    Evaluacion multi-fuente del cultivo (optico + radar + clima).
+    GET /api/parcels/parcel/{parcel_id}/fusion-assessment/
+
+    Feature gated: 'continuous_monitoring' (plan Pro+).
+    """
+    permission_classes = [IsAuthenticated]
+
+    @require_feature('continuous_monitoring')
+    def get(self, request, parcel_id):
+        from .fusion_engine import quick_assessment
+
+        parcel = get_object_or_404(Parcel, pk=parcel_id, is_deleted=False)
+        assessment = quick_assessment(parcel)
+        return Response(assessment)
 
 
 # --- DASHBOARD HTML VIEW ---

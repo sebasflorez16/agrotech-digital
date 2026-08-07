@@ -39,11 +39,13 @@ class CropStateEngine:
             dict with assessment results
         """
         health = CropHealthStatus.get_or_create_for_parcel(parcel)
+        optical = CropStateEngine._assess_optical(health)
+        ndvi_ref = health.ndvi_last if health.ndvi_last is not None else None
         assessment = {
             'parcel_id': parcel.id,
             'parcel_name': parcel.name,
-            'optical_status': CropStateEngine._assess_optical(health),
-            'radar_status': CropStateEngine._assess_radar(parcel),
+            'optical_status': optical,
+            'radar_status': CropStateEngine._assess_radar(parcel, ndvi_value=ndvi_ref),
             'weather_context': CropStateEngine._assess_weather(weather_data),
             'overall_status': None,
             'recommendations': [],
@@ -84,12 +86,14 @@ class CropStateEngine:
         }
 
     @staticmethod
-    def _assess_radar(parcel):
-        """Assess based on Sentinel-1 radar data (if available)."""
+    def _assess_radar(parcel, ndvi_value=None):
+        """Assess based on Sentinel-1 radar data (with NDVI correlation for accuracy)."""
         try:
             from .sentinel1 import get_crop_status_from_radar
             if parcel.geom:
-                radar = get_crop_status_from_radar(parcel.geom, days_back=30)
+                radar = get_crop_status_from_radar(
+                    parcel.geom, days_back=30, ndvi_value=ndvi_value
+                )
                 return radar
         except ImportError:
             logger.debug("[FUSION] Sentinel-1 module not available")
