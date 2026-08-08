@@ -90,19 +90,17 @@ class RegisterView(APIView):
             # Ejecutar registro atómico
             service = RegistrationService()
             result = service.register(serializer.validated_data)
-            
+
             tenant = result['tenant']
             user = result['user']
             subscription = result.get('subscription')
             domain = result['domain']
-            
-            # Generar tokens JWT para auto-login
-            refresh = RefreshToken.for_user(user)
-            
-            # Construir respuesta
+
+            # Construir respuesta — sin tokens JWT (usuario debe verificar email)
             response_data = {
                 'success': True,
-                'message': 'Cuenta creada exitosamente. ¡Bienvenido a AgroTech Digital!',
+                'message': 'Cuenta creada. Revisa tu correo para verificarla.',
+                'requires_email_verification': True,
                 'data': {
                     'user': {
                         'id': user.id,
@@ -127,30 +125,57 @@ class RegisterView(APIView):
                         'trial_end': subscription.trial_end.isoformat() if subscription and subscription.trial_end else None,
                         'current_period_end': subscription.current_period_end.isoformat() if subscription else None,
                     } if subscription else None,
-                    'tokens': {
-                        'access': str(refresh.access_token),
-                        'refresh': str(refresh),
-                    },
                 }
             }
-            
-            logger.info(f"Registro exitoso: {user.username} -> {tenant.schema_name}")
+
+            logger.info(f"Registro exitoso (pendiente verificacion): {user.username} -> {tenant.schema_name}")
             return Response(response_data, status=status.HTTP_201_CREATED)
-            
+
         except RegistrationError as e:
-            # Log detallado para administradores (sin exponer al usuario)
             logger.error(f"Error de registro: {str(e)}", exc_info=True)
             return Response({
                 'success': False,
                 'error': 'Error al crear la cuenta. Por favor intenta de nuevo.',
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
+
         except Exception as e:
             logger.exception(f"Error inesperado en registro: {str(e)}")
             return Response({
                 'success': False,
                 'error': 'Error interno del servidor.',
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class VerifyEmailView(APIView):
+    """
+    Verifica el email del usuario y activa la cuenta.
+
+    GET /api/auth/verify-email/?token=<verification_token>
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        token = request.query_params.get('token', '').strip()
+        if not token:
+            return Response({'success': False, 'error': 'Token requerido.'}, status=400)
+
+        try:
+            user = User.objects.get(verification_token=token)
+        except User.DoesNotExist:
+            return Response({'success': False, 'error': 'Token inválido o ya usado.'}, status=404)
+
+        user.email_verified = True
+        user.is_active = True
+        user.verification_token = None
+        user.save()
+
+        logger.info(f"Email verificado: {user.email}")
+
+        return Response({
+            'success': True,
+            'message': 'Correo verificado. Ya puedes iniciar sesión.',
+            'user': {'id': user.id, 'email': user.email, 'username': user.username},
+        })
 
 
 class LoginView(APIView):
@@ -210,9 +235,12 @@ class LoginView(APIView):
         if not user.is_active:
             return Response({
                 'success': False,
-                'error': 'Esta cuenta está desactivada.',
+                'error': (
+                    'Esta cuenta está desactivada. Verifica tu correo electrónico '
+                    'si acabas de registrarte.'
+                ),
             }, status=status.HTTP_403_FORBIDDEN)
-        
+
         # Generar tokens con tenant_id en el payload (sin fallback: si no existe, no se incluye)
         refresh = RefreshToken.for_user(user)
         if hasattr(user, 'tenant_id') and user.tenant_id:

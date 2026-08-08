@@ -2,7 +2,7 @@
 #modelo inicial para creacion de usuario se recomienda agregar al crear el superusuario
 
 from datetime import timezone
-from uuid import uuid1
+from uuid import uuid1, uuid4
 from django.db import models
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
 from simple_history.models import HistoricalRecords
@@ -77,6 +77,8 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # Campos de auditoría
     is_active = models.BooleanField('Activo', default=True)
+    email_verified = models.BooleanField('Email verificado', default=False)
+    verification_token = models.CharField('Token de verificación', max_length=64, blank=True, null=True)
     is_staff = models.BooleanField('Staff', default=False)
     created_on = models.DateField('Fecha de Creación', auto_now_add=True)
     modified_on = models.DateField('Última Modificación', auto_now=True)

@@ -1,26 +1,29 @@
 """
 Servicio de registro SaaS para AgroTech Digital.
-
+ 
 Maneja la creación atómica de:
 1. Client (Tenant) - Schema de PostgreSQL aislado
 2. Domain - Subdominio para el tenant
-3. User (Admin) - Usuario administrador del tenant
+3. User (Admin) - Usuario administrador (is_active=False hasta verificar email)
 4. Subscription - Suscripción trial automática (via signal)
-
+5. Email de verificación enviado al correo del usuario
+ 
 Implementa transacciones atómicas para evitar datos huérfanos.
 """
-
+ 
 import re
 import logging
 from datetime import date, timedelta
-
+from uuid import uuid4
+ 
 from django.db import transaction, connection
 from django.conf import settings
+from django.core.mail import send_mail
 from django_tenants.utils import schema_context
-
+ 
 from base_agrotech.models import Client, Domain
 from django.contrib.auth import get_user_model
-
+ 
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
@@ -61,18 +64,34 @@ class RegistrationService:
                 # 4. La suscripción se crea automáticamente via signal
                 #    (billing.signals.create_free_subscription_for_new_tenant)
                 subscription = self._get_subscription(tenant)
-                
+
+                # 5. Enviar email de verificación (fuera de la transacción)
+                self._send_verification_email_later(user, tenant)
+
                 logger.info(
                     f"Registro exitoso: tenant={tenant.schema_name}, "
-                    f"user={user.username}, plan={subscription.plan.tier if subscription else 'N/A'}"
+                    f"user={user.username}, plan={subscription.plan.tier if subscription else 'N/A'} "
+                    f"(pendiente verificacion email)"
                 )
-                
+
                 return {
                     'tenant': tenant,
                     'domain': domain,
                     'user': user,
                     'subscription': subscription,
+                    'requires_email_verification': True,
                 }
+
+        except Exception as e:
+            logger.error(f"Error en registro: {str(e)}", exc_info=True)
+            raise RegistrationError(str(e))
+
+    def _send_verification_email_later(self, user, tenant):
+        """Envía el email de verificación sin bloquear la transacción."""
+        try:
+            self.send_verification_email(user, tenant)
+        except Exception as e:
+            logger.warning(f"Fallo al enviar email de verificacion (no critico): {e}")
                 
         except Exception as e:
             logger.error(f"Error en registro: {str(e)}", exc_info=True)
@@ -136,26 +155,62 @@ class RegistrationService:
         return domain
     
     def _create_admin_user(self, tenant: Client, data: dict) -> User:
-        """Crear el usuario administrador y asignarlo al tenant."""
-        # Users es shared_app, se crea en schema public
-        # El campo user.tenant vincula al usuario con su organización
+        """Crear el usuario administrador."""
+        from uuid import uuid4
+
+        verification_required = (
+            getattr(settings, 'ACCOUNT_EMAIL_VERIFICATION', 'optional') == 'mandatory'
+        )
+
         user = User(
             username=data['username'],
             email=data['email'],
             name=data['name'],
             last_name=data['last_name'],
             phone=data.get('phone', ''),
-            is_active=True,
-            is_staff=True,  # Admin del tenant
+            is_active=not verification_required,  # Activo solo si no requiere verificacion
+            email_verified=False,
+            verification_token=uuid4().hex,
+            is_staff=True,
             role='admin',
-            tenant=tenant,  # Vincular usuario con su organización
+            tenant=tenant,
         )
         user.set_password(data['password'])
         user.save()
-        
-        logger.info(f"Admin user creado: {user.email} → tenant: {tenant.schema_name}")
+
+        logger.info(
+            f"Admin user creado: {user.email} → tenant: {tenant.schema_name} "
+            f"(verificacion={'requerida' if verification_required else 'opcional'})"
+        )
         return user
-    
+
+    def send_verification_email(self, user: User, tenant: Client):
+        """Envía el email de verificación al nuevo usuario."""
+        frontend_url = getattr(settings, 'SITE_URL', 'http://localhost:8000')
+        verify_url = f"{frontend_url}/api/auth/verify-email/?token={user.verification_token}"
+
+        subject = f"[AgroTech] Verifica tu cuenta — {tenant.name}"
+        message = (
+            f"Hola {user.name},\n\n"
+            f"¡Bienvenido a AgroTech Digital! Tu finca '{tenant.name}' está casi lista.\n\n"
+            f"Para activar tu cuenta, verifica tu correo haciendo clic aquí:\n"
+            f"{verify_url}\n\n"
+            f"Si no creaste esta cuenta, ignora este mensaje.\n\n"
+            f"AgroTech Digital — Agricultura de precisión al alcance de tu mano."
+        )
+
+        try:
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@agrotechcolombia.com'),
+                recipient_list=[user.email],
+                fail_silently=True,
+            )
+            logger.info(f"Email de verificacion enviado a {user.email}")
+        except Exception as e:
+            logger.warning(f"No se pudo enviar email de verificacion a {user.email}: {e}")
+
     def _get_subscription(self, tenant: Client):
         """Obtener la suscripción creada automáticamente por el signal."""
         try:
