@@ -102,14 +102,15 @@ export async function login(username, password) {
   return data;
 }
 
-export async function register({ username, email, password, first_name, last_name }) {
+export async function register({ username, email, password, name, last_name, organization_name }) {
   const { data } = await api.post("/api/auth/register/", {
     username,
     email,
     password,
-    password2: password,
-    first_name,
+    password_confirm: password,
+    name,
     last_name,
+    organization_name,
   });
   return data;
 }

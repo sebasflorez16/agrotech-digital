@@ -5,10 +5,11 @@ import { useAuth } from "../hooks/useAuth";
 export default function Register() {
   const { register } = useAuth();
   const [form, setForm] = useState({
-    first_name: "",
+    name: "",
     last_name: "",
     email: "",
     username: "",
+    organization_name: "",
     password: "",
     confirmPassword: "",
   });
@@ -33,10 +34,11 @@ export default function Register() {
     setLoading(true);
     try {
       await register({
-        first_name: form.first_name,
+        name: form.name,
         last_name: form.last_name,
         email: form.email,
         username: form.username,
+        organization_name: form.organization_name,
         password: form.password,
       });
       window.location.href = "/login?registered=true";
@@ -132,8 +134,8 @@ export default function Register() {
                   <input
                     type="text"
                     required
-                    value={form.first_name}
-                    onChange={update("first_name")}
+                    value={form.name}
+                    onChange={update("name")}
                     className="glass-input text-sm py-2.5"
                   />
                 </div>
@@ -172,6 +174,18 @@ export default function Register() {
                   onChange={update("username")}
                   className="glass-input text-sm py-2.5"
                   placeholder="juan_agricultor"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#6E6E73] mb-1">Nombre de la finca / empresa</label>
+                <input
+                  type="text"
+                  required
+                  value={form.organization_name}
+                  onChange={update("organization_name")}
+                  className="glass-input text-sm py-2.5"
+                  placeholder="Finca El Roble"
                 />
               </div>
 

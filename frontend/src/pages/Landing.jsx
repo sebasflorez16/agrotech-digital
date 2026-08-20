@@ -214,7 +214,7 @@ export default function Landing() {
                 features: [
                   "1 parcela (máx. 30 ha)",
                   "Índice NDVI básico",
-                  "10 consultas EOSDA/mes",
+                  "10 análisis satelitales/mes",
                   "Dashboard web",
                 ],
                 cta: "Comenzar gratis",
@@ -227,7 +227,7 @@ export default function Landing() {
                 features: [
                   "Hasta 5 parcelas (150 ha)",
                   "NDVI + NDMI + SAVI",
-                  "100 consultas EOSDA/mes",
+                  "100 análisis satelitales/mes",
                   "Alertas agronómicas",
                   "Ciclos de cultivo",
                   "Historial de rendimiento",
@@ -242,7 +242,7 @@ export default function Landing() {
                 features: [
                   "Hasta 15 parcelas (300 ha)",
                   "Todos los índices",
-                  "300 consultas EOSDA/mes",
+                  "300 análisis satelitales/mes",
                   "Alertas avanzadas",
                   "Hasta 3 usuarios",
                   "Soporte prioritario",

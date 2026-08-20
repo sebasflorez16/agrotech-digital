@@ -2969,6 +2969,18 @@ async function loadCropHealth(parcelId) {
             const ndviEl = document.getElementById('crop-ndvi-value');
             if (ndviEl) ndviEl.textContent = health.indices.ndvi.toFixed(2);
         }
+
+        // Actualizar actividad reciente
+        const activityEl = document.getElementById('crop-activity-list');
+        if (activityEl && health.recent_activity) {
+            activityEl.innerHTML = health.recent_activity.map(a =>
+                `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:0.85em;border-bottom:1px solid #eee">
+                    <span>${a.icon}</span>
+                    <span style="flex:1">${a.title}</span>
+                    <span style="color:#999;font-size:0.8em">${a.time_ago}</span>
+                </div>`
+            ).join('');
+        }
     } catch (e) {
         console.warn('[HEALTH] No se pudo cargar estado de salud:', e.message);
     }

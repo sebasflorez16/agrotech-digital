@@ -162,17 +162,20 @@ async function loadUsageHistory(months = 6) {
 function displayUsageChart(data) {
     const ctx = document.getElementById('usageChart');
     if (!ctx) return;
-    
+
+    // El backend devuelve { tenant_name, history: [{period, eosda_requests, ...}, ...] }
+    const history = Array.isArray(data.history) ? data.history : [];
+
     // Ordenar por fecha (más antiguo primero)
-    const sortedData = Object.entries(data).sort((a, b) => a[0].localeCompare(b[0]));
-    
-    const labels = sortedData.map(([month, _]) => {
-        const [year, monthNum] = month.split('-');
+    const sortedData = history.slice().sort((a, b) => a.period.localeCompare(b.period));
+
+    const labels = sortedData.map((item) => {
+        const [year, monthNum] = item.period.split('-');
         const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
         return `${monthNames[parseInt(monthNum) - 1]} ${year}`;
     });
-    
-    const eosdaData = sortedData.map(([_, metrics]) => metrics.eosda_requests || 0);
+
+    const eosdaData = sortedData.map((item) => item.eosda_requests || 0);
     
     // Destruir chart anterior si existe
     if (usageChart) {
@@ -265,43 +268,52 @@ async function loadCurrentInvoice() {
 
 // Mostrar factura
 function displayInvoice(invoice) {
+    // El backend devuelve { period:{start,end,days_remaining}, invoice_preview:{...} }
+    const period = invoice.period || {};
+    const preview = invoice.invoice_preview || {};
+    const lineItems = preview.line_items || [];
+
     // Actualizar período
     const periodElement = document.getElementById('invoicePeriod');
     if (periodElement) {
-        const startDate = new Date(invoice.period_start).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
-        const endDate = new Date(invoice.period_end).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
-        periodElement.textContent = `Período: ${startDate} - ${endDate} (${invoice.days_remaining} días restantes)`;
+        if (period.start && period.end) {
+            const startDate = new Date(period.start).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+            const endDate = new Date(period.end).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+            periodElement.textContent = `Período: ${startDate} - ${endDate} (${period.days_remaining ?? 0} días restantes)`;
+        } else {
+            periodElement.textContent = 'Período no disponible';
+        }
     }
-    
+
     // Actualizar líneas de factura
     const linesContainer = document.getElementById('invoiceLines');
     if (linesContainer) {
-        linesContainer.innerHTML = invoice.line_items.map(item => `
+        linesContainer.innerHTML = lineItems.map(item => `
             <div class="invoice-line">
                 <div>
                     <div style="font-weight: var(--font-weight-medium); margin-bottom: var(--space-xs);">${item.description}</div>
                     ${item.quantity > 1 ? `<div style="font-size: 0.875rem; color: var(--text-secondary);">${item.quantity} × $${Number(item.unit_price).toLocaleString('es-CO')} COP</div>` : ''}
                 </div>
                 <div style="font-weight: var(--font-weight-semibold); font-size: 1.125rem;">
-                    $${Number(item.amount).toLocaleString('es-CO')} COP
+                    $${Number(item.total).toLocaleString('es-CO')} COP
                 </div>
             </div>
         `).join('') + `
             <div class="invoice-line" style="opacity: 0.6;">
                 <div>Subtotal</div>
-                <div style="font-weight: var(--font-weight-medium);">$${Number(invoice.subtotal).toLocaleString('es-CO')} COP</div>
+                <div style="font-weight: var(--font-weight-medium);">$${Number(preview.subtotal || 0).toLocaleString('es-CO')} COP</div>
             </div>
             <div class="invoice-line" style="opacity: 0.6;">
                 <div>IVA (19%)</div>
-                <div style="font-weight: var(--font-weight-medium);">$${Number(invoice.tax_amount).toLocaleString('es-CO')} COP</div>
+                <div style="font-weight: var(--font-weight-medium);">$${Number(preview.tax_amount || 0).toLocaleString('es-CO')} COP</div>
             </div>
         `;
     }
-    
+
     // Actualizar total
     const totalElement = document.getElementById('invoiceTotal');
     if (totalElement) {
-        totalElement.textContent = `$${Number(invoice.total).toLocaleString('es-CO')} COP`;
+        totalElement.textContent = `$${Number(preview.total || 0).toLocaleString('es-CO')} COP`;
     }
 }
 

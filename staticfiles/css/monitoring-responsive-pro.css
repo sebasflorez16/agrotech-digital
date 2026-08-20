@@ -1,0 +1,350 @@
+/* ============================================================
+   AGROTECH DIGITAL — Monitoreo Continuo Responsive Pro
+   Mobile-first professional design layer
+   ============================================================ */
+
+/* ── DESIGN TOKENS ─────────────────────────────────────────── */
+:root {
+  --agro-green-900: #14532d;
+  --agro-green-700: #15803d;
+  --agro-green-500: #22c55e;
+  --agro-green-300: #86efac;
+  --agro-green-100: #dcfce7;
+  --agro-amber-500: #f59e0b;
+  --agro-amber-300: #fcd34d;
+  --agro-amber-100: #fef3c7;
+  --agro-red-500: #ef4444;
+  --agro-red-300: #fca5a5;
+  --agro-red-100: #fee2e2;
+  --agro-blue-600: #2563eb;
+  --agro-blue-300: #93c5fd;
+  --agro-blue-100: #dbeafe;
+  --agro-gray-50: #fafafa;
+  --agro-gray-100: #f5f5f4;
+  --agro-gray-200: #e7e5e4;
+  --agro-gray-300: #d6d3d1;
+  --agro-gray-500: #78716c;
+  --agro-gray-700: #44403c;
+  --agro-gray-900: #1c1917;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  --space-xs: 6px;
+  --space-sm: 10px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+}
+
+/* ── MOBILE-FIRST BASE ─────────────────────────────────────── */
+@media (max-width: 767px) {
+  /* Topbar refinado */
+  .topbar {
+    background: rgba(255, 255, 255, 0.92) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--agro-gray-200) !important;
+    box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04) !important;
+    height: 56px !important;
+  }
+
+  /* Mapa — altura optimizada para mobile */
+  #mapContainer {
+    height: 42vh !important;
+    min-height: 280px !important;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg) !important;
+  }
+
+  /* Botones de acción flotantes */
+  #button-container {
+    position: fixed !important;
+    bottom: 20px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    top: auto !important;
+    z-index: 1000 !important;
+    background: rgba(255, 255, 255, 0.88) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--agro-gray-200) !important;
+    border-radius: var(--radius-xl) !important;
+    padding: var(--space-sm) var(--space-md) !important;
+    display: flex !important;
+    gap: var(--space-xs) !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1) !important;
+  }
+  #button-container h3 { display: none !important; }
+  .custom-button {
+    font-size: 13px !important;
+    padding: 10px 16px !important;
+    border-radius: var(--radius-md) !important;
+    margin: 0 !important;
+    width: auto !important;
+    flex: 0 1 auto !important;
+  }
+
+  /* Tabla de parcelas — scroll horizontal optimizado */
+  #parcelTableContainer {
+    margin: var(--space-md) auto !important;
+    padding: var(--space-sm) !important;
+    border-radius: var(--radius-lg) !important;
+    max-width: 96vw !important;
+  }
+  #parcelTable {
+    font-size: 13px !important;
+    min-width: 100% !important;
+  }
+  #parcelTable thead { display: none !important; }
+  #parcelTable tbody tr {
+    display: block !important;
+    margin-bottom: var(--space-sm) !important;
+    border: 1px solid var(--agro-gray-200) !important;
+    border-radius: var(--radius-md) !important;
+    padding: var(--space-sm) !important;
+    background: white !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03) !important;
+  }
+  #parcelTable tbody tr.selected-parcel {
+    border-color: var(--agro-green-500) !important;
+    background: var(--agro-green-100) !important;
+  }
+  #parcelTable tbody td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 6px 0 !important;
+    border: none !important;
+  }
+  #parcelTable tbody td::before {
+    content: attr(data-label) !important;
+    font-weight: 600 !important;
+    color: var(--agro-gray-500) !important;
+    font-size: 11px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    flex: 0 0 40% !important;
+  }
+
+  /* Panel de dashboard — full width en mobile */
+  #dashboardFlexRow {
+    flex-direction: column !important;
+    padding: var(--space-md) var(--space-sm) !important;
+    gap: var(--space-md) !important;
+    margin: var(--space-md) auto !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
+  }
+  #dashboardFlexRow > div {
+    min-width: 100% !important;
+  }
+}
+
+/* ── TABLET ─────────────────────────────────────────────────── */
+@media (min-width: 768px) and (max-width: 1024px) {
+  #mapContainer { height: 50vh !important; min-height: 380px !important; }
+  #dashboardFlexRow { gap: var(--space-lg) !important; }
+}
+
+/* ── BADGE DE SALUD — Profesional ───────────────────────────── */
+#crop-health-badge {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  padding: var(--space-sm) var(--space-md) !important;
+  border-radius: var(--radius-xl) !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.2px !important;
+  transition: all 0.3s ease !important;
+}
+#crop-health-badge:empty { display: none !important; }
+#crop-health-message {
+  text-align: center !important;
+  line-height: 1.5 !important;
+  max-width: 400px !important;
+  margin: 0 auto !important;
+}
+
+/* ── ACTIVIDAD RECIENTE ─────────────────────────────────────── */
+#crop-activity-section {
+  border: 1px solid var(--agro-gray-200) !important;
+  border-radius: var(--radius-md) !important;
+  background: white !important;
+  overflow: hidden !important;
+}
+#crop-activity-list > div {
+  transition: background 0.15s ease !important;
+}
+#crop-activity-list > div:hover {
+  background: var(--agro-gray-100) !important;
+}
+
+/* ── BOTONES PROFESIONALES ──────────────────────────────────── */
+.btn-success, .btn-warning, .btn-info, .btn-primary {
+  font-weight: 600 !important;
+  letter-spacing: -0.1px !important;
+  border-radius: var(--radius-md) !important;
+  padding: 10px 20px !important;
+  transition: all 0.2s ease !important;
+}
+.btn-success:hover, .btn-warning:hover, .btn-info:hover, .btn-primary:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12) !important;
+}
+.btn:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+}
+
+/* ── CARDS — Diseño profesional ─────────────────────────────── */
+.card {
+  border: 1px solid var(--agro-gray-200) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04) !important;
+  overflow: hidden !important;
+  background: white !important;
+}
+.card-header {
+  background: var(--agro-gray-100) !important;
+  border-bottom: 1px solid var(--agro-gray-200) !important;
+  padding: var(--space-sm) var(--space-md) !important;
+}
+.card-body { padding: var(--space-md) !important; }
+
+/* ── COLOR SYSTEM — Consistente ─────────────────────────────── */
+/* Nubosidad — Verde (baja) → Amarillo (media) → Rojo (alta) */
+.cloud-low    { color: var(--agro-green-700); background: var(--agro-green-100); }
+.cloud-medium { color: #92400e; background: var(--agro-amber-100); }
+.cloud-high   { color: #991b1b; background: var(--agro-red-100); }
+
+/* Salud del cultivo */
+.health-excellent { color: var(--agro-green-700); }
+.health-good      { color: #166534; }
+.health-warning   { color: #92400e; }
+.health-critical  { color: #991b1b; }
+
+/* Alertas */
+.alert-success {
+  background: var(--agro-green-100) !important;
+  border-left: 4px solid var(--agro-green-500) !important;
+  color: var(--agro-green-900) !important;
+}
+.alert-warning {
+  background: var(--agro-amber-100) !important;
+  border-left: 4px solid var(--agro-amber-500) !important;
+  color: #78350f !important;
+}
+.alert-danger {
+  background: var(--agro-red-100) !important;
+  border-left: 4px solid var(--agro-red-500) !important;
+  color: #7f1d1d !important;
+}
+.alert-info {
+  background: var(--agro-blue-100) !important;
+  border-left: 4px solid var(--agro-blue-600) !important;
+  color: #1e3a5f !important;
+}
+
+/* ── MODAL — Profesional ────────────────────────────────────── */
+.modal-content {
+  border-radius: var(--radius-xl) !important;
+  border: none !important;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15) !important;
+  overflow: hidden !important;
+}
+.modal-header {
+  background: linear-gradient(135deg, var(--agro-green-700), var(--agro-green-500)) !important;
+  color: white !important;
+  padding: var(--space-md) var(--space-lg) !important;
+  border: none !important;
+}
+.modal-header .btn-close { filter: brightness(0) invert(1) !important; }
+.modal-body { padding: var(--space-lg) !important; }
+.modal-footer {
+  background: var(--agro-gray-100) !important;
+  border-top: 1px solid var(--agro-gray-200) !important;
+  padding: var(--space-sm) var(--space-lg) !important;
+}
+
+@media (max-width: 767px) {
+  .modal-dialog { margin: var(--space-sm) !important; }
+  .modal-content { border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important; }
+  .modal-body { padding: var(--space-md) !important; }
+}
+
+/* ── SIDEBAR MOBILE — Suave ─────────────────────────────────── */
+.mobile-sidebar {
+  background: linear-gradient(180deg, #14532d 0%, #1a3a2a 60%, #0f2318 100%) !important;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3) !important;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+.mobile-sidebar .menu a {
+  color: rgba(255, 255, 255, 0.75) !important;
+  transition: all 0.2s ease !important;
+  font-weight: 500 !important;
+}
+.mobile-sidebar .menu a:hover,
+.mobile-sidebar .menu a.active {
+  color: white !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ── SPINNER / LOADING — Premium ────────────────────────────── */
+#eosdaSpinnerContainer {
+  background: rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+#eosdaSpinnerMsg {
+  font-size: 1.1rem !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.1px !important;
+}
+
+/* ── TYPOGRAPHY — Refinada ──────────────────────────────────── */
+body.neomorphic-theme {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  -webkit-font-smoothing: antialiased !important;
+}
+h4, h5, h6 { letter-spacing: -0.3px !important; }
+.page-title { font-weight: 800 !important; letter-spacing: -0.5px !important; }
+
+/* ── SCROLLBAR — Sutil ──────────────────────────────────────── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--agro-gray-300); border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: var(--agro-gray-500); }
+
+/* ── TOOLTIP ────────────────────────────────────────────────── */
+[data-bs-toggle="tooltip"] { cursor: help; }
+
+/* ── FOCUS — Accesibilidad ──────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--agro-green-500) !important;
+  outline-offset: 2px !important;
+  border-radius: 4px !important;
+}
+
+/* ── ANIMACIONES ────────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#selectedParcelBanner,
+#crop-health-badge,
+#crop-activity-section {
+  animation: fadeInUp 0.35s ease-out;
+}
+
+/* ── PRINT ──────────────────────────────────────────────────── */
+@media print {
+  #button-container, .topbar, #left-sidebar, #mobile-sidebar,
+  #sidebar-overlay, .btn { display: none !important; }
+  #mapContainer { height: 300px !important; }
+}

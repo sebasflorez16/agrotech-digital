@@ -147,6 +147,7 @@ function renderScenesTable(scenes) {
                 <th>NDVI</th>
                 <th>NDMI</th>
                 <th>SAVI</th>
+                <th>NDRE</th>
                 <th>Analytics</th>
             </tr>
         </thead>
@@ -164,6 +165,7 @@ function renderScenesTable(scenes) {
                         <td><button class="btn btn-sm btn-outline-success" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndvi', this, '${scene.date}')">NDVI</button></td>
                         <td><button class="btn btn-sm btn-outline-info" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndmi', this, '${scene.date}')">NDMI</button></td>
                         <td><button class="btn btn-sm btn-outline-warning" onclick="procesarImagenEOSDA('${scene.view_id}', 'savi', this, '${scene.date}')">SAVI</button></td>
+                        <td><button class="btn btn-sm btn-outline-primary" onclick="procesarImagenEOSDA('${scene.view_id}', 'ndre', this, '${scene.date}')">NDRE</button></td>
                         <td>
                             <button class="btn btn-sm btn-outline-warning" onclick="obtenerAnalyticsEscena('${scene.view_id}', '${scene.date}')">Stats</button>
                         </td>
@@ -177,6 +179,15 @@ function renderScenesTable(scenes) {
 
 // Función para obtener analíticas científicas de una escena
 window.obtenerAnalyticsEscena = async function(viewId, sceneDate) {
+    // Debounce: ignorar dobles clics sobre el mismo botón Stats (<1.5s)
+    const _now = Date.now();
+    const _key = `analytics_${viewId}`;
+    window.__eosdaAnalyticsInFlight = window.__eosdaAnalyticsInFlight || {};
+    if (window.__eosdaAnalyticsInFlight[_key] && (_now - window.__eosdaAnalyticsInFlight[_key]) < 1500) {
+        console.log(`[ANALYTICS_ESCENA] Debounce: solicitud reciente para ${viewId} ignorada`);
+        return;
+    }
+    window.__eosdaAnalyticsInFlight[_key] = _now;
     try {
         console.log(`[ANALYTICS_ESCENA] Iniciando análisis para escena: ${viewId}, fecha: ${sceneDate}`);
         
@@ -344,6 +355,21 @@ function initializeLeaflet() {
                         return Promise.reject(new Error('session_expired'));
                     }
                 }
+
+                // Manejo de límites/errores de negocio (402/403/429/404) con mensajes claros.
+                // El backend ya devuelve 'error'/'message' accionables; aquí se muestran.
+                if ([402, 403, 404, 429].includes(status) && !originalRequest._silentError) {
+                    const data = error.response?.data || {};
+                    const msg = data.error || data.message || (
+                        status === 429
+                            ? 'Has alcanzado el límite de análisis satelitales de tu plan.'
+                            : 'Tu plan no incluye esta acción.'
+                    );
+                    if (typeof window.showErrorToast === 'function') {
+                        window.showErrorToast(msg);
+                    }
+                }
+
                 return Promise.reject(error);
             }
         );
@@ -630,7 +656,7 @@ function savePolygon() {
     .then(response => {
         const data = response.data;
         if (data.eosda_id) {
-            showInfoToast("Parcela guardada y sincronizada con EOSDA (ID: " + data.eosda_id + ")");
+            showInfoToast("Parcela guardada y sincronizada (ID: " + data.eosda_id + ")");
         } else {
             showErrorToast("Parcela guardada localmente, pero NO sincronizada con el proveedor satelital.");
         }
@@ -692,7 +718,7 @@ function loadParcels() {
             tableBody.innerHTML = "";
             
             if (!data.length) {
-                tableBody.innerHTML = `<tr><td colspan='7' class='text-center'>No hay parcelas registradas.</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan='8' class='text-center'>No hay parcelas registradas.</td></tr>`;
                 return;
             }
             
@@ -710,12 +736,14 @@ function loadParcels() {
                     selectParcel(parcel);
                 });
                 
+                const syncCell = renderSyncStatus(parcel);
                 row.innerHTML = `
                     <td>${props.name || "Sin nombre"}</td>
                     <td>${props.description || "Sin descripción"}</td>
                     <td>${props.field_type || "N/A"}</td>
                     <td>${props.soil_type || "N/A"}</td>
                     <td>${props.topography || "N/A"}</td>
+                    <td>${syncCell}</td>
                     <td>
                         <button class="btn btn-sm btn-outline-success" onclick="flyToParcel(${parcel.id});" title="Ver Parcela">
                             Ver
@@ -726,11 +754,12 @@ function loadParcels() {
                 `;
                 tableBody.appendChild(row);
                 
-                // Dibujar parcela en el mapa si tiene geometría
-                if (parcel.geometry && parcel.geometry.coordinates && map) {
+                // Dibujar parcela en el mapa si tiene geometría (campo 'geom' del backend)
+                const parcelGeom = parcel.geometry || parcel.geom;
+                if (parcelGeom && parcelGeom.coordinates && map) {
                     try {
                         // Convertir coordenadas GeoJSON [lng, lat] a Leaflet [lat, lng]
-                        const coordinates = parcel.geometry.coordinates[0].map(coord => [coord[1], coord[0]]);
+                        const coordinates = parcelGeom.coordinates[0].map(coord => [coord[1], coord[0]]);
                         
                         // Crear polígono con borde verde oscuro
                         const polygon = L.polygon(coordinates, {
@@ -773,6 +802,72 @@ function loadParcels() {
             }
         });
 }
+
+/**
+ * Renderiza la celda de estado de sincronización de una parcela.
+ * Estados: local / syncing / synced / error.
+ */
+function renderSyncStatus(parcel) {
+    const status = parcel.sync_status || 'local';
+    const error = parcel.sync_error || '';
+    const map = {
+        'synced':   { label: 'Sincronizada', cls: 'success', icon: '✅' },
+        'syncing':  { label: 'Sincronizando…', cls: 'warning', icon: '⏳' },
+        'local':    { label: 'Solo local', cls: 'secondary', icon: '📄' },
+        'error':    { label: 'Error', cls: 'danger', icon: '⚠️' },
+    };
+    const info = map[status] || map.local;
+    const errorTitle = error ? ` title="${error.replace(/"/g, '&quot;')}"` : '';
+
+    if (status === 'error' || status === 'local') {
+        return `<span${errorTitle} style="white-space:nowrap;">${info.icon} ${info.label}</span>
+            <button class="btn btn-sm btn-outline-primary" style="margin-left:6px;"
+                onclick="syncParcel(${parcel.id})" title="Reintentar sincronización">Sincronizar</button>`;
+    }
+    return `<span${errorTitle} style="white-space:nowrap;">${info.icon} ${info.label}</span>`;
+}
+
+/**
+ * Reintenta la sincronización de una parcela con el servicio satelital.
+ * Evita solicitudes duplicadas mientras la sincronización está en curso.
+ */
+window.syncParcel = async function(parcelId) {
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+    const btn = event && event.target ? event.target : null;
+    if (btn) { btn.disabled = true; btn.textContent = 'Sincronizando…'; }
+
+    try {
+        const resp = await fetch(`${BASE_URL}/parcel/${parcelId}/sync-eosda/`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+        });
+        const data = await resp.json();
+        if (resp.ok) {
+            const statusMap = {
+                'synced': 'Parcela sincronizada correctamente.',
+                'syncing': 'Sincronización en curso…',
+                'error': 'No se pudo sincronizar: ' + (data.sync_error || 'error desconocido'),
+                'local': 'Parcela pendiente de sincronización.',
+            };
+            const msg = statusMap[data.sync_status] || 'Estado actualizado.';
+            if (data.sync_status === 'error') {
+                showErrorToast(msg);
+            } else {
+                showInfoToast(msg);
+            }
+            // Recargar la tabla para actualizar el estado
+            if (typeof loadParcels === 'function') loadParcels();
+        } else {
+            showErrorToast(data.error || 'No se pudo sincronizar la parcela.');
+        }
+    } catch (e) {
+        console.error('[SYNC_PARCEL] Error:', e);
+        showErrorToast('Error de conexión al sincronizar la parcela.');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Sincronizar'; }
+    }
+};
 
 /**
  * Selecciona una parcela y actualiza el estado global
@@ -818,6 +913,11 @@ function selectParcel(parcel) {
     // Toast de confirmación
     if (typeof showInfoToast === 'function') {
         showInfoToast(`📍 Parcela "${parcelData.name}" seleccionada`);
+    }
+    
+    // Cargar monitoreo radar (Sentinel-1)
+    if (typeof loadRadarMonitoring === 'function') {
+        loadRadarMonitoring(parcel.id);
     }
 }
 window.selectParcel = selectParcel;
@@ -1535,6 +1635,7 @@ async function showSceneSelectionTable(scenes) {
                     <th style="padding:10px 12px;text-align:center;font-weight:600;color:#86868B;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">NDVI</th>
                     <th style="padding:10px 12px;text-align:center;font-weight:600;color:#86868B;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">NDMI</th>
                     <th style="padding:10px 12px;text-align:center;font-weight:600;color:#86868B;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">SAVI</th>
+                    <th style="padding:10px 12px;text-align:center;font-weight:600;color:#86868B;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">NDRE</th>
                     <th style="padding:10px 12px;text-align:center;font-weight:600;color:#86868B;font-size:11px;text-transform:uppercase;letter-spacing:.5px;">Stats</th>
                 </tr>
             </thead>
@@ -1560,6 +1661,9 @@ async function showSceneSelectionTable(scenes) {
                         </td>
                         <td style="padding:8px 12px;text-align:center;">
                             <button class="btn btn-sm btn-outline-warning" onclick="procesarImagenEOSDA('${scene.view_id}','savi',this,'${scene.date}')">SAVI</button>
+                        </td>
+                        <td style="padding:8px 12px;text-align:center;">
+                            <button class="btn btn-sm btn-outline-primary" onclick="procesarImagenEOSDA('${scene.view_id}','ndre',this,'${scene.date}')">NDRE</button>
                         </td>
                         <td style="padding:8px 12px;text-align:center;">
                             <button class="btn btn-sm btn-outline-secondary" onclick="obtenerAnalyticsEscena('${scene.view_id}','${scene.date}')">Stats</button>
@@ -1896,6 +2000,8 @@ window.procesarImagenEOSDA = async function(viewId, tipo, buttonElement = null, 
             btn.innerHTML = 'Cargando...';
         } else if (btn.innerHTML.includes('SAVI')) {
             btn.innerHTML = 'Cargando...';
+        } else if (btn.innerHTML.includes('NDRE')) {
+            btn.innerHTML = 'Cargando...';
         }
     });
     
@@ -1919,7 +2025,7 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
     const parcelId = window.AGROTECH_STATE.selectedParcelId;
     
     if (!fieldId) {
-        alert("No se encontró el field_id de EOSDA para la parcela seleccionada.");
+        alert("No se encontró el identificador satelital de la parcela seleccionada.");
         return { success: false };
     }
     
@@ -2018,7 +2124,7 @@ window.verImagenEscenaEOSDA = async function(viewId, tipo, sceneDate = null) {
         
         while (attempts < maxAttempts) {
             try {
-                const imgResp = await fetch(`${BASE_URL}/eosda-image-result/?field_id=${fieldId}&request_id=${requestId}`, {
+                const imgResp = await fetch(`${BASE_URL}/eosda-image-result/?field_id=${fieldId}&request_id=${requestId}&type=${tipo}&view_id=${viewId}`, {
                     method: "GET",
                     headers: {
                         "Authorization": `Bearer ${token}`
@@ -3035,3 +3141,127 @@ async function downloadCropReport() {
 
 window.loadCropHealth = loadCropHealth;
 window.downloadCropReport = downloadCropReport;
+
+/**
+ * Carga el monitoreo radar (Sentinel-1) para la parcela seleccionada.
+ * Muestra la última observación, cambios detectados y nivel de atención.
+ */
+async function loadRadarMonitoring(parcelId) {
+    const panel = document.getElementById('radarMonitoringPanel');
+    if (!panel) return;
+
+    const setText = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+
+    try {
+        const response = await window.axiosInstance.get(`parcel/${parcelId}/radar/`);
+        const data = response.data;
+
+        panel.style.display = 'block';
+
+        if (!data.available) {
+            setText('radarLastObservation', 'No disponible');
+            setText('radarAttentionLevel', '—');
+            setText('radarChangeDetail', 'Datos radar no disponibles para esta fecha.');
+            setText('radarInterpretation', '');
+            setText('radarSectors', '');
+            return;
+        }
+
+        const last = data.last_observation;
+        if (last) {
+            const d = last.date ? new Date(last.date + 'T00:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+            setText('radarLastObservation', d);
+        }
+
+        const change = data.change || {};
+        const levelMap = { moderate: 'Moderado', high: 'Alto', none: 'Sin cambios' };
+        const level = levelMap[data.attention_level] || (change.change_detected ? 'Moderado' : 'Sin cambios');
+        const levelEl = document.getElementById('radarAttentionLevel');
+        if (levelEl) {
+            levelEl.textContent = level;
+            levelEl.style.color = change.change_detected ? '#e67e22' : '#6c757d';
+        }
+
+        if (change.change_detected) {
+            const types = (change.change_types || []).map(t => `• ${t}`).join('<br>');
+            const detailEl = document.getElementById('radarChangeDetail');
+            if (detailEl) {
+                detailEl.innerHTML = `Cambio detectado (${change.magnitude} dB) entre ${change.from_date} y ${change.to_date}.<br>${types}`;
+            }
+            setText('radarInterpretation', change.interpretation || '');
+        } else {
+            setText('radarChangeDetail', 'Sin cambios significativos detectados por radar.');
+            setText('radarInterpretation', '');
+        }
+    } catch (e) {
+        // 403 = feature no incluida en el plan; no romper el flujo.
+        panel.style.display = 'block';
+        setText('radarLastObservation', 'No disponible');
+        setText('radarAttentionLevel', '—');
+        setText('radarChangeDetail', e.response && e.response.status === 403
+            ? 'El monitoreo radar está disponible en planes superiores.'
+            : 'No se pudo obtener el monitoreo radar.');
+        setText('radarInterpretation', '');
+        console.error('[RADAR] Error:', e);
+    }
+
+    // Superponer capas visuales (RVI + cambio) en el mapa.
+    if (typeof loadRadarLayers === 'function') {
+        loadRadarLayers(parcelId);
+    }
+}
+window.loadRadarMonitoring = loadRadarMonitoring;
+
+// Overlay de las capas radar (RVI y cambio) sobre el mapa Leaflet.
+let radarOverlayLayers = [];
+
+function clearRadarOverlays() {
+    radarOverlayLayers.forEach(l => { try { if (typeof map !== 'undefined' && map) map.removeLayer(l); } catch (e) {} });
+    radarOverlayLayers = [];
+}
+
+function overlayRadarImage(base64, bounds) {
+    // bounds: [west, south, east, north]
+    if (!base64 || !bounds || typeof map === 'undefined' || !map) return;
+    const imageUrl = `data:image/png;base64,${base64}`;
+    const leafletBounds = [[bounds[1], bounds[0]], [bounds[3], bounds[2]]];
+    const layer = L.imageOverlay(imageUrl, leafletBounds, { opacity: 0.72, interactive: false });
+    layer.addTo(map);
+    radarOverlayLayers.push(layer);
+}
+
+async function loadRadarLayers(parcelId) {
+    clearRadarOverlays();
+    const summaryEl = document.getElementById('radarChangeSummary');
+    try {
+        const resp = await window.axiosInstance.get(`parcel/${parcelId}/radar-layers/`);
+        const data = resp.data;
+        if (!data.available || !data.layers) {
+            if (summaryEl) summaryEl.textContent = '';
+            return;
+        }
+        // Capa RVI (índice de vegetación radar) por defecto.
+        if (data.layers.rvi && data.layers.rvi.image_base64) {
+            overlayRadarImage(data.layers.rvi.image_base64, data.layers.rvi.bounds);
+        }
+        // Heatmap de cambio (celdas que cambiaron → requieren revisión).
+        if (data.change && data.change.change_detected && data.change.change_heatmap) {
+            overlayRadarImage(data.change.change_heatmap, data.change.bounds);
+        }
+        // Resumen visual: % de la parcela con cambio.
+        if (summaryEl) {
+            if (data.change && data.change.change_detected) {
+                summaryEl.textContent = `⚠️ ${data.change.changed_percent}% de la parcela muestra cambios (celdas en rojo). Revisar.`;
+            } else {
+                summaryEl.textContent = '';
+            }
+        }
+    } catch (e) {
+        if (summaryEl) summaryEl.textContent = '';
+        console.error('[RADAR_LAYERS] Error:', e);
+    }
+}
+window.loadRadarLayers = loadRadarLayers;
