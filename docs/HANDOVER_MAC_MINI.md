@@ -78,46 +78,47 @@ experiencia es **AgroTech**. Esas referencias solo van en código/documentación
 
 ---
 
-## 4. Los dos cambios a traer (backend y frontend)
+## 4. Repositorios (IMPORTANTE — son DOS)
 
-En el repo ya están como dos commits:
+| Repo | Qué contiene | Deploy |
+|---|---|---|
+| `agrotech-digital` (el de siempre) | Backend Django + dashboard (`metrica/`). ⚠️ La carpeta `frontend/` aquí es una **copia vieja**, NO es la fuente de verdad | — |
+| `agrotech-client-frontend` | Frontend React (SPA: registro/login/landing) | Netlify |
 
-| Commit | Contenido |
+- `https://github.com/sebasflorez16/agrotech-digital.git`
+- `https://github.com/sebasflorez16/agrotech-client-frontend.git`
+
+Los cambios de esta fase están en `agrotech-digital` (backend + dashboard), EXCEPTO
+los del frontend React, que van en `agrotech-client-frontend` (ver `docs/CAMBIOS_FRONTEND_REACT.md`).
+
+## 5. Los dos cambios a traer
+
+| Dónde | Contenido |
 |---|---|
-| `bf86208` **backend** | Django/Python: `parcels/`, `billing/`, `authentication/`, `metrica/users/`, `config/settings/`, migraciones (`billing/0005`, `billing/0006`, `parcels/0014`, etc.), tests, y docs (`docs/*.md`) |
-| `30be284` **frontend** | `frontend/src/` (React), `metrica/static/`, `metrica/templates/`, `staticfiles/` |
+| `agrotech-digital` (commits `bf86208` + `30be284` + `2acdd6e`) | Backend Django + dashboard `metrica/` + migraciones + tests + docs |
+| `agrotech-client-frontend` (aplicar manualmente) | 3 archivos React: `src/api/client.js`, `src/pages/Register.jsx`, `src/pages/Landing.jsx` — ver `docs/CAMBIOS_FRONTEND_REACT.md` |
 
----
-
-## 5. Pasos para traer los cambios en el Mac Mini
+## 6. Pasos para traer los cambios en el Mac Mini
 
 ```bash
-cd /Users/<tu-usuario>/Documents/agrotech-digital/agrotech-digital   # o la ruta del Mac Mini
-git fetch origin
-git pull origin main          # trae bf86208 + 30be284
+# Repo backend + dashboard
+cd <ruta>/agrotech-digital
+git fetch origin && git pull origin main
+# activar venv, luego:
+python manage.py migrate_schemas --schema public   # y por cada tenant
+python manage.py collectstatic --noinput
+
+# Repo frontend React (Netlify)
+cd <ruta>/agrotech-client-frontend
+git pull origin main
+# aplicar los 3 cambios de docs/CAMBIOS_FRONTEND_REACT.md
+npm install && npm run build
+# (Netlify hace el deploy al pushear a main)
 ```
-
-Luego (en el Mac Mini, con su venv activado):
-
-1. **Dependencias** (si faltan): `rasterio`, `numpy`, `scipy`, `Pillow`.
-   - El venv que funciona es `agro-rest` (Django 5.0 + django-tenants + sklearn + rasterio).
-2. **Migraciones** (django-tenants, aplica a cada schema):
-   ```bash
-   python manage.py migrate_schemas --schema public   # y luego a cada tenant
-   ```
-   - Nuevas: `billing.0005_eosdarequestlog`, `billing.0006_alter_subscription_payment_gateway`,
-     `parcels.0014_parcel_sync_status` (+ las de crop/inventario/labores del otro trabajo).
-3. **Estáticos**: `python manage.py collectstatic --noinput`.
-4. **React** (solo si se cambió `frontend/`): `cd frontend && npm install && npm run build`.
-5. **Variables de entorno** (`.env`, nunca commitear) — revisar que existan:
-   - `EOSDA_API_KEY`
-   - `EARTHDATA_USER`, `EARTHDATA_PASSWORD` (radar)
-   - `SENTINEL1_LOOKBACK_DAYS` (opcional, default 60)
-   - `COPERNICUS_CLIENT_ID`, `COPERNICUS_CLIENT_SECRET` (opcional)
 
 ---
 
-## 6. Entorno local (Mac Mini)
+## 7. Entorno local (Mac Mini)
 
 - PostgreSQL local: DB `agrotech`, usuario `postgres` (ver `.env`).
 - venv `agro-rest` (o el equivalente instalado). Confirmar que tenga: django,
@@ -127,7 +128,7 @@ Luego (en el Mac Mini, con su venv activado):
 
 ---
 
-## 7. Estado actual (qué está hecho vs pendiente)
+## 8. Estado actual (qué está hecho vs pendiente)
 
 ### Hecho y probado
 - Consumo EOSDA centralizado (cache + dedup + rate limiter + log) — con tests.
@@ -157,7 +158,7 @@ Luego (en el Mac Mini, con su venv activado):
 
 ---
 
-## 8. Dónde está cada cosa (mapa rápido)
+## 9. Dónde está cada cosa (mapa rápido)
 
 | Tema | Archivo |
 |---|---|
@@ -174,7 +175,7 @@ Luego (en el Mac Mini, con su venv activado):
 
 ---
 
-## 9. Cómo seguir (siguiente paso sugerido)
+## 10. Cómo seguir (siguiente paso sugerido)
 
 Al retomar en el Mac Mini, empezar por:
 1. `git pull` + migraciones + `manage.py check`.
