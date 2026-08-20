@@ -74,8 +74,9 @@ class Command(BaseCommand):
                             id SERIAL PRIMARY KEY,
                             schema_name VARCHAR(63) UNIQUE NOT NULL,
                             name VARCHAR(100) NOT NULL,
-                            description TEXT,
-                            created_on TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            paid_until DATE,
+                            on_trial BOOLEAN DEFAULT FALSE,
+                            created_on DATE DEFAULT CURRENT_DATE,
                             uuid UUID DEFAULT gen_random_uuid()
                         );
                     """)
@@ -102,8 +103,8 @@ class Command(BaseCommand):
                     
                     if not public_exists:
                         cursor.execute("""
-                            INSERT INTO base_agrotech_client (schema_name, name, description)
-                            VALUES ('public', 'Public Schema', 'Schema publico para Railway')
+                            INSERT INTO base_agrotech_client (schema_name, name, paid_until, on_trial)
+                            VALUES ('public', 'Public Schema', CURRENT_DATE + INTERVAL '365 days', FALSE)
                             ON CONFLICT (schema_name) DO NOTHING;
                         """)
                         print("Tenant publico creado")

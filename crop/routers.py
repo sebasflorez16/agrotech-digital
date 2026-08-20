@@ -1,7 +1,7 @@
 from rest_framework import routers
 from .views import (
     CropTypeViewSet, CropVarietyViewSet, CropViewSet, CropStageViewSet,
-    CropProgressPhotoViewSet, CropInputViewSet, LaborInputViewSet, CropEventViewSet,
+    CropProgressPhotoViewSet, CropInputViewSet, CropEventViewSet,
     CropCatalogViewSet, CropCycleViewSet
 )
 
@@ -15,7 +15,6 @@ router.register(r'crops', CropViewSet)
 router.register(r'stages', CropStageViewSet)
 router.register(r'progress-photos', CropProgressPhotoViewSet)
 router.register(r'inputs', CropInputViewSet)
-router.register(r'labor-inputs', LaborInputViewSet)
 router.register(r'events', CropEventViewSet)
 
 # Catálogo de cultivos y ciclos de cultivo (Fase 3 - Sistema de ciclos)

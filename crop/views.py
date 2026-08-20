@@ -3,10 +3,10 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
-from .models import CropType, CropVariety, Crop, CropStage, CropProgressPhoto, CropInput, LaborInput, CropEvent, CropCatalog, PhenologicalStage, CropCycle
+from .models import CropType, CropVariety, Crop, CropStage, CropProgressPhoto, CropInput, CropEvent, CropCatalog, PhenologicalStage, CropCycle
 from .serializers import (
     CropTypeSerializer, CropVarietySerializer, CropSerializer, CropStageSerializer,
-    CropProgressPhotoSerializer, CropInputSerializer, LaborInputSerializer, CropEventSerializer,
+    CropProgressPhotoSerializer, CropInputSerializer, CropEventSerializer,
     CropCatalogSerializer, CropCatalogListSerializer, PhenologicalStageSerializer,
     CropCycleSerializer, IndexInterpretationSerializer
 )
@@ -58,11 +58,6 @@ class CropProgressPhotoViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
 class CropInputViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = CropInput.objects.all()
     serializer_class = CropInputSerializer
-    permission_classes = [IsAuthenticated]
-
-class LaborInputViewSet(viewsets.ModelViewSet):
-    queryset = LaborInput.objects.all()
-    serializer_class = LaborInputSerializer
     permission_classes = [IsAuthenticated]
 
 class CropEventViewSet(viewsets.ModelViewSet):

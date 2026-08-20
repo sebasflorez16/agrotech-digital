@@ -25,6 +25,7 @@ import logging
 import re
 import secrets
 import string
+import threading
 from datetime import timedelta
 from django.db import connection, transaction
 from django.conf import settings
@@ -115,9 +116,8 @@ class TenantService:
                 return {
                     'success': False,
                     'error': (
-                        f'Ya tienes un espacio de trabajo activo: "{existing.tenant.name}". '
-                        f'No puedes crear otro con el mismo correo electrónico. '
-                        f'Si necesitas acceder a tu cuenta, inicia sesión.'
+                        'Este correo ya esta registrado. '
+                        'Si necesitas ayuda, escribenos al WhatsApp 3223088873.'
                     ),
                     'existing_tenant': existing.tenant.name,
                     'existing_schema': existing.tenant.schema_name,
@@ -236,10 +236,12 @@ class TenantService:
         auto_generated_password = False
 
         if username and payer_email:
-            # Si no se provee password, generar uno automáticamente
+            # Si no se provee password, generar uno automaticamente
             if not password:
                 password = _generate_password()
                 auto_generated_password = True
+
+            from uuid import uuid4
 
             with schema_context(schema_name):
                 user, user_created = User.objects.get_or_create(
@@ -248,37 +250,36 @@ class TenantService:
                         'email': payer_email,
                         'name': user_name or tenant_name,
                         'last_name': user_last_name or '',
-                        'is_active': True,
+                        'is_active': False,
+                        'email_verified': False,
+                        'verification_token': uuid4().hex,
                         'is_staff': True,
                         'role': 'admin',
+                        'tenant': tenant,
                     },
                 )
                 if user_created:
                     user.set_password(password)
                     user.save()
-                    logger.info(f"Admin user creado: {username} en schema {schema_name}")
+                    logger.info(f"Admin user creado: {username} en schema {schema_name} (pendiente verificacion)")
                 else:
-                    logger.info(f"Admin user ya existía: {username} en schema {schema_name}")
-                    auto_generated_password = False  # No devolver password de usuario existente
+                    if not user.tenant_id:
+                        user.tenant = tenant
+                        user.save(update_fields=['tenant'])
+                    logger.info(f"Admin user ya existia: {username} en schema {schema_name}")
+                    auto_generated_password = False
 
-            # Generar JWT tokens para auto-login
-            try:
-                refresh = RefreshToken.for_user(user)
-                tokens = {
-                    'access': str(refresh.access_token),
-                    'refresh': str(refresh),
-                }
-            except Exception as e:
-                logger.warning(f"No se pudieron generar tokens JWT: {e}")
+            # NO generar tokens JWT — usuario debe verificar email primero
 
-            # Enviar email de bienvenida
-            TenantService._send_welcome_email(
-                email=payer_email,
-                username=username,
-                password=password if auto_generated_password else None,
-                tenant_name=tenant_name,
-                plan_tier=plan_tier,
-            )
+            # Enviar email de verificacion en background
+            threading.Thread(
+                target=TenantService._send_verification_email,
+                kwargs=dict(
+                    user=user,
+                    tenant_name=tenant_name,
+                ),
+                daemon=True,
+            ).start()
 
         logger.info(
             f"✅ Tenant creado: {tenant_name} (schema={schema_name}) "
@@ -294,8 +295,8 @@ class TenantService:
             'status': status,
             'paid_until': paid_until.isoformat(),
             'user': user,
-            'tokens': tokens,
             'username': username,
+            'requires_email_verification': bool(username and payer_email),
         }
 
     # ──────────────────────────────────────────────
@@ -428,6 +429,77 @@ El equipo de AgroTech Digital
         except Exception as e:
             # No bloquear el flujo si el email falla
             logger.warning(f"No se pudo enviar email de bienvenida a {email}: {e}")
+
+    @staticmethod
+    def _send_verification_email(user, tenant_name: str):
+        """Enviar email de verificacion HTML al usuario del checkout."""
+        try:
+            from django.conf import settings
+            from django.core.mail import EmailMultiAlternatives
+
+            site_url = getattr(settings, 'SITE_URL', 'http://localhost:8000')
+            verify_url = f"{site_url}/api/auth/verify-email/?token={user.verification_token}"
+
+            subject = f"Verifica tu cuenta — {tenant_name}"
+            html_message = f"""\
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#0b0f14;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0f14;padding:40px 0">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#14181f;border-radius:14px;overflow:hidden;border:1px solid rgba(255,255,255,0.08)">
+<tr><td style="background:linear-gradient(135deg,#166534,#15803d);padding:32px 40px;text-align:center">
+  <h1 style="color:#fff;margin:0;font-size:24px;font-weight:800">AgroTech Digital</h1>
+  <p style="color:#bbf7d0;margin:8px 0 0;font-size:14px">Agricultura de precision al alcance de tu mano</p>
+</td></tr>
+<tr><td style="padding:32px 40px">
+  <h2 style="color:#4ade80;margin:0 0 16px;font-size:20px">{user.name or user.username}, tu finca esta casi lista!</h2>
+  <p style="color:#9ca3af;font-size:15px;line-height:1.6;margin:0 0 20px">
+    Gracias por registrarte en AgroTech Digital. Solo falta un paso para activar tu cuenta en
+    <strong style="color:#e5e7eb">{tenant_name}</strong>.
+  </p>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0">
+  <tr><td align="center">
+    <a href="{verify_url}" style="display:inline-block;background:#22c55e;color:#000;text-decoration:none;padding:14px 44px;border-radius:10px;font-size:16px;font-weight:700">Verificar mi correo</a>
+  </td></tr></table>
+  <p style="color:#6b7280;font-size:13px;margin:0 0 8px">O copia este enlace:</p>
+  <p style="color:#22c55e;font-size:12px;word-break:break-all;margin:0 0 24px">{verify_url}</p>
+  <div style="background:rgba(34,197,94,0.08);border-left:4px solid #22c55e;padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:24px">
+    <p style="color:#4ade80;font-size:13px;margin:0"><strong>Que puedes hacer con AgroTech?</strong><br>
+    <span style="color:#9ca3af">Analisis NDVI satelital &bull; Monitoreo de estres hidrico &bull; Clima 14 dias &bull; Gestion de parcelas, inventario y labores</span></p>
+  </div>
+</td></tr>
+<tr><td style="background:rgba(255,255,255,0.02);padding:20px 40px;text-align:center">
+  <p style="color:#6b7280;font-size:12px;margin:0">
+    &copy; 2026 AgroTech Digital. Todos los derechos reservados.<br>
+    Si no creaste esta cuenta, ignora este mensaje.
+  </p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>"""
+
+            text_message = (
+                f"Hola {user.name or user.username},\n\n"
+                f"Bienvenido a AgroTech Digital! Tu finca '{tenant_name}' esta casi lista.\n\n"
+                f"Para activar tu cuenta, verifica tu correo aqui:\n{verify_url}\n\n"
+                f"AgroTech Digital — Agricultura de precision"
+            )
+
+            email = EmailMultiAlternatives(
+                subject=subject,
+                body=text_message,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@agrotechcolombia.com'),
+                to=[user.email],
+            )
+            email.attach_alternative(html_message, "text/html")
+            email.send(fail_silently=False)
+            logger.info(f"Email de verificacion enviado a {user.email}")
+        except Exception as e:
+            logger.warning(f"No se pudo enviar email de verificacion a {user.email}: {e}")
 
     # ──────────────────────────────────────────────
     #  DESACTIVAR TENANT (plan pago sin renovar)

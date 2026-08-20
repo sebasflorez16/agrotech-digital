@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CropType, Crop, CropStage, CropProgressPhoto, CropInput, LaborInput, CropEvent, CropCatalog, PhenologicalStage, CropCycle
+from .models import CropType, Crop, CropStage, CropProgressPhoto, CropInput, CropEvent, CropCatalog, PhenologicalStage, CropCycle
 
 @admin.register(CropType)
 class CropTypeAdmin(admin.ModelAdmin):
@@ -29,12 +29,6 @@ class CropInputAdmin(admin.ModelAdmin):
     list_display = ("crop", "supply", "input_type", "quantity", "unit", "application_date")
     list_filter = ("crop", "input_type", "application_date")
     search_fields = ("crop__name", "supply__name")
-
-@admin.register(LaborInput)
-class LaborInputAdmin(admin.ModelAdmin):
-    list_display = ("labor", "crop", "supply", "quantity", "unit", "application_date")
-    list_filter = ("labor", "crop", "application_date")
-    search_fields = ("labor__nombre", "crop__name", "supply__name")
 
 @admin.register(CropEvent)
 class CropEventAdmin(admin.ModelAdmin):

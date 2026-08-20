@@ -17,28 +17,13 @@ logger = logging.getLogger(__name__)
 
 def _calculate_geom_area_hectares(geom_data):
     """
-    Calcula el área en hectáreas de un polígono GeoJSON (fórmula Shoelace).
-    Devuelve 0 si el GeoJSON es inválido o no está presente.
+    Calcula el área en hectáreas de un polígono GeoJSON (fuente única:
+    parcels.geometry). Devuelve 0 si el GeoJSON es inválido o no está presente.
     """
-    if not geom_data or not isinstance(geom_data, dict):
-        return 0
-
+    from parcels.geometry import calculate_area_hectares
     try:
-        coordinates = geom_data.get('coordinates', [[]])
-        if not coordinates or not isinstance(coordinates, list) or len(coordinates) == 0:
-            return 0
-        coords = coordinates[0] if isinstance(coordinates[0], list) else coordinates
-        if not coords or len(coords) < 3:
-            return 0
-
-        area = 0.0
-        for i in range(len(coords)):
-            x1, y1 = coords[i]
-            x2, y2 = coords[(i + 1) % len(coords)]
-            area += x1 * y2 - x2 * y1
-        area_m2 = abs(area) / 2.0 * 111320 * 111320
-        return area_m2 / 10000.0
-    except (TypeError, ValueError, IndexError):
+        return calculate_area_hectares(geom_data)
+    except Exception:
         return 0
 
 
@@ -258,23 +243,13 @@ def check_eosda_limit(view_func):
                 'addon_url': '/billing/addons/extra-api-calls/'
             }, status=429)  # Too Many Requests
         
-        # Incrementar contador DESPUÉS de ejecutar la vista exitosamente
+        # Ejecutar la vista.
+        # NOTA: el incremento de UsageMetrics.eosda_requests y el registro en
+        # EosdaRequestLog ya NO ocurren aquí. Se hacen dentro de EosdaClient.record()
+        # SOLO cuando la llamada sale de verdad a EOSDA (cache miss). Así un cache hit
+        # no cuenta como consumo.
         response = view_func(*args, **kwargs)
-        
-        # Solo incrementar si la request fue exitosa (2xx status code)
-        if 200 <= response.status_code < 300:
-            metrics.eosda_requests += 1
-            metrics.save()
-            
-            # Calcular overages
-            metrics.calculate_overages()
-            
-            logger.info(
-                f"EOSDA request #{metrics.eosda_requests} "
-                f"para tenant {tenant.schema_name} "
-                f"(límite: {limit})"
-            )
-        
+
         return response
     
     return wrapper

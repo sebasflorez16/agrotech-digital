@@ -3,6 +3,7 @@ from django.conf import settings
 from parcels.models import Parcel
 from RRHH.models import Employee
 from crop.models import Crop
+from inventario.models import Supply, Machinery
 
 class LaborType(models.Model):
     tenant_id = models.IntegerField(db_index=True, null=True, blank=True, verbose_name="ID del Tenant")
@@ -30,7 +31,8 @@ class Labor(models.Model):
     responsables = models.ManyToManyField(Employee, related_name="labores_asignadas", verbose_name="Responsables", blank=True)
     cultivos = models.ManyToManyField(Crop, related_name="labores", verbose_name="Cultivos involucrados", blank=True)
     fecha_programada = models.DateField(verbose_name="Fecha programada", blank=True, null=True)
-    fecha_realizada = models.DateField(blank=True, null=True, verbose_name="Fecha de realización")
+    fecha_realizada = models.DateField(blank=True, null=True, verbose_name="Fecha de realizacion")
+    maquinaria = models.ManyToManyField(Machinery, related_name="labores", verbose_name="Maquinaria utilizada", blank=True)
     estado = models.CharField(max_length=20, choices=[
         ("pendiente", "Pendiente"),
         ("en_progreso", "En progreso"),
@@ -66,6 +68,15 @@ class Labor(models.Model):
     def calcular_costo_total(self):
         return (self.calcular_costo_insumos() or 0) + (self.calcular_costo_mano_obra() or 0)
 
+    @property
+    def progreso(self):
+        """Porcentaje de fases completadas."""
+        fases = self.fases.count()
+        if fases == 0:
+            return 0
+        completadas = self.fases.filter(estado='completada').count()
+        return round((completadas / fases) * 100)
+
     def __str__(self):
         tipo = self.tipo.nombre if self.tipo else "Sin tipo"
         fecha = self.fecha_programada if self.fecha_programada else "Sin fecha"
@@ -97,3 +108,51 @@ class LaborPhoto(models.Model):
         verbose_name = "Foto de labor"
         verbose_name_plural = "Fotos de labores"
         ordering = ["-date"]
+
+
+class LaborPhase(models.Model):
+    """Fase individual de una labor agricola. Permite seguimiento por etapas con progreso."""
+
+    labor = models.ForeignKey(Labor, on_delete=models.CASCADE, related_name="fases")
+    nombre = models.CharField(max_length=150, verbose_name="Nombre de la fase")
+    orden = models.PositiveIntegerField(default=0, verbose_name="Orden")
+    estado = models.CharField(max_length=20, choices=[
+        ("pendiente", "Pendiente"),
+        ("en_progreso", "En progreso"),
+        ("completada", "Completada"),
+        ("cancelada", "Cancelada"),
+    ], default="pendiente", verbose_name="Estado")
+    fecha_inicio = models.DateField(blank=True, null=True, verbose_name="Fecha de inicio")
+    fecha_fin = models.DateField(blank=True, null=True, verbose_name="Fecha de finalizacion")
+    notas = models.TextField(blank=True, null=True, verbose_name="Notas / Inconvenientes")
+    creado_en = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.orden}. {self.nombre} ({self.estado})"
+
+    class Meta:
+        ordering = ["orden"]
+        verbose_name = "Fase de labor"
+        verbose_name_plural = "Fases de labor"
+
+
+class LaborInput(models.Model):
+    """Insumo aplicado como parte de una labor agricola."""
+    labor = models.ForeignKey("labores.Labor", on_delete=models.CASCADE, related_name="insumos")
+    crop = models.ForeignKey(Crop, on_delete=models.CASCADE, related_name="labor_insumos")
+    supply = models.ForeignKey(Supply, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Insumo")
+    quantity = models.FloatField(verbose_name="Cantidad aplicada")
+    unit = models.CharField(max_length=20, verbose_name="Unidad")
+    application_date = models.DateField(verbose_name="Fecha de aplicacion")
+    notes = models.TextField(verbose_name="Notas", blank=True, null=True)
+    from simple_history.models import HistoricalRecords
+    historical = HistoricalRecords()
+
+    def __str__(self):
+        return f"{self.supply} - {self.labor.nombre} ({self.crop.name})"
+
+    class Meta:
+        db_table = 'crop_laborinput'
+        verbose_name = "Insumo en labor"
+        verbose_name_plural = "Insumos en labores"
+        ordering = ["-application_date"]

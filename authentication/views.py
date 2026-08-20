@@ -19,7 +19,11 @@ from rest_framework import status
 from rest_framework.throttling import AnonRateThrottle
 
 from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
 from django.conf import settings
+from django.shortcuts import redirect
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializers import RegisterSerializer
@@ -95,12 +99,19 @@ class RegisterView(APIView):
             user = result['user']
             subscription = result.get('subscription')
             domain = result['domain']
+            email_sent = result.get('email_sent', True)
 
             # Construir respuesta — sin tokens JWT (usuario debe verificar email)
             response_data = {
                 'success': True,
-                'message': 'Cuenta creada. Revisa tu correo para verificarla.',
+                'message': (
+                    'Cuenta creada. Revisa tu correo para verificarla.'
+                    if email_sent else
+                    'Cuenta creada, pero no pudimos enviar el correo de verificación. '
+                    'Usa la opción de reenviar correo.'
+                ),
                 'requires_email_verification': True,
+                'email_sent': email_sent,
                 'data': {
                     'user': {
                         'id': user.id,
@@ -162,7 +173,7 @@ class VerifyEmailView(APIView):
         try:
             user = User.objects.get(verification_token=token)
         except User.DoesNotExist:
-            return Response({'success': False, 'error': 'Token inválido o ya usado.'}, status=404)
+            return Response({'success': False, 'error': 'Token invalido o ya usado.'}, status=404)
 
         user.email_verified = True
         user.is_active = True
@@ -171,11 +182,198 @@ class VerifyEmailView(APIView):
 
         logger.info(f"Email verificado: {user.email}")
 
+        # Redirigir al frontend en vez de devolver JSON
+        frontend = getattr(settings, 'FRONTEND_URL', 'http://localhost:8080')
+        redirect_url = f"{frontend}/login?verified=true&email={user.email}"
+        return redirect(redirect_url)
+
+
+class ResendVerificationThrottle(AnonRateThrottle):
+    """Limitar reenvíos de verificación: 5 por hora por IP."""
+    rate = '5/hour'
+
+
+class ResendVerificationView(APIView):
+    """
+    Reenvía el correo de verificación a un usuario que no lo recibió.
+
+    POST /api/auth/resend-verification/
+    Body: { "email": "usuario@correo.com" }
+
+    Evita que un usuario quede bloqueado permanentemente por un fallo de correo.
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = [ResendVerificationThrottle]
+
+    def post(self, request):
+        email = (request.data.get('email') or '').strip().lower()
+        if not email:
+            return Response({'success': False, 'error': 'Email requerido.'}, status=400)
+
+        try:
+            user = User.objects.get(email__iexact=email)
+        except User.DoesNotExist:
+            # No revelar si el email existe o no.
+            return Response({
+                'success': True,
+                'message': 'Si existe una cuenta con ese correo, se enviará el enlace de verificación.',
+            }, status=200)
+
+        if user.email_verified and user.is_active:
+            return Response({
+                'success': True,
+                'message': 'Tu cuenta ya está verificada. Puedes iniciar sesión.',
+            }, status=200)
+
+        # Regenerar token y reenviar
+        from uuid import uuid4
+        user.verification_token = uuid4().hex
+        user.save(update_fields=['verification_token'])
+
+        try:
+            service = RegistrationService()
+            service.send_verification_email(user, user.tenant)
+            sent = True
+        except Exception as e:
+            logger.warning(f"Fallo al reenviar email de verificación a {email}: {e}")
+            sent = False
+
+        if not sent:
+            return Response({
+                'success': False,
+                'error': 'No se pudo enviar el correo en este momento. Intenta de nuevo más tarde.',
+            }, status=502)
+
         return Response({
             'success': True,
-            'message': 'Correo verificado. Ya puedes iniciar sesión.',
-            'user': {'id': user.id, 'email': user.email, 'username': user.username},
-        })
+            'message': 'Correo de verificación reenviado. Revisa tu bandeja de entrada.',
+        }, status=200)
+
+
+# ── Recuperación de contraseña ────────────────────────────────────────────────
+
+class PasswordResetRequestThrottle(AnonRateThrottle):
+    """Limitar solicitudes de recuperación: 5 por hora por IP."""
+    rate = '5/hour'
+
+
+class PasswordResetRequestView(APIView):
+    """
+    Solicita recuperación de contraseña y envía un enlace con token.
+
+    POST /api/auth/password/reset/
+    Body: { "email": "usuario@correo.com" }
+
+    No revela si el email existe (respuesta genérica).
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetRequestThrottle]
+
+    def post(self, request):
+        email = (request.data.get('email') or '').strip().lower()
+        if not email:
+            return Response({'success': False, 'error': 'Email requerido.'}, status=400)
+
+        try:
+            user = User.objects.get(email__iexact=email, is_active=True)
+        except User.DoesNotExist:
+            # Respuesta genérica: no revelar si la cuenta existe.
+            return Response({
+                'success': True,
+                'message': 'Si existe una cuenta con ese correo, se enviará un enlace de recuperación.',
+            }, status=200)
+
+        token_generator = PasswordResetTokenGenerator()
+        token = token_generator.make_token(user)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+
+        frontend = getattr(settings, 'FRONTEND_URL', 'http://localhost:8080')
+        reset_url = f"{frontend}/reset-password?uid={uid}&token={token}"
+
+        try:
+            self._send_reset_email(user, reset_url)
+        except Exception as e:
+            logger.warning(f"Fallo al enviar email de recuperación a {email}: {e}")
+            return Response({
+                'success': False,
+                'error': 'No se pudo enviar el correo en este momento. Intenta de nuevo más tarde.',
+            }, status=502)
+
+        return Response({
+            'success': True,
+            'message': 'Se envió un enlace de recuperación a tu correo.',
+        }, status=200)
+
+    def _send_reset_email(self, user, reset_url):
+        from django.core.mail import EmailMultiAlternatives
+        subject = "Recuperación de contraseña — AgroTech Digital"
+        text_message = (
+            f"Hola {user.name},\n\n"
+            f"Recibimos una solicitud para restablecer tu contraseña.\n\n"
+            f"Abre este enlace para crear una nueva contraseña:\n{reset_url}\n\n"
+            f"Si no solicitaste esto, ignora este mensaje."
+        )
+        html_message = (
+            f'<p>Hola {user.name},</p>'
+            f'<p>Recibimos una solicitud para restablecer tu contraseña.</p>'
+            f'<p><a href="{reset_url}">Restablecer mi contraseña</a></p>'
+            f'<p>Si no solicitaste esto, ignora este mensaje.</p>'
+        )
+        email = EmailMultiAlternatives(
+            subject=subject,
+            body=text_message,
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@agrotechcolombia.com'),
+            to=[user.email],
+        )
+        email.attach_alternative(html_message, "text/html")
+        email.send(fail_silently=False)
+
+
+class PasswordResetConfirmView(APIView):
+    """
+    Valida el token y establece la nueva contraseña.
+
+    POST /api/auth/password/reset/confirm/
+    Body: { "uid": "...", "token": "...", "new_password": "...", "confirm_password": "..." }
+
+    El token se invalida automáticamente al cambiar la contraseña
+    (PasswordResetTokenGenerator incluye el hash de la contraseña).
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        uidb64 = (request.data.get('uid') or '').strip()
+        token = (request.data.get('token') or '').strip()
+        new_password = request.data.get('new_password', '')
+        confirm_password = request.data.get('confirm_password', '')
+
+        if not uidb64 or not token or not new_password or not confirm_password:
+            return Response({'success': False, 'error': 'Faltan parámetros requeridos.'}, status=400)
+
+        if new_password != confirm_password:
+            return Response({'success': False, 'error': 'Las contraseñas no coinciden.'}, status=400)
+
+        if len(new_password) < 8:
+            return Response({'success': False, 'error': 'La contraseña debe tener al menos 8 caracteres.'}, status=400)
+
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({'success': False, 'error': 'Enlace inválido.'}, status=400)
+
+        token_generator = PasswordResetTokenGenerator()
+        if not token_generator.check_token(user, token):
+            return Response({'success': False, 'error': 'Enlace inválido o expirado.'}, status=400)
+
+        user.set_password(new_password)
+        user.save(update_fields=['password'])
+        logger.info(f"Contraseña restablecida para usuario: {user.username}")
+
+        return Response({
+            'success': True,
+            'message': 'Contraseña restablecida correctamente. Ya puedes iniciar sesión.',
+        }, status=200)
 
 
 class LoginView(APIView):
@@ -222,6 +420,27 @@ class LoginView(APIView):
                 pass
         
         if user is None:
+            # Verificar si el usuario existe pero no esta activo (email sin verificar)
+            inactive_user = None
+            try:
+                inactive_user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                if '@' in username:
+                    try:
+                        inactive_user = User.objects.get(email__iexact=username)
+                    except User.DoesNotExist:
+                        pass
+
+            if inactive_user and not inactive_user.is_active and inactive_user.check_password(password):
+                return Response({
+                    'success': False,
+                    'error': (
+                        'Esta cuenta esta desactivada. Verifica tu correo electronico '
+                        'si acabas de registrarte.'
+                    ),
+                    'needs_verification': True,
+                }, status=status.HTTP_403_FORBIDDEN)
+
             # Log con hash para no exponer emails en logs
             import hashlib
             username_hash = hashlib.sha256(username.encode()).hexdigest()[:16]

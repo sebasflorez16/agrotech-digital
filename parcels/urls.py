@@ -63,6 +63,7 @@ urlpatterns = [
 
     # Radar Sentinel-1 — Monitoreo Continuo Fase 4 (operativo)
     path('parcel/<int:parcel_id>/radar/', views.RadarAssessmentView.as_view(), name='parcel_radar'),
+    path('parcel/<int:parcel_id>/radar-layers/', views.RadarLayersView.as_view(), name='parcel_radar_layers'),
 
     # Fusión multi-fuente — Monitoreo Continuo Fase 5
     path('parcel/<int:parcel_id>/fusion-assessment/', views.FusionAssessmentView.as_view(), name='parcel_fusion'),

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CropType, CropVariety, Crop, CropStage, CropProgressPhoto, CropInput, LaborInput, CropEvent, CropCatalog, PhenologicalStage, CropCycle
+from .models import CropType, CropVariety, Crop, CropStage, CropProgressPhoto, CropInput, CropEvent, CropCatalog, PhenologicalStage, CropCycle
 
 class CropTypeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -66,11 +66,6 @@ class CropProgressPhotoSerializer(serializers.ModelSerializer):
 class CropInputSerializer(serializers.ModelSerializer):
     class Meta:
         model = CropInput
-        fields = '__all__'
-
-class LaborInputSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = LaborInput
         fields = '__all__'
 
 class CropEventSerializer(serializers.ModelSerializer):

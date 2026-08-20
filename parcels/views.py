@@ -15,8 +15,10 @@ from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view, permission_classes
-from .models import Parcel, ParcelSceneCache, CropHealthStatus, MonitoringEvent
+from .models import Parcel, ParcelSceneCache, CropHealthStatus, MonitoringEvent, ParcelZonification
 from .serializers import ParcelSerializer
+from .eosda_client import get_eosda_client
+from billing.decorators import check_eosda_limit
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,7 @@ from .metereological import WeatherForecastView
 class ParcelScenesByDateView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @check_eosda_limit
     def get(self, request, parcel_id):
         """
         GET /api/parcels/parcel/<parcel_id>/scenes/?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
@@ -111,6 +114,7 @@ class ParcelScenesByDateView(APIView):
         
         # ============ LLAMADA A EOSDA ============
         # Llamar a EOSDA scene-search filtrando por fechas
+        client = get_eosda_client()
         request_url = f"https://api-connect.eos.com/scene-search/for-field/{field_id}"
         headers = {
             "x-api-key": settings.EOSDA_API_KEY,
@@ -128,7 +132,7 @@ class ParcelScenesByDateView(APIView):
         # NOTA: No loguear headers para no exponer la API key
         import time
         try:
-            req_response = requests.post(request_url, json=payload, headers=headers)
+            req_response = client.post(request_url, payload, headers=headers)
             logger.info(f"[SCENES_BY_DATE] POST Status: {req_response.status_code}")
             logger.info(f"[SCENES_BY_DATE] POST Response: {req_response.text}")
             
@@ -168,7 +172,7 @@ class ParcelScenesByDateView(APIView):
                 max_attempts = 10
                 delay_seconds = 3
                 for attempt in range(max_attempts):
-                    scenes_response = requests.get(scenes_url, headers=scenes_headers)
+                    scenes_response = client.get(scenes_url, headers=scenes_headers)
                     logger.info(f"[SCENES_BY_DATE] GET intento {attempt+1}/{max_attempts}: status={scenes_response.status_code}")
                     print(f"[SCENES_BY_DATE] Intento {attempt+1}/{max_attempts} GET status: {scenes_response.status_code}")
                     scenes_response.raise_for_status()
@@ -180,6 +184,7 @@ class ParcelScenesByDateView(APIView):
                         # ============ GUARDAR EN CACHE ============
                         self._save_scenes_to_cache(parcel, scenes, cache_key)
                         
+                        client.record(getattr(request, 'tenant', None), operation="scenes", parcel_id=parcel_id, user=getattr(request, 'user', None))
                         return Response({"request_id": request_id, "scenes": scenes, "eosda_raw": scenes_data}, status=200)
                     time.sleep(delay_seconds)
                 # Si tras los intentos sigue en pending, informar al usuario
@@ -194,6 +199,7 @@ class ParcelScenesByDateView(APIView):
                 # ============ GUARDAR EN CACHE ============
                 self._save_scenes_to_cache(parcel, scenes, cache_key)
                 
+                client.record(getattr(request, 'tenant', None), operation="scenes", parcel_id=parcel_id, user=getattr(request, 'user', None))
                 return Response({"request_id": None, "scenes": scenes, "eosda_raw": req_data}, status=200)
         except requests.exceptions.RequestException as e:
             logger.error(f"[SCENES_BY_DATE] Error en la petición a EOSDA: {str(e)}")
@@ -330,27 +336,9 @@ class ParcelViewSet(viewsets.ModelViewSet):
         return total
 
     def _calculate_parcel_area(self, geom_data):
-        """Calcula el área en hectáreas de un polígono GeoJSON."""
-        if not geom_data or not isinstance(geom_data, dict):
-            return 0
-        
-        import math
-        def polygon_area(coords):
-            if not coords or len(coords) < 3:
-                return 0
-            area = 0.0
-            for i in range(len(coords)):
-                x1, y1 = coords[i]
-                x2, y2 = coords[(i + 1) % len(coords)]
-                area += x1 * y2 - x2 * y1
-            return abs(area) / 2.0 * 111320 * 111320
-        
-        coordinates = geom_data.get('coordinates', [[]])
-        if not coordinates or not isinstance(coordinates, list) or len(coordinates) == 0:
-            return 0
-        coords = coordinates[0] if coordinates else []
-        area_m2 = polygon_area(coords)
-        return area_m2 / 10000.0
+        """Calcula el área en hectáreas de un polígono GeoJSON (fuente única)."""
+        from .geometry import calculate_area_hectares
+        return calculate_area_hectares(geom_data)
 
     def _verify_hectare_limit(self, request, new_hectares, exclude_parcel_id=None):
         """
@@ -733,19 +721,15 @@ class ParcelViewSet(viewsets.ModelViewSet):
         logger.debug(f"Headers: {headers}")
 
         try:
-            response = requests.post(eosda_url, json=payload, headers=headers)
+            response = get_eosda_client().post(eosda_url, payload, headers=headers)
             response.raise_for_status()
             ndvi_data = response.json()
             
-            # Incrementar contador de requests EOSDA tras éxito
-            if tenant:
-                metrics.eosda_requests += 1
-                metrics.save()
-                metrics.calculate_overages()
-                logger.info(f"EOSDA NDVI request #{metrics.eosda_requests} para tenant {tenant.schema_name}")
+            # Registro de consumo real (incrementa cuota + EosdaRequestLog)
+            get_eosda_client().record(tenant, operation="index", index_type="NDVI", user=getattr(request, 'user', None))
                 
         except requests.exceptions.RequestException as e:
-            return Response({"error": f"Error al conectar con EOSDA: {str(e)}"}, status=500)
+            return Response({"error": f"Error al conectar con el servicio satelital: {str(e)}"}, status=500)
 
         return Response(ndvi_data, status=200)
 
@@ -815,19 +799,15 @@ class ParcelViewSet(viewsets.ModelViewSet):
         logger.debug(f"Headers: {headers}")
 
         try:
-            response = requests.post(eosda_url, json=payload, headers=headers)
+            response = get_eosda_client().post(eosda_url, payload, headers=headers)
             response.raise_for_status()
             ndmi_data = response.json()
             
-            # Incrementar contador de requests EOSDA tras éxito
-            if tenant:
-                metrics.eosda_requests += 1
-                metrics.save()
-                metrics.calculate_overages()
-                logger.info(f"EOSDA NDMI request #{metrics.eosda_requests} para tenant {tenant.schema_name}")
+            # Registro de consumo real (incrementa cuota + EosdaRequestLog)
+            get_eosda_client().record(tenant, operation="index", index_type="NDMI", user=getattr(request, 'user', None))
                 
         except requests.exceptions.RequestException as e:
-            return Response({"error": f"Error al conectar con EOSDA: {str(e)}"}, status=500)
+            return Response({"error": f"Error al conectar con el servicio satelital: {str(e)}"}, status=500)
 
         return Response(ndmi_data, status=200)
 
@@ -846,6 +826,31 @@ class ParcelViewSet(viewsets.ModelViewSet):
             for parcel in qs
         ]
         return Response(parcels_data, status=200)
+
+    @action(detail=True, methods=['post'], url_path='sync-eosda')
+    def sync_eosda(self, request, pk=None):
+        """
+        Reintenta la sincronización de la parcela con EOSDA (crea el campo en
+        field-management si aún no tiene eosda_id).
+        """
+        parcel = self.get_object()
+        if parcel.eosda_id:
+            return Response({
+                'message': 'La parcela ya está sincronizada.',
+                'eosda_id': parcel.eosda_id,
+                'sync_status': parcel.sync_status,
+            }, status=200)
+        if not parcel.geom:
+            return Response({'error': 'La parcela no tiene geometría.', 'code': 'no_geometry'}, status=400)
+
+        parcel._sync_to_eosda()
+        parcel.save(update_fields=['eosda_id', 'sync_status', 'sync_error', 'updated_on'])
+
+        return Response({
+            'eosda_id': parcel.eosda_id,
+            'sync_status': parcel.sync_status,
+            'sync_error': parcel.sync_error,
+        }, status=200)
 
     @action(detail=True, methods=['get'], url_path='fusion-assessment')
     def fusion_assessment(self, request, pk=None):
@@ -905,97 +910,68 @@ class EosdaScenesView(APIView):
         if not field_id:
             return Response({"error": "Falta el parámetro field_id."}, status=400)
         
-        # Verificar cache de escenas por field_id (cache por 6 horas - escenas no cambian rápido)
+        # Cache + deduplicación (requests idénticos simultáneos → 1 sola llamada a EOSDA)
+        client = get_eosda_client()
         cache_key = f"eosda_scenes_{field_id}"
-        cached_data = cache.get(cache_key)
-        if cached_data:
-            logger.info(f"[CACHE HIT] Escenas encontradas en cache para field_id: {field_id}")
-            return Response(cached_data, status=200)
-        
-        # Restaurar el envío de fechas y mostrar el request_id en la terminal
-        from datetime import datetime, timedelta
-        today = datetime.utcnow().date()
-        date_end = today.isoformat()
-        date_start = (today - timedelta(days=90)).isoformat()
-        request_url = f"https://api-connect.eos.com/scene-search/for-field/{field_id}"
-        headers = {
-            "x-api-key": settings.EOSDA_API_KEY,
-            "Content-Type": "text/plain"
-        }
-        payload = {
-            "params": {
-                "date_start": date_start,
-                "date_end": date_end,
-                "data_source": ["sentinel2"]
+
+        def _fetch_scenes():
+            from datetime import datetime, timedelta
+            today = datetime.utcnow().date()
+            date_end = today.isoformat()
+            date_start = (today - timedelta(days=90)).isoformat()
+            request_url = f"https://api-connect.eos.com/scene-search/for-field/{field_id}"
+            headers = {
+                "x-api-key": settings.EOSDA_API_KEY,
+                "Content-Type": "application/json"
             }
-        }
-        try:
-            req_response = requests.post(request_url, data=json.dumps(payload), headers=headers)
-            logger.info(f"EOSDA request POST url: {request_url}")
-            logger.info(f"EOSDA request POST payload: {payload}")
+            payload = {
+                "params": {
+                    "date_start": date_start,
+                    "date_end": date_end,
+                    "data_source": ["sentinel2"]
+                }
+            }
+            req_response = client.post(request_url, payload, headers=headers)
             logger.info(f"EOSDA request POST status: {req_response.status_code}")
-            logger.info(f"EOSDA request POST response: {req_response.text}")
             req_response.raise_for_status()
             req_data = req_response.json()
             request_id = req_data.get('request_id')
-            
-            # Si hay request_id, hacer GET con POLLING para obtener escenas
-            if request_id:
-                print(f"request_id recibido de EOSDA: {request_id}")
-                logger.info(f"request_id recibido de EOSDA: {request_id}")
-                scenes_url = f"https://api-connect.eos.com/scene-search/for-field/{field_id}/{request_id}"
-                scenes_headers = {
-                    "x-api-key": settings.EOSDA_API_KEY
-                }
-                
-                # POLLING: EOSDA scene-search es asíncrono, puede tardar ~10-15 segundos
-                import time
-                max_attempts = 10
-                delay_seconds = 3
-                scenes = []
-                scenes_data = {}
-                
-                for attempt in range(max_attempts):
-                    scenes_response = requests.get(scenes_url, headers=scenes_headers)
-                    logger.info(f"EOSDA scenes GET intento {attempt+1}/{max_attempts}: status={scenes_response.status_code}")
-                    scenes_response.raise_for_status()
-                    scenes_data = scenes_response.json()
-                    
-                    if scenes_data.get('status') != 'pending':
-                        scenes = scenes_data.get('result', [])
-                        logger.info(f"EOSDA scenes GET completado: {len(scenes)} escenas encontradas")
-                        print(f"Escenas recibidas de EOSDA (GET, intento {attempt+1}): {len(scenes)} escenas")
-                        break
-                    
-                    logger.info(f"EOSDA scenes GET: aún pendiente, esperando {delay_seconds}s...")
-                    time.sleep(delay_seconds)
-                else:
-                    # Se agotaron los intentos
-                    logger.warning(f"EOSDA scenes GET: se agotaron {max_attempts} intentos de polling, aún pendiente")
-                    print(f"EOSDA scenes GET: timeout tras {max_attempts} intentos")
-                
-                # Guardar en cache por 6 horas (solo si hay escenas)
-                response_data = {"request_id": request_id, "scenes": scenes}
-                if scenes:
-                    cache.set(cache_key, response_data, 21600)  # 6 horas
-                    logger.info(f"[CACHE SET] {len(scenes)} escenas guardadas en cache para field_id: {field_id}")
-                
-                return Response(response_data, status=200)
-            else:
-                # Si no hay request_id, usar las escenas del POST
+
+            if not request_id:
                 scenes = req_data.get('result', [])
-                print(f"Escenas recibidas de EOSDA (POST directo): {scenes}")
-                logger.info(f"Escenas recibidas de EOSDA (POST directo): {scenes}")
-                
-                # Guardar en cache por 6 horas
-                response_data = {"request_id": None, "scenes": scenes}
-                cache.set(cache_key, response_data, 21600)  # 6 horas
-                logger.info(f"[CACHE SET] Escenas guardadas en cache para field_id: {field_id}")
-                
-                return Response(response_data, status=200)
+                return {"request_id": None, "scenes": scenes}
+
+            scenes_url = f"https://api-connect.eos.com/scene-search/for-field/{field_id}/{request_id}"
+            scenes_headers = {"x-api-key": settings.EOSDA_API_KEY}
+            import time
+            max_attempts = 10
+            delay_seconds = 3
+            scenes = []
+            for attempt in range(max_attempts):
+                scenes_response = client.get(scenes_url, headers=scenes_headers)
+                logger.info(f"EOSDA scenes GET intento {attempt+1}/{max_attempts}: status={scenes_response.status_code}")
+                scenes_response.raise_for_status()
+                scenes_data = scenes_response.json()
+                if scenes_data.get('status') != 'pending':
+                    scenes = scenes_data.get('result', [])
+                    logger.info(f"EOSDA scenes GET completado: {len(scenes)} escenas encontradas")
+                    break
+                logger.info(f"EOSDA scenes GET: aún pendiente, esperando {delay_seconds}s...")
+                time.sleep(delay_seconds)
+            else:
+                logger.warning(f"EOSDA scenes GET: se agotaron {max_attempts} intentos de polling, aún pendiente")
+            return {"request_id": request_id, "scenes": scenes}
+
+        try:
+            response_data, source = client.cached(cache_key, _fetch_scenes, ttl=21600)
         except requests.exceptions.RequestException as e:
             logger.error(f"Error en la petición a EOSDA: {str(e)}")
             return Response({"error": str(e)}, status=500)
+
+        if source == "eosda":
+            client.record(getattr(request, 'tenant', None), operation="scenes", user=getattr(request, 'user', None))
+        logger.info(f"[{'CACHE HIT' if source == 'cache' else 'EOSDA'}] Escenas para field_id {field_id}: {len(response_data.get('scenes', []))}")
+        return Response(response_data, status=200)
 
 class EosdaImageView(APIView):
     permission_classes = [IsAuthenticated]
@@ -1017,8 +993,8 @@ class EosdaImageView(APIView):
             img_format = request.data.get("format", "png")
             logger.info(f"[EOSDA_IMAGE] Payload recibido: field_id={field_id}, view_id={view_id}, type={index_type}, format={img_format}")
             
-            # Validación de parámetros - Incluir SAVI además de NDVI, NDMI y EVI
-            if not field_id or not view_id or index_type not in ["ndvi", "ndmi", "evi", "savi"]:
+            # Validación de parámetros - NDVI, NDMI, EVI, SAVI y NDRE
+            if not field_id or not view_id or index_type not in ["ndvi", "ndmi", "evi", "savi", "ndre"]:
                 logger.error(f"[EOSDA_IMAGE] Parámetros inválidos: field_id={field_id}, view_id={view_id}, type={index_type}")
                 return Response({"error": "Parámetros inválidos."}, status=400)
             
@@ -1035,6 +1011,7 @@ class EosdaImageView(APIView):
                             'savi': 'SAVI',
                             'ndmi': 'NDMI',
                             'evi': 'EVI',
+                            'ndre': 'NDRE',
                         }
                         logger.warning(
                             f"[EOSDA_IMAGE] Índice '{index_type}' no permitido en plan {plan_name}. "
@@ -1044,7 +1021,7 @@ class EosdaImageView(APIView):
                             'error': f'El índice {index_names.get(index_type, index_type.upper())} no está disponible en tu plan',
                             'code': 'index_not_available',
                             'index': index_type,
-                            'allowed_indices': [i for i in allowed_indices if i in ['ndvi', 'savi', 'ndmi', 'evi']],
+                            'allowed_indices': [i for i in allowed_indices if i in ['ndvi', 'savi', 'ndmi', 'evi', 'ndre']],
                             'plan': plan_name,
                             'message': f'Tu plan {plan_name} no incluye análisis {index_names.get(index_type, index_type.upper())}. '
                                        f'Mejora tu plan para acceder a más índices satelitales.',
@@ -1074,7 +1051,8 @@ class EosdaImageView(APIView):
             logger.info(f"[EOSDA_IMAGE] Headers: {headers}")
             logger.info(f"[EOSDA_IMAGE] Payload enviado: {payload}")
             
-            response = requests.post(eosda_url, json=payload, headers=headers)
+            client = get_eosda_client()
+            response = client.post(eosda_url, payload, headers=headers)
             logger.info(f"[EOSDA_IMAGE] Status: {response.status_code}")
             logger.info(f"[EOSDA_IMAGE] Response: {response.text}")
             response.raise_for_status()
@@ -1088,11 +1066,12 @@ class EosdaImageView(APIView):
             cache.set(cache_key, request_id, 1800)  # 30 minutos
             logger.info(f"[CACHE SET] request_id guardado en cache: {request_id}")
             logger.info(f"[EOSDA_IMAGE] request_id recibido: {request_id}")
+            client.record(getattr(request, 'tenant', None), operation="image", index_type=index_type, user=getattr(request, 'user', None))
             return Response({"request_id": request_id}, status=200)
             
         except requests.exceptions.RequestException as e:
             logger.error(f"[EOSDA_IMAGE] Error en la petición a EOSDA: {str(e)}")
-            return Response({"error": f"Error de conexión con EOSDA: {str(e)}"}, status=500)
+            return Response({"error": f"Error de conexión con el servicio satelital: {str(e)}"}, status=500)
         except Exception as e:
             logger.error(f"[EOSDA_IMAGE] Error inesperado: {str(e)}")
             logger.error(f"[EOSDA_IMAGE] Tipo de error: {type(e).__name__}")
@@ -1145,7 +1124,8 @@ class EosdaImageResultView(APIView):
         logger.info(f"[EOSDA_IMAGE_RESULT] URL: {eosda_url}")
         logger.info(f"[EOSDA_IMAGE_RESULT] Headers: {headers}")
         try:
-            response = requests.get(eosda_url, headers=headers)
+            client = get_eosda_client()
+            response = client.get(eosda_url, headers=headers)
             logger.info(f"[EOSDA_IMAGE_RESULT] Status: {response.status_code}")
             content_type = response.headers.get('Content-Type', '')
             # Si la respuesta es imagen, convertir a base64 y retornar
@@ -1158,6 +1138,7 @@ class EosdaImageResultView(APIView):
                     if view_id:
                         cache.set(composite_cache_key, image_base64, 3600)  # Por field+view+type
                     logger.info(f"[CACHE SET] Imagen guardada en cache dual para request_id: {request_id}")
+                    client.record(getattr(request, 'tenant', None), operation="image_result", index_type=index_type, user=getattr(request, 'user', None))
                     return Response({"image_base64": image_base64}, status=200)
                 except Exception as e:
                     logger.error(f"[EOSDA_IMAGE_RESULT] Error al convertir imagen a base64: {e}")
@@ -1184,7 +1165,7 @@ class EosdaImageResultView(APIView):
                     return Response({"error": "No se recibió una imagen.", "details": data}, status=400)
                 except Exception as e:
                     logger.error(f"[EOSDA_IMAGE_RESULT] Error al parsear JSON: {e}")
-                    return Response({"error": "Respuesta inesperada de EOSDA."}, status=500)
+                    return Response({"error": "Respuesta inesperada del servicio satelital."}, status=500)
             # Si la respuesta es binaria pero no tiene content-type correcto, intentar detectar PNG/JPG
             elif response.content[:8] == b'\x89PNG\r\n\x1a\n' or response.content[:2] == b'\xff\xd8':
                 try:
@@ -1195,6 +1176,7 @@ class EosdaImageResultView(APIView):
                     if view_id:
                         cache.set(composite_cache_key, image_base64, 3600)  # Por field+view+type
                     logger.info(f"[CACHE SET] Imagen binaria guardada en cache dual para request_id: {request_id}")
+                    client.record(getattr(request, 'tenant', None), operation="image_result", index_type=index_type, user=getattr(request, 'user', None))
                     return Response({"image_base64": image_base64}, status=200)
                 except Exception as e:
                     logger.error(f"[EOSDA_IMAGE_RESULT] Error al convertir binario a base64: {e}")
@@ -1245,17 +1227,13 @@ class EosdaSceneAnalyticsView(APIView):
             logger.error(f"[SCENE_ANALYTICS] Parámetros inválidos: field_id={field_id}, view_id={view_id}")
             return Response({"error": "Faltan parámetros obligatorios: field_id, view_id."}, status=400)
         
-        valid_indices = ["ndvi", "ndmi", "evi", "lai", "fpar", "fcover"]
+        valid_indices = ["ndvi", "ndmi", "evi", "ndre", "savi", "lai", "fpar", "fcover"]
         indices = [idx for idx in indices if idx in valid_indices]
         if not indices:
             indices = ["ndvi"]  # Por defecto solo NDVI para optimizar requests (usuario puede solicitar más explícitamente)
         
-        # Verificar cache de analytics por combinación field_id+view_id+date (cache por 2 horas)
+        # Cache + deduplicación (requests idénticos simultáneos → 1 sola llamada a EOSDA)
         cache_key = f"eosda_analytics_{field_id}_{view_id}_{scene_date}"
-        cached_analytics = cache.get(cache_key)
-        if cached_analytics:
-            logger.info(f"[CACHE HIT] Analytics encontrados en cache: {cache_key}")
-            return Response(cached_analytics, status=200)
         
         # EOSDA API: El endpoint /v1/analytics no existe, usaremos /v1/indices para obtener datos estadísticos
         # Convertir scene_date a rango de un día para simular analytics de escena específica
@@ -1307,59 +1285,39 @@ class EosdaSceneAnalyticsView(APIView):
             logger.error(f"[SCENE_ANALYTICS] Error obteniendo geometría: {e}")
             return Response({"error": "Error obteniendo geometría de la parcela"}, status=500)
         
-        
-        logger.info(f"[SCENE_ANALYTICS] Obteniendo analytics para {len(indices)} índices: {indices}")
-        logger.info(f"[SCENE_ANALYTICS] Rango de fechas: {start_date} - {end_date}")
-        
-        # Preparar resultado de analytics
-        analytics_result = {}
-        
-        try:
+        client = get_eosda_client()
+
+        def _fetch_analytics():
+            analytics_result = {}
             for index_name in indices:
                 eosda_url = f"https://api-connect.eos.com/v1/indices/{index_name}"
                 headers = {
                     "x-api-key": settings.EOSDA_API_KEY,
                     "Content-Type": "application/json"
                 }
-                
                 payload = {
                     "geometry": polygon_geojson,
                     "start_date": start_date,
                     "end_date": end_date
                 }
-                
-                logger.info(f"[SCENE_ANALYTICS] URL: {eosda_url}")
-                logger.info(f"[SCENE_ANALYTICS] Payload: {payload}")
-                
-                response = requests.post(eosda_url, json=payload, headers=headers)
+                response = client.post(eosda_url, payload, headers=headers)
                 logger.info(f"[SCENE_ANALYTICS] Status {index_name}: {response.status_code}")
-                logger.info(f"[SCENE_ANALYTICS] Response {index_name}: {response.text}")
-                
                 if response.status_code == 200:
                     index_data = response.json()
-                    # Extraer estadísticas del resultado
                     if 'data' in index_data and index_data['data']:
-                        # Los endpoints de índices devuelven series temporales, tomamos el último punto
-                        data_points = index_data['data']
-                        if data_points:
-                            latest_point = data_points[-1]  # Último punto de datos
-                            analytics_result[index_name] = {
-                                "mean": latest_point.get("mean"),
-                                "median": latest_point.get("median"), 
-                                "std": latest_point.get("std_dev"),
-                                "min": latest_point.get("min"),
-                                "max": latest_point.get("max"),
-                                "date": latest_point.get("date"),
-                                "source": "eosda_indices_api"
-                            }
-                        else:
-                            analytics_result[index_name] = {
-                                "error": "No hay datos disponibles para esta fecha",
-                                "source": "eosda_indices_api"
-                            }
+                        latest_point = index_data['data'][-1]
+                        analytics_result[index_name] = {
+                            "mean": latest_point.get("mean"),
+                            "median": latest_point.get("median"),
+                            "std": latest_point.get("std_dev"),
+                            "min": latest_point.get("min"),
+                            "max": latest_point.get("max"),
+                            "date": latest_point.get("date"),
+                            "source": "eosda_indices_api"
+                        }
                     else:
                         analytics_result[index_name] = {
-                            "error": "Respuesta sin datos válidos",
+                            "error": "No hay datos disponibles para esta fecha",
                             "source": "eosda_indices_api"
                         }
                 else:
@@ -1368,9 +1326,7 @@ class EosdaSceneAnalyticsView(APIView):
                         "error": f"Error HTTP {response.status_code}",
                         "source": "eosda_indices_api"
                     }
-            
-            # Estructurar respuesta
-            response_data = {
+            return {
                 "scene_info": {
                     "field_id": field_id,
                     "view_id": view_id,
@@ -1386,16 +1342,16 @@ class EosdaSceneAnalyticsView(APIView):
                     "cache_key": cache_key
                 }
             }
-            
-            # Guardar en cache por 2 horas
-            cache.set(cache_key, response_data, 7200)  # 2 horas
-            logger.info(f"[CACHE SET] Analytics guardados en cache: {cache_key}")
-            
-            return Response(response_data, status=200)
-            
+
+        try:
+            response_data, source = client.cached(cache_key, _fetch_analytics, ttl=7200)
         except requests.exceptions.RequestException as e:
             logger.error(f"[SCENE_ANALYTICS] Error en petición a EOSDA: {str(e)}")
-            return Response({"error": f"Error al obtener analytics de EOSDA: {str(e)}"}, status=500)
+            return Response({"error": f"Error al obtener analytics: {str(e)}"}, status=500)
+
+        if source == "eosda":
+            client.record(getattr(request, 'tenant', None), operation="scene_analytics", parcel_id=parcel.id, user=getattr(request, 'user', None))
+        return Response(response_data, status=200)
 
 class EosdaAdvancedStatisticsView(APIView):
     """
@@ -1561,7 +1517,8 @@ class EosdaAdvancedStatisticsView(APIView):
             logger.info(f"[ADVANCED_STATS] Payload: {json.dumps(payload, indent=2)}")
             
             # Crear tarea
-            response = requests.post(eosda_url, json=payload, headers=headers)
+            client = get_eosda_client()
+            response = client.post(eosda_url, payload, headers=headers)
             logger.info(f"[ADVANCED_STATS] Status Code: {response.status_code}")
             logger.info(f"[ADVANCED_STATS] Response: {response.text}")
             
@@ -1601,17 +1558,18 @@ class EosdaAdvancedStatisticsView(APIView):
                 cache.set(cache_key, response_data, 3600)  # 1 hora
                 logger.info(f"[CACHE SET] Advanced statistics task guardada en cache: {cache_key}")
                 
+                client.record(getattr(request, 'tenant', None), operation="advanced_statistics", parcel_id=parcel.id, user=getattr(request, 'user', None))
                 return Response(response_data, status=200)
             else:
                 logger.error(f"[ADVANCED_STATS] Error creando tarea: {response.status_code} - {response.text}")
                 return Response({
-                    "error": f"Error creando tarea en EOSDA Statistics API: {response.status_code}",
+                    "error": f"Error creando tarea de estadísticas: {response.status_code}",
                     "details": response.text
                 }, status=500)
                 
         except requests.exceptions.RequestException as e:
             logger.error(f"[ADVANCED_STATS] Error en petición a EOSDA: {str(e)}")
-            return Response({"error": f"Error al crear tarea en EOSDA: {str(e)}"}, status=500)
+            return Response({"error": f"Error al crear la tarea de estadísticas: {str(e)}"}, status=500)
 
 
 class EosdaStatisticsTaskStatusView(APIView):
@@ -1635,7 +1593,8 @@ class EosdaStatisticsTaskStatusView(APIView):
                 "x-api-key": settings.EOSDA_API_KEY
             }
             
-            response = requests.get(eosda_url, headers=headers)
+            client = get_eosda_client()
+            response = client.get(eosda_url, headers=headers)
             logger.info(f"[STATS_TASK_STATUS] Status Code: {response.status_code}")
             
             if response.status_code == 200:
@@ -1956,6 +1915,8 @@ class ParcelHistoricalIndicesView(APIView):
             # Índices a consultar
             indices = ["ndvi", "ndmi", "evi"]
             historical_data = {}
+            unavailable_indices = []
+            client = get_eosda_client()
             
             # Consultar cada índice a EOSDA usando Field Analytics API
             for index_name in indices:
@@ -1980,7 +1941,7 @@ class ParcelHistoricalIndicesView(APIView):
                 
                 try:
                     # Paso 1: Crear tarea
-                    response = requests.post(eosda_url, json=payload, headers=headers, timeout=30)
+                    response = client.post(eosda_url, payload, headers=headers, timeout=30)
                     
                     if response.status_code in [200, 202]:
                         task_data = response.json()
@@ -1999,7 +1960,7 @@ class ParcelHistoricalIndicesView(APIView):
                             
                             for attempt in range(max_attempts):
                                 try:
-                                    result_response = requests.get(result_url, headers=headers, timeout=30)
+                                    result_response = client.get(result_url, headers=headers, timeout=30)
                                     
                                     if result_response.status_code == 200:
                                         result_data = result_response.json()
@@ -2039,26 +2000,21 @@ class ParcelHistoricalIndicesView(APIView):
                                         break
                                     time.sleep(wait_time)
                             
-                            # Si no se obtuvieron datos reales, usar fallback
+                            # No hay datos reales: NO inventar. Se marca como no disponible.
                             if index_name not in historical_data:
-                                logger.warning(f"[HISTORICAL_INDICES] No se pudieron obtener datos reales para {index_name}, usando fallback")
-                                historical_data[index_name] = self._generate_test_data(index_name, start_date, end_date)
+                                logger.warning(f"[HISTORICAL_INDICES] No hay datos reales para {index_name} (tarea pendiente/fallida)")
+                                unavailable_indices.append(index_name)
                         else:
                             logger.error(f"[HISTORICAL_INDICES] Error creando tarea {index_name}: {task_data}")
-                            historical_data[index_name] = self._generate_test_data(index_name, start_date, end_date)
+                            unavailable_indices.append(index_name)
                             
                     else:
                         logger.error(f"[HISTORICAL_INDICES] Error {index_name}: {response.status_code} - {response.text}")
-                        # Generar datos de prueba como fallback cuando EOSDA falla
-                        logger.info(f"[HISTORICAL_INDICES] Generando datos de prueba como fallback para {index_name}")
-                        historical_data[index_name] = self._generate_test_data(index_name, start_date, end_date)
+                        unavailable_indices.append(index_name)
                         
                 except requests.exceptions.RequestException as e:
                     logger.error(f"[HISTORICAL_INDICES] Error de conexión {index_name}: {str(e)}")
-                    # Generar datos de prueba para desarrollo
-                    logger.info(f"[HISTORICAL_INDICES] Generando datos de prueba para {index_name}")
-                    historical_data[index_name] = self._generate_test_data(index_name, start_date, end_date)
-                    logger.info(f"[HISTORICAL_INDICES] Datos de prueba generados para {index_name}: {len(historical_data[index_name])} puntos")
+                    unavailable_indices.append(index_name)
             
             # Estructurar respuesta
             response_data = {
@@ -2075,6 +2031,8 @@ class ParcelHistoricalIndicesView(APIView):
                 "metadata": {
                     "total_points": sum(len(data) for data in historical_data.values()),
                     "indices_available": [idx for idx, data in historical_data.items() if len(data) > 0],
+                    "indices_unavailable": unavailable_indices,
+                    "data_source": "eosda",
                     "generated_at": datetime.now().isoformat()
                 }
             }
@@ -2104,64 +2062,12 @@ class ParcelHistoricalIndicesView(APIView):
             except Exception as he:
                 logger.warning(f"[HEALTH] Error: {he}")
 
+            client.record(getattr(request, 'tenant', None), operation="historical_indices", parcel_id=parcel_id, user=getattr(request, 'user', None))
             return Response(response_data)
             
         except Exception as e:
             logger.error(f"[HISTORICAL_INDICES] Error: {str(e)}")
             return Response({"error": f"Error obteniendo datos históricos: {str(e)}"}, status=500)
-
-    def _generate_test_data(self, index_name, start_date, end_date):
-        """
-        Genera datos de prueba para desarrollo cuando EOSDA no está disponible
-        """
-        import random
-        from datetime import datetime, timedelta
-        
-        # Configurar rangos base para cada índice
-        base_values = {
-            'ndvi': {'base': 0.6, 'range': 0.4},  # 0.2 - 1.0
-            'ndmi': {'base': 0.4, 'range': 0.6},  # -0.2 - 1.0  
-            'evi': {'base': 0.5, 'range': 0.5}    # 0.0 - 1.0
-        }
-        
-        base_val = base_values.get(index_name, {'base': 0.5, 'range': 0.4})
-        
-        # Generar fechas cada 10 días aproximadamente
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        end = datetime.strptime(end_date, "%Y-%m-%d")
-        
-        test_data = []
-        current_date = start
-        
-        while current_date <= end:
-            # Simular variación estacional (más alto en primavera/verano)
-            month = current_date.month
-            seasonal_factor = 0.8 + 0.4 * abs(6 - month) / 6  # Pico en junio
-            
-            # Valor base con variación aleatoria y estacional
-            mean_val = base_val['base'] + (random.random() - 0.5) * base_val['range'] * seasonal_factor
-            mean_val = max(0, min(1, mean_val))  # Mantener en rango 0-1
-            
-            # Generar estadísticas relacionadas
-            std_val = random.uniform(0.05, 0.15)
-            min_val = max(0, mean_val - std_val * 2)
-            max_val = min(1, mean_val + std_val * 2)
-            median_val = mean_val + random.uniform(-0.05, 0.05)
-            
-            test_data.append({
-                'date': current_date.strftime("%Y-%m-%d"),
-                'mean': round(mean_val, 3),
-                'median': round(median_val, 3),
-                'std': round(std_val, 3),
-                'min': round(min_val, 3),
-                'max': round(max_val, 3)
-            })
-            
-            # Avanzar 7-15 días aleatoriamente
-            current_date += timedelta(days=random.randint(7, 15))
-        
-        logger.info(f"[HISTORICAL_INDICES] Generados {len(test_data)} puntos de prueba para {index_name}")
-        return test_data
 
 class ParcelNdviWeatherComparisonView(APIView):
     """
@@ -2229,6 +2135,22 @@ class ParcelNdviWeatherComparisonView(APIView):
             logger.info(f"[NDVI_WEATHER] Consultando datos meteorológicos...")
             weather_data = self._get_weather_data(avg_lat, avg_lng)
             logger.info(f"[NDVI_WEATHER] Datos meteorológicos obtenidos: {len(weather_data)} días")
+
+            # Sin datos reales NO inventar: devolver estado claro de "no disponible".
+            if not weather_data:
+                return Response({
+                    "parcel_info": {"id": parcel_id, "name": parcel.name},
+                    "synchronized_data": [],
+                    "correlations": None,
+                    "insights": None,
+                    "metadata": {
+                        "total_points": 0,
+                        "weather_source": None,
+                        "available": False,
+                        "message": "Datos meteorológicos no disponibles en este momento.",
+                        "generated_at": datetime.now().isoformat()
+                    }
+                }, status=200)
             
             # Para este endpoint solo retornamos datos meteorológicos puros (sin NDVI)
             logger.info(f"[NDVI_WEATHER] Procesando datos meteorológicos puros...")
@@ -2255,8 +2177,8 @@ class ParcelNdviWeatherComparisonView(APIView):
                 "insights": insights,
                 "metadata": {
                     "total_points": len(weather_data),
-                    "ndvi_source": "eosda_historical",
                     "weather_source": "open_meteo",
+                    "available": True,
                     "generated_at": datetime.now().isoformat()
                 }
             }
@@ -2301,14 +2223,14 @@ class ParcelNdviWeatherComparisonView(APIView):
             logger.info(f"[WEATHER] Status: {response.status_code}")
 
             if response.status_code != 200 or not response.content:
-                logger.warning(f"[WEATHER] Open-Meteo falló o respuesta vacía, usando datos sintéticos")
-                return self._generate_synthetic_weather_data(start_date_str, end_date_str, latitude)
+                logger.warning(f"[WEATHER] Open-Meteo falló o respuesta vacía. Sin datos meteorológicos disponibles.")
+                return []
 
             data = response.json()
             daily = data.get("daily", {})
             if not daily or "time" not in daily:
-                logger.warning(f"[WEATHER] Respuesta sin datos daily, usando sintéticos")
-                return self._generate_synthetic_weather_data(start_date_str, end_date_str, latitude)
+                logger.warning(f"[WEATHER] Respuesta sin datos daily. Sin datos meteorológicos disponibles.")
+                return []
 
             weather_data = []
             days = daily["time"]
@@ -2334,115 +2256,8 @@ class ParcelNdviWeatherComparisonView(APIView):
 
         except Exception as e:
             logger.error(f"[WEATHER] Error: {str(e)}")
-            return self._generate_synthetic_weather_data(start_date_str, end_date_str, latitude)
+            return []
 
-        return None
-    
-    def _generate_synthetic_weather_data(self, start_date, end_date, latitude):
-        """
-        Genera datos sintéticos meteorológicos para desarrollo cuando la API falla
-        """
-        from datetime import datetime, timedelta
-        import random
-        import math
-        
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-        end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-        
-        weather_data = []
-        current_date = start_dt
-        
-        while current_date <= end_dt:
-            # Simular variación estacional basada en la latitud y fecha
-            day_of_year = current_date.timetuple().tm_yday
-            
-            # Temperatura base según latitud (más cálido en latitudes menores)
-            base_temp = 25 - abs(latitude) * 0.3
-            
-            # Variación estacional
-            seasonal_variation = 5 * math.sin((day_of_year - 80) * 2 * math.pi / 365)
-            
-            # Temperatura con variación diaria
-            temp_variation = random.uniform(-3, 3)
-            temperature = base_temp + seasonal_variation + temp_variation
-            
-            # Min/Max temperaturas
-            temp_max = temperature + random.uniform(2, 8)
-            temp_min = temperature - random.uniform(2, 6)
-            
-            # Precipitación (patrón tropical)
-            precipitation = 0
-            if random.random() < 0.3:  # 30% probabilidad de lluvia
-                precipitation = random.uniform(0.5, 25)
-            
-            # Humedad (mayor en zonas tropicales)
-            humidity = random.uniform(60, 90)
-            
-            # Viento
-            wind_speed = random.uniform(5, 20)
-            
-            # Radiación solar (mayor en el ecuador)
-            solar_radiation = random.uniform(15, 25)
-            
-            weather_data.append({
-                "date": current_date.strftime("%Y-%m-%d"),
-                "temperature": round(temperature, 1),
-                "temperature_max": round(temp_max, 1),
-                "temperature_min": round(temp_min, 1),
-                "precipitation": round(precipitation, 1),
-                "humidity": round(humidity, 1),
-                "wind_speed": round(wind_speed, 1),
-                "solar_radiation": round(solar_radiation, 1),
-                "data_type": "synthetic"
-            })
-            
-            current_date += timedelta(days=1)
-        
-        logger.info(f"[WEATHER_SYNTHETIC] Generados {len(weather_data)} días sintéticos para desarrollo")
-        return weather_data
-    
-    def _generate_test_weather_data(self):
-        """
-        Genera datos meteorológicos de prueba cuando la API externa falla
-        """
-        from datetime import datetime, timedelta
-        import random
-        
-        current_year = datetime.now().year
-        start_date = datetime(current_year, 1, 1)
-        end_date = datetime.now()
-        
-        weather_data = []
-        current_date = start_date
-        
-        while current_date <= end_date:
-            # Simular variación estacional
-            month = current_date.month
-            
-            # Temperatura con variación estacional
-            base_temp = 15 + 15 * math.sin((month - 1) * math.pi / 6)
-            temperature = base_temp + random.uniform(-5, 5)
-            
-            # Precipitación con más lluvia en ciertos meses
-            rain_probability = 0.3 + 0.2 * math.sin((month - 6) * math.pi / 6)
-            precipitation = random.uniform(0, 20) if random.random() < rain_probability else 0
-            
-            # Humedad correlacionada con precipitación
-            humidity = 50 + precipitation * 2 + random.uniform(-10, 10)
-            humidity = max(20, min(95, humidity))
-            
-            weather_data.append({
-                "date": current_date.strftime("%Y-%m-%d"),
-                "temperature": round(temperature, 1),
-                "precipitation": round(precipitation, 1),
-                "humidity": round(humidity, 1)
-            })
-            
-            current_date += timedelta(days=1)
-        
-        logger.info(f"[WEATHER_TEST] Generados {len(weather_data)} días de datos de prueba")
-        return weather_data
-    
     def _synchronize_ndvi_weather_data(self, ndvi_data, weather_data):
         """
         Sincroniza datos NDVI (esporádicos) con datos meteorológicos (diarios)
@@ -2971,36 +2786,57 @@ class CropHealthAPIView(APIView):
 
 class RadarAssessmentView(APIView):
     """
-    Evaluacion del cultivo via radar Sentinel-1.
+    Monitoreo radar Sentinel-1 (vigilancia complementaria, no sustituye óptico).
+
     GET /api/parcels/parcel/{parcel_id}/radar/
 
     Feature gated: 'continuous_monitoring' (plan Pro+).
 
-    Busca escenas radar reales via Copernicus Data Space API.
-    El backscatter se estima por correlacion NDVI-radar cuando hay dato optico.
-    Si no hay NDVI, se usa modelo base (sin valores hardcodeados arbitrarios).
+    Usa datos REALES de Sentinel-1 GRD (VV+VH). NUNCA genera backscatter simulado:
+    si no hay datos reales, devuelve "Datos radar no disponibles para esta fecha".
     """
     permission_classes = [IsAuthenticated]
 
     @require_feature('continuous_monitoring')
     def get(self, request, parcel_id):
-        from .sentinel1 import get_crop_status_from_radar
+        from .sentinel1 import get_radar_monitoring
 
         parcel = get_object_or_404(Parcel, pk=parcel_id, is_deleted=False)
         if not parcel.geom:
             return Response({'error': 'Parcela sin geometria'}, status=400)
 
-        health = None
-        try:
-            health = CropHealthStatus.objects.filter(parcel=parcel).first()
-        except Exception:
-            pass
+        result = get_radar_monitoring(parcel.geom, days_back=60)
 
-        ndvi_ref = health.ndvi_last if health and health.ndvi_last is not None else None
-        result = get_crop_status_from_radar(
-            parcel.geom, days_back=30, ndvi_value=ndvi_ref
-        )
+        result['parcel_id'] = parcel.id
+        result['parcel_name'] = parcel.name
+        return Response(result)
 
+
+class RadarLayersView(APIView):
+    """
+    Capas radar Sentinel-1 (mapa de colores) + cambio entre observaciones.
+
+    GET /api/parcels/parcel/{parcel_id}/radar-layers/
+
+    Devuelve heatmaps PNG (base64 + bounds) de sigma0 VV, VH y RVI, más el
+    heatmap de cambio entre la última y la anterior observación (datos reales).
+    """
+    permission_classes = [IsAuthenticated]
+
+    @require_feature('continuous_monitoring')
+    def get(self, request, parcel_id):
+        from .sentinel1 import get_radar_layers
+        from datetime import date, timedelta
+
+        parcel = get_object_or_404(Parcel, pk=parcel_id, is_deleted=False)
+        if not parcel.geom:
+            return Response({'error': 'Parcela sin geometría'}, status=400)
+
+        days_back = getattr(settings, 'SENTINEL1_LOOKBACK_DAYS', 60)
+        date_to = date.today().isoformat()
+        date_from = (date.today() - timedelta(days=days_back)).isoformat()
+
+        result = get_radar_layers(parcel.geom, date_from, date_to)
         result['parcel_id'] = parcel.id
         result['parcel_name'] = parcel.name
         return Response(result)

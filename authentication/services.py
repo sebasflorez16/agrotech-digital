@@ -65,13 +65,13 @@ class RegistrationService:
                 #    (billing.signals.create_free_subscription_for_new_tenant)
                 subscription = self._get_subscription(tenant)
 
-                # 5. Enviar email de verificación (fuera de la transacción)
-                self._send_verification_email_later(user, tenant)
+                # 5. Enviar email de verificación (no bloquea el registro)
+                email_sent = self._send_verification_email_later(user, tenant)
 
                 logger.info(
                     f"Registro exitoso: tenant={tenant.schema_name}, "
                     f"user={user.username}, plan={subscription.plan.tier if subscription else 'N/A'} "
-                    f"(pendiente verificacion email)"
+                    f"(pendiente verificacion email, email_sent={email_sent})"
                 )
 
                 return {
@@ -80,6 +80,7 @@ class RegistrationService:
                     'user': user,
                     'subscription': subscription,
                     'requires_email_verification': True,
+                    'email_sent': email_sent,
                 }
 
         except Exception as e:
@@ -87,15 +88,17 @@ class RegistrationService:
             raise RegistrationError(str(e))
 
     def _send_verification_email_later(self, user, tenant):
-        """Envía el email de verificación sin bloquear la transacción."""
+        """Envía el email de verificación sin bloquear la transacción.
+
+        El fallo del email NO debe dejar al usuario bloqueado: retorna False y
+        el frontend ofrece la opción de reenviar (endpoint de reenvío).
+        """
         try:
             self.send_verification_email(user, tenant)
+            return True
         except Exception as e:
             logger.warning(f"Fallo al enviar email de verificacion (no critico): {e}")
-                
-        except Exception as e:
-            logger.error(f"Error en registro: {str(e)}", exc_info=True)
-            raise RegistrationError(str(e))
+            return False
     
     def _create_tenant(self, data: dict) -> Client:
         """Crear el tenant (Client) con schema aislado."""
@@ -185,31 +188,77 @@ class RegistrationService:
         return user
 
     def send_verification_email(self, user: User, tenant: Client):
-        """Envía el email de verificación al nuevo usuario."""
+        """Envía email de verificación HTML al nuevo usuario."""
         frontend_url = getattr(settings, 'SITE_URL', 'http://localhost:8000')
-        verify_url = f"{frontend_url}/api/auth/verify-email/?token={user.verification_token}"
+        site_url = getattr(settings, 'SITE_URL', 'http://localhost:8000')
+        verify_url = f"{site_url}/api/auth/verify-email/?token={user.verification_token}"
 
-        subject = f"[AgroTech] Verifica tu cuenta — {tenant.name}"
-        message = (
+        subject = f"🌱 Verifica tu cuenta — {tenant.name}"
+        html_message = f"""\
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f7f6;font-family:'Segoe UI',Arial,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7f6;padding:40px 0">
+<tr><td align="center">
+<table width="560" cellpadding="0" cellspacing="0" style="background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,0.08)">
+<tr><td style="background:#166534;padding:32px 40px;text-align:center">
+  <h1 style="color:#fff;margin:0;font-size:24px">AgroTech Digital</h1>
+  <p style="color:#bbf7d0;margin:8px 0 0;font-size:14px">Agricultura de precision al alcance de tu mano</p>
+</td></tr>
+<tr><td style="padding:32px 40px">
+  <h2 style="color:#166534;margin:0 0 16px;font-size:20px">{user.name}, tu finca esta casi lista!</h2>
+  <p style="color:#374151;font-size:15px;line-height:1.6;margin:0 0 20px">
+    Gracias por registrarte en AgroTech Digital. Has creado la finca
+    <strong>{tenant.name}</strong> y solo falta un paso para activar tu cuenta.
+  </p>
+  <table width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0">
+  <tr><td align="center">
+    <a href="{verify_url}" style="display:inline-block;background:#166534;color:#fff;text-decoration:none;padding:14px 44px;border-radius:10px;font-size:16px;font-weight:bold">Verificar mi correo</a>
+  </td></tr></table>
+  <p style="color:#6b7280;font-size:13px;margin:0 0 8px">O copia este enlace:</p>
+  <p style="color:#166534;font-size:12px;word-break:break-all;margin:0 0 24px">{verify_url}</p>
+  <div style="background:#f0fdf4;border-left:4px solid #22c55e;padding:14px 18px;border-radius:0 8px 8px 0;margin-bottom:24px">
+    <p style="color:#166534;font-size:13px;margin:0"><strong>Que puedes hacer con AgroTech?</strong><br>
+    &#x2705; Analisis NDVI satelital de tus cultivos<br>
+    &#x2705; Monitoreo de estres hidrico (NDMI)<br>
+    &#x2705; Clima 14 dias y elevacion del terreno<br>
+    &#x2705; Gestion de parcelas, inventario y labores</p>
+  </div>
+</td></tr>
+<tr><td style="background:#f9fafb;padding:20px 40px;text-align:center">
+  <p style="color:#9ca3af;font-size:12px;margin:0">
+    &copy; 2025 AgroTech Digital. Todos los derechos reservados.<br>
+    Si no creaste esta cuenta, ignora este mensaje.
+  </p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>"""
+
+        text_message = (
             f"Hola {user.name},\n\n"
-            f"¡Bienvenido a AgroTech Digital! Tu finca '{tenant.name}' está casi lista.\n\n"
-            f"Para activar tu cuenta, verifica tu correo haciendo clic aquí:\n"
-            f"{verify_url}\n\n"
-            f"Si no creaste esta cuenta, ignora este mensaje.\n\n"
-            f"AgroTech Digital — Agricultura de precisión al alcance de tu mano."
+            f"Bienvenido a AgroTech Digital! Tu finca '{tenant.name}' esta casi lista.\n\n"
+            f"Para activar tu cuenta, verifica tu correo aqui:\n{verify_url}\n\n"
+            f"AgroTech Digital — Agricultura de precision"
         )
 
         try:
-            send_mail(
+            from django.core.mail import EmailMultiAlternatives
+            email = EmailMultiAlternatives(
                 subject=subject,
-                message=message,
+                body=text_message,
                 from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@agrotechcolombia.com'),
-                recipient_list=[user.email],
-                fail_silently=True,
+                to=[user.email],
             )
+            email.attach_alternative(html_message, "text/html")
+            email.send(fail_silently=False)
             logger.info(f"Email de verificacion enviado a {user.email}")
         except Exception as e:
-            logger.warning(f"No se pudo enviar email de verificacion a {user.email}: {e}")
+            logger.warning(f"No se pudo enviar email a {user.email}: {e}")
+            raise
 
     def _get_subscription(self, tenant: Client):
         """Obtener la suscripción creada automáticamente por el signal."""

@@ -127,6 +127,7 @@ class Supply(models.Model):
     name = models.CharField("Nombre", max_length=150)
     unit_value = models.DecimalField("Valor unitario", max_digits=12, decimal_places=2, blank=True, null=True)
     quantity = models.DecimalField("Cantidad", max_digits=12, decimal_places=2, default=0)
+    minimum_stock = models.DecimalField("Stock minimo", max_digits=12, decimal_places=2, default=5, help_text="Por debajo de esta cantidad se genera alerta.")
     category = models.ForeignKey(Category, on_delete=models.CASCADE, related_name='supplies', verbose_name="Categoría",  blank=True, null=True)
     subcategory = models.ForeignKey(Subcategory, on_delete=models.CASCADE, related_name='supplies', verbose_name="Subcategoría", blank=True, null=True)
     warehouse = models.ForeignKey(Warehouse, on_delete=models.CASCADE, related_name='supplies', verbose_name="Almacén")

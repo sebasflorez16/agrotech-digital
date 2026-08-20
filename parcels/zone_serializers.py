@@ -24,6 +24,7 @@ class ParcelZonificationSerializer(serializers.ModelSerializer):
     parcel_name = serializers.SerializerMethodField()
     method_display = serializers.CharField(source='get_method_display', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    data_source = serializers.SerializerMethodField()
 
     class Meta:
         model = ParcelZonification
@@ -32,7 +33,7 @@ class ParcelZonificationSerializer(serializers.ModelSerializer):
             'index_base', 'method', 'method_display',
             'k_zones', 'status', 'status_display',
             'total_pixels', 'pixel_resolution_m',
-            'notes', 'created_at', 'updated_at',
+            'data_source', 'notes', 'created_at', 'updated_at',
             'zones',
         ]
         read_only_fields = ['created_at', 'updated_at', 'status', 'total_pixels']
@@ -43,3 +44,8 @@ class ParcelZonificationSerializer(serializers.ModelSerializer):
             return Parcel.objects.filter(id=obj.parcel_id).values_list('name', flat=True).first() or ''
         except Exception:
             return ''
+
+    def get_data_source(self, obj):
+        # La zonificación actual usa índices simulados (numpy + K-means).
+        # Se marca explícitamente para no presentarla como análisis satelital real.
+        return 'synthetic'

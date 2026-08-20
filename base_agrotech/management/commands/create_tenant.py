@@ -22,7 +22,6 @@ class Command(BaseCommand):
         parser.add_argument('--admin-user', type=str, default='admin', help='Username del superusuario')
         parser.add_argument('--admin-email', type=str, required=True, help='Email del superusuario')
         parser.add_argument('--admin-password', type=str, default='admin123', help='Password del superusuario')
-        parser.add_argument('--description', type=str, default='', help='Descripción del tenant')
         parser.add_argument('--primary', action='store_true', help='Marcar dominio como primario')
 
     def handle(self, *args, **options):
@@ -32,7 +31,6 @@ class Command(BaseCommand):
         admin_user = options['admin_user']
         admin_email = options['admin_email']
         admin_password = options['admin_password']
-        description = options['description']
         is_primary = options['primary']
 
         self.stdout.write("=" * 60)
@@ -60,10 +58,12 @@ class Command(BaseCommand):
             with transaction.atomic():
                 # Paso 2: Crear el Client (tenant)
                 self.stdout.write("🏢 Creando tenant...")
+                from datetime import date, timedelta
                 tenant = Client.objects.create(
                     schema_name=schema_name,
                     name=tenant_name,
-                    description=description
+                    paid_until=date.today() + timedelta(days=14),
+                    on_trial=True,
                 )
                 self.stdout.write(f"✅ Tenant creado con ID: {tenant.id}")
                 
@@ -107,7 +107,9 @@ class Command(BaseCommand):
                         superuser = User.objects.create_superuser(
                             username=admin_user,
                             email=admin_email,
-                            password=admin_password
+                            password=admin_password,
+                            name=admin_user,
+                            last_name='Administrador',
                         )
                         self.stdout.write(f"✅ Superusuario '{admin_user}' creado exitosamente")
             except Exception as e:

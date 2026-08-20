@@ -137,6 +137,19 @@ CESIUM_ACCESS_TOKEN = env("CESIUM_ACCESS_TOKEN", default="TU_CESIUM_ACCESS_TOKEN
 # EOSDA API KEY
 EOSDA_API_KEY = env.str("EOSDA_API_KEY", default="")  # Configurar en variables de entorno, NUNCA hardcodear
 
+# NASA Earthdata (ASF Vertex) — busqueda Sentinel-1 gratuita
+EARTHDATA_USER = env.str("EARTHDATA_USER", default="")
+EARTHDATA_PASSWORD = env.str("EARTHDATA_PASSWORD", default="")
+EARTHDATA_TOKEN = env.str("EARTHDATA_TOKEN", default="")
+
+# Copernicus Data Space (CDSE) — OAuth2 client credentials (gratuitas)
+COPERNICUS_CLIENT_ID = env.str("COPERNICUS_CLIENT_ID", default="")
+COPERNICUS_CLIENT_SECRET = env.str("COPERNICUS_CLIENT_SECRET", default="")
+
+# Sentinel-1 (Planetary Computer) — vigilancia radar complementaria
+# Ventana de búsqueda en días (configurable; NO hardcodeada en el código).
+SENTINEL1_LOOKBACK_DAYS = env.int("SENTINEL1_LOOKBACK_DAYS", default=60)
+
 # EOSDA DATASET ID (por defecto Sentinel-2 L2A)
 EOSDA_DATASET_ID = os.getenv('EOSDA_DATASET_ID', 'S2L2A')
 
@@ -420,6 +433,14 @@ SOCIALACCOUNT_ADAPTER = "metrica.users.adapters.SocialAccountAdapter"
 EOSDA_BASE_URL = env.str("EOSDA_BASE_URL", default="https://api-connect.eos.com/field-management")
 EOSDA_API_KEY = env.str("EOSDA_API_KEY", default="")
 EOSDA_API_URL = EOSDA_BASE_URL  # Para compatibilidad con el modelo
+
+# Consumo EOSDA centralizado (cache + dedup + cola + rate limiter + registro)
+# Límite global de requests por minuto (Starter = 10/min; usamos 8 conservador).
+EOSDA_RATE_LIMIT_PER_MIN = env.int("EOSDA_RATE_LIMIT_PER_MIN", default=8)
+# TTL de la cache (segundos). Datos satelitales de un rango de fechas son inmutables.
+EOSDA_CACHE_TTL_SECONDS = env.int("EOSDA_CACHE_TTL_SECONDS", default=86400)
+# Máximo tiempo de espera bloqueante cuando no hay token disponible (segundos).
+EOSDA_MAX_QUEUE_WAIT_SECONDS = env.int("EOSDA_MAX_QUEUE_WAIT_SECONDS", default=60)
 # Your stuff...
 # ------------------------------------------------------------------------------
 
@@ -515,4 +536,7 @@ DEFAULT_COUNTRY = 'CO'  # Colombia por defecto
 
 # URL del sitio para billing callbacks
 SITE_URL = env('SITE_URL', default='http://localhost:8000')
+
+# URL del frontend para emails de verificacion y redirects
+FRONTEND_URL = env('FRONTEND_URL', default='http://localhost:8080')
 

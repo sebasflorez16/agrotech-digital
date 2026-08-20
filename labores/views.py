@@ -1,8 +1,6 @@
 from rest_framework import viewsets, permissions
-from .models import Labor, LaborPhoto
-from .serializers import LaborSerializer, LaborPhotoSerializer
-from crop.models import LaborInput
-from crop.serializers import LaborInputSerializer
+from .models import Labor, LaborPhoto, LaborPhase, LaborInput
+from .serializers import LaborSerializer, LaborPhotoSerializer, LaborPhaseSerializer, LaborInputSerializer
 from parcels.models import Parcel
 from RRHH.models import Employee
 
@@ -81,3 +79,17 @@ class LaborInputViewSet(viewsets.ModelViewSet):
         kwargs['context']['parcelas_queryset'] = Parcel.objects.all()
         kwargs['context']['responsables_queryset'] = Employee.objects.all()
         return serializer_class(*args, **kwargs)
+
+
+class LaborPhaseViewSet(viewsets.ModelViewSet):
+    """CRUD de fases de labor agricola."""
+    queryset = LaborPhase.objects.all()
+    serializer_class = LaborPhaseSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        labor_id = self.request.query_params.get('labor')
+        if labor_id:
+            qs = qs.filter(labor_id=labor_id)
+        return qs

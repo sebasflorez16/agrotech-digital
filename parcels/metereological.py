@@ -19,6 +19,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import action
 from .models import Parcel
 from billing.decorators import check_eosda_limit
+from .eosda_client import get_eosda_client
 
 logger = logging.getLogger(__name__)
 
@@ -242,85 +243,8 @@ class WeatherForecastView(APIView):
             }
             processed_data.append(processed_day)
         
-        # Si tenemos menos de 7 días, generamos datos adicionales basados en los promedios
-        # de los días disponibles para llegar a un total de 7 días de pronóstico
-        real_days_count = len(processed_data)
-        if real_days_count > 0 and real_days_count < 7:
-            logger.info(f"[WEATHER_FORECAST] Generando datos extendidos para llegar a 7 días (actualmente: {real_days_count} días reales)")
-            
-            # Calculamos promedios de los datos reales para usar como base
-            avg_temp_max = sum(d["temperature_max"] for d in processed_data) / real_days_count
-            avg_temp_min = sum(d["temperature_min"] for d in processed_data) / real_days_count
-            avg_temp = sum(d["temperature"] for d in processed_data) / real_days_count
-            avg_precip = sum(d["precipitation"] for d in processed_data) / real_days_count
-            avg_humidity = sum(d["humidity"] for d in processed_data) / real_days_count
-            avg_wind = sum(d["wind_speed"] for d in processed_data) / real_days_count
-            
-            # Para tendencias más realistas, calculamos las pendientes diarias
-            if real_days_count >= 2:
-                # Ordenar por fecha para calcular tendencias
-                processed_data.sort(key=lambda x: x["date"])
-                
-                # Calcular tendencia diaria para cada variable meteorológica
-                temp_max_trend = (processed_data[-1]["temperature_max"] - processed_data[0]["temperature_max"]) / (real_days_count - 1)
-                temp_min_trend = (processed_data[-1]["temperature_min"] - processed_data[0]["temperature_min"]) / (real_days_count - 1)
-                temp_trend = (processed_data[-1]["temperature"] - processed_data[0]["temperature"]) / (real_days_count - 1)
-                
-                # Limitar las tendencias para evitar valores extremos
-                max_trend = 2.0  # Máximo cambio diario en temperatura
-                temp_max_trend = max(min(temp_max_trend, max_trend), -max_trend)
-                temp_min_trend = max(min(temp_min_trend, max_trend), -max_trend)
-                temp_trend = max(min(temp_trend, max_trend), -max_trend)
-            else:
-                # Si solo hay un día, no hay tendencia clara
-                temp_max_trend = 0
-                temp_min_trend = 0
-                temp_trend = 0
-            
-            # Determinar la última fecha real disponible para continuar desde ahí
-            last_real_date = datetime.strptime(processed_data[-1]["date"], "%Y-%m-%d")
-            
-            # Generar datos para días adicionales hasta llegar a 7
-            for i in range(1, 7 - real_days_count + 1):
-                # Calculamos la fecha para este día adicional (a partir del último día real)
-                extra_date = last_real_date + timedelta(days=i)
-                date_str = extra_date.strftime("%Y-%m-%d")
-                
-                # Factor de día - cuántos días después del último real
-                day_factor = i - real_days_count + 1
-                
-                # Importar random solo cuando sea necesario
-                import random
-                
-                # Menor variación para días más cercanos, mayor para días lejanos
-                base_variation = 0.10  # 10% de variación base
-                variation_increase = 0.03  # Incremento por día adicional
-                variation = base_variation + (variation_increase * day_factor)
-                
-                # Aplicar tendencias y variaciones aleatorias
-                # Para temperaturas, aplicamos la tendencia más variación aleatoria
-                temp_max_base = processed_data[-1]["temperature_max"] + (temp_max_trend * day_factor)
-                temp_min_base = processed_data[-1]["temperature_min"] + (temp_min_trend * day_factor)
-                temp_base = processed_data[-1]["temperature"] + (temp_trend * day_factor)
-                
-                # Generar valores finales
-                processed_day = {
-                    "date": date_str,
-                    "temperature_max": temp_max_base * (1 + random.uniform(-variation, variation)),
-                    "temperature_min": temp_min_base * (1 + random.uniform(-variation, variation)),
-                    "temperature": temp_base * (1 + random.uniform(-variation, variation)),
-                    # Precipitación: probabilidad decreciente con días
-                    "precipitation": max(0, avg_precip * (1 + random.uniform(-1, 1) * variation)) if random.random() > (0.6 + (day_factor * 0.05)) else 0,
-                    "humidity": min(100, max(0, avg_humidity * (1 + random.uniform(-variation, variation)))),
-                    "wind_speed": max(0, avg_wind * (1 + random.uniform(-variation, variation))),
-                    "pressure": 1013.25 + random.uniform(-2, 2),  # Presión atmosférica con pequeñas variaciones
-                    "cloud_cover": random.uniform(0, 100),
-                    "is_real_data": False  # Marcamos que estos son datos generados
-                }
-                processed_data.append(processed_day)
-                logger.info(f"[WEATHER_FORECAST] Generado día adicional {date_str} con temp_max={processed_day['temperature_max']:.1f}, temp_min={processed_day['temperature_min']:.1f}")
-                
-            logger.info(f"[WEATHER_FORECAST] Generados {7 - real_days_count} días adicionales para completar 7 días")
+        # NO se generan días sintéticos: si la API devuelve menos días, el pronóstico
+        # simplemente tendrá menos días (datos reales únicamente).
         
         # Ordenar por fecha
         processed_data.sort(key=lambda x: x["date"])
@@ -747,7 +671,7 @@ class ParcelNdviWeatherComparisonView(APIView):
             logger.info(f"[EOSDA_WEATHER] Payload: {payload}")
             logger.info(f"[EOSDA_WEATHER] Período: {start_date_str} a {end_date_str}")
             
-            response = requests.post(weather_url, headers=headers, json=payload, timeout=60)
+            response = get_eosda_client().post(weather_url, payload, headers=headers, timeout=60)
             logger.info(f"[EOSDA_WEATHER] Status code: {response.status_code}")
             
             if response.status_code == 200:
@@ -884,110 +808,6 @@ class ParcelNdviWeatherComparisonView(APIView):
         
         return insights
 
-
-# --- FUNCIONES HELPER PARA METEOROLOGÍA ---
-
-def generate_synthetic_weather_data(start_date, end_date, latitude):
-    """
-    Genera datos sintéticos meteorológicos para desarrollo cuando la API falla
-    """
-    start_dt = datetime.strptime(start_date, "%Y-%m-%d")
-    end_dt = datetime.strptime(end_date, "%Y-%m-%d")
-    
-    weather_data = []
-    current_date = start_dt
-    
-    while current_date <= end_dt:
-        # Simular variación estacional basada en la latitud y fecha
-        day_of_year = current_date.timetuple().tm_yday
-        
-        # Temperatura base según latitud (más cálido en latitudes menores)
-        base_temp = 25 - abs(latitude) * 0.3
-        
-        # Variación estacional
-        seasonal_variation = 5 * math.sin((day_of_year - 80) * 2 * math.pi / 365)
-        
-        # Temperatura con variación diaria
-        import random
-        temp_variation = random.uniform(-3, 3)
-        temperature = base_temp + seasonal_variation + temp_variation
-        
-        # Min/Max temperaturas
-        temp_max = temperature + random.uniform(2, 8)
-        temp_min = temperature - random.uniform(2, 6)
-        
-        # Precipitación (patrón tropical)
-        precipitation = 0
-        if random.random() < 0.3:  # 30% probabilidad de lluvia
-            precipitation = random.uniform(0.5, 25)
-        
-        # Humedad (mayor en zonas tropicales)
-        humidity = random.uniform(60, 90)
-        
-        # Viento
-        wind_speed = random.uniform(5, 20)
-        
-        # Radiación solar (mayor en el ecuador)
-        solar_radiation = random.uniform(15, 25)
-        
-        weather_data.append({
-            "date": current_date.strftime("%Y-%m-%d"),
-            "temperature": round(temperature, 1),
-            "temperature_max": round(temp_max, 1),
-            "temperature_min": round(temp_min, 1),
-            "precipitation": round(precipitation, 1),
-            "humidity": round(humidity, 1),
-            "wind_speed": round(wind_speed, 1),
-            "solar_radiation": round(solar_radiation, 1),
-            "data_type": "synthetic"
-        })
-        
-        current_date += timedelta(days=1)
-    
-    logger.info(f"[WEATHER_SYNTHETIC] Generados {len(weather_data)} días sintéticos para desarrollo")
-    return weather_data
-
-
-def generate_test_weather_data():
-    """
-    Genera datos meteorológicos de prueba cuando la API externa falla
-    """
-    import random
-    
-    current_year = datetime.now().year
-    start_date = datetime(current_year, 1, 1)
-    end_date = datetime.now()
-    
-    weather_data = []
-    current_date = start_date
-    
-    while current_date <= end_date:
-        # Simular variación estacional
-        month = current_date.month
-        
-        # Temperatura con variación estacional
-        base_temp = 15 + 15 * math.sin((month - 1) * math.pi / 6)
-        temperature = base_temp + random.uniform(-5, 5)
-        
-        # Precipitación con más lluvia en ciertos meses
-        rain_probability = 0.3 + 0.2 * math.sin((month - 6) * math.pi / 6)
-        precipitation = random.uniform(0, 20) if random.random() < rain_probability else 0
-        
-        # Humedad correlacionada con precipitación
-        humidity = 50 + precipitation * 2 + random.uniform(-10, 10)
-        humidity = max(20, min(95, humidity))
-        
-        weather_data.append({
-            "date": current_date.strftime("%Y-%m-%d"),
-            "temperature": round(temperature, 1),
-            "precipitation": round(precipitation, 1),
-            "humidity": round(humidity, 1)
-        })
-        
-        current_date += timedelta(days=1)
-    
-    logger.info(f"[WEATHER_TEST] Generados {len(weather_data)} días de datos de prueba")
-    return weather_data
 
 
 def synchronize_ndvi_weather_data(ndvi_data, weather_data):
@@ -1358,139 +1178,3 @@ def generate_insights(synchronized_data, correlations):
     return insights[:8]  # Limitar a 8 insights más relevantes
 
 
-# --- FUNCIONES PARA INTEGRACIÓN CON VIEWSET ---
-
-def weather_forecast_action(viewset_instance, request, pk=None):
-    """
-    Acción para obtener pronóstico meteorológico desde un ViewSet.
-    Endpoint para obtener pronóstico meteorológico de 14 días para una parcela específica.
-    """
-    print(f"[WEATHER_FORECAST] === INICIO REQUEST ===")
-    print(f"[WEATHER_FORECAST] Método: {request.method}")
-    print(f"[WEATHER_FORECAST] URL completa: {request.get_full_path()}")
-    print(f"[WEATHER_FORECAST] Parcela ID recibida: {pk}")
-    print(f"[WEATHER_FORECAST] Headers: {dict(request.headers)}")
-    
-    try:
-        parcel = viewset_instance.get_object()
-        print(f"[WEATHER_FORECAST] Parcela encontrada: {parcel.name} (ID: {parcel.id})")
-    except Exception as e:
-        print(f"[WEATHER_FORECAST] Error al obtener parcela: {e}")
-        return Response({'error': f'Parcela no encontrada: {e}'}, status=404)
-    
-    # Verificar cache primero (válido por 6 horas)
-    cache_key = f"weather_forecast_{pk}"
-    cached_data = cache.get(cache_key)
-    if cached_data:
-        print(f"[WEATHER_FORECAST] Cache hit para parcela {pk}")
-        return Response(cached_data)
-    
-    print(f"[WEATHER_FORECAST] Cache miss, generando nuevos datos...")
-    
-    # Obtener coordenadas del centroide de la parcela
-    if hasattr(parcel.geom, 'centroid'):
-        centroid = parcel.geom.centroid
-        lat = centroid.y
-        lng = centroid.x
-        print(f"[WEATHER_FORECAST] Coordenadas obtenidas del centroide: lat={lat}, lng={lng}")
-    else:
-        # No usar fallback, devolver error si no hay geometría
-        print(f"[WEATHER_FORECAST] No se pudo determinar las coordenadas de la parcela: geometría vacía o inválida")
-        return Response(
-            {"error": "No se pudo determinar las coordenadas de la parcela: geometría vacía o inválida"}, 
-            status=400
-        )
-    
-    try:
-        x_api_key = settings.EOSDA_API_KEY
-        # Intentar obtener datos de EOSDA
-        headers = {
-            'x-api-key': x_api_key,
-            'Content-Type': 'application/json'
-        }
-        
-        url = "https://api.eosda.com/v1/weather/forecast"
-        params = {
-            'lat': lat,
-            'lon': lng,
-            'days': 14,
-            'units': 'metric'
-        }
-        
-        print(f"[WEATHER_FORECAST] Realizando petición a EOSDA: {url}")
-        print(f"[WEATHER_FORECAST] Parámetros: {params}")
-        
-        response = requests.get(url, headers=headers, params=params, timeout=30)
-        print(f"[WEATHER_FORECAST] Status EOSDA: {response.status_code}")
-        print(f"[WEATHER_FORECAST] Response EOSDA: {response.text[:200]}...")
-        
-        if response.status_code == 200:
-            forecast_data = response.json()
-            result = {
-                'success': True,
-                'parcel_name': parcel.name,
-                'coordinates': {'lat': lat, 'lng': lng},
-                'forecast': forecast_data,
-                'source': 'EOSDA'
-            }
-            # Cache por 6 horas (21600 segundos)
-            cache.set(cache_key, result, 21600)
-            print(f"[WEATHER_FORECAST] Datos EOSDA guardados en cache")
-            return Response(result)
-        
-    except Exception as e:
-        print(f"[WEATHER_FORECAST] Error EOSDA: {str(e)}")
-        
-    # Datos mock si EOSDA falla
-    print(f"[WEATHER_FORECAST] Generando datos mock...")
-    mock_forecast = []
-    import random
-    
-    start_date = datetime.now()
-    for i in range(14):
-        date = start_date + timedelta(days=i)
-        # Generar datos meteorológicos más completos
-        temp_max = round(random.uniform(22, 32), 1)
-        temp_min = round(random.uniform(15, 25), 1)
-        temp_avg = round((temp_max + temp_min) / 2, 1)
-        
-        mock_forecast.append({
-            'date': date.strftime('%Y-%m-%d'),
-            'day_name': date.strftime('%A'),
-            'day_short': date.strftime('%a'),
-            'day_number': date.day,
-            'month_short': date.strftime('%b'),
-            'temp_max': temp_max,
-            'temp_min': temp_min,
-            'temp_avg': temp_avg,
-            'humidity': round(random.uniform(60, 90)),
-            'humidity_avg': round(random.uniform(65, 85)),
-            'precipitation': round(random.uniform(0, 15), 1),
-            'precipitation_probability': round(random.uniform(0, 100)),
-            'wind_speed': round(random.uniform(5, 20), 1),
-            'wind_direction': round(random.uniform(0, 360)),
-            'wind_direction_text': random.choice(['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']),
-            'pressure': round(random.uniform(1010, 1025), 1),
-            'solar_radiation': round(random.uniform(15, 25), 1),  # MJ/m²/día
-            'uv_index': round(random.uniform(3, 11)),
-            'visibility': round(random.uniform(8, 15)),  # km
-            'cloud_cover': round(random.uniform(0, 100)),  # %
-            'feels_like_max': temp_max + random.uniform(-2, 3),
-            'feels_like_min': temp_min + random.uniform(-2, 3),
-            'description': random.choice(['Soleado', 'Parcialmente nublado', 'Nublado', 'Lluvioso', 'Tormentoso']),
-            'icon': random.choice(['01d', '02d', '03d', '04d', '09d', '10d', '11d'])
-        })
-    
-    result = {
-        'success': True,
-        'parcel_name': parcel.name,
-        'coordinates': {'lat': lat, 'lng': lng},
-        'forecast': mock_forecast,
-        'source': 'Mock Data (EOSDA no disponible)'
-    }
-    
-    # Cache datos mock por 1 hora (3600 segundos)
-    cache.set(cache_key, result, 3600)
-    print(f"[WEATHER_FORECAST] Datos mock generados y guardados en cache")
-    print(f"[WEATHER_FORECAST] === FIN REQUEST ===")
-    return Response(result)

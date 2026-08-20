@@ -5,7 +5,7 @@ Admin de Django para billing.
 from django.contrib import admin
 from django.utils.html import format_html
 from django.urls import reverse
-from .models import Plan, Subscription, Invoice, UsageMetrics, BillingEvent
+from .models import Plan, Subscription, Invoice, UsageMetrics, BillingEvent, EosdaRequestLog
 
 
 @admin.register(Plan)
@@ -219,3 +219,27 @@ class BillingEventAdmin(admin.ModelAdmin):
             obj.get_event_type_display()
         )
     event_type_badge.short_description = 'Evento'
+
+
+@admin.register(EosdaRequestLog)
+class EosdaRequestLogAdmin(admin.ModelAdmin):
+    """Admin para el registro de consumo EOSDA."""
+
+    list_display = [
+        'created_at', 'tenant', 'user', 'operation', 'index_type',
+        'parcel_id', 'source_badge', 'date_requested'
+    ]
+    list_filter = ['source', 'operation', 'index_type', 'created_at']
+    search_fields = ['tenant__name', 'tenant__schema_name', 'user__email', 'operation']
+    readonly_fields = ['created_at']
+    date_hierarchy = 'created_at'
+
+    def source_badge(self, obj):
+        color = 'green' if obj.source == 'eosda' else 'gray'
+        return format_html(
+            '<span style="background-color: {}; color: white; padding: 3px 8px; '
+            'border-radius: 3px; font-size: 11px;">{}</span>',
+            color,
+            obj.get_source_display()
+        )
+    source_badge.short_description = 'Origen'

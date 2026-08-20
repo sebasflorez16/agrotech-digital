@@ -330,10 +330,16 @@ class CropCycleReportView(APIView):
 
         # ── Pie ──
         story.append(Spacer(1, 8 * mm))
+        has_valid_observation = bool(health and health.last_observation_date)
+        source_note = (
+            'Los índices satelitales mostrados provienen de observaciones satelitales reales.'
+            if has_valid_observation else
+            'No hay observaciones satelitales válidas registradas para esta parcela.'
+        )
         story.append(Paragraph(
-            'Documento generado automáticamente por AgroTech Digital. '
-            'Los índices satelitales provienen de datos reales (Sentinel-2 / EOSDA). '
-            'Contacto: info@agrotechdigital.com',
+            f'Documento generado automáticamente por AgroTech Digital. '
+            f'{source_note} '
+            f'Contacto: info@agrotechdigital.com',
             estilo_nota,
         ))
 

@@ -80,3 +80,6 @@ credentials.json
 
 # Local Netlify folder
 .netlify
+
+# Kilo agent local state (plans/sessions) — no es parte del proyecto
+.kilo/

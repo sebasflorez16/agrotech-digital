@@ -22,9 +22,11 @@ class ParcelSerializer(serializers.ModelSerializer):
             "soil_type",
             "topography",
             "is_deleted",
+            "sync_status",
+            "sync_error",
             "area_hectares",  # Área en hectáreas, solo lectura
         ]
-        read_only_fields = ("is_deleted", "area_hectares", "eosda_id")
+        read_only_fields = ("is_deleted", "area_hectares", "eosda_id", "sync_status", "sync_error")
 
     def get_area_hectares(self, obj):
         return obj.area_hectares()

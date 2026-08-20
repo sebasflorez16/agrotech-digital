@@ -41,6 +41,8 @@ urlpatterns = [
     
     # Estado de suscripción para frontend
     path('api/status/', views.subscription_status_view, name='subscription_status'),
+    path('api/my-subscription/', views.my_subscription_view, name='my_subscription'),
+    path('api/cancel-subscription/', views.cancel_my_subscription_view, name='cancel_my_subscription'),
     
     # Crear checkout (redirige a MercadoPago)
     path('api/create-checkout/', views.create_checkout_view, name='create_checkout'),

@@ -122,25 +122,6 @@ class CropInput(models.Model):
         ordering = ["-application_date"]
 
 
-# Insumos aplicados como parte de una labor
-class LaborInput(models.Model):
-    labor = models.ForeignKey("labores.Labor", on_delete=models.CASCADE, related_name="insumos")
-    crop = models.ForeignKey("crop.Crop", on_delete=models.CASCADE, related_name="labor_insumos")
-    supply = models.ForeignKey(Supply, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Insumo")
-    quantity = models.FloatField(verbose_name="Cantidad aplicada")
-    unit = models.CharField(max_length=20, verbose_name="Unidad")
-    application_date = models.DateField(verbose_name="Fecha de aplicación")
-    notes = models.TextField(verbose_name="Notas", blank=True, null=True)
-    historical = HistoricalRecords()
-
-    def __str__(self):
-        return f"{self.supply} - {self.labor.nombre} ({self.crop.name})"
-
-    class Meta:
-        verbose_name = "Insumo en labor"
-        verbose_name_plural = "Insumos en labores"
-        ordering = ["-application_date"]
-
 # Eventos relevantes (riego, plagas, monitoreo, etc)
 class CropEvent(models.Model):
     crop = models.ForeignKey(Crop, on_delete=models.CASCADE, related_name="events")

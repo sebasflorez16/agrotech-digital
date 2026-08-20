@@ -21,6 +21,18 @@ class Parcel(models.Model):
     manager = models.ForeignKey(Employee, on_delete=models.CASCADE, verbose_name="Responsable del campo", blank=True, null=True)
     soil_type = models.CharField(max_length=20, verbose_name='Tipo de suelo', help_text='Especifica si es arenoso, arcillozo, etc')
     topography = models.CharField(max_length=20, verbose_name='Topografìa', help_text='Indica si es plano, inclinido, etc')
+    # Estado de sincronización con EOSDA (creación del campo en field-management)
+    SYNC_STATUS_CHOICES = [
+        ('local', 'Solo local'),
+        ('syncing', 'Sincronizando'),
+        ('synced', 'Sincronizada'),
+        ('error', 'Error de sincronización'),
+    ]
+    sync_status = models.CharField(
+        max_length=20, choices=SYNC_STATUS_CHOICES, default='local',
+        verbose_name='Estado de sincronización EOSDA'
+    )
+    sync_error = models.TextField(blank=True, null=True, verbose_name='Error de sincronización EOSDA')
     # Soft delete: huella de eliminación
     is_deleted = models.BooleanField(default=False, editable=False, verbose_name="Eliminado")
     deleted_at = models.DateTimeField(null=True, blank=True, editable=False, verbose_name="Fecha de eliminación")
@@ -30,25 +42,11 @@ class Parcel(models.Model):
 
     def area_hectares(self):
         """
-        Calcula el área en hectáreas usando el polígono GeoJSON (compatible con EOSDA).
+        Calcula el área en hectáreas usando la fórmula esférica compartida
+        (parcels.geometry). Única fuente de verdad para límites/facturación/reportes.
         """
-        import math
-        def polygon_area(coords):
-            # Calcula el área aproximada en m² usando la fórmula de Shoelace para coordenadas [lon, lat]
-            if not coords or len(coords) < 3:
-                return 0
-            area = 0.0
-            for i in range(len(coords)):
-                x1, y1 = coords[i]
-                x2, y2 = coords[(i + 1) % len(coords)]
-                area += x1 * y2 - x2 * y1
-            return abs(area) / 2.0 * 111320 * 111320  # Aproximación para grados a metros
-        if self.geom and isinstance(self.geom, dict):
-            # Espera GeoJSON Polygon: {'type': 'Polygon', 'coordinates': [[...]]}
-            coords = self.geom.get('coordinates', [[]])[0]
-            area_m2 = polygon_area(coords)
-            return area_m2 / 10000.0
-        return 0
+        from .geometry import calculate_area_hectares
+        return calculate_area_hectares(self.geom)
 
     def clean(self):
         """
@@ -78,60 +76,80 @@ class Parcel(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        Valida y guarda la parcela. Calcula el área y aplica la validación de hectáreas.
-        Si no tiene eosda_id, crea el campo en EOSDA y lo guarda.
+        Valida y guarda la parcela.
+        Si no tiene eosda_id, intenta crear el campo en EOSDA (no fatal):
+        la parcela se guarda localmente con sync_status = 'synced' o 'error'.
         """
         self.full_clean()  # Ejecuta clean() y validaciones
         # Si no tiene eosda_id, intenta crearlo en EOSDA
         if not self.eosda_id and self.geom:
-            try:
-                from django.conf import settings
-                import requests
-                
-                api_key = getattr(settings, "EOSDA_API_KEY", None)
-                if not api_key:
-                    raise Exception("No se encontró EOSDA_API_KEY en settings")
-                
-                # Endpoint correcto para EOSDA API Connect Field Management
-                # Documentación: https://doc.eos.com/docs/field-management-api/field-management/
-                eosda_api_url = "https://api-connect.eos.com/field-management"
-                
-                # Construir el payload según el formato requerido por EOSDA API Connect
-                payload = {
-                    "type": "Feature",
-                    "properties": {
-                        "name": self.name or "Campo sin nombre",
-                    },
-                    "geometry": self.geom
-                }
-                
-                # Usar header x-api-key para autenticación
-                headers = {
-                    "Content-Type": "application/json",
-                    "x-api-key": api_key
-                }
-                
-                print(f"[EOSDA] Creando campo en EOSDA: {self.name}")
-                resp = requests.post(eosda_api_url, json=payload, headers=headers, timeout=30)
-                
-                print(f"[EOSDA] Respuesta: {resp.status_code} - {resp.text[:500]}")
-                
-                if resp.status_code in (200, 201):
-                    data = resp.json()
-                    # El ID puede venir en diferentes formatos según la versión de la API
-                    new_eosda_id = data.get("id") or data.get("field_id") or data.get("_id") or data.get("fieldId")
-                    if new_eosda_id:
-                        self.eosda_id = str(new_eosda_id)
-                        print(f"[EOSDA] Campo creado exitosamente con ID: {self.eosda_id}")
-                    else:
-                        print(f"[EOSDA] Respuesta sin ID: {data}")
-                elif resp.status_code == 402:
-                    print(f"[EOSDA] Límite de API excedido. No se pudo crear el campo.")
-                else:
-                    print(f"[EOSDA] Error al crear campo: {resp.status_code} - {resp.text[:200]}")
-            except Exception as e:
-                print(f"[EOSDA] Error al crear campo en EOSDA: {e}")
+            self._sync_to_eosda()
         super().save(*args, **kwargs)
+
+    def _sync_to_eosda(self):
+        """
+        Intenta crear el campo en EOSDA (field-management) y actualiza sync_status.
+
+        NO es fatal: si EOSDA falla o no hay API Key, la parcela se guarda con
+        sync_status='error' y sync_error, quedando disponible para reintento.
+        """
+        from .eosda_client import get_eosda_client
+
+        client = get_eosda_client()
+        api_key = getattr(settings, "EOSDA_API_KEY", None)
+        if not api_key:
+            self.sync_status = 'error'
+            self.sync_error = "No se encontró EOSDA_API_KEY en settings"
+            return
+
+        self.sync_status = 'syncing'
+        try:
+            # Endpoint de EOSDA API Connect Field Management.
+            # NOTA: el contrato exacto (método/endpoint) no está verificado contra
+            # la documentación vigente de EOSDA; se conserva el usado históricamente.
+            eosda_api_url = "https://api-connect.eos.com/field-management"
+            payload = {
+                "type": "Feature",
+                "properties": {"name": self.name or "Campo sin nombre"},
+                "geometry": self.geom,
+            }
+            headers = {"Content-Type": "application/json", "x-api-key": api_key}
+            resp = client.post(eosda_api_url, payload, headers=headers, timeout=30)
+
+            if resp.status_code in (200, 201):
+                data = resp.json()
+                new_eosda_id = data.get("id") or data.get("field_id") or data.get("_id") or data.get("fieldId")
+                if new_eosda_id:
+                    self.eosda_id = str(new_eosda_id)
+                    self.sync_status = 'synced'
+                    self.sync_error = None
+                    self._record_field_creation(client)
+                else:
+                    self.sync_status = 'error'
+                    self.sync_error = f"Respuesta sin ID: {data}"
+            else:
+                self.sync_status = 'error'
+                self.sync_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
+        except Exception as e:
+            self.sync_status = 'error'
+            self.sync_error = str(e)
+
+    def _record_field_creation(self, client):
+        """
+        Registra la creación del campo en EosdaRequestLog (operación 'field').
+
+        NO incrementa UsageMetrics.eosda_requests (no es un análisis satelital),
+        pero queda registrado en el log global de consumo EOSDA.
+        """
+        try:
+            from base_agrotech.models import Client
+            tenant = Client.objects.filter(id=self.tenant_id).first() if self.tenant_id else None
+            client.record(
+                tenant, operation="field", parcel_id=self.pk,
+                increment_quota=False,
+            )
+        except Exception as e:
+            print(f"[EOSDA] No se pudo registrar creación de campo: {e}")
 
     def delete(self, using=None, keep_parents=False):
         """
@@ -593,7 +611,11 @@ class TenantScopedModelMixin:
 class ParcelZonification(models.Model):
     """Agrupa K zonas de manejo derivadas de un índice satelital."""
 
-    parcel_id = models.IntegerField(db_index=True, verbose_name="Parcela")
+    parcel = models.ForeignKey(
+        "parcels.Parcel", on_delete=models.CASCADE,
+        related_name="zonifications", db_column="parcel_id",
+        verbose_name="Parcela", null=True
+    )
 
     scene_date = models.DateField(verbose_name="Fecha de la escena base")
     index_base = models.CharField(

@@ -414,7 +414,7 @@
 <!-- Loading Overlay -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
-    <div class="loading-text">Redirigiendo a MercadoPago...</div>
+    <div class="loading-text">Redirigiendo a Wompi...</div>
 </div>
 
 <div class="container">
@@ -446,10 +446,10 @@
             <div class="form-card">
                 <h3><i class="ti ti-shield-lock"></i> Método de Pago</h3>
                 <div class="payment-method">
-                    <img src="https://http2.mlstatic.com/frontend-assets/mp-web-navigation/badge.svg" alt="MercadoPago" class="payment-logo" onerror="this.style.display='none'">
+                    <img src="https://wompi.co/assets/wompi-logo-white.svg" alt="Wompi" class="payment-logo" onerror="this.style.display='none'">
                     <div class="payment-info">
-                        <h4>MercadoPago</h4>
-                        <p>Tarjeta de crédito, débito, PSE y más</p>
+                        <h4>Wompi</h4>
+                        <p>Tarjeta de crédito, débito, Nequi, PSE y más</p>
                     </div>
                     <span class="payment-check">✓</span>
                 </div>
@@ -554,6 +554,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     plan_tier: planTier,
                     billing_cycle: billingCycle,
                     payer_email: emailInput.value.trim(),
+                    gateway: 'wompi',
                 })
             });
             const data = await res.json();

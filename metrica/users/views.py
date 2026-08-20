@@ -1,7 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from django.contrib.auth import get_user_model
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
@@ -16,14 +16,40 @@ import logging
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
-class UsersListView(LoginRequiredMixin, ListView):
+
+class TenantAdminRequiredMixin(UserPassesTestMixin):
+    """
+    Restringe la gestión de usuarios del tenant a roles admin/manager.
+
+    Evita que cualquier usuario autenticado (employee/accountant) administre
+    a otros usuarios del tenant.
+    """
+    raise_exception = False
+
+    def test_func(self):
+        user = self.request.user
+        if not user.is_authenticated:
+            return False
+        # El superusuario global (staff) puede administrar todo.
+        if user.is_superuser:
+            return True
+        return getattr(user, 'role', None) in ('admin', 'manager')
+
+
+class UsersListView(LoginRequiredMixin, TenantAdminRequiredMixin, ListView):
     model = User
     template_name = "apps/hospital/staff/all-staff.html"
-    context_object_name = "users_list" 
+    context_object_name = "users_list"
 
-    
+    def get_queryset(self):
+        # Aislar por tenant: solo usuarios de la organización actual.
+        tenant = getattr(self.request, 'tenant', None)
+        qs = User.objects.all()
+        if tenant is not None and getattr(tenant, 'schema_name', 'public') != 'public':
+            qs = qs.filter(tenant_id=tenant.id)
+        return qs
 
-class UserCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
+class UserCreateView(LoginRequiredMixin, TenantAdminRequiredMixin, SuccessMessageMixin, CreateView):
     def get(self, request):
         form = UserCreationForm()
         return render(request, 'apps/hospital/staff/member.html', {'form': form})
@@ -47,7 +73,7 @@ class UserCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
                 except Subscription.DoesNotExist:
                     return True, None  # Sin suscripción, no restringir
             
-            current_users = User.objects.count()
+            current_users = User.objects.filter(tenant_id=tenant.id).count()
             is_within, limit = subscription.check_limit('users', current_users + 1)
             
             if not is_within:
@@ -78,28 +104,43 @@ class UserCreateView(LoginRequiredMixin, SuccessMessageMixin, CreateView):
         
         form = UserCreationForm(request.POST, request.FILES)
         if form.is_valid():
-            form.save()
+            user = form.save(commit=False)
+            # Asignar el tenant actual (aislamiento multi-tenant).
+            tenant = getattr(request, 'tenant', None)
+            if tenant is not None and getattr(tenant, 'schema_name', 'public') != 'public':
+                user.tenant = tenant
+            user.save()
             username = form.cleaned_data.get("username")
+            logger.info(f"Usuario creado: {username} (tenant={getattr(tenant, 'schema_name', 'public')})")
+            messages.success(request, f"Usuario '{username}' creado correctamente.")
             return redirect("users:users-all")
         else:
             return render(request, 'apps/hospital/staff/member.html', {'form': form})
         
-class UserDetailView(LoginRequiredMixin, DetailView):
+class UserDetailView(LoginRequiredMixin, TenantAdminRequiredMixin, DetailView):
     model = User
     template_name = "apps/hospital/staff/profile.html"
     context_object_name = "user"
 
     def get_object(self):
-        return get_object_or_404(self.model, pk=self.kwargs['pk'])
+        tenant = getattr(self.request, 'tenant', None)
+        qs = self.model.objects.all()
+        if tenant is not None and getattr(tenant, 'schema_name', 'public') != 'public':
+            qs = qs.filter(tenant_id=tenant.id)
+        return get_object_or_404(qs, pk=self.kwargs['pk'])
 
-class UserUpdateView(LoginRequiredMixin, UpdateView):
+class UserUpdateView(LoginRequiredMixin, TenantAdminRequiredMixin, UpdateView):
     model = User
     form_class = UserUpdateForm
     template_name = "apps/hospital/staff/edit-member.html"
     success_url = reverse_lazy('users:users-all')
 
     def get_object(self):
-        return get_object_or_404(self.model, pk=self.kwargs['pk']) #Filtramos el usuario
+        tenant = getattr(self.request, 'tenant', None)
+        qs = self.model.objects.all()
+        if tenant is not None and getattr(tenant, 'schema_name', 'public') != 'public':
+            qs = qs.filter(tenant_id=tenant.id)
+        return get_object_or_404(qs, pk=self.kwargs['pk']) #Filtramos el usuario
     
 
 class UserProfileUtil(viewsets.ModelViewSet):

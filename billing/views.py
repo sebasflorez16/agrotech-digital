@@ -476,22 +476,21 @@ class UsageMetricsViewSet(viewsets.ReadOnlyModelViewSet):
         """Actualizar métricas con datos actuales."""
         from parcels.models import Parcel
         from django.contrib.auth import get_user_model
-        
+
         User = get_user_model()
-        
-        # Hectáreas
-        total_ha = Parcel.objects.filter(
-            is_deleted=False
-        ).aggregate(total=Sum('area_hectares'))['total'] or 0
-        
+
+        # Hectáreas (Parcel.area_hectares es método Python, no columna DB)
+        total_ha = 0
+        for parcel in Parcel.objects.filter(is_deleted=False):
+            total_ha += parcel.area_hectares() or 0
         metrics.hectares_used = total_ha
-        
-        # Usuarios
-        metrics.users_count = User.objects.count()
-        
+
+        # Usuarios (aislados por tenant)
+        metrics.users_count = User.objects.filter(is_active=True, tenant_id=tenant.id).count()
+
         # Parcelas
         metrics.parcels_count = Parcel.objects.filter(is_deleted=False).count()
-        
+
         metrics.save()
         metrics.calculate_overages()
     
@@ -559,7 +558,7 @@ def usage_dashboard_view(request):
                 {
                     "type": "error",
                     "resource": "eosda_requests",
-                    "message": "Has excedido el límite de requests EOSDA en 5 requests"
+                    "message": "Has excedido el límite de análisis satelitales en 5 análisis"
                 },
                 {
                     "type": "warning",
@@ -592,13 +591,26 @@ def usage_dashboard_view(request):
             'message': 'Este tenant no tiene suscripción activa'
         }, status=404)
     
-    # Obtener métricas actuales
+    # Obtener metricas actuales
     now = timezone.now()
     metrics, created = UsageMetrics.objects.get_or_create(
         tenant=tenant,
         year=now.year,
         month=now.month
     )
+
+    # Refrescar desde datos reales (parcelas, hectareas, usuarios)
+    from parcels.models import Parcel
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    total_ha = 0
+    for parcel in Parcel.objects.filter(is_deleted=False):
+        total_ha += parcel.area_hectares() or 0
+    metrics.hectares_used = total_ha
+    metrics.parcels_count = Parcel.objects.filter(is_deleted=False).count()
+    metrics.users_count = User.objects.filter(is_active=True, tenant_id=tenant.id).count()
+    metrics.save()
     
     # Calcular overages
     metrics.calculate_overages()
@@ -685,7 +697,7 @@ def usage_dashboard_view(request):
         percentage = resource_data['percentage']
         
         resource_names = {
-            'eosda_requests': 'requests EOSDA',
+            'eosda_requests': 'análisis satelitales',
             'parcels': 'parcelas',
             'hectares': 'hectáreas',
             'users': 'usuarios'
@@ -833,7 +845,7 @@ def current_invoice_preview(request):
     if metrics.eosda_requests_overage > 0:
         overage_cost = metrics.eosda_requests_overage * 500  # 500 COP por request
         line_items.append({
-            'description': f"Requests EOSDA adicionales ({metrics.eosda_requests_overage} requests)",
+            'description': f"Análisis satelitales adicionales ({metrics.eosda_requests_overage} análisis)",
             'quantity': metrics.eosda_requests_overage,
             'unit_price': 500,
             'total': overage_cost
@@ -1043,6 +1055,103 @@ def subscription_status_view(request):
         })
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_subscription_view(request):
+    """
+    Vista "Mi Suscripción" con estructura plana para el frontend.
+
+    GET /billing/api/my-subscription/
+    """
+    tenant = getattr(request, 'tenant', None)
+    if not tenant:
+        return Response({'error': 'No tenant found'}, status=400)
+
+    try:
+        subscription = tenant.subscription
+    except Subscription.DoesNotExist:
+        return Response({'has_subscription': False, 'plan_tier': 'free'}, status=200)
+
+    plan = subscription.plan
+    metrics = UsageMetrics.get_or_create_current(tenant)
+
+    invoices = list(
+        Invoice.objects.filter(tenant=tenant).order_by('-created_at')[:6]
+        .values('created_at', 'total', 'status')
+    )
+    invoices_data = [
+        {
+            'date': inv['created_at'].date().isoformat() if inv['created_at'] else None,
+            'amount': float(inv['total']),
+            'status': inv['status'],
+        }
+        for inv in invoices
+    ]
+
+    return Response({
+        'has_subscription': True,
+        'plan_tier': plan.tier,
+        'plan_name': plan.name,
+        'status': subscription.status,
+        'billing_cycle': subscription.billing_cycle,
+        'price_cop': float(plan.price_cop),
+        'start_date': subscription.current_period_start.strftime('%Y-%m-%d') if subscription.current_period_start else None,
+        'next_billing_date': subscription.current_period_end.strftime('%Y-%m-%d') if subscription.current_period_end else None,
+        'days_until_renewal': subscription.days_until_renewal(),
+        'subscription_id': subscription.external_subscription_id or str(subscription.uuid),
+        'mp_preapproval_id': subscription.external_subscription_id,
+        'auto_renew': subscription.auto_renew,
+        'cancel_at_period_end': subscription.cancel_at_period_end,
+        'limits': {
+            'hectares': plan.get_limit('hectares'),
+            'eosda_requests': plan.get_limit('eosda_requests'),
+            'users': plan.get_limit('users'),
+            'parcels': plan.get_limit('parcels'),
+        },
+        'usage': {
+            'hectares': round(metrics.hectares_used, 2),
+            'eosda_requests': metrics.eosda_requests,
+            'users': metrics.users_count,
+            'parcels': metrics.parcels_count,
+        },
+        'invoices': invoices_data,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def cancel_my_subscription_view(request):
+    """
+    Cancela la suscripción actual del tenant.
+
+    POST /billing/api/cancel-subscription/
+    """
+    tenant = getattr(request, 'tenant', None)
+    if not tenant:
+        return Response({'error': 'No tenant found'}, status=400)
+
+    try:
+        subscription = tenant.subscription
+    except Subscription.DoesNotExist:
+        return Response({'error': 'No subscription found'}, status=404)
+
+    immediately = bool(request.data.get('immediately', False))
+    reason = request.data.get('reason')
+
+    try:
+        if subscription.external_subscription_id:
+            gateway = PaymentGatewayFactory.create(subscription.payment_gateway)
+            gateway.cancel_subscription(subscription.external_subscription_id)
+    except Exception as e:
+        logger.warning(f"Error cancelando suscripción en pasarela: {e}")
+
+    subscription.cancel(immediately=immediately, reason=reason)
+    return Response({
+        'success': True,
+        'message': 'Suscripción cancelada.'
+    })
+
+
 # =============================================================================
 # VISTAS DE PÁGINAS HTML
 # =============================================================================
@@ -1165,7 +1274,8 @@ def create_checkout_view(request):
                     'success': True, 'plan': 'free', 'tenant_created': True,
                     'schema_name': result['schema_name'], 'domain': result['domain'],
                     'username': result.get('username', username),
-                    'message': 'Trial gratuito activado. Tu finca esta lista.',
+                    'message': 'Cuenta creada. Revisa tu correo para verificarla.',
+                    'requires_email_verification': result.get('requires_email_verification', False),
                 }
                 if result.get('tokens'):
                     response_data['tokens'] = result['tokens']

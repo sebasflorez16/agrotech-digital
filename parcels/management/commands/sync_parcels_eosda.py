@@ -15,6 +15,7 @@ from django.conf import settings
 import requests
 import json
 import logging
+from parcels.eosda_client import get_eosda_client
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,7 @@ class Command(BaseCommand):
                 
                 self.stdout.write(f'      Enviando a EOSDA...')
                 
-                response = requests.post(eosda_url, json=payload, headers=headers)
+                response = get_eosda_client().post(eosda_url, payload, headers=headers)
                 
                 if response.status_code == 201:
                     data = response.json()

@@ -71,7 +71,12 @@ def eosda_wmts_proxy(request):
     logger.info(f"[EOSDA TILE URL] → {eosda_url}")
 
     try:
-        response = requests.get(eosda_url, timeout=10)
+        # Los tiles pasan por el cliente central (un solo embudo) pero SIN el
+        # rate limiter de análisis (8/min): la Render API es un producto EOSDA
+        # distinto y un mapa carga decenas de tiles; su cache de 24h ya evita
+        # la mayoría de llamadas.
+        from .eosda_client import get_eosda_client
+        response = get_eosda_client().get(eosda_url, rate_limit=False, timeout=10)
         if response.status_code == 200:
             # Guardar en cache por 24 horas (86400 segundos)
             cache.set(cache_key, response.content, 86400)

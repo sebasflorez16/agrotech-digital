@@ -49,6 +49,11 @@ class CropStateEngine:
             'weather_context': CropStateEngine._assess_weather(weather_data),
             'overall_status': None,
             'recommendations': [],
+            'data_notes': [
+                'Óptico: índices EOSDA reales (si la salud fue poblada por observaciones reales).',
+                'Radar: escenas (metadatos) reales; backscatter estimado, no medición SAR real.',
+                'Clima: no alimentado en este flujo (sin datos climáticos).',
+            ],
         }
 
         # Determine overall status

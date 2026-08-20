@@ -44,6 +44,49 @@ logger = logging.getLogger(__name__)
 # Extracción de lecturas desde la respuesta de EOSDA
 # ---------------------------------------------------------------------------
 
+def _normalize_geometry(geom):
+    """Convierte la geometría de la parcela a un dict GeoJSON."""
+    import json
+    if isinstance(geom, dict):
+        return geom
+    if isinstance(geom, str):
+        try:
+            return json.loads(geom)
+        except json.JSONDecodeError:
+            from django.contrib.gis.geos import GEOSGeometry
+            return json.loads(GEOSGeometry(geom).geojson)
+    return json.loads(geom.geojson)
+
+
+def _fetch_index_stats(parcel, fecha_inicio, fecha_fin, tenant=None):
+    """
+    Obtiene estadísticas multi-índice vía EosdaClient (v1/indices) y registra
+    el consumo real en EosdaRequestLog + UsageMetrics.
+    """
+    from parcels.eosda_client import get_eosda_client
+
+    client = get_eosda_client()
+    geom = _normalize_geometry(parcel.geom)
+    stats = {}
+    for idx in ("NDVI", "NDMI", "SAVI", "EVI"):
+        url = f"https://api-connect.eos.com/v1/indices/{idx.lower()}"
+        payload = {
+            "geometry": geom,
+            "start_date": fecha_inicio.isoformat(),
+            "end_date": fecha_fin.isoformat(),
+        }
+        try:
+            resp = client.post(url, payload, headers=client.headers, timeout=30)
+            if resp.status_code == 200:
+                stats[idx] = resp.json()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("EOSDA %s falló para parcela %s: %s", idx, parcel.pk, exc)
+
+    if stats:
+        client.record(tenant, operation="index", parcel_id=parcel.pk)
+    return stats
+
+
 def _extract_latest_reading(stats_payload: dict) -> tuple[date, float] | None:
     """
     Intenta extraer la (fecha, valor medio) más reciente de la respuesta
@@ -107,7 +150,7 @@ def _extract_latest_reading(stats_payload: dict) -> tuple[date, float] | None:
 # Procesamiento por parcela
 # ---------------------------------------------------------------------------
 
-def _process_parcel(parcel, days: int, dry_run: bool, notify: bool, notifier: AlertNotifier) -> dict:
+def _process_parcel(parcel, days: int, dry_run: bool, notify: bool, notifier: AlertNotifier, tenant=None) -> dict:
     """Procesa una parcela y devuelve un resumen."""
     summary = {
         "parcel_id": parcel.pk, "parcel": parcel.name,
@@ -122,15 +165,7 @@ def _process_parcel(parcel, days: int, dry_run: bool, notify: bool, notifier: Al
     fecha_inicio = fecha_fin - timedelta(days=days)
 
     try:
-        from parcels.eosda_optimized_service import get_eosda_service
-        service = get_eosda_service()
-        stats = service.obtener_multi_indice(
-            geometria=parcel.geom,
-            fecha_inicio=fecha_inicio,
-            fecha_fin=fecha_fin,
-            indices=["NDVI", "NDMI", "SAVI", "EVI"],
-            parcela_id=parcel.pk,
-        )
+        stats = _fetch_index_stats(parcel, fecha_inicio, fecha_fin, tenant)
     except Exception as exc:  # noqa: BLE001
         logger.exception("EOSDA falló para parcela %s: %s", parcel.pk, exc)
         summary["errors"].append(f"eosda: {exc}")
@@ -214,7 +249,7 @@ class Command(BaseCommand):
                     parcels_qs = parcels_qs.filter(pk=parcel_id)
 
                 for parcel in parcels_qs.iterator():
-                    summary = _process_parcel(parcel, days, dry_run, notify, notifier)
+                    summary = _process_parcel(parcel, days, dry_run, notify, notifier, tenant)
                     total["parcels"] += 1
                     total["alerts"] += summary["created"]
                     total["notified"] += summary["notified"]

@@ -2,12 +2,16 @@
 Modelos de facturación y suscripciones para AgroTech Digital
 """
 
+from django.conf import settings
 from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 from base_agrotech.models import Client
 from decimal import Decimal
 import uuid
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Plan(models.Model):
@@ -808,3 +812,115 @@ class BillingEvent(models.Model):
     
     def __str__(self):
         return f"{self.tenant.name} - {self.get_event_type_display()} - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+
+
+class EosdaRequestLog(models.Model):
+    """
+    Registro de consumo real de EOSDA por tenant.
+
+    Solo se registra cuando el request SALE a EOSDA (cache miss + llamada real).
+    Los cache hits no se loguean (no generan costo).
+
+    Vive en billing (SHARED_APP) => tabla en schema public. Por eso parcel
+    es IntegerField y no ForeignKey (Parcel es tenant-app, cross-schema).
+    """
+
+    SOURCE_CHOICES = [
+        ('eosda', 'EOSDA API'),
+        ('cache', 'Cache'),
+    ]
+
+    tenant = models.ForeignKey(
+        Client,
+        on_delete=models.CASCADE,
+        related_name='eosda_request_logs',
+        verbose_name='Tenant'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='eosda_request_logs',
+        verbose_name='Usuario'
+    )
+    parcel_id = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name='ID de Parcela',
+        help_text='Parcela de origen (IntegerField, no FK: cross-schema)'
+    )
+    operation = models.CharField(
+        max_length=50,
+        blank=True,
+        default='',
+        verbose_name='Operación'
+    )
+    index_type = models.CharField(
+        max_length=20,
+        blank=True,
+        default='',
+        verbose_name='Índice espectral'
+    )
+    date_requested = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha solicitada'
+    )
+    source = models.CharField(
+        max_length=10,
+        choices=SOURCE_CHOICES,
+        default='eosda',
+        db_index=True,
+        verbose_name='Origen'
+    )
+    cost_estimated = models.DecimalField(
+        max_digits=10,
+        decimal_places=4,
+        default=0,
+        verbose_name='Costo estimado'
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        verbose_name='Fecha de registro'
+    )
+
+    class Meta:
+        verbose_name = 'Registro de consumo EOSDA'
+        verbose_name_plural = 'Registros de consumo EOSDA'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['tenant', 'created_at']),
+            models.Index(fields=['tenant', 'operation']),
+        ]
+
+    def __str__(self):
+        op = self.operation or 'eosda'
+        return f"{self.tenant.name} - {op} [{self.source}] - {self.created_at:%Y-%m-%d %H:%M}"
+
+    @classmethod
+    def log(cls, tenant, operation='', index_type='', parcel_id=None,
+            date_requested=None, source='eosda', cost_estimated=None, user=None):
+        """
+        Registra consumo EOSDA de forma segura (nunca rompe el flujo).
+        """
+        try:
+            try:
+                parcel_id = int(parcel_id) if parcel_id not in (None, '') else None
+            except (TypeError, ValueError):
+                parcel_id = None
+
+            return cls.objects.create(
+                tenant=tenant,
+                user=user,
+                operation=operation or '',
+                index_type=(index_type or '').upper()[:20],
+                parcel_id=parcel_id,
+                date_requested=date_requested or timezone.now().date(),
+                source=source,
+                cost_estimated=cost_estimated if cost_estimated is not None else Decimal('0'),
+            )
+        except Exception:
+            logger.warning("No se pudo registrar EosdaRequestLog", exc_info=True)
+            return None
