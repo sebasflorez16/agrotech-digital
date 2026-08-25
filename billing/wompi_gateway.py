@@ -71,7 +71,9 @@ class WompiGateway(PaymentGateway):
         price_cents = int(plan.price_cop * 100)
 
         import uuid
-        reference = f"sub_{user.id}_{uuid.uuid4().hex[:8]}"
+        tenant = getattr(user, 'tenant', None) if user else None
+        tenant_id = tenant.id if tenant else (user.id if user else 0)
+        reference = f"sub_{tenant_id}_{plan.tier}_{uuid.uuid4().hex[:8]}"
 
         payload = {
             "name": f"Suscripcion AgroTech — {plan.name}",
@@ -97,10 +99,11 @@ class WompiGateway(PaymentGateway):
             data = resp.json()
             if resp.status_code in (200, 201):
                 link_data = data.get("data", data)
+                link_id = link_data.get("id", "")
                 return {
                     "success": True,
-                    "wompi_link_id": link_data.get("id", ""),
-                    "checkout_url": link_data.get("url", link_data.get("checkout_url", "")),
+                    "wompi_link_id": link_id,
+                    "checkout_url": f"https://checkout.wompi.co/l/{link_id}",
                     "reference": reference,
                 }
             else:

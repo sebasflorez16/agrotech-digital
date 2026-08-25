@@ -197,17 +197,18 @@ def _process_wompi_payment(payment_data, reference):
     from django.utils import timezone
     from datetime import timedelta
 
-    match = re.search(r"sub_(\d+)_", reference)
+    match = re.search(r"sub_(\d+)_([a-z]+)_", reference)
     if not match:
-        logger.warning(f"[WOMPI] No se puede extraer user_id de referencia: {reference}")
+        logger.warning(f"[WOMPI] No se puede extraer tenant_id/plan de referencia: {reference}")
         return
 
-    user_id = int(match.group(1))
+    tenant_id = int(match.group(1))
+    plan_tier = match.group(2)
     try:
         from base_agrotech.models import Client
-        tenant = Client.objects.filter(owner_id=user_id).first()
+        tenant = Client.objects.filter(id=tenant_id).first()
         if not tenant:
-            logger.warning(f"[WOMPI] Tenant no encontrado para user_id={user_id}")
+            logger.warning(f"[WOMPI] Tenant no encontrado para tenant_id={tenant_id}")
             return
 
         sub = Subscription.objects.filter(tenant=tenant).first()
@@ -221,7 +222,7 @@ def _process_wompi_payment(payment_data, reference):
                 sub.save()
         else:
             from billing.models import Plan
-            plan = Plan.objects.filter(is_active=True).exclude(tier="free").first()
+            plan = Plan.objects.filter(tier=plan_tier, is_active=True).first() or Plan.objects.filter(is_active=True).exclude(tier="free").first()
             Subscription.objects.create(
                 tenant=tenant, plan=plan, payment_gateway="wompi",
                 status="active", current_period_start=now,
