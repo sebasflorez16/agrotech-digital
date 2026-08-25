@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions
+from core.permissions import IsAdminOrReadOnly
 from .models import Labor, LaborPhoto, LaborPhase, LaborInput
 from .serializers import LaborSerializer, LaborPhotoSerializer, LaborPhaseSerializer, LaborInputSerializer
 from parcels.models import Parcel
@@ -13,7 +14,7 @@ class LaborViewSet(viewsets.ModelViewSet):
     """
     queryset = Labor.objects.all()
     serializer_class = LaborSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['nombre', 'descripcion', 'estado', 'tipo__nombre', 'responsables__first_name', 'responsables__last_name', 'cultivos__name']
     ordering_fields = ['fecha_programada', 'fecha_realizada', 'estado', 'costo_total']
@@ -49,13 +50,13 @@ class LaborPhotoViewSet(mixins.CreateModelMixin,
                         viewsets.GenericViewSet):
     queryset = LaborPhoto.objects.all()
     serializer_class = LaborPhotoSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
 # --- RUTA FIRME: ViewSet para insumos de labor (CRUD profesional) ---
 class LaborInputViewSet(viewsets.ModelViewSet):
     queryset = LaborInput.objects.all()
     serializer_class = LaborInputSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['supply__name', 'notes', 'unit']
     ordering_fields = ['application_date', 'quantity']
@@ -85,7 +86,7 @@ class LaborPhaseViewSet(viewsets.ModelViewSet):
     """CRUD de fases de labor agricola."""
     queryset = LaborPhase.objects.all()
     serializer_class = LaborPhaseSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
     def get_queryset(self):
         qs = super().get_queryset()

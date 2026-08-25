@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variedades de Cultivo - AgrotechDigital</title>
+    <link rel="stylesheet" href="/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/css/icons.min.css">
+    <link rel="stylesheet" href="/css/app.min.css">
+    <link rel="stylesheet" href="/css/parcels/parcel-tabs.css?v=2026052705">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    <style>
+        body { background: #f4f7fb; }
+        .page-shell {
+            margin-left: 240px;
+            padding: 92px 24px 24px;
+        }
+        .directory-header {
+            background: #fff;
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+        }
+        .crop-pill { padding: 8px 14px; border-radius: 20px; background:#eef7f0; color:#1e6b4c;
+                     border:1px solid #c8e6d3; cursor:pointer; font-weight:600; font-size:.85rem; }
+        .crop-pill.active { background:#1e6b4c; color:#fff; border-color:#1e6b4c; }
+        .variety-card { background:#fff; border:1px solid #e5e7eb; border-radius:14px; padding:18px; height:100%;
+                        box-shadow: 0 2px 6px rgba(0,0,0,.04); transition: transform .15s, box-shadow .15s; }
+        .variety-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+        .variety-card h5 { margin:0 0 4px; color:#1e6b4c; font-weight:700; }
+        .variety-meta { font-size:.78rem; color:#6b7280; margin-bottom:8px; }
+        .variety-stats { display:grid; grid-template-columns: repeat(2,1fr); gap:6px 14px; font-size:.82rem; margin:10px 0; }
+        .variety-stats div b { color:#1e6b4c; }
+        .variety-card .actions { display:flex; gap:6px; margin-top:10px; }
+        .badge-tipo { font-size:.7rem; padding: 3px 8px; border-radius: 8px; background:#fff7e6; color:#b45309; }
+        .badge-tipo.hibrida { background:#e0f2fe; color:#0369a1; }
+        .badge-tipo.transgenica { background:#fae8ff; color:#86198f; }
+        .badge-tipo.criolla { background:#fef3c7; color:#92400e; }
+        .disclaimer-box {
+            background: #fff8e1; border-left: 4px solid #f59e0b; padding: 10px 14px;
+            border-radius: 6px; font-size: .82rem; color: #78350f; margin: 8px 0 16px;
+        }
+        @media (max-width: 768px) {
+            .crop-pills-bar { overflow-x:auto; flex-wrap:nowrap !important; }
+            .variety-stats { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 991.98px) {
+            .page-shell {
+                margin-left: 0;
+                padding: 86px 12px 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="topbar-container"></div>
+    <div id="left-sidebar"></div>
+
+    <main class="page-shell pb-5">
+        <div class="directory-header d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <h1 class="mb-0">Variedades de Cultivo</h1>
+                <small class="text-muted">Catálogo profesional · datos basados en ICA / Fedearroz / Cenicafé / CIMMYT</small>
+            </div>
+            <div class="d-flex gap-2">
+                <a href="/templates/crop/crop_list.html" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-left"></i> Cultivos
+                </a>
+                <button class="btn btn-success" id="btn-new-variety" disabled>
+                    <i class="bi bi-plus-circle"></i> Nueva variedad
+                </button>
+            </div>
+        </div>
+
+        <div class="disclaimer-box">
+            <i class="bi bi-info-circle"></i>
+            <strong>Aviso de uso:</strong> Los rendimientos mostrados son <em>referencia técnica histórica</em>
+            de la casa registradora bajo condiciones normales. No constituyen garantía de cosecha — el resultado
+            real depende del clima, suelo, prácticas culturales y manejo sanitario. Verifica siempre con tu
+            proveedor de semilla certificada.
+        </div>
+
+        <!-- Selector de cultivos como pills -->
+        <div id="crop-pills" class="d-flex flex-wrap gap-2 mb-4 crop-pills-bar"></div>
+
+        <!-- Grid de variedades -->
+        <div id="varieties-grid" class="row g-3"></div>
+
+        <div id="empty-state" class="text-center py-5" style="display:none;">
+            <i class="bi bi-flower3" style="font-size:3rem;color:#9ca3af;"></i>
+            <h5 class="mt-3">Sin variedades para este cultivo</h5>
+            <p class="text-muted">Registra la primera variedad con sus datos técnicos.</p>
+        </div>
+    </main>
+
+    <!-- ============ MODAL CRUD ============ -->
+    <div class="modal fade" id="varietyModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nueva variedad</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="variety-form">
+                        <input type="hidden" name="id">
+                        <input type="hidden" name="crop_catalog">
+
+                        <h6 class="text-success mt-2">Identificación</h6>
+                        <div class="row g-2">
+                            <div class="col-md-6"><label class="form-label">Nombre comercial *</label>
+                                <input type="text" class="form-control" name="name" required></div>
+                            <div class="col-md-3"><label class="form-label">Tipo</label>
+                                <select class="form-select" name="tipo_variedad">
+                                    <option value="mejorada">Mejorada</option>
+                                    <option value="hibrida">Híbrida</option>
+                                    <option value="criolla">Criolla</option>
+                                    <option value="transgenica">Transgénica</option>
+                                    <option value="otra">Otra</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3"><label class="form-label">Año liberación</label>
+                                <input type="number" class="form-control" name="year_liberacion" min="1900" max="2100"></div>
+                            <div class="col-md-6"><label class="form-label">Casa registradora / Laboratorio</label>
+                                <input type="text" class="form-control" name="casa_registradora"
+                                       placeholder="Fedearroz, ICA, Cenicafé, Pioneer..."></div>
+                            <div class="col-md-3"><label class="form-label">País de origen</label>
+                                <input type="text" class="form-control" name="pais_origen"></div>
+                            <div class="col-md-3"><label class="form-label">Registro ICA</label>
+                                <input type="text" class="form-control" name="codigo_registro_ica"></div>
+                        </div>
+
+                        <h6 class="text-success mt-3">Ciclo y arquitectura</h6>
+                        <div class="row g-2">
+                            <div class="col-md-3"><label class="form-label">Ciclo total (días)</label>
+                                <input type="number" class="form-control" name="cycle_days"></div>
+                            <div class="col-md-3"><label class="form-label">Días a floración</label>
+                                <input type="number" class="form-control" name="dias_a_floracion"></div>
+                            <div class="col-md-3"><label class="form-label">Días a maduración</label>
+                                <input type="number" class="form-control" name="dias_a_maduracion"></div>
+                            <div class="col-md-3"><label class="form-label">Altura prom. (cm)</label>
+                                <input type="number" step="0.1" class="form-control" name="altura_promedio_cm"></div>
+                        </div>
+
+                        <h6 class="text-success mt-3">Manejo agronómico</h6>
+                        <div class="row g-2">
+                            <div class="col-md-3"><label class="form-label">Densidad siembra (kg/ha)</label>
+                                <input type="number" step="0.1" class="form-control" name="densidad_siembra_kg_ha"></div>
+                            <div class="col-md-3"><label class="form-label">Surcos (cm)</label>
+                                <input type="number" step="0.1" class="form-control" name="distancia_surcos_cm"></div>
+                            <div class="col-md-3"><label class="form-label">Profundidad (cm)</label>
+                                <input type="number" step="0.1" class="form-control" name="profundidad_siembra_cm"></div>
+                            <div class="col-md-3"><label class="form-label">Lámina riego total (mm)</label>
+                                <input type="number" step="1" class="form-control" name="lamina_riego_mm"></div>
+                            <div class="col-md-12"><label class="form-label">Fertilización NPK</label>
+                                <input type="text" class="form-control" name="fertilizacion_npk"
+                                       placeholder="Ej. 120-60-80 kg/ha"></div>
+                        </div>
+
+                        <h6 class="text-success mt-3">Productividad <small class="text-muted">(rango, no garantía)</small></h6>
+                        <div class="row g-2">
+                            <div class="col-md-4"><label class="form-label">Conservador (t/ha)</label>
+                                <input type="number" step="0.1" class="form-control" name="rendimiento_conservador_t_ha"></div>
+                            <div class="col-md-4"><label class="form-label">Promedio (t/ha)</label>
+                                <input type="number" step="0.1" class="form-control" name="rendimiento_promedio_t_ha"></div>
+                            <div class="col-md-4"><label class="form-label">Potencial (t/ha)</label>
+                                <input type="number" step="0.1" class="form-control" name="rendimiento_potencial_t_ha"></div>
+                            <div class="col-12"><label class="form-label">Calidad del grano / fruto</label>
+                                <input type="text" class="form-control" name="calidad_grano"></div>
+                        </div>
+
+                        <h6 class="text-success mt-3">Resistencias / Tolerancias</h6>
+                        <div class="row g-2">
+                            <div class="col-md-6"><label class="form-label">Resistencia a plagas</label>
+                                <textarea class="form-control" rows="2" name="resistencia_plagas"></textarea></div>
+                            <div class="col-md-6"><label class="form-label">Resistencia a enfermedades</label>
+                                <textarea class="form-control" rows="2" name="resistencia_enfermedades"></textarea></div>
+                            <div class="col-md-4"><label class="form-label">Tolerancia sequía</label>
+                                <select class="form-select" name="tolerancia_sequia">
+                                    <option value="">—</option><option value="baja">Baja</option>
+                                    <option value="media">Media</option><option value="alta">Alta</option></select></div>
+                            <div class="col-md-4"><label class="form-label">Tolerancia salinidad</label>
+                                <select class="form-select" name="tolerancia_salinidad">
+                                    <option value="">—</option><option value="baja">Baja</option>
+                                    <option value="media">Media</option><option value="alta">Alta</option></select></div>
+                            <div class="col-md-4"><label class="form-label">Riesgo encamamiento</label>
+                                <select class="form-select" name="riesgo_encamamiento">
+                                    <option value="">—</option><option value="bajo">Bajo</option>
+                                    <option value="medio">Medio</option><option value="alto">Alto</option></select></div>
+                        </div>
+
+                        <h6 class="text-success mt-3">Adaptación agroecológica</h6>
+                        <div class="row g-2">
+                            <div class="col-md-3"><label class="form-label">Altitud mín (msnm)</label>
+                                <input type="number" class="form-control" name="altitud_min_msnm"></div>
+                            <div class="col-md-3"><label class="form-label">Altitud máx (msnm)</label>
+                                <input type="number" class="form-control" name="altitud_max_msnm"></div>
+                            <div class="col-md-6"><label class="form-label">Regiones recomendadas</label>
+                                <input type="text" class="form-control" name="regiones_recomendadas"></div>
+                            <div class="col-12"><label class="form-label">Tipos de suelo ideales</label>
+                                <input type="text" class="form-control" name="tipos_suelo"></div>
+                        </div>
+
+                        <h6 class="text-success mt-3">Notas</h6>
+                        <div class="row g-2">
+                            <div class="col-md-12"><label class="form-label">Descripción / observaciones</label>
+                                <textarea class="form-control" rows="2" name="description"></textarea></div>
+                            <div class="col-md-12"><label class="form-label">Fuente / Ficha técnica</label>
+                                <input type="text" class="form-control" name="fuente"
+                                       placeholder="Ej. Boletín Fedearroz 2020"></div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" id="btn-save-variety">
+                        <i class="bi bi-save"></i> Guardar variedad
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/bootstrap.bundle.min.js"></script>
+    <script src="/js/config.js"></script>
+    <script>
+    (function(){
+        function getBackendBase() {
+            if (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE) return window.AGROTECH_CONFIG.API_BASE;
+            if (typeof window.getBackendUrl === 'function') return window.getBackendUrl();
+            const h = window.location.hostname;
+            const isLocal = h === 'localhost' || h === '127.0.0.1' || h.endsWith('.localhost');
+            return isLocal ? `${window.location.protocol}//${h}:8000` : '';
+        }
+
+        async function fetchAuth(url, options = {}) {
+            const token = localStorage.getItem('accessToken');
+            const headers = {
+                ...(options.headers || {}),
+            };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            return fetch(url, { ...options, headers });
+        }
+
+        const API = getBackendBase();
+
+        const state = {
+            crops: [],
+            currentCropId: null,
+            varieties: [],
+        };
+
+        function pill(c) {
+            const active = c.id === state.currentCropId ? 'active' : '';
+            return `<div class="crop-pill ${active}" data-id="${c.id}">${c.name}
+                    <span class="badge bg-light text-dark ms-1">${c.variety_count || 0}</span></div>`;
+        }
+
+        function tipoBadge(t) {
+            const map = { hibrida:'Híbrida', mejorada:'Mejorada', criolla:'Criolla',
+                          transgenica:'Transgénica', otra:'Otra' };
+            return `<span class="badge-tipo ${t||''}">${map[t]||'—'}</span>`;
+        }
+
+        function varietyCard(v) {
+            const yieldRange = (v.rendimiento_conservador_t_ha || v.rendimiento_promedio_t_ha || v.rendimiento_potencial_t_ha)
+                ? `${v.rendimiento_conservador_t_ha ?? '—'} – ${v.rendimiento_potencial_t_ha ?? '—'} t/ha`
+                : '—';
+            return `
+            <div class="col-md-6 col-lg-4">
+              <div class="variety-card">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5>${v.name}</h5>
+                        <div class="variety-meta">${v.casa_registradora || 'Sin laboratorio'} · ${v.year_liberacion || ''}</div>
+                    </div>
+                    ${tipoBadge(v.tipo_variedad)}
+                </div>
+                <div class="variety-stats">
+                    <div><b>Ciclo:</b> ${v.cycle_days ?? '—'} días</div>
+                    <div><b>Densidad:</b> ${v.densidad_siembra_kg_ha ?? '—'} kg/ha</div>
+                    <div><b>Rendimiento:</b> ${yieldRange}</div>
+                    <div><b>Altitud:</b> ${v.altitud_min_msnm ?? '—'}–${v.altitud_max_msnm ?? '—'} m</div>
+                </div>
+                ${v.resistencia_enfermedades ? `<div class="small text-muted"><i class="bi bi-shield-check"></i> ${v.resistencia_enfermedades}</div>` : ''}
+                <div class="actions">
+                    <button class="btn btn-sm btn-outline-success flex-fill" data-edit="${v.id}">
+                        <i class="bi bi-pencil"></i> Editar</button>
+                    <button class="btn btn-sm btn-outline-danger" data-del="${v.id}" title="Eliminar">
+                        <i class="bi bi-trash"></i></button>
+                </div>
+              </div>
+            </div>`;
+        }
+
+        async function loadCrops() {
+            const r = await fetchAuth(API + '/api/crop/catalog/');
+            const data = await r.json();
+            state.crops = Array.isArray(data) ? data : (data.results || []);
+            // Cargar conteo de variedades por cultivo
+            await Promise.all(state.crops.map(async c => {
+                try {
+                    const r2 = await fetchAuth(API + `/api/crop/varieties/?crop_catalog=${c.id}`);
+                    const d2 = await r2.json();
+                    c.variety_count = (Array.isArray(d2) ? d2 : (d2.results || [])).length;
+                } catch (_) { c.variety_count = 0; }
+            }));
+            renderPills();
+            if (state.crops.length && !state.currentCropId) {
+                selectCrop(state.crops[0].id);
+            }
+        }
+
+        function renderPills() {
+            document.getElementById('crop-pills').innerHTML = state.crops.map(pill).join('');
+            document.querySelectorAll('.crop-pill').forEach(el => {
+                el.addEventListener('click', () => selectCrop(parseInt(el.dataset.id)));
+            });
+        }
+
+        async function selectCrop(id) {
+            state.currentCropId = id;
+            document.getElementById('btn-new-variety').disabled = false;
+            renderPills();
+            await loadVarieties();
+        }
+
+        async function loadVarieties() {
+            const grid = document.getElementById('varieties-grid');
+            grid.innerHTML = '<div class="col-12 text-center py-4 text-muted">Cargando...</div>';
+            const r = await fetchAuth(API + `/api/crop/varieties/?crop_catalog=${state.currentCropId}`);
+            const data = await r.json();
+            state.varieties = Array.isArray(data) ? data : (data.results || []);
+            if (!state.varieties.length) {
+                grid.innerHTML = '';
+                document.getElementById('empty-state').style.display = 'block';
+            } else {
+                document.getElementById('empty-state').style.display = 'none';
+                grid.innerHTML = state.varieties.map(varietyCard).join('');
+                grid.querySelectorAll('[data-edit]').forEach(b =>
+                    b.addEventListener('click', () => openModal(parseInt(b.dataset.edit))));
+                grid.querySelectorAll('[data-del]').forEach(b =>
+                    b.addEventListener('click', () => deleteVariety(parseInt(b.dataset.del))));
+            }
+        }
+
+        function openModal(varietyId) {
+            const form = document.getElementById('variety-form');
+            form.reset();
+            form.crop_catalog.value = state.currentCropId;
+            const title = document.querySelector('#varietyModal .modal-title');
+            if (varietyId) {
+                const v = state.varieties.find(x => x.id === varietyId);
+                title.textContent = 'Editar variedad';
+                Object.keys(v).forEach(k => {
+                    if (form.elements[k] !== undefined) {
+                        form.elements[k].value = v[k] ?? '';
+                    }
+                });
+            } else {
+                title.textContent = 'Nueva variedad';
+                form.id.value = '';
+            }
+            new bootstrap.Modal(document.getElementById('varietyModal')).show();
+        }
+
+        async function saveVariety() {
+            const form = document.getElementById('variety-form');
+            const fd = new FormData(form);
+            const payload = {};
+            fd.forEach((v, k) => { if (v !== '' && v !== null) payload[k] = v; });
+            const id = payload.id; delete payload.id;
+            const url = id ? API + `/api/crop/varieties/${id}/` : API + '/api/crop/varieties/';
+            const method = id ? 'PATCH' : 'POST';
+            const r = await fetchAuth(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (!r.ok) {
+                const err = await r.text();
+                alert('Error al guardar: ' + err);
+                return;
+            }
+            bootstrap.Modal.getInstance(document.getElementById('varietyModal')).hide();
+            await loadVarieties();
+            await loadCrops();  // refrescar conteo
+        }
+
+        async function deleteVariety(id) {
+            if (!confirm('¿Eliminar esta variedad? (se desactiva, no se borra)')) return;
+            const r = await fetchAuth(API + `/api/crop/varieties/${id}/`, { method: 'DELETE' });
+            if (r.ok || r.status === 204) {
+                await loadVarieties();
+                await loadCrops();
+            } else {
+                alert('No se pudo eliminar');
+            }
+        }
+
+        document.getElementById('btn-new-variety').addEventListener('click', () => openModal(null));
+        document.getElementById('btn-save-variety').addEventListener('click', saveVariety);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCrops();
+        });
+    })();
+    </script>
+
+    <div id="footer-container"></div>
+    <div id="righsidebar"></div>
+    <div id="vendorjs"></div>
+
+    <script type="module">
+        import { loadLayoutComponents } from '/js/load_components.js';
+        const components = {
+            "topbar-container": "/templates/partials/horizontal-nav.html",
+            "footer-container": "/templates/partials/footer.html",
+            "left-sidebar": "/templates/partials/left-sidebar.html",
+            "righsidebar": "/templates/partials/right-sidebar.html",
+            "vendorjs": "/templates/partials/vendorjs.html"
+        };
+        loadLayoutComponents(components);
+    </script>
+</body>
+</html>

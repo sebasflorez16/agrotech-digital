@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgroTech Digital · Panel del Operador</title>
+<style>
+:root {
+  --bg: #0b1120; --card: #111827; --border: #1f2937;
+  --text: #e5e7eb; --muted: #9ca3af; --accent: #22c55e;
+  --danger: #ef4444; --warn: #f59e0b; --info: #3b82f6;
+}
+* { box-sizing:border-box; margin:0; padding:0 }
+body { background:var(--bg); color:var(--text); font:14px/1.5 system-ui,-apple-system,sans-serif; min-height:100vh }
+.container { max-width:1400px; margin:0 auto; padding:20px }
+.login-box { max-width:420px; margin:80px auto; background:var(--card); border-radius:16px;
+  padding:40px; border:1px solid var(--border); text-align:center }
+.login-box h1 { font-size:22px; margin-bottom:8px }
+.login-box p { color:var(--muted); margin-bottom:24px; font-size:13px }
+.login-box input { width:100%; padding:12px; border-radius:10px; border:1px solid var(--border);
+  background:#1a2332; color:var(--text); margin-bottom:12px; font-size:14px }
+.login-box button { width:100%; padding:12px; border-radius:10px; border:none;
+  background:var(--accent); color:#000; font-weight:600; cursor:pointer; font-size:14px }
+.login-box .error { color:var(--danger); margin-top:8px; font-size:12px }
+.header { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px }
+.header h1 { font-size:20px }
+.header .user { color:var(--muted); font-size:13px }
+.btn { padding:8px 16px; border-radius:8px; border:1px solid var(--border);
+  background:var(--card); color:var(--text); cursor:pointer; font-size:13px }
+.btn-sm { padding:5px 10px; font-size:12px }
+.btn-danger { border-color:var(--danger); color:var(--danger) }
+.btn-danger:hover { background:var(--danger); color:#fff }
+.btn-accent { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600 }
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; margin-bottom:24px }
+.kpi-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px }
+.kpi-card .label { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.5px; margin-bottom:6px }
+.kpi-card .value { font-size:24px; font-weight:700 }
+.kpi-card .sub { color:var(--muted); font-size:12px; margin-top:4px }
+.grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px }
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}}
+.section { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:16px }
+.section h2 { font-size:16px; margin-bottom:16px; display:flex; align-items:center; gap:8px }
+table { width:100%; border-collapse:collapse }
+th,td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--border); font-size:13px }
+th { color:var(--muted); font-weight:500; font-size:12px; text-transform:uppercase }
+tr:hover { background:rgba(255,255,255,0.02) }
+.search-bar { display:flex; gap:8px; margin-bottom:12px }
+.search-bar input { flex:1; padding:8px 12px; border-radius:8px; border:1px solid var(--border);
+  background:#1a2332; color:var(--text); font-size:13px }
+.badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600 }
+.badge-active{background:rgba(34,197,94,0.15);color:var(--accent)}
+.badge-trialing{background:rgba(59,130,246,0.15);color:var(--info)}
+.badge-past{background:rgba(245,158,11,0.15);color:var(--warn)}
+.badge-canceled{background:rgba(239,68,68,0.15);color:var(--danger)}
+.tabs { display:flex; gap:4px; margin-bottom:16px }
+.tab { padding:10px 20px; border-radius:8px 8px 0 0; cursor:pointer; border:1px solid transparent;
+  background:transparent; color:var(--muted); font-size:13px }
+.tab.active { background:var(--card); border-color:var(--border); color:var(--text); border-bottom-color:var(--card) }
+.tab-content { display:none }
+.tab-content.active { display:block }
+.spinner { display:inline-block; width:20px; height:20px; border:2px solid var(--border);
+  border-top-color:var(--accent); border-radius:50%; animation:spin .6s linear infinite }
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty { color:var(--muted); text-align:center; padding:40px }
+#tenant-modal { display:none; position:fixed; inset:0; z-index:100; }
+#tenant-modal.show { display:flex; align-items:flex-start; justify-content:center; padding-top:40px }
+#tenant-modal .backdrop { position:absolute; inset:0; background:rgba(0,0,0,0.7) }
+#tenant-modal .modal-box { position:relative; background:var(--card); border:1px solid var(--border);
+  border-radius:16px; width:700px; max-width:90vw; max-height:80vh; overflow-y:auto; padding:24px }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- LOGIN -->
+  <div id="login-screen">
+    <div class="login-box">
+      <h1>🔐 AgroTech Digital</h1>
+      <p>Panel del Operador · Doble Verificación</p>
+      <input type="email" id="login-email" placeholder="Email admin">
+      <input type="password" id="login-password" placeholder="Contraseña">
+      <input type="password" id="login-key" placeholder="Clave de operador (Staff Access Key)">
+      <button onclick="doLogin()">Acceder al Panel</button>
+      <div id="login-error" class="error"></div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD (oculto hasta login) -->
+  <div id="dashboard-screen" style="display:none">
+    <div class="container">
+      <div class="header">
+        <h1>📊 Panel del Operador</h1>
+        <div>
+          <span class="user" id="admin-name"></span>
+          <button class="btn btn-sm" style="margin-left:12px" onclick="doLogout()">Cerrar sesión</button>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="kpi-grid" id="kpi-grid"></div>
+
+      <!-- TABS: Tenants / Financiero -->
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('tenants')">Clientes</button>
+        <button class="tab" onclick="switchTab('financials')">Financiero</button>
+      </div>
+
+      <!-- TAB: Tenants -->
+      <div class="tab-content active" id="tab-tenants">
+        <div class="section">
+          <h2>🏢 Directorio de Clientes <span style="color:var(--muted);font-weight:400;font-size:13px" id="tenant-count"></span></h2>
+          <div class="search-bar">
+            <input type="text" id="tenant-search" placeholder="Buscar por nombre o schema..." onkeyup="debounceSearch()">
+            <select id="tier-filter" onchange="loadTenants()" style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:#1a2332;color:var(--text);font-size:13px">
+              <option value="">Todos los planes</option><option value="free">Explorador</option><option value="basic">Agricultor</option><option value="pro">Empresarial</option><option value="enterprise">Corporativo</option>
+            </select>
+          </div>
+          <div id="tenant-table"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- TAB: Financiero -->
+      <div class="tab-content" id="tab-financials">
+        <div class="section"><h2>💰 Ingresos por Mes</h2><canvas id="revenue-chart" height="100"></canvas></div>
+        <div class="section"><h2>📦 Revenue por Plan</h2><div id="revenue-by-plan"></div></div>
+        <div class="section"><h2>🔄 Próximos Cobros</h2><div id="upcoming-renewals"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Detalle Tenant -->
+  <div id="tenant-modal">
+    <div class="backdrop" onclick="closeModal()"></div>
+    <div class="modal-box" id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────
+let JWT = null;
+let ACCESS_KEY = "";
+let tenantData = [];
+
+// ─── LOGIN ────────────────────────────────────────────────
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass = document.getElementById('login-password').value.trim();
+  const key = document.getElementById('login-key').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+  if (!email || !pass || !key) { errEl.textContent='Todos los campos son obligatorios.'; return; }
+  try {
+    const base = window.AGROTECH_CONFIG?.API_BASE || 'http://localhost:8000';
+    const resp = await fetch(base+'/api/auth/login/', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username:email,password:pass}),
+    });
+    const data = await resp.json();
+    if (!resp.ok) { errEl.textContent = data.error||data.detail||'Credenciales inválidas'; return; }
+    if (!data.user?.is_staff) { errEl.textContent='Este usuario no tiene acceso al panel del operador.'; return; }
+    JWT = data.access; ACCESS_KEY = key;
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('dashboard-screen').style.display='block';
+    document.getElementById('admin-name').textContent = data.user.username||email;
+    await loadAll();
+  } catch(e) { errEl.textContent='Error de conexión: '+e.message }
+}
+
+function doLogout() { JWT=null; ACCESS_KEY=''; document.getElementById('login-screen').style.display='block'; document.getElementById('dashboard-screen').style.display='none' }
+
+// ─── API HELPER ───────────────────────────────────────────
+async function staffFetch(path) {
+  const base = window.AGROTECH_CONFIG?.API_BASE || 'http://localhost:8000';
+  const resp = await fetch(base+path, {
+    headers: { 'Authorization':'Bearer '+JWT, 'X-Staff-Access-Key':ACCESS_KEY },
+  });
+  if (resp.status === 403) { alert('Clave de operador inválida. Recarga y vuelve a ingresar.'); doLogout(); throw new Error('403') }
+  if (!resp.ok) { console.error(path, resp.status); return null }
+  return resp.json();
+}
+
+// ─── LOAD ALL ─────────────────────────────────────────────
+async function loadAll() {
+  await Promise.all([loadMetrics(), loadTenants(), loadFinancials()]);
+}
+
+// ─── METRICS ──────────────────────────────────────────────
+async function loadMetrics() {
+  const d = await staffFetch('/staff/api/metrics/');
+  if (!d?.kpis) return;
+  const k = d.kpis;
+  const cards = [
+    {label:'Clientes totales',value:k.total_tenants,sub:`${k.new_this_month} nuevo(s) este mes`},
+    {label:'Suscripciones activas',value:k.active_subscriptions,sub:`${k.trialing_subs} en trial`},
+    {label:'MRR',value:'$'+k.mrr_cop.toLocaleString('es-CO')},
+    {label:'Ingreso del mes',value:'$'+k.revenue_this_month.toLocaleString('es-CO')},
+    {label:'Conversión',value:k.conversion_rate+'%',sub:`${k.paid_tenants} pagos / ${k.free_tenants+k.paid_tenants} total`},
+    {label:'EOSDA (mes)',value:k.total_eosda_requests.toLocaleString(),sub:`${k.total_users} usuarios · ${k.total_parcels} parcelas`},
+  ];
+  document.getElementById('kpi-grid').innerHTML = cards.map(c=>
+    `<div class="kpi-card"><div class="label">${c.label}</div><div class="value">${c.value}</div>${c.sub?`<div class="sub">${c.sub}</div>`:''}</div>`
+  ).join('');
+}
+
+// ─── TENANTS ──────────────────────────────────────────────
+let searchTimeout;
+function debounceSearch(){clearTimeout(searchTimeout);searchTimeout=setTimeout(loadTenants,300)}
+async function loadTenants() {
+  const s = encodeURIComponent(document.getElementById('tenant-search').value.trim());
+  const tier = document.getElementById('tier-filter').value;
+  let path = '/staff/api/tenants/?';
+  if (s) path += 'search='+s+'&';
+  if (tier) path += 'tier='+tier;
+  const d = await staffFetch(path);
+  if (!d?.tenants) return;
+  tenantData = d.tenants;
+  document.getElementById('tenant-count').textContent = `(${d.total})`;
+  const rows = d.tenants.map(t=>`
+    <tr>
+      <td><a href="#" onclick="showTenantDetail(${t.id});return false" style="color:var(--accent);text-decoration:none;font-weight:500">${esc(t.name)}</a></td>
+      <td>${esc(t.schema)}</td>
+      <td><span class="badge badge-${t.status==='active'?'active':t.status==='trialing'?'trialing':t.status==='past_due'?'past':'canceled'}">${t.status}</span></td>
+      <td>${t.plan} (${t.tier})</td>
+      <td>${t.eosda_requests}</td>
+      <td>${t.hectares_used.toFixed(0)} ha</td>
+      <td>${t.last_payment||'—'}</td>
+    </tr>`).join('');
+  document.getElementById('tenant-table').innerHTML = `<table><thead><tr><th>Cliente</th><th>Schema</th><th>Estado</th><th>Plan</th><th>Req</th><th>Ha</th><th>Último pago</th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="empty">Sin resultados</td></tr>'}</tbody></table>`;
+}
+
+// ─── TENANT DETAIL ────────────────────────────────────────
+async function showTenantDetail(id) {
+  const d = await staffFetch(`/staff/api/tenants/${id}/`);
+  if (!d?.tenant) return;
+  const t = d.tenant;
+  const invRows = (d.invoices||[]).map(i=>`<tr><td>${i.invoice_number}</td><td>$${i.amount.toLocaleString()}</td><td>${i.currency}</td><td>${i.status}</td><td>${i.invoice_date||'—'}</td></tr>`).join('');
+  const usageRows = (d.usage_history||[]).map(u=>`<tr><td>${u.label}</td><td>${u.eosda_requests}</td><td>${u.hectares_used.toFixed(0)} ha</td><td>${u.parcels_count} parc</td></tr>`).join('');
+  let actions = '';
+  if (t.status === 'active' || t.status === 'trialing') actions += `<button class="btn btn-sm btn-danger" onclick="tenantAction(${id},'suspend')" style="margin-right:6px">Suspender</button>`;
+  if (t.status === 'canceled' || t.status === 'past_due') actions += `<button class="btn btn-sm btn-accent" onclick="tenantAction(${id},'activate')" style="margin-right:6px">Reactivar</button>`;
+  actions += `<select id="change-tier-${id}" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);background:#1a2332;color:var(--text);font-size:12px"><option>free</option><option>basic</option><option>pro</option><option>enterprise</option></select> <button class="btn btn-sm" onclick="tenantAction(${id},'change-plan')">Cambiar plan</button>`;
+
+  document.getElementById('modal-content').innerHTML = `
+    <h2 style="margin-bottom:12px">${esc(t.name)} <span style="color:var(--muted);font-size:14px">${esc(t.schema)}</span></h2>
+    <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:20px">
+      <div><strong>Plan:</strong> ${t.plan} (${t.tier})</div>
+      <div><strong>Estado:</strong> <span class="badge badge-${t.status==='active'?'active':'trialing'}">${t.status}</span></div>
+      <div><strong>Gateway:</strong> ${t.gateway}</div>
+      <div><strong>Creado:</strong> ${t.created}</div>
+      <div><strong>Último pago:</strong> ${t.last_payment||'—'} $${t.last_payment_amount?.toLocaleString()||0}</div>
+    </div>
+    <div style="margin-bottom:16px">${actions}</div>
+    <h3 style="margin-bottom:8px">📋 Facturas</h3>
+    <table style="margin-bottom:20px"><thead><tr><th>#</th><th>Monto</th><th>Moneda</th><th>Estado</th><th>Fecha</th></tr></thead><tbody>${invRows||'<tr><td colspan="5" class="empty">Sin facturas</td></tr>'}</tbody></table>
+    <h3 style="margin-bottom:8px">📈 Consumo (6 meses)</h3>
+    <table><thead><tr><th>Mes</th><th>Req</th><th>Ha</th><th>Parcelas</th></tr></thead><tbody>${usageRows||'<tr><td colspan="4" class="empty">Sin datos</td></tr>'}</tbody></table>`;
+  document.getElementById('tenant-modal').classList.add('show');
+}
+function closeModal(){document.getElementById('tenant-modal').classList.remove('show')}
+
+async function tenantAction(id, action) {
+  const tier = action==='change-plan'?document.getElementById('change-tier-'+id).value:null;
+  const body = tier ? JSON.stringify({tier}) : '{}';
+  const resp = await fetch((window.AGROTECH_CONFIG?.API_BASE||'http://localhost:8000')+`/staff/api/tenants/${id}/${action}/`, {
+    method:'POST', headers:{'Authorization':'Bearer '+JWT,'X-Staff-Access-Key':ACCESS_KEY,'Content-Type':'application/json'}, body,
+  });
+  const data = await resp.json();
+  alert(data.message||data.error||'Acción completada.');
+  closeModal(); loadTenants(); loadMetrics();
+}
+
+// ─── FINANCIALS ───────────────────────────────────────────
+async function loadFinancials() {
+  const d = await staffFetch('/staff/api/financials/');
+  if (!d) return;
+  // Revenue chart
+  const canvas = document.getElementById('revenue-chart');
+  if (d.monthly_revenue && canvas.getContext) {
+    const ctx = canvas.getContext('2d');
+    const labels = d.monthly_revenue.map(m=>m.label);
+    const values = d.monthly_revenue.map(m=>m.revenue);
+    drawBarChart(ctx, labels, values);
+  }
+  // By plan
+  document.getElementById('revenue-by-plan').innerHTML = (d.revenue_by_plan||[]).map(p=>
+    `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span>${p.plan} (${p.tier})</span>
+      <span style="font-weight:600">$${p.revenue.toLocaleString('es-CO')} <span style="color:var(--muted);font-weight:400">(${p.invoices} fact.)</span></span>
+    </div>`).join('')||'<div class="empty">Sin datos</div>';
+  // Upcoming
+  document.getElementById('upcoming-renewals').innerHTML = (d.upcoming_renewals||[]).map(r=>
+    `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <span>${esc(r.tenant)} · ${r.plan}</span>
+      <span>$${r.amount.toLocaleString('es-CO')} → ${r.next_renewal||'—'}</span>
+    </div>`).join('')||'<div class="empty">Sin próximos cobros</div>';
+}
+
+// ─── CHART ────────────────────────────────────────────────
+function drawBarChart(ctx, labels, values) {
+  const w=ctx.canvas.width, h=ctx.canvas.height;
+  ctx.clearRect(0,0,w,h);
+  const pad=40, bottom=h-30, top=20, right=w-10, left=50, chartW=right-left, chartH=bottom-top;
+  const max=Math.max(...values,1);
+  const barW=Math.max((chartW/labels.length)*0.7, 4);
+  ctx.textAlign='right'; ctx.fillStyle='#9ca3af'; ctx.font='10px monospace';
+  for (let i=1;i<=4;i++){ const y=bottom-(chartH*i/4); ctx.fillText(Math.round(max*i/4).toLocaleString(),left-4,y+3); ctx.strokeStyle='#1f2937'; ctx.beginPath(); ctx.moveTo(left,y); ctx.lineTo(right,y); ctx.stroke() }
+  values.forEach((v,i)=>{ const x=left+(chartW/(labels.length-1||1))*i; const hh=(v/max)*chartH; ctx.fillStyle='#22c55e'; ctx.fillRect(x-barW/2,bottom-hh,barW,hh) });
+  ctx.textAlign='center'; ctx.fillStyle='#9ca3af'; ctx.font='9px monospace';
+  labels.forEach((l,i)=>{ const x=left+(chartW/(labels.length-1||1))*i; ctx.fillText(l,x,bottom+14) });
+}
+
+// ─── UTILS ────────────────────────────────────────────────
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active', t.textContent.toLowerCase().includes(tab)));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.toggle('active', c.id==='tab-'+tab));
+}
+</script>
+</body>
+</html>

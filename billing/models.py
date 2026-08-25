@@ -911,16 +911,20 @@ class EosdaRequestLog(models.Model):
             except (TypeError, ValueError):
                 parcel_id = None
 
-            return cls.objects.create(
-                tenant=tenant,
-                user=user,
-                operation=operation or '',
-                index_type=(index_type or '').upper()[:20],
-                parcel_id=parcel_id,
-                date_requested=date_requested or timezone.now().date(),
-                source=source,
-                cost_estimated=cost_estimated if cost_estimated is not None else Decimal('0'),
-            )
+            from django.db import transaction
+            # Savepoint: si el INSERT falla (ej. tenant null), NO rompe la
+            # transacción padre (evita el 500 en el flujo de guardado).
+            with transaction.atomic():
+                return cls.objects.create(
+                    tenant=tenant,
+                    user=user,
+                    operation=operation or '',
+                    index_type=(index_type or '').upper()[:20],
+                    parcel_id=parcel_id,
+                    date_requested=date_requested or timezone.now().date(),
+                    source=source,
+                    cost_estimated=cost_estimated if cost_estimated is not None else Decimal('0'),
+                )
         except Exception:
             logger.warning("No se pudo registrar EosdaRequestLog", exc_info=True)
             return None

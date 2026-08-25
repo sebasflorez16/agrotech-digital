@@ -1,5 +1,9 @@
 // categorias.js - CRUD visual para categorías y subcategorías de inventario
-const API_BASE = `http://${window.location.hostname}:8000/api/inventario/`;
+const _CAT_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:8000` : 'https://agrotech-digital-production.up.railway.app');
+const API_BASE = `${_CAT_BASE}/api/inventario/`;
 const token = localStorage.getItem("accessToken");
 
 // Utilidades

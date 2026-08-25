@@ -19,9 +19,25 @@ class LaborPhaseSerializer(serializers.ModelSerializer):
 
 
 class LaborInputSerializer(serializers.ModelSerializer):
+    supply_name = serializers.SerializerMethodField()
+    crop_name = serializers.SerializerMethodField()
+    labor_name = serializers.SerializerMethodField()
+
     class Meta:
         model = LaborInput
-        fields = '__all__'
+        fields = [
+            'id', 'labor', 'labor_name', 'crop', 'crop_name', 'supply', 'supply_name',
+            'quantity', 'unit', 'application_date', 'notes',
+        ]
+
+    def get_supply_name(self, obj):
+        return obj.supply.name if obj.supply else None
+
+    def get_crop_name(self, obj):
+        return obj.crop.name if obj.crop else None
+
+    def get_labor_name(self, obj):
+        return obj.labor.nombre if obj.labor else None
 
 
 class LaborSerializer(serializers.ModelSerializer):
@@ -40,6 +56,8 @@ class LaborSerializer(serializers.ModelSerializer):
     parcelas_nombres = serializers.SerializerMethodField()
     responsables_nombres = serializers.SerializerMethodField()
     tipo_nombre = serializers.SerializerMethodField()
+    maquinaria_nombres = serializers.SerializerMethodField()
+    cultivos_nombres = serializers.SerializerMethodField()
     insumos = LaborInputSerializer(many=True, read_only=True)
     fotos = LaborPhotoSerializer(many=True, read_only=True)
     costo_insumos = serializers.SerializerMethodField()
@@ -53,6 +71,12 @@ class LaborSerializer(serializers.ModelSerializer):
 
     def get_tipo_nombre(self, obj):
         return obj.tipo.nombre if obj.tipo else None
+
+    def get_maquinaria_nombres(self, obj):
+        return [m.name for m in obj.maquinaria.all()]
+
+    def get_cultivos_nombres(self, obj):
+        return [c.name for c in obj.cultivos.all()]
 
     def get_progreso(self, obj):
         return obj.progreso
@@ -97,6 +121,8 @@ class LaborSerializer(serializers.ModelSerializer):
         rep['parcelas_nombres'] = self.get_parcelas_nombres(instance)
         rep['responsables_nombres'] = self.get_responsables_nombres(instance)
         rep['tipo_nombre'] = self.get_tipo_nombre(instance)
+        rep['maquinaria_nombres'] = self.get_maquinaria_nombres(instance)
+        rep['cultivos_nombres'] = self.get_cultivos_nombres(instance)
         rep['progreso'] = self.get_progreso(instance)
         rep['fases'] = LaborPhaseSerializer(instance.fases.all(), many=True).data
         rep['insumos'] = LaborInputSerializer(instance.insumos.all(), many=True).data

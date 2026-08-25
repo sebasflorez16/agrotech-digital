@@ -1,14 +1,12 @@
 """
 Pipeline de zonificación de manejo (precision farming).
 
-Implementación pragmática que funciona sin descargar el raster Sentinel-2:
-genera una grilla densa de puntos dentro del polígono de la parcela, asigna
-valores sintéticos coherentes (gradiente espacial + ruido controlado por seed
-del parcel.id) a los índices NDVI/NDMI/SAVI/NDRE, ejecuta K-means y vectoriza
-los clusters como polígonos GeoJSON.
+Genera una grilla densa de puntos dentro del polígono de la parcela, muestrea
+índices REALES (NDVI/NDMI/SAVI/NDRE) de Sentinel-2 L2A vía Planetary Computer,
+ejecuta K-means y vectoriza los clusters como polígonos GeoJSON.
 
-Cuando exista el pipeline real con EOSDA/Sentinel-2, reemplazar
-`_simulate_pixel_indices` por la lectura del raster recortado.
+Si no hay escena real disponible, el pipeline falla honestamente (NUNCA inventa
+valores).
 """
 from __future__ import annotations
 
@@ -28,12 +26,30 @@ CATEGORY_ORDER_BY_K = {
     5: ['low', 'mid_low', 'mid', 'mid_high', 'high'],
 }
 
-CATEGORY_LABEL = {
+# Columna del índice dentro del vector de features [ndvi, ndmi, savi, ndre]
+INDEX_COLUMN = {'ndvi': 0, 'ndmi': 1, 'savi': 2, 'ndre': 3}
+
+VIGOR_LABELS = {
     'low': 'Bajo vigor',
     'mid_low': 'Vigor medio-bajo',
     'mid': 'Vigor medio',
     'mid_high': 'Vigor medio-alto',
     'high': 'Alto vigor',
+}
+
+HUMIDITY_LABELS = {
+    'low': 'Muy seco',
+    'mid_low': 'Seco',
+    'mid': 'Humedad media',
+    'mid_high': 'Húmedo',
+    'high': 'Muy húmedo',
+}
+
+LABELS_BY_INDEX = {
+    'ndvi': VIGOR_LABELS,
+    'savi': VIGOR_LABELS,
+    'ndre': VIGOR_LABELS,
+    'ndmi': HUMIDITY_LABELS,
 }
 
 
@@ -87,19 +103,61 @@ def run_zonification(zonification) -> dict:
         return {'ok': False, 'reason': zonification.notes}
 
     coords = np.asarray(pts)
-    ndvi, ndmi, savi, ndre = _simulate_pixel_indices(
-        coords, poly, parcel.id or 0, zonification.id or 0, zonification.index_base
+
+    # Índices REALES de Sentinel-2 (nunca simulados)
+    from .sentinel2 import get_real_indices
+    pts_lonlat = [(float(p[0]), float(p[1])) for p in coords]
+    real = get_real_indices(geom, pts_lonlat, zonification.scene_date)
+    if real is None:
+        zonification.status = 'failed'
+        zonification.notes = (
+            'No se encontró una escena Sentinel-2 real para esta fecha/geometría. '
+            'Reintenta con otra fecha de escena.'
+        )
+        zonification.save(update_fields=['status', 'notes', 'updated_at'])
+        return {'ok': False, 'reason': zonification.notes}
+    ndvi, ndmi, savi, ndre, effective_scene_date = real
+    zonification.scene_date = effective_scene_date
+
+    # Descartar puntos sin dato real (fuera de escena / nubes)
+    valid_mask = (
+        np.isfinite(ndvi) & np.isfinite(ndmi) & np.isfinite(savi) & np.isfinite(ndre)
     )
+    if valid_mask.sum() < zonification.k_zones * 8:
+        zonification.status = 'failed'
+        zonification.notes = 'Puntos válidos insuficientes en la escena Sentinel-2 real.'
+        zonification.save(update_fields=['status', 'notes', 'updated_at'])
+        return {'ok': False, 'reason': zonification.notes}
+    coords = coords[valid_mask]
+    ndvi = ndvi[valid_mask]
+    ndmi = ndmi[valid_mask]
+    savi = savi[valid_mask]
+    ndre = ndre[valid_mask]
 
     features = np.column_stack([ndvi, ndmi, savi, ndre])
+
+    # Resolver el índice base (define orden, etiquetas y colores)
+    index_base = zonification.index_base or 'ndvi'
+    if index_base not in INDEX_COLUMN:
+        index_base = 'ndvi'
+    col = INDEX_COLUMN[index_base]
+    index_labels = LABELS_BY_INDEX.get(index_base, VIGOR_LABELS)
+    index_values = {'ndvi': ndvi, 'ndmi': ndmi, 'savi': savi, 'ndre': ndre}[index_base]
+    field_mean_index = float(np.nanmean(index_values))
+
+    try:
+        from .elevation import get_parcel_drainage_direction
+        drainage_direction = get_parcel_drainage_direction(parcel)
+    except Exception:
+        drainage_direction = None
 
     k = max(2, min(int(zonification.k_zones or 5), 5))
     km = KMeans(n_clusters=k, random_state=42, n_init=10)
     labels = km.fit_predict(features)
     centers = km.cluster_centers_
 
-    # Ordenar clusters por NDVI medio para asignar categorías
-    order = np.argsort(centers[:, 0])
+    # Ordenar clusters por el índice base para asignar categorías
+    order = np.argsort(centers[:, col])
     cat_order = CATEGORY_ORDER_BY_K.get(k, CATEGORY_ORDER_BY_K[5])
 
     # Limpiar zonas previas (re-run idempotente)
@@ -121,7 +179,7 @@ def run_zonification(zonification) -> dict:
         if not mask.any():
             continue
         category = cat_order[rank] if rank < len(cat_order) else 'mid'
-        label_name = CATEGORY_LABEL[category]
+        label_name = index_labels.get(category, 'Zona media')
 
         cluster_pts = coords[mask]
         cells = [
@@ -142,6 +200,11 @@ def run_zonification(zonification) -> dict:
         pixel_count = int(mask.sum())
         area_ha = round(pixel_count * pixel_area_m2 / 10_000.0, 2)
 
+        zone_ndvi = float(ndvi_vals.mean())
+        zone_ndmi = float(ndmi_vals.mean())
+        zone_index_value = float(index_values[mask].mean())
+        brecha_pct, priority = _compute_brecha_priority(zone_index_value, field_mean_index)
+
         ParcelZone.objects.create(
             zonification=zonification,
             cluster_id=int(cluster_idx),
@@ -149,20 +212,25 @@ def run_zonification(zonification) -> dict:
             category=category,
             pixel_count=pixel_count,
             area_ha=area_ha,
-            ndvi_mean=_r(ndvi_vals.mean()),
+            ndvi_mean=_r(zone_ndvi),
             ndvi_std=_r(ndvi_vals.std()),
             ndvi_min=_r(ndvi_vals.min()),
             ndvi_max=_r(ndvi_vals.max()),
-            ndmi_mean=_r(ndmi_vals.mean()),
+            ndmi_mean=_r(zone_ndmi),
             ndmi_std=_r(ndmi_vals.std()),
             savi_mean=_r(savi_vals.mean()),
             savi_std=_r(savi_vals.std()),
             ndre_mean=_r(ndre_vals.mean()),
             ndre_std=_r(ndre_vals.std()),
             geometry_geojson=geojson_geom,
+            brecha_pct=brecha_pct,
+            priority=priority,
+            drainage_direction=drainage_direction,
             recomendacion=_build_recommendation(
-                category, float(ndvi_vals.mean()), float(ndmi_vals.mean()),
-                zonification.index_base,
+                category, index_base, zone_index_value, zone_ndvi, zone_ndmi,
+                brecha_pct=brecha_pct, priority=priority,
+                drainage_direction=drainage_direction,
+                field_mean_index=field_mean_index,
             ),
         )
 
@@ -171,11 +239,11 @@ def run_zonification(zonification) -> dict:
     zonification.status = 'ready'
     if not zonification.notes:
         zonification.notes = (
-            'Generado con motor heurístico (gradiente espacial sintético). '
-            'Reemplazar por raster Sentinel-2 real cuando esté disponible.'
+            'Zonificación con índices Sentinel-2 reales (Planetary Computer).'
         )
     zonification.save(update_fields=[
-        'total_pixels', 'pixel_resolution_m', 'status', 'notes', 'updated_at',
+        'total_pixels', 'pixel_resolution_m', 'status', 'notes', 'scene_date',
+        'updated_at',
     ])
     return {
         'ok': True,
@@ -220,26 +288,77 @@ def _r(value) -> float:
         return 0.0
 
 
-def _build_recommendation(category: str, ndvi_mean: float, ndmi_mean: float,
-                          index_base: str) -> str:
+def _compute_brecha_priority(zone_value: float, field_mean: float):
+    """Devuelve (brecha_pct, priority) comparando la zona con el promedio del lote."""
+    if not field_mean or zone_value is None:
+        return None, 'baja'
+    brecha_pct = round((zone_value - field_mean) / field_mean * 100, 1)
+    if brecha_pct <= -25:
+        priority = 'critica'
+    elif brecha_pct <= -15:
+        priority = 'alta'
+    elif brecha_pct <= -8:
+        priority = 'media'
+    else:
+        priority = 'baja'
+    return brecha_pct, priority
+
+
+def _build_recommendation(category: str, index_base: str, index_value: float,
+                          ndvi_mean: float, ndmi_mean: float,
+                          brecha_pct=None, priority='baja',
+                          drainage_direction=None, field_mean_index=None) -> str:
+    """Sugerencia clara y NO prescriptiva, atada a los índices reales.
+
+    Principios:
+    - Las categorías son relativas (rank dentro del lote), por eso el texto usa
+      frases coherentes con esa posición ("la zona con menos vigor", "con más
+      humedad") y nunca contradice la etiqueta.
+    - No prescribe dosis absolutas; sugiere revisar/verificar en campo.
+    - Siempre cierra recordando confirmar con una inspección en campo.
+    """
     parts = []
-    if category in ('low', 'mid_low'):
-        parts.append(
-            'Zona de bajo vigor: revisar emergencia, presencia de plagas/enfermedades, '
-            'compactación o deficiencia hídrica.'
-        )
-        if ndmi_mean < 0.28:
-            parts.append('NDMI bajo: posible estrés hídrico, priorizar riego y monitoreo de humedad.')
-        parts.append('Acción sugerida: muestreo de suelo dirigido y refertilización nitrogenada localizada.')
-    elif category == 'mid':
-        parts.append('Zona de vigor medio: mantener manejo estándar.')
-        parts.append('Considerar fertilización foliar de complemento y monitoreo de plagas.')
-    else:  # mid_high / high
-        parts.append('Zona de alto vigor: reducir dosis de N para evitar exceso vegetativo y encamamiento.')
-        if ndmi_mean > 0.55:
-            parts.append('Alta retención de humedad: ajustar lámina de riego para evitar exceso.')
-        parts.append('Acción sugerida: validar densidad de plantas y ventilación del cultivo.')
-    parts.append(
-        f'Base: {index_base.upper()} promedio ≈ {ndvi_mean:.2f}.'
-    )
+
+    if index_base == 'ndmi':
+        label = HUMIDITY_LABELS.get(category, 'Humedad media')
+        if category in ('low', 'mid_low'):
+            rel = 'es la zona con menos humedad del lote'
+            action = 'Sugerencia: revisar el riego en esta zona, puede estar recibiendo menos agua que el resto del lote.'
+        elif category == 'mid':
+            rel = 'está en un punto intermedio de humedad del lote'
+            action = 'Sugerencia: mantener el riego actual y monitorear la evolución.'
+        else:
+            rel = 'es la zona con más humedad del lote'
+            if index_value is not None and index_value > 0.4:
+                action = 'Sugerencia: revisar si hay encharcamiento o exceso de agua en esta zona.'
+            else:
+                action = 'Sugerencia: pese a ser la zona con más humedad, el nivel sigue siendo bajo; conviene mantener el riego y monitorear.'
+        parts.append(f'{label}: {rel}.')
+        parts.append(action)
+        if field_mean_index is not None and field_mean_index < 0.2:
+            parts.append('Nota: todo el lote muestra humedad de hoja baja en general; conviene revisar el plan de riego completo.')
+        elif field_mean_index is not None and field_mean_index > 0.55:
+            parts.append('Nota: todo el lote muestra humedad alta; vigila posibles excesos de agua.')
+    else:
+        label = VIGOR_LABELS.get(category, 'Vigor medio')
+        if category in ('low', 'mid_low'):
+            rel = 'es la zona con menos vigor del lote'
+            action = 'Sugerencia: revisar en campo la germinación, posibles plagas o compactación del suelo; si todo se ve bien, evalúa reforzar la fertilización nitrogenada en esta zona.'
+        elif category == 'mid':
+            rel = 'está en un punto intermedio de vigor del lote'
+            action = 'Sugerencia: mantener el manejo actual y monitorear la evolución en las próximas semanas.'
+        else:
+            rel = 'es la zona con más vigor del lote'
+            action = 'Sugerencia: verificar si hay exceso de nitrógeno; si es así, conviene reducir la dosis en esta zona para evitar que el cultivo se doble (acame) y madure desparejo.'
+        parts.append(f'{label}: {rel}.')
+        parts.append(action)
+        if ndmi_mean is not None and ndmi_mean < 0.2:
+            parts.append('Además, la humedad de la hoja está baja; conviene revisar el riego en esta zona.')
+        elif ndmi_mean is not None and ndmi_mean > 0.5:
+            if drainage_direction:
+                parts.append(f'Además, hay mucha humedad en la hoja; revisa el drenaje (el terreno tiende a drenar hacia el {drainage_direction}).')
+            else:
+                parts.append('Además, hay mucha humedad en la hoja; revisa el drenaje para evitar encharcamientos.')
+
+    parts.append('Recomendación orientativa: confírmala con una inspección en campo.')
     return ' '.join(parts)

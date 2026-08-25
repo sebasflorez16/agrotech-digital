@@ -322,7 +322,7 @@ class PasswordResetRequestView(APIView):
         email = EmailMultiAlternatives(
             subject=subject,
             body=text_message,
-            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@agrotechcolombia.com'),
+            from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'contacto@agrotechcolombia.com'),
             to=[user.email],
         )
         email.attach_alternative(html_message, "text/html")

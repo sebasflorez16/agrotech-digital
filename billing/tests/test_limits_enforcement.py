@@ -103,7 +103,7 @@ class TestHectareLimitsEnforcement(TestCase):
         viewset.format_kwarg = None
         
         request = self.factory.post('/api/parcels/')
-        request.user = Mock(is_authenticated=True)
+        request.user = Mock(is_authenticated=True, is_superuser=False)
         request.subscription = None  # Sin suscripción
         request.tenant = None
         request.data = {}
@@ -190,7 +190,7 @@ class TestEOSDALimitsEnforcement(TestCase):
             return Response({'status': 'ok'})
         
         request = self.factory.get('/api/eosda/')
-        request.user = Mock(is_authenticated=True)
+        request.user = Mock(is_authenticated=True, is_superuser=False)
         
         # Mock subscription que reporta límite excedido
         mock_subscription = Mock()

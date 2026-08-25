@@ -198,7 +198,7 @@ TENANT_APPS = [
     "RRHH",
     "parcels",
     "inventario",
-    "labores",  # Gestión de labores agrícolas
+    "labores.apps.LaboresConfig",  # Gestión de labores agrícolas
     "crop",  # Gestión de cultivos
     "agronomic_alerts",  # Alertas agronómicas operativas
 ]
@@ -387,7 +387,7 @@ X_FRAME_OPTIONS = "DENY"
 # Doble verificación del panel de operador (super-admin)
 # Segundo factor: clave de acceso que debe pasarse como header X-Staff-Access-Key
 # En producción se configura via variable de entorno (sin fallback).
-STAFF_ACCESS_KEY = env("STAFF_ACCESS_KEY", default="agrotech-staff-dev-key")
+STAFF_ACCESS_KEY = env("STAFF_ACCESS_KEY", default="")
 
 # Wompi — pasarela de pago Colombia
 WOMPI_PUBLIC_KEY = env("WOMPI_PUBLIC_KEY", default="")

@@ -1,11 +1,16 @@
 // labor.js - Gestión profesional de labores agrícolas (Ruta Firme)
-const API_LABOR = `/api/labores/labores/`;
-const API_LABOR_TYPE = `/api/labores/labortype/`;
-const API_EMPLOYEE = `/api/RRHH/empleados/`;
-const API_PARCEL = `/api/parcels/parcel/`;
-const API_LABOR_INPUT = `/api/labores/labor-insumos/`;
-const API_LABOR_PHOTO = `/api/labores/labor-fotos/`;
-const token = localStorage.getItem("accessToken");
+const _LAB_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+        ? 'http://localhost:8000'
+        : 'https://agrotech-digital-production.up.railway.app';
+const API_LABOR = `${_LAB_BASE}/api/labores/labores/`;
+const API_LABOR_TYPE = `${_LAB_BASE}/api/labores/labortype/`;
+const API_EMPLOYEE = `${_LAB_BASE}/api/RRHH/empleados/`;
+const API_PARCEL = `${_LAB_BASE}/api/parcels/parcel/`;
+const API_LABOR_INPUT = `${_LAB_BASE}/api/labores/labor-insumos/`;
+const API_LABOR_PHOTO = `${_LAB_BASE}/api/labores/labor-fotos/`;
+function _labToken() { return localStorage.getItem("accessToken"); }
 
 // --- CARGA DE TABLA DE LABORES ---
 document.addEventListener('DOMContentLoaded', function() {
@@ -19,7 +24,7 @@ async function loadLaborTable() {
     tbody.innerHTML = '';
     try {
         const cropId = getCropIdFromContext();
-        const resp = await fetch(`${API_LABOR}?cultivo=${cropId}`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const resp = await fetch(`${API_LABOR}?cultivo=${cropId}`, { headers: { 'Authorization': `Bearer ${_labToken()}` } });
         const data = await resp.json();
         data.forEach(labor => {
             const row = document.createElement('tr');
@@ -117,7 +122,7 @@ async function submitLaborForm(event) {
         }
         const resp = await fetch(url, {
             method,
-            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            headers: { 'Authorization': `Bearer ${_labToken()}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(body)
         });
         const data = await resp.json();
@@ -146,7 +151,7 @@ async function loadSelectOptions(url, selectId, valueField = 'id', textField = '
     const select = document.getElementById(selectId);
     select.innerHTML = multiple ? '' : '<option value="">Selecciona...</option>';
     try {
-        const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${_labToken()}` } });
         if (!resp.ok) {
             select.innerHTML = '<option value="">Error de conexión o tenant</option>';
             return;
@@ -171,7 +176,7 @@ async function loadSelectOptions(url, selectId, valueField = 'id', textField = '
 // --- DETALLE DE LABOR ---
 window.showLaborDetail = async function showLaborDetail(id) {
     try {
-        const resp = await fetch(`${API_LABOR}${id}/`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const resp = await fetch(`${API_LABOR}${id}/`, { headers: { 'Authorization': `Bearer ${_labToken()}` } });
         if (!resp.ok) throw new Error('No se pudo cargar el detalle');
         const labor = await resp.json();
         const body = document.getElementById('labor-detail-body');
@@ -220,7 +225,7 @@ window.deleteLabor = async function deleteLabor(id) {
     try {
         const resp = await fetch(`${API_LABOR}${id}/`, {
             method: 'DELETE',
-            headers: { 'Authorization': `Bearer ${token}` }
+            headers: { 'Authorization': `Bearer ${_labToken()}` }
         });
         if (!resp.ok) throw new Error('No se pudo eliminar');
         loadLaborTable();
@@ -233,7 +238,7 @@ window.deleteLabor = async function deleteLabor(id) {
 // --- EDITAR LABOR (precarga en modal) ---
 window.editLabor = async function editLabor(id) {
     try {
-        const resp = await fetch(`${API_LABOR}${id}/`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const resp = await fetch(`${API_LABOR}${id}/`, { headers: { 'Authorization': `Bearer ${_labToken()}` } });
         if (!resp.ok) throw new Error('No se pudo cargar la labor');
         const labor = await resp.json();
         await showLaborModal();

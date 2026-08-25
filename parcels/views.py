@@ -13,6 +13,7 @@ from django.shortcuts import get_object_or_404, render
 from rest_framework.views import APIView
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
+from core.permissions import IsAdminOrReadOnly
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view, permission_classes
 from .models import Parcel, ParcelSceneCache, CropHealthStatus, MonitoringEvent, ParcelZonification
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 from .metereological import WeatherForecastView
 
 class ParcelScenesByDateView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     @check_eosda_limit
     def get(self, request, parcel_id):
@@ -311,7 +312,7 @@ class ParcelViewSet(viewsets.ModelViewSet):
     permitir crear o actualizar parcelas.
     """
     serializer_class = ParcelSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     def get_queryset(self):
         qs = Parcel.objects.filter(is_deleted=False)
@@ -895,7 +896,7 @@ import json
 from billing.decorators import check_eosda_limit, require_feature
 
 class EosdaScenesView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     @check_eosda_limit
     def post(self, request):
@@ -974,7 +975,7 @@ class EosdaScenesView(APIView):
         return Response(response_data, status=200)
 
 class EosdaImageView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     @check_eosda_limit
     def post(self, request):
@@ -1080,7 +1081,7 @@ class EosdaImageView(APIView):
             return Response({"error": f"Error interno del servidor: {str(e)}"}, status=500)
 
 class EosdaImageResultView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     @check_eosda_limit
     def get(self, request):
@@ -1191,7 +1192,7 @@ class EosdaImageResultView(APIView):
             return Response({"error": str(e)}, status=500)
 
 class EosdaSceneAnalyticsView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     @check_eosda_limit
     def post(self, request):
@@ -1365,7 +1366,7 @@ class EosdaAdvancedStatisticsView(APIView):
     - Proporciona estadísticas específicas por escena/fecha
     - Es la API oficial recomendada para analytics de vegetación
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     @check_eosda_limit
     def post(self, request):
@@ -1577,7 +1578,7 @@ class EosdaStatisticsTaskStatusView(APIView):
     Vista para consultar el estado de una tarea de Statistics API y obtener los resultados
     cuando esté completa.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     def get(self, request, task_id):
         """
@@ -1769,7 +1770,7 @@ class EosdaBulkAnalyticsView(APIView):
     Vista para obtener analytics de múltiples escenas de una vez
     Útil para construir datasets históricos rápidamente
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     def post(self, request):
         """
@@ -1854,7 +1855,7 @@ class ParcelHistoricalIndicesView(APIView):
     Vista para obtener datos históricos de índices NDVI, NDMI y EVI 
     desde principio de año hasta la fecha actual para gráfico histórico
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     @check_eosda_limit
     def get(self, request, parcel_id):
@@ -2074,7 +2075,7 @@ class ParcelNdviWeatherComparisonView(APIView):
     Vista para obtener análisis comparativo entre índices NDVI históricos y datos meteorológicos.
     Combina datos de EOSDA (NDVI) con datos meteorológicos gratuitos de Open-Meteo.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     @check_eosda_limit
     def get(self, request, parcel_id):
@@ -2715,7 +2716,7 @@ class CropHealthAPIView(APIView):
     
     Feature gated: 'continuous_monitoring' (planes Pro+).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     @require_feature('continuous_monitoring')
     def get(self, request, parcel_id):
@@ -2795,7 +2796,7 @@ class RadarAssessmentView(APIView):
     Usa datos REALES de Sentinel-1 GRD (VV+VH). NUNCA genera backscatter simulado:
     si no hay datos reales, devuelve "Datos radar no disponibles para esta fecha".
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     @require_feature('continuous_monitoring')
     def get(self, request, parcel_id):
@@ -2821,7 +2822,7 @@ class RadarLayersView(APIView):
     Devuelve heatmaps PNG (base64 + bounds) de sigma0 VV, VH y RVI, más el
     heatmap de cambio entre la última y la anterior observación (datos reales).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     @require_feature('continuous_monitoring')
     def get(self, request, parcel_id):
@@ -2849,7 +2850,7 @@ class FusionAssessmentView(APIView):
 
     Feature gated: 'continuous_monitoring' (plan Pro+).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     @require_feature('continuous_monitoring')
     def get(self, request, parcel_id):

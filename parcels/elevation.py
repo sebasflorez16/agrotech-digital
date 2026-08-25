@@ -223,6 +223,93 @@ def _fetch_elevation_data(points):
     return all_elevations
 
 
+def _compute_drainage_direction(interpolated):
+    """
+    Calcula la dirección dominante de drenaje (flujo de agua cuesta abajo)
+    a partir del gradiente de la superficie interpolada.
+
+    Devuelve dict con:
+      - direction: 'norte' | 'noreste' | ... (8 puntos cardinales)
+      - angle_deg: ángulo en grados (0 = norte, 90 = este)
+      - slope_mean: pendiente media (gradiente por píxel, adimensional)
+    """
+    grad_r, grad_c = np.gradient(interpolated)
+
+    # Flujo cuesta abajo = negativo del gradiente.
+    # En la matriz: r crece hacia el norte, c crece hacia el este.
+    flow_north = -float(np.nanmean(grad_r))
+    flow_east = -float(np.nanmean(grad_c))
+
+    angle_deg = math.degrees(math.atan2(flow_east, flow_north))
+    if angle_deg < 0:
+        angle_deg += 360
+
+    directions = ['norte', 'noreste', 'este', 'sureste', 'sur', 'suroeste', 'oeste', 'noroeste']
+    idx = int((angle_deg + 22.5) // 45) % 8
+    direction = directions[idx]
+
+    slope_mean = float(np.nanmean(np.hypot(grad_r, grad_c)))
+    return {
+        'direction': direction,
+        'angle_deg': round(angle_deg, 1),
+        'slope_mean': round(slope_mean, 6),
+    }
+
+
+def get_parcel_drainage_direction(parcel):
+    """Devuelve la dirección dominante de drenaje de una parcela (cacheada 30 días).
+
+    Reutiliza grilla + elevaciones + interpolación sin generar el PNG del heatmap.
+    Retorna un string tipo 'norte'|'noreste'|... o None si no se pudo calcular.
+    """
+    cache_key = f"drainage_parcel_{parcel.id}"
+    cached = cache.get(cache_key)
+    if cached:
+        return cached
+
+    try:
+        geom = parcel.geom or {}
+        if geom.get("type") != "Polygon":
+            return None
+        points, rows, cols, grid_mask, bounds = _generate_grid_points(geom)
+        if not points:
+            return None
+        elevations = _fetch_elevation_data(points)
+        if not elevations:
+            return None
+
+        grid = np.full((rows, cols), np.nan, dtype=float)
+        idx = 0
+        for r in range(rows):
+            for c in range(cols):
+                if grid_mask[r, c]:
+                    if idx < len(elevations):
+                        grid[r, c] = elevations[idx]
+                    idx += 1
+
+        valid = grid[~np.isnan(grid)]
+        if len(valid) < 3:
+            return None
+
+        known = np.argwhere(~np.isnan(grid))
+        known_vals = grid[~np.isnan(grid)]
+        mesh_r, mesh_c = np.meshgrid(
+            np.linspace(0, rows - 1, rows * 8),
+            np.linspace(0, cols - 1, cols * 8),
+            indexing="ij",
+        )
+        from scipy.interpolate import griddata as _griddata
+        interpolated = _griddata(known, known_vals, (mesh_r, mesh_c), method="linear")
+        interpolated = np.where(np.isnan(interpolated), np.nanmean(interpolated), interpolated)
+
+        direction = _compute_drainage_direction(interpolated)["direction"]
+        cache.set(cache_key, direction, CACHE_TIMEOUT)
+        return direction
+    except Exception:
+        logger.warning("[ELEVATION] No se pudo calcular drenaje para parcela %s", getattr(parcel, "id", "?"), exc_info=True)
+        return None
+
+
 def _generate_elevation_heatmap(elevations, rows, cols, grid_mask, parcel_geom=None, bounds=None):
     """
     Genera una imagen PNG de mapa de calor a partir de los datos de elevación.
@@ -319,6 +406,15 @@ def _generate_elevation_heatmap(elevations, rows, cols, grid_mask, parcel_geom=N
         normalized = np.clip(normalized, 0.0, 1.0)
     else:
         normalized = np.full_like(interpolated, 0.5)
+
+    # -- Drenaje direccional (pendiente + aspecto de la superficie interpolada) --
+    try:
+        drainage = _compute_drainage_direction(interpolated)
+        stats['drainage_direction'] = drainage['direction']
+        stats['drainage_angle_deg'] = drainage['angle_deg']
+        stats['slope_mean'] = drainage['slope_mean']
+    except Exception as e:
+        logger.warning(f"[ELEVATION] No se pudo calcular drenaje direccional: {e}")
 
     # -- Colormap que coincide EXACTAMENTE con la leyenda del frontend --
     # Bajo:  #1E50AA (30,80,170) → #46B4FF (70,180,255)

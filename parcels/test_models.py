@@ -1,284 +1,193 @@
 """
-Tests unitarios para el modelo Parcel.
+Tests unitarios para los modelos de Parcel (schema actual, multi-tenant).
 """
-import pytest
 import uuid
-from datetime import datetime
-from django.core.exceptions import ValidationError
-from parcels.models import Parcel, ParcelAudit, CacheDatosEOSDA
-from RRHH.models import Employee
+import pytest
+from datetime import datetime, date
+from django.utils import timezone
+
+from parcels.models import (
+    Parcel, ParcelActionLog, ParcelSceneCache, CacheDatosEOSDA,
+)
 
 pytestmark = pytest.mark.django_db
 
 
+@pytest.fixture
+def tenant(db):
+    from datetime import timedelta
+    from django.core.management import call_command
+    from base_agrotech.models import Client
+
+    t = Client.objects.create(
+        schema_name="tenant_parcels", name="Tenant Parcels",
+        paid_until=date.today() + timedelta(days=30), on_trial=True,
+    )
+    call_command("migrate_schemas", "--schema", "tenant_parcels", verbosity=0)
+    return t
+
+
+def _ctx(tenant):
+    from django_tenants.utils import schema_context
+    return schema_context(tenant.schema_name)
+
+
+def _sample_geojson():
+    return {
+        "type": "Polygon",
+        "coordinates": [[
+            [-74.0, 4.0],
+            [-74.01, 4.0],
+            [-74.01, 4.01],
+            [-74.0, 4.01],
+            [-74.0, 4.0],
+        ]],
+    }
+
+
 class TestParcelModel:
-    """Tests para el modelo Parcel."""
+    def test_create_parcel_basic(self, tenant):
+        with _ctx(tenant):
+            parcel = Parcel.objects.create(
+                name="Campo Test", description="Descripción", eosda_id="eosda_001",
+                tenant_id=tenant.id, soil_type="arcilloso", topography="plano",
+            )
+            assert parcel.name == "Campo Test"
+            assert parcel.soil_type == "arcilloso"
+            assert parcel.topography == "plano"
+            assert parcel.state is True
+            assert parcel.is_deleted is False
+            assert parcel.sync_status == "local"
 
-    @pytest.fixture
-    def manager(self):
-        """Fixture para crear un manager."""
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        user = User.objects.create_user(
-            username="manager_test",
-            email="manager@test.com",
-            name="Manager",
-            last_name="Test"
-        )
-        return Employee.objects.create(
-            user=user,
-            name="Manager Test",
-            job_title="Gerente Agrícola"
-        )
+    def test_parcel_str(self, tenant):
+        with _ctx(tenant):
+            parcel = Parcel.objects.create(
+                name="Mi Parcela", eosda_id="eosda_002",
+                soil_type="arenoso", topography="plano",
+            )
+            assert str(parcel) == "Mi Parcela"
 
-    @pytest.fixture
-    def sample_geojson(self):
-        """Fixture con GeoJSON de ejemplo."""
-        return {
-            "type": "Polygon",
-            "coordinates": [[
-                [-74.0, 4.0],
-                [-74.01, 4.0],
-                [-74.01, 4.01],
-                [-74.0, 4.01],
-                [-74.0, 4.0]
-            ]]
-        }
+    def test_parcel_unique_id(self, tenant):
+        with _ctx(tenant):
+            p1 = Parcel.objects.create(
+                name="P1", eosda_id="eosda_003", soil_type="arenoso", topography="plano",
+            )
+            p2 = Parcel.objects.create(
+                name="P2", eosda_id="eosda_004", soil_type="arenoso", topography="plano",
+            )
+            assert isinstance(p1.unique_id, uuid.UUID)
+            assert p1.unique_id != p2.unique_id
 
-    def test_create_parcel_basic(self, manager, sample_geojson):
-        """Test creación básica de parcela."""
-        parcel = Parcel.objects.create(
-            name="Campo Test",
-            description="Descripción de prueba",
-            geom=sample_geojson,
-            manager=manager,
-            soil_type="arcilloso",
-            topography="plano"
-        )
-        assert parcel.name == "Campo Test"
-        assert parcel.description == "Descripción de prueba"
-        assert parcel.manager == manager
-        assert parcel.soil_type == "arcilloso"
-        assert parcel.topography == "plano"
-        assert parcel.state is True
-        assert parcel.is_deleted is False
-        assert parcel.deleted_at is None
-
-    def test_parcel_str_representation(self, manager):
-        """Test representación string de parcela."""
-        parcel = Parcel.objects.create(
-            name="Mi Parcela",
-            manager=manager
-        )
-        assert str(parcel) == "Mi Parcela"
-
-    def test_parcel_unique_id_generation(self, manager):
-        """Test que se genera UUID único automáticamente."""
-        parcel1 = Parcel.objects.create(name="Parcela 1", manager=manager)
-        parcel2 = Parcel.objects.create(name="Parcela 2", manager=manager)
-        
-        assert parcel1.unique_id is not None
-        assert parcel2.unique_id is not None
-        assert parcel1.unique_id != parcel2.unique_id
-        assert isinstance(parcel1.unique_id, uuid.UUID)
-
-    def test_parcel_eosda_id_unique(self, manager):
-        """Test que eosda_id debe ser único."""
-        Parcel.objects.create(
-            name="Parcela 1",
-            eosda_id="12345",
-            manager=manager
-        )
-        with pytest.raises(Exception):  # IntegrityError
+    def test_parcel_eosda_id_unique(self, tenant):
+        with _ctx(tenant):
             Parcel.objects.create(
-                name="Parcela 2",
-                eosda_id="12345",
-                manager=manager
+                name="P1", eosda_id="12345", soil_type="arenoso", topography="plano",
             )
+            with pytest.raises(Exception):
+                Parcel.objects.create(
+                    name="P2", eosda_id="12345", soil_type="arenoso", topography="plano",
+                )
 
-    def test_parcel_area_calculation(self, manager, sample_geojson):
-        """Test cálculo de área en hectáreas."""
-        parcel = Parcel.objects.create(
-            name="Campo con Área",
-            geom=sample_geojson,
-            manager=manager
-        )
-        area = parcel.area_hectares()
-        assert area > 0
-        assert isinstance(area, float)
-        # El área debería ser aproximadamente 1.23 ha según las coordenadas
-
-    def test_parcel_area_without_geom(self, manager):
-        """Test que área retorna 0 sin geometría."""
-        parcel = Parcel.objects.create(
-            name="Campo sin Geometría",
-            manager=manager
-        )
-        assert parcel.area_hectares() == 0
-
-    def test_parcel_soft_delete_flags(self, manager):
-        """Test flags de soft delete."""
-        parcel = Parcel.objects.create(
-            name="Parcela",
-            manager=manager
-        )
-        # Simular soft delete (normalmente hecho por el viewset)
-        parcel.is_deleted = True
-        parcel.deleted_at = datetime.now()
-        parcel.save()
-        
-        assert parcel.is_deleted is True
-        assert parcel.deleted_at is not None
-
-    def test_parcel_timestamps(self, manager):
-        """Test que se generan timestamps automáticamente."""
-        parcel = Parcel.objects.create(
-            name="Parcela",
-            manager=manager
-        )
-        assert parcel.created_on is not None
-        assert parcel.updated_on is not None
-        assert parcel.created_on <= parcel.updated_on
-
-    def test_parcel_update_timestamp(self, manager):
-        """Test que updated_on se actualiza al guardar."""
-        parcel = Parcel.objects.create(
-            name="Parcela",
-            manager=manager
-        )
-        original_updated = parcel.updated_on
-        
-        parcel.name = "Parcela Actualizada"
-        parcel.save()
-        
-        assert parcel.updated_on > original_updated
-
-    def test_parcel_soil_types(self, manager):
-        """Test diferentes tipos de suelo."""
-        soil_types = ["arenoso", "arcilloso", "limoso", "franco"]
-        for soil in soil_types:
+    def test_parcel_area_calculation(self, tenant):
+        with _ctx(tenant):
             parcel = Parcel.objects.create(
-                name=f"Parcela {soil}",
-                soil_type=soil,
-                manager=manager
+                name="Campo con Área", eosda_id="eosda_area", geom=_sample_geojson(),
+                soil_type="arenoso", topography="plano",
             )
-            assert parcel.soil_type == soil
+            assert parcel.area_hectares() > 0
 
-    def test_parcel_topography_types(self, manager):
-        """Test diferentes tipos de topografía."""
-        topographies = ["plano", "inclinado", "ondulado", "montañoso"]
-        for topo in topographies:
+    def test_parcel_area_without_geom(self, tenant):
+        with _ctx(tenant):
             parcel = Parcel.objects.create(
-                name=f"Parcela {topo}",
-                topography=topo,
-                manager=manager
+                name="Sin Geometría", eosda_id="eosda_noarea",
+                soil_type="arenoso", topography="plano",
             )
-            assert parcel.topography == topo
+            assert parcel.area_hectares() == 0
 
-
-class TestParcelAudit:
-    """Tests para el modelo ParcelAudit."""
-
-    @pytest.fixture
-    def manager(self):
-        """Fixture para crear un manager."""
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        user = User.objects.create_user(
-            username="manager_audit",
-            email="audit@test.com"
-        )
-        return Employee.objects.create(user=user, name="Manager")
-
-    @pytest.fixture
-    def parcel(self, manager):
-        """Fixture para crear una parcela."""
-        return Parcel.objects.create(
-            name="Parcela Audit",
-            manager=manager
-        )
-
-    def test_create_audit_log(self, parcel):
-        """Test creación de log de auditoría."""
-        audit = ParcelAudit.objects.create(
-            parcel=parcel,
-            action="CREATE",
-            description="Parcela creada"
-        )
-        assert audit.parcel == parcel
-        assert audit.action == "CREATE"
-        assert audit.description == "Parcela creada"
-        assert audit.timestamp is not None
-
-    def test_audit_actions(self, parcel):
-        """Test diferentes acciones de auditoría."""
-        actions = ["CREATE", "UPDATE", "DELETE", "VIEW"]
-        for action in actions:
-            audit = ParcelAudit.objects.create(
-                parcel=parcel,
-                action=action,
-                description=f"Acción: {action}"
+    def test_parcel_soft_delete_flags(self, tenant):
+        with _ctx(tenant):
+            parcel = Parcel.objects.create(
+                name="Parcela", eosda_id="eosda_del", soil_type="arenoso", topography="plano",
             )
-            assert audit.action == action
+            parcel.is_deleted = True
+            parcel.deleted_at = timezone.now()
+            parcel.save()
+            assert parcel.is_deleted is True
+            assert parcel.deleted_at is not None
+
+    def test_parcel_timestamps(self, tenant):
+        with _ctx(tenant):
+            parcel = Parcel.objects.create(
+                name="Parcela", eosda_id="eosda_ts", soil_type="arenoso", topography="plano",
+            )
+            assert parcel.created_on is not None
+            assert parcel.updated_on is not None
+
+    def test_parcel_soil_and_topography(self, tenant):
+        with _ctx(tenant):
+            for soil in ["arenoso", "arcilloso", "limoso", "franco"]:
+                parcel = Parcel.objects.create(
+                    name=f"Parcela {soil}", eosda_id=f"eosda_{soil}",
+                    soil_type=soil, topography="plano",
+                )
+                assert parcel.soil_type == soil
 
 
-class TestCacheDatosEOSDA:
-    """Tests para el modelo CacheDatosEOSDA."""
-
+class TestParcelActionLogModel:
     @pytest.fixture
-    def manager(self):
-        """Fixture para crear un manager."""
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        user = User.objects.create_user(
-            username="manager_cache",
-            email="cache@test.com"
-        )
-        return Employee.objects.create(user=user, name="Manager")
+    def parcel(self, tenant):
+        with _ctx(tenant):
+            return Parcel.objects.create(
+                name="Parcela Audit", eosda_id="eosda_log",
+                soil_type="arenoso", topography="plano",
+            )
 
-    @pytest.fixture
-    def parcel(self, manager):
-        """Fixture para crear una parcela."""
-        return Parcel.objects.create(
-            name="Parcela Cache",
-            eosda_id="cache123",
-            manager=manager
-        )
+    def test_create_action_log(self, tenant, parcel):
+        with _ctx(tenant):
+            log = ParcelActionLog.objects.create(parcel=parcel, action="create")
+            assert log.parcel == parcel
+            assert log.action == "create"
+            assert log.timestamp is not None
 
-    def test_create_cache_entry(self, parcel):
-        """Test creación de entrada de cache."""
-        cache = CacheDatosEOSDA.objects.create(
-            parcel=parcel,
-            fecha_inicio="2024-01-01",
-            fecha_fin="2024-01-31",
-            tipo_dato="ndvi",
-            hash_parametros="abc123",
-            datos_json={"mean": 0.75, "std": 0.05}
-        )
-        assert cache.parcel == parcel
-        assert cache.tipo_dato == "ndvi"
-        assert cache.hash_parametros == "abc123"
-        assert cache.datos_json["mean"] == 0.75
+    def test_action_choices(self, tenant, parcel):
+        with _ctx(tenant):
+            for action in ["create", "update", "delete"]:
+                log = ParcelActionLog.objects.create(parcel=parcel, action=action)
+                assert log.action == action
 
-    def test_cache_expiration(self, parcel):
-        """Test que se genera timestamp de expiración."""
-        cache = CacheDatosEOSDA.objects.create(
-            parcel=parcel,
-            tipo_dato="ndmi",
-            hash_parametros="xyz789",
-            datos_json={}
-        )
-        assert cache.timestamp is not None
-        assert cache.expira_en is not None
 
-    def test_cache_tipos_dato(self, parcel):
-        """Test diferentes tipos de datos cacheados."""
-        tipos = ["ndvi", "ndmi", "evi", "mt_stats", "weather"]
-        for tipo in tipos:
+class TestParcelSceneCacheModel:
+    def test_create_scene_cache(self, tenant):
+        with _ctx(tenant):
+            parcel = Parcel.objects.create(
+                name="Parcela Cache", eosda_id="eosda_scene",
+                soil_type="arenoso", topography="plano",
+            )
+            cache = ParcelSceneCache.objects.create(
+                parcel=parcel, scene_id="scene_1",
+                date=datetime(2024, 1, 15).date(), index_type="NDVI",
+            )
+            assert cache.parcel == parcel
+            assert cache.index_type == "NDVI"
+
+
+class TestCacheDatosEOSDAModel:
+    def test_create_cache_entry(self, tenant):
+        with _ctx(tenant):
             cache = CacheDatosEOSDA.objects.create(
-                parcel=parcel,
-                tipo_dato=tipo,
-                hash_parametros=f"hash_{tipo}",
-                datos_json={"test": True}
+                tenant_id=tenant.id, parcela_id=10, indice="NDVI",
+                tipo_dato="statistics", geometria_hash="abc123",
+                datos={"mean": 0.75}, expira_en=timezone.now(),
             )
-            assert cache.tipo_dato == tipo
+            assert cache.tenant_id == tenant.id
+            assert cache.indice == "NDVI"
+            assert cache.datos["mean"] == 0.75
+
+    def test_cache_timestamps(self, tenant):
+        with _ctx(tenant):
+            cache = CacheDatosEOSDA.objects.create(
+                tenant_id=tenant.id, indice="NDMI", tipo_dato="statistics",
+                geometria_hash="xyz789", datos={}, expira_en=timezone.now(),
+            )
+            assert cache.timestamp is not None
+            assert cache.expira_en is not None

@@ -10,9 +10,10 @@
  * @returns {string} URL completa del backend
  */
 function getBackendUrl(apiPath = '', port = 8000) {
-    // Detectar si estamos en localhost o producción
+    // Usar config.js centralizado
+    const cfg = window.AGROTECH_CONFIG;
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const baseUrl = isLocalhost ? `http://localhost:${port}` : 'https://agrotechcolombia.com';
+    const baseUrl = cfg ? cfg.API_BASE : (isLocalhost ? `http://localhost:${port}` : 'https://agrotech-digital-production.up.railway.app');
     
     // Agregar path si se proporciona
     if (apiPath) {
@@ -170,6 +171,19 @@ async function refreshAccessToken() {
                 const data = await response.json();
                 const newAccessToken = data.access || data.accessToken || data.token;
                 if (newAccessToken) {
+                    // Verificar que el token refrescado tenga tenant_id antes de guardarlo
+                    try {
+                        var tp = JSON.parse(atob(newAccessToken.split('.')[1]));
+                        if (!tp.tenant_id) {
+                            console.warn('[API-UTILS] Token refrescado sin tenant_id — forzando logout');
+                            handleAuthFailure();
+                            return false;
+                        }
+                    } catch(e) {
+                        console.warn('[API-UTILS] No se pudo validar tenant_id del token refrescado');
+                        handleAuthFailure();
+                        return false;
+                    }
                     localStorage.setItem('accessToken', newAccessToken);
                     console.log('[API-UTILS] Token refrescado exitosamente');
                     return true;

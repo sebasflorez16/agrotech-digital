@@ -142,8 +142,13 @@ class Parcel(models.Model):
         pero queda registrado en el log global de consumo EOSDA.
         """
         try:
+            from django_tenants.utils import schema_context
             from base_agrotech.models import Client
-            tenant = Client.objects.filter(id=self.tenant_id).first() if self.tenant_id else None
+            tenant = None
+            if self.tenant_id:
+                # Client es app compartida (schema public); resolver ahí, no en el schema del tenant
+                with schema_context('public'):
+                    tenant = Client.objects.filter(id=self.tenant_id).first()
             client.record(
                 tenant, operation="field", parcel_id=self.pk,
                 increment_quota=False,
@@ -691,6 +696,16 @@ class ParcelZone(models.Model):
     ndre_std = models.FloatField(null=True, blank=True)
     geometry_geojson = models.JSONField(null=True, blank=True, verbose_name="Polígono GeoJSON")
     recomendacion = models.TextField(blank=True, null=True)
+    brecha_pct = models.FloatField(null=True, blank=True, verbose_name="Brecha vs promedio del lote (%)")
+    priority = models.CharField(
+        max_length=20, default="media",
+        choices=[
+            ("baja", "Baja"), ("media", "Media"),
+            ("alta", "Alta"), ("critica", "Crítica"),
+        ],
+        verbose_name="Prioridad de intervención",
+    )
+    drainage_direction = models.CharField(max_length=20, blank=True, null=True, verbose_name="Dirección de drenaje")
 
     class Meta:
         verbose_name = "Zona de manejo"

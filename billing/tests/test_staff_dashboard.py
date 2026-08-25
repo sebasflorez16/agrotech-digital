@@ -30,6 +30,12 @@ def _zero_agg():
 User = get_user_model()
 
 
+@pytest.fixture(autouse=True)
+def _set_staff_key(settings):
+    """Fija una clave de staff para los tests (no usa la clave real de producción)."""
+    settings.STAFF_ACCESS_KEY = "agrotech-staff-dev-key"
+
+
 # ──────────────────────────────────────────────────────────────
 # HELPERS
 # ──────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
 from rest_framework import viewsets
 from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
+from core.permissions import IsAdminOrReadOnly
 from RRHH.models import Employee, TemporaryEmployee, ContractorEmployee, Department, Position
 from RRHH.serializers import EmployeeSerializer, TemporaryEmployeeSerializer, ContractorEmployeeSerializer, PositionSerializer, DepartmentSerializer, PaymentMethodSerializer
 from base_agrotech.models import PaymentMethod
@@ -10,19 +11,19 @@ from parcels.models import TenantScopedModelMixin
 class PaymentMethodViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = PaymentMethod.objects.all()
     serializer_class = PaymentMethodSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
     http_method_names = ['get', 'post', 'delete', 'patch', 'put']
 
 class DepartamentoViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = Department.objects.all()
     serializer_class = DepartmentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
     http_method_names = ['get', 'post', 'delete']
 
 class PosicionViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = Position.objects.all()
     serializer_class = PositionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
     http_method_names = ['get', 'post', 'delete']
 
 
@@ -30,7 +31,7 @@ class PosicionViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
 class EmployeeViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = Employee.objects.all()
     serializer_class = EmployeeSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
     http_method_names = ['get', 'post', 'delete']
 
 
@@ -38,21 +39,21 @@ class EmployeeViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
 class TemporaryViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = TemporaryEmployee.objects.all()
     serializer_class = TemporaryEmployeeSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
     
 
 # CRUD para Contratistas
 class ContractorViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = ContractorEmployee.objects.all()
     serializer_class = ContractorEmployeeSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
 
 # CRUD para Empleados Contratistas
 class ContractorEmployeeViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = ContractorEmployee.objects.all()
     serializer_class = ContractorEmployeeSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
 
 

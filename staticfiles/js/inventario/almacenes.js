@@ -1,5 +1,9 @@
 // almacenes.js - CRUD simple de almacenes con modales
-const API_URL = `http://${window.location.hostname}:8000/api/inventario/warehouses/`;
+const _ALM_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:8000` : 'https://agrotech-digital-production.up.railway.app');
+const API_URL = `${_ALM_BASE}/api/inventario/warehouses/`;
 const token = localStorage.getItem("accessToken");
 
 // Cargar almacenes y renderizar tabla
@@ -131,7 +135,7 @@ if (document.getElementById('tablaAlmacenes')) {
             `;
             modalBody.innerHTML = html;
             // --- INSUMOS ---
-            fetch(`http://${window.location.hostname}:8000/api/inventario/supplies/?warehouse=${id}`, {
+            fetch(`${_ALM_BASE}/api/inventario/supplies/?warehouse=${id}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -164,7 +168,7 @@ if (document.getElementById('tablaAlmacenes')) {
                 document.getElementById('tablaInsumosWrap').innerHTML = `<div class='alert alert-warning mt-2'>No se pudieron cargar los insumos.</div>`;
             });
             // --- MAQUINARIA ---
-            fetch(`http://${window.location.hostname}:8000/api/inventario/machinery/?warehouse=${id}`, {
+            fetch(`${_ALM_BASE}/api/inventario/machinery/?warehouse=${id}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'

@@ -14,6 +14,7 @@ class WarehouseSerializer(serializers.ModelSerializer):
 class SupplySerializer(serializers.ModelSerializer):
     category_name = serializers.SerializerMethodField()
     subcategory_name = serializers.SerializerMethodField()
+    unit_display = serializers.SerializerMethodField()
     warehouse = WarehouseSerializer(read_only=True)
     warehouse_id = serializers.PrimaryKeyRelatedField(queryset=Warehouse.objects.all(), source='warehouse', write_only=True)
     suppliers = serializers.PrimaryKeyRelatedField(queryset=Supplier.objects.all(), many=True, required=False)
@@ -23,7 +24,7 @@ class SupplySerializer(serializers.ModelSerializer):
     class Meta:
         model = Supply
         fields = [
-            'id', 'name', 'unit_value', 'quantity', 'unit', 'unit_amount', 'unit_custom',
+            'id', 'name', 'unit_value', 'quantity', 'unit', 'unit_display', 'unit_amount', 'unit_custom',
             'warehouse', 'warehouse_id', 'description', 'category', 'subcategory',
             'category_name', 'subcategory_name',
             'suppliers', 'image', 'notes', 'attachments',
@@ -42,17 +43,34 @@ class SupplySerializer(serializers.ModelSerializer):
             return obj.subcategory.name
         return ''
 
+    def get_unit_display(self, obj):
+        return obj.get_unit_display() if obj.unit else ''
+
 from django.contrib.contenttypes.models import ContentType
 
 class InventoryMovementSerializer(serializers.ModelSerializer):
     content_type = serializers.PrimaryKeyRelatedField(queryset=ContentType.objects.all())
     asset_id = serializers.IntegerField(source='object_id')
+    asset_name = serializers.SerializerMethodField()
+    crop_name = serializers.SerializerMethodField()
+    labor_name = serializers.SerializerMethodField()
+
     class Meta:
         model = InventoryMovement
         fields = [
-            'id', 'content_type', 'asset_id', 'movement_type', 'quantity', 'unit_value',
+            'id', 'content_type', 'asset_id', 'asset_name', 'movement_type', 'quantity', 'unit_value',
+            'crop', 'crop_name', 'labor', 'labor_name',
             'origin_location', 'destination_location', 'date', 'notes', 'user', 'document', 'created', 'updated'
         ]
+
+    def get_asset_name(self, obj):
+        return str(obj.asset) if obj.asset else None
+
+    def get_crop_name(self, obj):
+        return obj.crop.name if obj.crop else None
+
+    def get_labor_name(self, obj):
+        return obj.labor.nombre if obj.labor else None
 
 class MachinerySerializer(serializers.ModelSerializer):
     category_name = serializers.SerializerMethodField()

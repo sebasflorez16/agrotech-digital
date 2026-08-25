@@ -479,17 +479,19 @@ class UsageMetricsViewSet(viewsets.ReadOnlyModelViewSet):
 
         User = get_user_model()
 
-        # Hectáreas (Parcel.area_hectares es método Python, no columna DB)
+        # Hectáreas y parcelas (Parcel es app de tenant → requiere schema_context)
+        from django_tenants.utils import schema_context
+
         total_ha = 0
-        for parcel in Parcel.objects.filter(is_deleted=False):
-            total_ha += parcel.area_hectares() or 0
+        with schema_context(tenant.schema_name):
+            for parcel in Parcel.objects.filter(is_deleted=False):
+                total_ha += parcel.area_hectares() or 0
+            parcels_count = Parcel.objects.filter(is_deleted=False).count()
         metrics.hectares_used = total_ha
+        metrics.parcels_count = parcels_count
 
-        # Usuarios (aislados por tenant)
+        # Usuarios (aislados por tenant; User es app compartida)
         metrics.users_count = User.objects.filter(is_active=True, tenant_id=tenant.id).count()
-
-        # Parcelas
-        metrics.parcels_count = Parcel.objects.filter(is_deleted=False).count()
 
         metrics.save()
         metrics.calculate_overages()
@@ -602,13 +604,16 @@ def usage_dashboard_view(request):
     # Refrescar desde datos reales (parcelas, hectareas, usuarios)
     from parcels.models import Parcel
     from django.contrib.auth import get_user_model
+    from django_tenants.utils import schema_context
     User = get_user_model()
 
     total_ha = 0
-    for parcel in Parcel.objects.filter(is_deleted=False):
-        total_ha += parcel.area_hectares() or 0
+    with schema_context(tenant.schema_name):
+        for parcel in Parcel.objects.filter(is_deleted=False):
+            total_ha += parcel.area_hectares() or 0
+        parcels_count = Parcel.objects.filter(is_deleted=False).count()
     metrics.hectares_used = total_ha
-    metrics.parcels_count = Parcel.objects.filter(is_deleted=False).count()
+    metrics.parcels_count = parcels_count
     metrics.users_count = User.objects.filter(is_active=True, tenant_id=tenant.id).count()
     metrics.save()
     

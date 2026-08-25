@@ -2,17 +2,22 @@
 // Suponiendo un límite de parcelas por plan (puedes cambiar este valor)
 const PARCEL_LIMIT = 50;
 
+// Base URL centralizada (accesible por todas las funciones del módulo)
+const cfgBase = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:8000' : 'https://agrotech-digital-production.up.railway.app');
+
 async function fetchParcelSummary() {
     try {
         const token = localStorage.getItem("accessToken");
         if (!token) {
             console.error("Token no encontrado. Redirigiendo al login.");
-            window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
+            window.location.href = "../authentication/login.html";
             return;
         }
 
-        // Usar sistema multi-tenant ApiUrls
-        const url = window.ApiUrls ? window.ApiUrls.parcels() + '/parcel/summary/' : 'https://agrotechcolombia.com/api/parcels/parcel/summary/';
+        const url = `${cfgBase}/api/parcels/parcel/summary/`;
         const resp = await fetch(url, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -63,33 +68,42 @@ async function fetchParcelSummary() {
         // Actualizar el gráfico Tickets_Status
         const chartElement = document.querySelector("#Tickets_Status");
         if (chartElement) {
-            const optionsTickets = {
-                chart: {
-                    type: "area",
-                    height: 350,
-                    toolbar: { show: false }
-                },
-                colors: ["#39b54a"],
-                series: [
-                    {
-                        name: "NDVI Promedio",
-                        data: ndviData
+            if (!data.ndvi_available) {
+                chartElement.innerHTML = `
+                    <div class="text-center py-5 text-muted">
+                        <i class="mdi mdi-satellite-variant d-block mb-2" style="font-size:2.5rem;opacity:.4"></i>
+                        <p class="mb-1"><strong>Sin observaciones satelitales aún</strong></p>
+                        <p class="mb-0 small">Ejecuta un análisis en la sección Parcelas para ver tu primer NDVI real.</p>
+                    </div>`;
+            } else {
+                const optionsTickets = {
+                    chart: {
+                        type: "area",
+                        height: 350,
+                        toolbar: { show: false }
+                    },
+                    colors: ["#39b54a"],
+                    series: [
+                        {
+                            name: "Observaciones Satelitales",
+                            data: ndviData
+                        }
+                    ],
+                    xaxis: {
+                        categories: ndviMonths
+                    },
+                    stroke: {
+                        curve: "smooth",
+                        width: 2
+                    },
+                    fill: {
+                        type: "gradient",
+                        gradient: { shadeIntensity: 1, opacityFrom: 0.5, opacityTo: 0 }
                     }
-                ],
-                xaxis: {
-                    categories: ndviMonths
-                },
-                stroke: {
-                    curve: "smooth",
-                    width: 2
-                },
-                fill: {
-                    type: "gradient",
-                    gradient: { shadeIntensity: 1, opacityFrom: 0.5, opacityTo: 0 }
-                }
-            };
+                };
 
-            new ApexCharts(chartElement, optionsTickets).render();
+                new ApexCharts(chartElement, optionsTickets).render();
+            }
         }
     } catch (e) {
         console.error("Error al obtener el resumen de parcelas:", e);
@@ -110,11 +124,11 @@ async function fetchParcels() {
         const token = localStorage.getItem("accessToken");
         if (!token) {
             console.error("Token no encontrado. Redirigiendo al login.");
-            window.location.href = "https://agrotechcolombia.netlify.app/templates/authentication/login.html";
+            window.location.href = "../authentication/login.html";
             return;
         }
 
-        const url = window.ApiUrls ? window.ApiUrls.parcels() + '/parcel/list/' : 'https://agrotechcolombia.com/api/parcels/parcel/list/';
+        const url = window.ApiUrls ? window.ApiUrls.parcels() + '/parcel/list/' : `${cfgBase}/api/parcels/parcel/list/`;
         const resp = await fetch(url, {
             headers: {
                 'Authorization': `Bearer ${token}`,
@@ -226,7 +240,7 @@ function renderChart(chartElementId, chartTitle, dataValues, dataLabels, color) 
 
 async function updateNDVIChart(polygon) {
     const token = localStorage.getItem("accessToken");
-    const url = window.ApiUrls ? window.ApiUrls.parcels() + '/parcel/ndvi-historical/' : 'https://agrotechcolombia.com/api/parcels/parcel/ndvi-historical/';
+    const url = window.ApiUrls ? window.ApiUrls.parcels() + '/parcel/ndvi-historical/' : `${cfgBase}/api/parcels/parcel/ndvi-historical/`;
 
     const ndviData = await fetchChartData(url, polygon, token);
     if (ndviData) {
@@ -238,7 +252,7 @@ async function updateNDVIChart(polygon) {
 
 async function updateWaterStressChart(polygon) {
     const token = localStorage.getItem("accessToken");
-    const url = window.ApiUrls ? window.ApiUrls.parcels() + '/parcel/water-stress-historical/' : 'https://agrotechcolombia.com/api/parcels/parcel/water-stress-historical/';
+    const url = window.ApiUrls ? window.ApiUrls.parcels() + '/parcel/water-stress-historical/' : `${cfgBase}/api/parcels/parcel/water-stress-historical/`;
 
     const waterStressData = await fetchChartData(url, polygon, token);
     if (waterStressData) {
@@ -261,7 +275,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     async function updateTable(parcelId) {
         try {
             const token = localStorage.getItem("accessToken");
-            const url = window.ApiUrls ? window.ApiUrls.parcels() + `/parcel/${parcelId}/` : `https://agrotechcolombia.com/api/parcels/parcel/${parcelId}/`;
+            const url = window.ApiUrls ? window.ApiUrls.parcels() + `/parcel/${parcelId}/` : `${cfgBase}/api/parcels/parcel/${parcelId}/`;
             const resp = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${token}`,

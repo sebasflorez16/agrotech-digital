@@ -132,6 +132,30 @@ def sample_crop(sample_parcel, sample_crop_type):
     )
 
 
+@pytest.fixture(scope="session", autouse=True)
+def clear_throttle_cache(django_db_setup):
+    """Limpia la caché al inicio de la sesión para evitar throttling residual.
+
+    El LoginThrottle usa la caché (FileBasedCache en /tmp/agrotech-cache) y
+    persiste entre ejecuciones; sin esta limpieza los tests de login acaban
+    devolviendo 429 tras varias corridas.
+    """
+    from django.core.cache import cache
+    cache.clear()
+
+
+@pytest.fixture(scope="session", autouse=True)
+def seed_subscription_plans(django_db_setup, django_db_blocker):
+    """Siembra los planes de suscripción (free/basic/pro) una vez por sesión.
+
+    Varios tests (registro, límites de billing) requieren que existan los planes.
+    `seed_plans` delega en `create_billing_plans`, que es idempotente.
+    """
+    from django.core.management import call_command
+    with django_db_blocker.unblock():
+        call_command("seed_plans", verbosity=0)
+
+
 @pytest.fixture
 def sample_supplier():
     """Proveedor de ejemplo para tests."""

@@ -193,16 +193,7 @@
      * Obtener referencia al mapa Leaflet (buscar en variables globales)
      */
     function getMapInstance() {
-        // Intentar obtener de variable global directa
         if (window.map && window.map._leaflet_id) return window.map;
-        
-        // Buscar en el contenedor del mapa
-        const container = document.getElementById('mapContainer');
-        if (container && container._leaflet_id) {
-            // Leaflet almacena la instancia en _leaflet
-            return container._leaflet;
-        }
-
         return null;
     }
 

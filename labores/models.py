@@ -57,8 +57,29 @@ class Labor(models.Model):
     historical = HistoricalRecords()
 
     def calcular_costo_insumos(self):
-        # Suma el costo de todos los insumos asociados a esta labor
-        return sum(i.supply.costo_unitario * i.quantity for i in self.insumos.all() if i.supply and hasattr(i.supply, 'costo_unitario'))
+        """Suma el costo de los insumos asociados a esta labor (unit_value * cantidad)."""
+        from decimal import Decimal, InvalidOperation
+
+        total = Decimal("0")
+        for i in self.insumos.all():
+            if i.supply and i.supply.unit_value is not None:
+                try:
+                    total += i.supply.unit_value * Decimal(str(i.quantity))
+                except (InvalidOperation, TypeError, ValueError):
+                    continue
+        return total
+
+    def calcular_costo_maquinaria(self):
+        """Suma el valor de referencia de la maquinaria utilizada en la labor."""
+        from decimal import Decimal
+
+        total = Decimal("0")
+        for m in self.maquinaria.all():
+            if m.current_value is not None:
+                total += m.current_value
+            elif m.purchase_value is not None:
+                total += m.purchase_value
+        return total
 
     def calcular_costo_mano_obra(self):
         # Suma el costo de todos los responsables (si hay modelo de horas/costo)
@@ -66,7 +87,11 @@ class Labor(models.Model):
         return 0  # Placeholder
 
     def calcular_costo_total(self):
-        return (self.calcular_costo_insumos() or 0) + (self.calcular_costo_mano_obra() or 0)
+        return (
+            (self.calcular_costo_insumos() or 0)
+            + (self.calcular_costo_maquinaria() or 0)
+            + (self.calcular_costo_mano_obra() or 0)
+        )
 
     @property
     def progreso(self):

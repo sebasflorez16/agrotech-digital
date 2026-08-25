@@ -227,7 +227,7 @@ class Command(BaseCommand):
 
             email = EmailMultiAlternatives(
                 subject=subject, body=text,
-                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@agrotechcolombia.com"),
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "contacto@agrotechcolombia.com"),
                 to=[admin.email],
             )
             email.attach_alternative(html, "text/html")

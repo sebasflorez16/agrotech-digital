@@ -1,7 +1,11 @@
 
 
 // Definir la URL base de la API, utilizando la dirección del servidor dinámicamente
-const LIST_HANDLER_BASE_UR = `http://${window.location.hostname}:8000/api/RRHH`;
+const _LH_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:8000` : 'https://agrotech-digital-production.up.railway.app');
+const LIST_HANDLER_BASE_UR = `${_LH_BASE}/api/RRHH`;
 
 // Función para actualizar los contadores
 async function actualizarContadores(token) {

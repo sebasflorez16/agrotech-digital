@@ -1,0 +1,62 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Barra de navegación móvil inferior — AgroTech Digital
+   Cargar en todas las páginas del dashboard.
+   ═══════════════════════════════════════════════════════════════════ */
+
+.mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background: var(--card-bg, #111827);
+    border-top: 1px solid var(--border-color, #1f2937);
+    z-index: 1050;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+}
+
+@media (max-width: 768px) {
+    .mobile-bottom-nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-around;
+    }
+    body { padding-bottom: 70px; }
+}
+
+.mobile-bottom-nav a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 12px;
+    text-decoration: none;
+    color: var(--text-muted, #9ca3af);
+    font-size: 10px;
+    font-weight: 500;
+    transition: color 0.2s;
+    min-width: 56px;
+}
+
+.mobile-bottom-nav a i,
+.mobile-bottom-nav a svg {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+}
+
+.mobile-bottom-nav a.active {
+    color: var(--accent, #22c55e);
+}
+
+.mobile-bottom-nav a .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--danger, #ef4444);
+    position: absolute;
+    top: 4px;
+    right: 12px;
+}

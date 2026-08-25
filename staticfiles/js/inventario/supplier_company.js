@@ -1,4 +1,8 @@
 // supplier_company.js - Gestión de empresas y proveedores (CRUD, selects dinámicos)
+const _SC_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:8000` : 'https://agrotech-digital-production.up.railway.app');
 // --- LISTENERS PARA BOTONES DE MODALES ---
 document.addEventListener('DOMContentLoaded', function() {
     // Botón Nueva Empresa
@@ -43,8 +47,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-const API_COMPANY = `http://${window.location.hostname}:8000/api/inventario/companies/`;
-const API_SUPPLIER = `http://${window.location.hostname}:8000/api/inventario/suppliers/`;
+const API_COMPANY = `${_SC_BASE}/api/inventario/companies/`;
+const API_SUPPLIER = `${_SC_BASE}/api/inventario/suppliers/`;
 const token = localStorage.getItem("accessToken");
 
 // --- EMPRESA ---

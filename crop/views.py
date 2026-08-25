@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from core.permissions import IsAdminOrReadOnly
 from rest_framework.decorators import action
 from .models import CropType, CropVariety, Crop, CropStage, CropProgressPhoto, CropInput, CropEvent, CropCatalog, PhenologicalStage, CropCycle
 from .serializers import (
@@ -17,7 +18,7 @@ from parcels.models import TenantScopedModelMixin
 class CropTypeViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = CropType.objects.all()
     serializer_class = CropTypeSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     # Permite crear uno o varios tipos de cultivo en una sola petición POST
     # Si el body es una lista, usa many=True en el serializer
@@ -31,7 +32,7 @@ class CropTypeViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
 
 class CropVarietyViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     serializer_class = CropVarietySerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     def get_queryset(self):
         qs = CropVariety.objects.select_related('crop_type').all()
@@ -43,27 +44,27 @@ class CropVarietyViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
 class CropViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = Crop.objects.all()
     serializer_class = CropSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
 class CropStageViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = CropStage.objects.all()
     serializer_class = CropStageSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
 class CropProgressPhotoViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = CropProgressPhoto.objects.all()
     serializer_class = CropProgressPhotoSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
 class CropInputViewSet(TenantScopedModelMixin, viewsets.ModelViewSet):
     queryset = CropInput.objects.all()
     serializer_class = CropInputSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
 class CropEventViewSet(viewsets.ModelViewSet):
     queryset = CropEvent.objects.all()
     serializer_class = CropEventSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
 
 # =============================================================================
@@ -80,7 +81,7 @@ class CropCatalogViewSet(viewsets.ReadOnlyModelViewSet):
     GET /api/crop/catalog/<id>/stages/ -> Solo etapas del cultivo
     """
     queryset = CropCatalog.objects.filter(is_active=True)
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -110,7 +111,7 @@ class CropCycleViewSet(viewsets.ModelViewSet):
     POST   /api/crop/cycles/<id>/interpret/     -> Interpretar índice satelital
     """
     serializer_class = CropCycleSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     def get_queryset(self):
         queryset = CropCycle.objects.select_related(
@@ -193,7 +194,7 @@ class LaborSuggestionsView(APIView):
     GET /api/crop/labor-suggestions/?crop_id=<id>
     Retorna sugerencias de labores según la etapa fenológica del cultivo.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     def get(self, request):
         crop_id = request.query_params.get('crop_id')
@@ -210,7 +211,7 @@ class MLDatasetStatsView(APIView):
     Retorna estadísticas de los datasets disponibles para entrenar modelos ML.
     Indica si hay suficientes datos para clasificador y regresión.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     def get(self, request):
         tenant_id = getattr(request, 'tenant', None)
@@ -225,7 +226,7 @@ class MLAlertDatasetView(APIView):
     Exporta el dataset etiquetado de alertas agronómicas (features + label de feedback).
     Listo para entrenar un clasificador de falsos positivos.
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     def get(self, request):
         tenant_id = getattr(request, 'tenant', None)
@@ -243,7 +244,7 @@ class MLCycleDatasetView(APIView):
     Exporta el dataset de ciclos de cultivo con índices satelitales y rendimiento.
     Listo para entrenar un modelo de regresión de rendimiento (ton/ha).
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     def get(self, request):
         tenant_id = getattr(request, 'tenant', None)

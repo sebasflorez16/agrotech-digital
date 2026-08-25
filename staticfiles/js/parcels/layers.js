@@ -3,7 +3,7 @@
 // Elimina credenciales y lógica de autenticación del frontend
 // Ahora el frontend solo consumirá imágenes NDVI/NDMI a través del backend seguro
 
-// El backend ahora expone un proxy seguro para tiles WMTS EOSDA.
+// El backend ahora expone un proxy seguro para tiles satelitales.
 // El frontend solo debe consumir las imágenes WMTS usando la URL del proxy.
 
 // Utilidad: Determina si un punto [lon, lat] está dentro de un polígono (array de [lon, lat])
@@ -41,7 +41,7 @@ let ndmiEnabled = false;
 
 // Configuración para Render API
 // Estos valores deben ser dinámicos según la parcela/escena seleccionada
-window.EOSDA_RENDER_PARAMS = {
+window.SATELITE_RENDER_PARAMS = {
     view_id: 'S2', // Sentinel-2 por defecto
     scene_id: null, // Debe ser asignado dinámicamente
     layer: 'NDVI',
@@ -80,7 +80,7 @@ export async function toggleNDMILayer(viewer) {
         return;
     }
     // Validar que los parámetros necesarios estén presentes
-    const params = window.EOSDA_RENDER_PARAMS;
+    const params = window.SATELITE_RENDER_PARAMS;
     if (!params.scene_id || !params.time) {
         showErrorToast("Selecciona una parcela y una fecha válida para visualizar NDMI.");
         return;
@@ -235,7 +235,7 @@ async function handleSceneSelectionNDMI(scene, viewer = null) {
     const eosda_id = window.SELECTED_EOSDA_ID || scene.eosda_id || null;
     const view_id = scene.view_id || scene.id;
     if (!eosda_id) {
-        showErrorToast("No se pudo determinar eosda_id para la petición NDMI. Verifica que window.SELECTED_EOSDA_ID esté asignado antes de abrir el modal.");
+        showErrorToast("No se pudo determinar el identificador satelital para la petición NDMI. Verifica que la parcela esté correctamente registrada.");
         console.error('[NDMI] Error: eosda_id no encontrado. scene:', scene);
         return;
     }
@@ -264,9 +264,9 @@ async function handleSceneSelectionNDMI(scene, viewer = null) {
             return;
         }
         // Actualizar los parámetros globales para renderizar NDMI
-        window.EOSDA_RENDER_PARAMS.scene_id = scene.id;
-        window.EOSDA_RENDER_PARAMS.time = scene.date ? scene.date.split('T')[0] : '';
-        window.EOSDA_RENDER_PARAMS.view_id = view_id;
+        window.SATELITE_RENDER_PARAMS.scene_id = scene.id;
+        window.SATELITE_RENDER_PARAMS.time = scene.date ? scene.date.split('T')[0] : '';
+        window.SATELITE_RENDER_PARAMS.view_id = view_id;
         // Actualizar el estado global NDMI
         window.EOSDA_STATE.selectedSceneNDMI = scene;
         window.EOSDA_STATE.ndmiActive = true;
@@ -387,7 +387,7 @@ async function handleSceneSelection(scene, type = 'NDVI', viewer = null) {
     const eosda_id = window.SELECTED_EOSDA_ID || scene.eosda_id || null;
     const view_id = scene.view_id || scene.id;
     if (!eosda_id) {
-        showErrorToast("No se pudo determinar eosda_id para la petición NDVI. Verifica que window.SELECTED_EOSDA_ID esté asignado antes de abrir el modal.");
+        showErrorToast("No se pudo determinar el identificador satelital para la petición NDVI. Verifica que la parcela esté correctamente registrada.");
         console.error('[NDVI] Error: eosda_id no encontrado. scene:', scene);
         return;
     }
@@ -416,9 +416,9 @@ async function handleSceneSelection(scene, type = 'NDVI', viewer = null) {
             return;
         }
         // Actualizar los parámetros globales para renderizar
-        window.EOSDA_RENDER_PARAMS.scene_id = scene.id;
-        window.EOSDA_RENDER_PARAMS.time = scene.date ? scene.date.split('T')[0] : '';
-        window.EOSDA_RENDER_PARAMS.view_id = view_id;
+        window.SATELITE_RENDER_PARAMS.scene_id = scene.id;
+        window.SATELITE_RENDER_PARAMS.time = scene.date ? scene.date.split('T')[0] : '';
+        window.SATELITE_RENDER_PARAMS.view_id = view_id;
         // Renderizar la capa correspondiente
         if (type === 'NDVI') {
             if (viewer) toggleNDVILayer(viewer);

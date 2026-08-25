@@ -11,6 +11,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
     position_name = serializers.SerializerMethodField()
     department_name = serializers.SerializerMethodField()
+    salary_name = serializers.SerializerMethodField()
     class Meta:
         model = Employee
         fields = '__all__'
@@ -23,6 +24,11 @@ class EmployeeSerializer(serializers.ModelSerializer):
     
     def get_department_name(self, obj):
         return obj.department.name if obj.department else None
+
+    def get_salary_name(self, obj):
+        if obj.salary:
+            return f"{obj.salary.name} - ${obj.salary.amount:,.0f}" if obj.salary.amount else obj.salary.name
+        return None
 
 # Todo esto se hace para que el serializer devuelva el nombre del departamento y el cargo por que como son modelos separados se vean en el frontentd    
 

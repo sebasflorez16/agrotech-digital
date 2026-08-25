@@ -1,34 +1,51 @@
-# ViewSet para Movimientos de Inventario (genérico)
-from .serializers import InventoryMovementSerializer
-from .models import InventoryMovement
-from rest_framework import viewsets, permissions
-# from rest_framework import viewsets
-from rest_framework import viewsets, permissions
-from .models import Person
-from .serializers import PersonSerializer
 from rest_framework import viewsets, status, permissions
 from rest_framework.response import Response
 from rest_framework.decorators import action
-from django.db import transaction
-from .models import Supply, Warehouse, InventoryMovement, Machinery, Supplier, Company, Category, Subcategory
+
+from core.permissions import IsAdminOrReadOnly
+from .models import (
+    Supply, Warehouse, InventoryMovement, Machinery, Supplier, Company,
+    Category, Subcategory, Person,
+)
 from .serializers import (
-    SupplySerializer, WarehouseSerializer, InventoryMovementSerializer, MachinerySerializer,
-    SupplierSerializer, CompanySerializer, CategorySerializer, SubcategorySerializer
+    SupplySerializer, WarehouseSerializer, InventoryMovementSerializer,
+    MachinerySerializer, SupplierSerializer, CompanySerializer,
+    CategorySerializer, SubcategorySerializer, PersonSerializer,
 )
 
 
 class InventoryMovementViewSet(viewsets.ModelViewSet):
-    queryset = InventoryMovement.objects.all()
+    queryset = InventoryMovement.objects.all().order_by('-date')
     serializer_class = InventoryMovementSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
-# ViewSet para Personas Naturales
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        # Importar el servicio aquí para evitar problemas de importación circular
+        from .services import InventoryService
+        result = InventoryService.process_movement(data)
+        if result.get('error'):
+            return Response({'detail': result['error']}, status=result.get('status', status.HTTP_400_BAD_REQUEST))
+
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+
 class PersonViewSet(viewsets.ModelViewSet):
     queryset = Person.objects.all()
     serializer_class = PersonSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
+
 
 class WarehouseViewSet(viewsets.ModelViewSet):
+    queryset = Warehouse.objects.all()
+    serializer_class = WarehouseSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
+
     # Endpoint DRF para reporte de inventario visual
     @action(detail=True, methods=['get'], url_path='reporte')
     def reporte(self, request, pk=None):
@@ -55,14 +72,12 @@ class WarehouseViewSet(viewsets.ModelViewSet):
             'supplies': supplies_list,
             'fecha': timezone.now(),
         })
-    queryset = Warehouse.objects.all()
-    serializer_class = WarehouseSerializer
-    permission_classes = [permissions.IsAuthenticated]  # Protege el endpoint: solo usuarios autenticados
+
 
 class SupplyViewSet(viewsets.ModelViewSet):
     queryset = Supply.objects.all()
     serializer_class = SupplySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
     # Permite crear uno o varios insumos (semillas) en una sola petición POST
     # Si el body es una lista, usa many=True en el serializer
@@ -74,55 +89,32 @@ class SupplyViewSet(viewsets.ModelViewSet):
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=201, headers=headers)
 
-class InventoryMovementViewSet(viewsets.ModelViewSet):
-    queryset = InventoryMovement.objects.all().order_by('-date')
-    serializer_class = InventoryMovementSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        data = serializer.validated_data
-
-        # Importar el servicio aquí para evitar problemas de importación circular
-        from .services import InventoryService
-        result = InventoryService.process_movement(data)
-        if result.get('error'):
-            return Response({'detail': result['error']}, status=result.get('status', status.HTTP_400_BAD_REQUEST))
-
-        self.perform_create(serializer)
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-
-
-
-# ViewSet para Maquinaria
 class MachineryViewSet(viewsets.ModelViewSet):
     queryset = Machinery.objects.all()
     serializer_class = MachinerySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
-# ViewSet para Proveedores
+
 class SupplierViewSet(viewsets.ModelViewSet):
     queryset = Supplier.objects.all()
     serializer_class = SupplierSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
-# ViewSet para Empresas
+
 class CompanyViewSet(viewsets.ModelViewSet):
     queryset = Company.objects.all()
     serializer_class = CompanySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
 
-# ViewSet para Categorías
 class CategoryViewSet(viewsets.ModelViewSet):
     queryset = Category.objects.all()
     serializer_class = CategorySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
 
-# ViewSet para Subcategorías
+
 class SubcategoryViewSet(viewsets.ModelViewSet):
     queryset = Subcategory.objects.all()
     serializer_class = SubcategorySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]

@@ -140,7 +140,7 @@ class Command(BaseCommand):
             )
             send_mail(
                 subject=subject, message=body,
-                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@agrotechcolombia.com"),
+                from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "contacto@agrotechcolombia.com"),
                 recipient_list=[owner.email], fail_silently=True,
             )
             return True

@@ -3,10 +3,12 @@
  * Gestión de facturación y uso con diseño Apple-inspired
  */
 
-// Configuración API
-const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-    ? 'http://localhost:8000'
-    : 'https://agrotechcolombia.com';
+// Configuración API - usar config.js centralizado
+const API_BASE_URL = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? 'http://localhost:8000'
+        : 'https://agrotech-digital-production.up.railway.app');
 
 // Obtener token de autenticación
 function getAuthToken() {
@@ -160,17 +162,20 @@ async function loadUsageHistory(months = 6) {
 function displayUsageChart(data) {
     const ctx = document.getElementById('usageChart');
     if (!ctx) return;
-    
+
+    // El backend devuelve { tenant_name, history: [{period, eosda_requests, ...}, ...] }
+    const history = Array.isArray(data.history) ? data.history : [];
+
     // Ordenar por fecha (más antiguo primero)
-    const sortedData = Object.entries(data).sort((a, b) => a[0].localeCompare(b[0]));
-    
-    const labels = sortedData.map(([month, _]) => {
-        const [year, monthNum] = month.split('-');
+    const sortedData = history.slice().sort((a, b) => a.period.localeCompare(b.period));
+
+    const labels = sortedData.map((item) => {
+        const [year, monthNum] = item.period.split('-');
         const monthNames = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
         return `${monthNames[parseInt(monthNum) - 1]} ${year}`;
     });
-    
-    const eosdaData = sortedData.map(([_, metrics]) => metrics.eosda_requests || 0);
+
+    const eosdaData = sortedData.map((item) => item.eosda_requests || 0);
     
     // Destruir chart anterior si existe
     if (usageChart) {
@@ -263,49 +268,95 @@ async function loadCurrentInvoice() {
 
 // Mostrar factura
 function displayInvoice(invoice) {
+    // El backend devuelve { period:{start,end,days_remaining}, invoice_preview:{...} }
+    const period = invoice.period || {};
+    const preview = invoice.invoice_preview || {};
+    const lineItems = preview.line_items || [];
+
     // Actualizar período
     const periodElement = document.getElementById('invoicePeriod');
     if (periodElement) {
-        const startDate = new Date(invoice.period_start).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
-        const endDate = new Date(invoice.period_end).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
-        periodElement.textContent = `Período: ${startDate} - ${endDate} (${invoice.days_remaining} días restantes)`;
+        if (period.start && period.end) {
+            const startDate = new Date(period.start).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+            const endDate = new Date(period.end).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' });
+            periodElement.textContent = `Período: ${startDate} - ${endDate} (${period.days_remaining ?? 0} días restantes)`;
+        } else {
+            periodElement.textContent = 'Período no disponible';
+        }
     }
-    
+
     // Actualizar líneas de factura
     const linesContainer = document.getElementById('invoiceLines');
     if (linesContainer) {
-        linesContainer.innerHTML = invoice.line_items.map(item => `
+        linesContainer.innerHTML = lineItems.map(item => `
             <div class="invoice-line">
                 <div>
                     <div style="font-weight: var(--font-weight-medium); margin-bottom: var(--space-xs);">${item.description}</div>
                     ${item.quantity > 1 ? `<div style="font-size: 0.875rem; color: var(--text-secondary);">${item.quantity} × $${Number(item.unit_price).toLocaleString('es-CO')} COP</div>` : ''}
                 </div>
                 <div style="font-weight: var(--font-weight-semibold); font-size: 1.125rem;">
-                    $${Number(item.amount).toLocaleString('es-CO')} COP
+                    $${Number(item.total).toLocaleString('es-CO')} COP
                 </div>
             </div>
         `).join('') + `
             <div class="invoice-line" style="opacity: 0.6;">
                 <div>Subtotal</div>
-                <div style="font-weight: var(--font-weight-medium);">$${Number(invoice.subtotal).toLocaleString('es-CO')} COP</div>
+                <div style="font-weight: var(--font-weight-medium);">$${Number(preview.subtotal || 0).toLocaleString('es-CO')} COP</div>
             </div>
             <div class="invoice-line" style="opacity: 0.6;">
                 <div>IVA (19%)</div>
-                <div style="font-weight: var(--font-weight-medium);">$${Number(invoice.tax_amount).toLocaleString('es-CO')} COP</div>
+                <div style="font-weight: var(--font-weight-medium);">$${Number(preview.tax_amount || 0).toLocaleString('es-CO')} COP</div>
             </div>
         `;
     }
-    
+
     // Actualizar total
     const totalElement = document.getElementById('invoiceTotal');
     if (totalElement) {
-        totalElement.textContent = `$${Number(invoice.total).toLocaleString('es-CO')} COP`;
+        totalElement.textContent = `$${Number(preview.total || 0).toLocaleString('es-CO')} COP`;
     }
 }
 
-// Procesar pago
-function processPayment() {
-    alert('🚧 Integración de pago en desarrollo\n\nPróximamente: MercadoPago');
+// Procesar pago (Wompi Colombia)
+async function processPayment() {
+    const planTier = window._selectedPlanTier || document.querySelector('.plan-card.selected')?.dataset?.tier;
+    const email = localStorage.getItem('userEmail') || '';
+    if (!planTier || planTier === 'free') {
+        alert('Selecciona un plan pago (Agricultor, Empresarial o Corporativo).');
+        return;
+    }
+    if (!email) {
+        alert('No se pudo identificar tu correo. Inicia sesion nuevamente.');
+        return;
+    }
+    try {
+        const btn = event?.target || document.querySelector('button[onclick*="processPayment"]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Redirigiendo a Wompi...'; }
+        const token = localStorage.getItem('accessToken');
+        const headers = { 'Content-Type': 'application/json' };
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        const resp = await fetch(API_BASE_URL + '/billing/api/create-checkout/', {
+            method: 'POST', headers,
+            body: JSON.stringify({ plan_tier: planTier, gateway: 'wompi', payer_email: email }),
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success) {
+            alert('Error: ' + (data.error || 'No se pudo iniciar el pago.'));
+            if (btn) { btn.disabled = false; btn.textContent = 'Pagar Ahora'; }
+            return;
+        }
+        if (data.checkout_url) {
+            window.location.href = data.checkout_url;
+        } else {
+            alert('Enlace de pago no disponible.');
+            if (btn) { btn.disabled = false; btn.textContent = 'Pagar Ahora'; }
+        }
+    } catch (e) {
+        console.error('[PAGO] Error:', e);
+        alert('Error de conexion al iniciar el pago. Intenta de nuevo.');
+        const btn = document.querySelector('button[onclick*="processPayment"]');
+        if (btn) { btn.disabled = false; btn.textContent = 'Pagar Ahora'; }
+    }
 }
 
 // Logout

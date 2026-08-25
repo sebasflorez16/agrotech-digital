@@ -5,6 +5,7 @@ from .models import ParcelZonification, ParcelZone
 
 class ParcelZoneSerializer(serializers.ModelSerializer):
     category_display = serializers.CharField(source='get_category_display', read_only=True)
+    priority_display = serializers.CharField(source='get_priority_display', read_only=True)
 
     class Meta:
         model = ParcelZone
@@ -16,6 +17,7 @@ class ParcelZoneSerializer(serializers.ModelSerializer):
             'savi_mean', 'savi_std',
             'ndre_mean', 'ndre_std',
             'geometry_geojson', 'recomendacion',
+            'brecha_pct', 'priority', 'priority_display', 'drainage_direction',
         ]
 
 
@@ -46,6 +48,5 @@ class ParcelZonificationSerializer(serializers.ModelSerializer):
             return ''
 
     def get_data_source(self, obj):
-        # La zonificación actual usa índices simulados (numpy + K-means).
-        # Se marca explícitamente para no presentarla como análisis satelital real.
-        return 'synthetic'
+        # Índices reales de Sentinel-2 L2A (Planetary Computer).
+        return 'sentinel2'

@@ -1,10 +1,14 @@
 // directory.js - CRUD visual para Empresas, Proveedores y Personas
 
 // Endpoints API
-const API_COMPANY = `http://${window.location.hostname}:8000/api/inventario/companies/`;
-const API_SUPPLIER = `http://${window.location.hostname}:8000/api/inventario/suppliers/`;
-const API_PERSON = `http://${window.location.hostname}:8000/api/inventario/persons/`;
-const API_MACHINERY = `http://${window.location.hostname}:8000/api/inventario/machinery/`;
+const _DIR_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:8000` : 'https://agrotech-digital-production.up.railway.app');
+const API_COMPANY = `${_DIR_BASE}/api/inventario/companies/`;
+const API_SUPPLIER = `${_DIR_BASE}/api/inventario/suppliers/`;
+const API_PERSON = `${_DIR_BASE}/api/inventario/persons/`;
+const API_MACHINERY = `${_DIR_BASE}/api/inventario/machinery/`;
 const token = localStorage.getItem("accessToken");
 
 // --- CARGA DE TABLAS ---

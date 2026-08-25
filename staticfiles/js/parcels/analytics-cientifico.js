@@ -23,12 +23,30 @@ window.obtenerAnalyticsCientifico = async function(viewId, sceneDate) {
         if (!viewId) {
             const msg = 'View ID es requerido para análisis científico';
             console.error(`[ANALYTICS_CIENTIFICO] Error: ${msg}`);
-            if (typeof showToast === 'function') {
-                showToast(`❌ ${msg}`, 'error');
-            } else {
-                alert(msg);
-            }
+            if (typeof showToast === 'function') showToast(`❌ ${msg}`, 'error');
+            else alert(msg);
             return;
+        }
+
+        // Cache frontend: evita llamadas repetidas en 5 minutos
+        const cacheKey = `analytics_${viewId}_${sceneDate || 'latest'}`;
+        const lastCall = window._ANALYTICS_TIMESTAMPS || {};
+        if (lastCall[cacheKey] && Date.now() - lastCall[cacheKey] < 300000) {
+            console.log(`[ANALYTICS_CIENTIFICO] Cache frontend: solicitud omitida (menos de 5 min)`);
+            return;
+        }
+        if (!window._ANALYTICS_TIMESTAMPS) window._ANALYTICS_TIMESTAMPS = {};
+        window._ANALYTICS_TIMESTAMPS[cacheKey] = Date.now();
+
+        // 🗄️ Verificar cache de localStorage primero
+        const idxType = sceneDate ? 'ndvi' : 'ndvi';
+        if (window.SceneCache && sceneDate) {
+            const cached = window.SceneCache.getStats(viewId, sceneDate, idxType);
+            if (cached) {
+                console.log('[ANALYTICS_CIENTIFICO] Cache localStorage hit');
+                window.LATEST_SCIENTIFIC_ANALYTICS = cached;
+                return cached;
+            }
         }
         
         // Mostrar spinner con mensaje informativo
@@ -52,13 +70,12 @@ window.obtenerAnalyticsCientifico = async function(viewId, sceneDate) {
         }
         
         // Construir parámetros de la consulta
+        const parcelId = window.AGROTECH_STATE?.selectedParcelId;
         const params = new URLSearchParams({
             view_id: viewId
         });
-        
-        if (sceneDate) {
-            params.append('scene_date', sceneDate);
-        }
+        if (parcelId) params.append('parcel_id', parcelId);
+        if (sceneDate) params.append('scene_date', sceneDate);
         
         console.log(`[ANALYTICS_CIENTIFICO] Llamando a: /eosda-analytics/?${params.toString()}`);
         
@@ -69,12 +86,11 @@ window.obtenerAnalyticsCientifico = async function(viewId, sceneDate) {
         
         console.log(`[ANALYTICS_CIENTIFICO] Datos obtenidos exitosamente:`, analyticsData);
         
-        // Ocultar spinner
-        if (typeof hideSpinner === 'function') {
-            hideSpinner();
+        // 🗄️ Guardar en localStorage cache
+        if (window.SceneCache && sceneDate) {
+            window.SceneCache.setStats(viewId, sceneDate, 'ndvi', analyticsData);
         }
-        
-        // Mostrar modal con análisis científico
+
         mostrarModalAnalyticsCientifico(analyticsData, sceneDate, viewId);
         
         if (typeof showToast === 'function') {
@@ -171,8 +187,26 @@ function mostrarModalAnalyticsCientifico(analyticsData, sceneDate, viewId) {
         
     } catch (error) {
         console.error('[MODAL_CIENTIFICO] Error mostrando modal:', error);
-        // Fallback: mostrar como alert si Bootstrap no está disponible
         alert('Análisis científico completado. Ver consola para detalles.');
+    }
+
+    // 🗄️ SceneCache: guardar en historial + mostrar panel
+    if (window.SceneCache && sceneDate) {
+        const parcelId = window.AGROTECH_STATE?.selectedParcelId;
+        const parcelName = document.getElementById('parcelNameCell')?.textContent || '';
+        const stats = analyticsData?.interpreted_data || analyticsData?.statistics || {};
+        const ndviVal = stats.ndvi?.latest || stats.ndvi?.average || stats.ndvi?.mean;
+
+        window.SceneCache.addToHistory({
+            viewId: viewId, sceneDate: sceneDate, indexType: 'ndvi',
+            parcelId: parcelId, parcelName: parcelName, value: ndviVal,
+        });
+
+        if (typeof updateCurrentSceneStats === 'function')
+            updateCurrentSceneStats(analyticsData, sceneDate, viewId, parcelName);
+        const section = document.getElementById('sceneHistorySection');
+        if (section) section.style.display = 'block';
+        if (typeof renderSceneHistory === 'function') renderSceneHistory();
     }
 }
 

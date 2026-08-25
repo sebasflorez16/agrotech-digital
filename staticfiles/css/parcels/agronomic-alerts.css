@@ -1,0 +1,320 @@
+/* =============================================================
+   Agronomic Alerts — estilos dashboard
+   Dark neumorphic + liquid glass, coherente con el resto del SaaS
+   ============================================================= */
+
+.agro-alerts-host {
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.agro-alerts-skeleton,
+.agro-alerts-error {
+    padding: 18px 20px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    font-size: 13px;
+}
+
+.agro-alerts-error {
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.35);
+}
+
+/* Banner ----------------------------------------------------- */
+
+.agro-alerts-banner {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 18px 20px;
+    border-radius: 16px;
+    background: rgba(15, 23, 32, 0.55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.agro-alerts-banner__icon {
+    font-size: 28px;
+    line-height: 1;
+    padding-top: 2px;
+    min-width: 32px;
+    text-align: center;
+}
+
+.agro-alerts-banner__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #f1f5f9;
+    margin-bottom: 4px;
+}
+
+.agro-alerts-banner__lote {
+    color: #94a3b8;
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.agro-alerts-banner__sub {
+    color: #cbd5e1;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.agro-alerts-banner__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.agro-alerts-badge {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    border: 1px solid currentColor;
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.agro-alerts-badge--muted {
+    border-color: rgba(148, 163, 184, 0.5);
+    color: #94a3b8;
+}
+
+/* Card Riesgo Activo --------------------------------------- */
+
+.agro-alerts-card {
+    padding: 20px 22px;
+    border-radius: 16px;
+    background: rgba(20, 28, 38, 0.65);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);
+    color: #e2e8f0;
+}
+
+.agro-alerts-card--empty {
+    text-align: center;
+    color: #94a3b8;
+}
+
+.agro-alerts-card--gate {
+    border-color: rgba(245, 158, 11, 0.4);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(20, 28, 38, 0.65));
+}
+
+.agro-alerts-card__head {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.agro-alerts-card__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #f8fafc;
+    margin-bottom: 14px;
+    line-height: 1.35;
+}
+
+.agro-alerts-card__body {
+    color: #cbd5e1;
+    font-size: 13.5px;
+    line-height: 1.55;
+    margin-bottom: 14px;
+}
+
+.agro-alerts-chip {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    color: #fff;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+}
+
+.agro-alerts-chip--ghost {
+    background: rgba(255, 255, 255, 0.06);
+    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.agro-alerts-card__section {
+    margin: 12px 0;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-left: 3px solid rgba(34, 197, 94, 0.55);
+}
+
+.agro-alerts-card__section:nth-of-type(2) { border-left-color: rgba(245, 158, 11, 0.6); }
+.agro-alerts-card__section:nth-of-type(3) { border-left-color: rgba(14, 165, 233, 0.6); }
+
+.agro-alerts-card__section-label {
+    font-size: 10.5px;
+    letter-spacing: 0.6px;
+    color: #94a3b8;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.agro-alerts-card__section-text {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: #e2e8f0;
+}
+
+.agro-alerts-card__tech {
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 12px;
+    color: #94a3b8;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* Botones de feedback -------------------------------------- */
+
+.agro-alerts-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 18px;
+    flex-wrap: wrap;
+}
+
+.agro-alerts-btn {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.04);
+    color: #e2e8f0;
+    padding: 9px 16px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.agro-alerts-btn:hover {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.agro-alerts-btn--ok {
+    border-color: rgba(34, 197, 94, 0.45);
+    color: #4ade80;
+}
+
+.agro-alerts-btn--ok:hover { background: rgba(34, 197, 94, 0.12); }
+
+.agro-alerts-btn--snooze {
+    border-color: rgba(245, 158, 11, 0.45);
+    color: #fbbf24;
+}
+
+.agro-alerts-btn--snooze:hover { background: rgba(245, 158, 11, 0.12); }
+
+.agro-alerts-btn--bad {
+    border-color: rgba(239, 68, 68, 0.45);
+    color: #f87171;
+}
+
+.agro-alerts-btn--bad:hover { background: rgba(239, 68, 68, 0.12); }
+
+.agro-alerts-btn--cta {
+    border-color: rgba(245, 158, 11, 0.7);
+    color: #fbbf24;
+    background: rgba(245, 158, 11, 0.1);
+    margin-top: 8px;
+}
+
+/* Lista de alertas restantes ------------------------------- */
+
+.agro-alerts-list {
+    padding: 14px 18px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.agro-alerts-list__head {
+    font-size: 12px;
+    font-weight: 700;
+    color: #94a3b8;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+}
+
+.agro-alerts-list ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.agro-alerts-list__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    font-size: 13px;
+    color: #e2e8f0;
+}
+
+.agro-alerts-list__item:last-child { border-bottom: none; }
+
+.agro-alerts-list__sev {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.agro-alerts-list__title { flex: 1; }
+.agro-alerts-list__date { color: #94a3b8; font-size: 11.5px; }
+
+/* Toast --------------------------------------------------- */
+
+.agro-alerts-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 9999;
+    padding: 12px 18px;
+    border-radius: 12px;
+    background: rgba(15, 23, 32, 0.95);
+    color: #f1f5f9;
+    border: 1px solid rgba(34, 197, 94, 0.45);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    font-size: 13px;
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity .25s ease, transform .25s ease;
+}
+
+.agro-alerts-toast.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.agro-alerts-toast--error {
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fecaca;
+}

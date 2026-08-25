@@ -69,6 +69,13 @@ class Crop(models.Model):
     def __str__(self):
         return f"{self.name} ({self.variety}) - {self.parcel.name if self.parcel else 'Sin parcela'}"
 
+    @property
+    def insumos_aplicados(self):
+        """Vista unificada de insumos aplicados al cultivo (directos + vía labores)."""
+        directos = list(self.inputs.all())
+        via_labores = list(self.labor_insumos.all())
+        return directos + via_labores
+
     class Meta:
         verbose_name = "Cultivo"
         verbose_name_plural = "Cultivos"

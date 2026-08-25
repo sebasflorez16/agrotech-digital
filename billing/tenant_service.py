@@ -419,7 +419,7 @@ El equipo de AgroTech Digital
             send_mail(
                 subject=subject,
                 message=message,
-                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@agrotechdigital.com'),
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'contacto@agrotechcolombia.com'),
                 recipient_list=[email],
                 html_message=html_message,
                 fail_silently=True,
@@ -492,7 +492,7 @@ El equipo de AgroTech Digital
             email = EmailMultiAlternatives(
                 subject=subject,
                 body=text_message,
-                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@agrotechcolombia.com'),
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'contacto@agrotechcolombia.com'),
                 to=[user.email],
             )
             email.attach_alternative(html_message, "text/html")

@@ -11,8 +11,37 @@
     <!-- Liquid Glass Design System -->
     <link rel="stylesheet" href="../css/liquid-glass-system.css">
     
-    <!-- 🌍 Configuración global (debe cargarse primero) -->
+    <!-- 🌍 Configuración global -->
     <script src="../js/config.js"></script>
+    
+    <!-- 🔐 Verificación de autenticación y tenant_id -->
+    <script>
+        (function() {
+            var t = localStorage.getItem('accessToken') || sessionStorage.getItem('accessToken');
+            if (!t) {
+                var cp = window.location.pathname + window.location.search;
+                if (cp && cp.indexOf('auth-login') === -1) {
+                    window.location.href = '/auth-login.html?next=' + encodeURIComponent(cp);
+                }
+                return;
+            }
+            // Validar que el token incluya tenant_id
+            try {
+                var p = JSON.parse(atob(t.split('.')[1]));
+                if (!p.tenant_id) {
+                    document.body.innerHTML = '';
+                    window.stop();
+                    localStorage.clear();
+                    location.replace('/auth-login.html?next=' + encodeURIComponent(location.pathname));
+                }
+            } catch(e) {
+                document.body.innerHTML = '';
+                window.stop();
+                localStorage.clear();
+                location.replace('/auth-login.html');
+            }
+        })();
+    </script>
     
     <!-- Tabler Icons -->
     <link rel="stylesheet" href="https://unpkg.com/@tabler/icons-webfont@latest/tabler-icons.min.css" />
@@ -220,7 +249,110 @@
             background: linear-gradient(135deg, rgba(0, 122, 255, 0.15) 0%, rgba(0, 122, 255, 0.05) 100%);
             color: #0A7AFF;
         }
+
+        /* Dev Mode Toggle */
+        .devmode-toggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+        .devmode-toggle.devmode-on {
+            background: rgba(245, 158, 11, 0.15);
+            color: #b45309;
+            box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.3);
+        }
+        .devmode-toggle.devmode-on:hover {
+            background: rgba(245, 158, 11, 0.25);
+        }
+        .devmode-toggle.devmode-off {
+            background: rgba(148, 163, 184, 0.12);
+            color: #64748b;
+            box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.2);
+        }
+        .devmode-toggle.devmode-off:hover {
+            background: rgba(148, 163, 184, 0.22);
+        }
+        .devmode-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        .devmode-on .devmode-dot {
+            background: #f59e0b;
+            animation: devmode-pulse 1.5s ease-in-out infinite;
+        }
+        .devmode-off .devmode-dot {
+            background: #94a3b8;
+        }
+        @keyframes devmode-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* 🔐 Modal para PIN de desarrollador */
+        .devmode-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        .devmode-modal {
+            background: var(--glass-white, #fff);
+            border-radius: 16px;
+            padding: 24px;
+            width: 360px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+        }
+        .devmode-modal h3 {
+            margin: 0 0 12px;
+            font-size: 1.1rem;
+        }
+        .devmode-modal input {
+            width: 100%;
+            padding: 10px 14px;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            font-size: 1rem;
+            margin-bottom: 12px;
+            box-sizing: border-box;
+        }
+        .devmode-modal-actions {
+            display: flex;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+        .devmode-modal-actions button {
+            padding: 8px 18px;
+            border-radius: 10px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .devmode-modal-actions .btn-cancel {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .devmode-modal-actions .btn-confirm {
+            background: var(--agrotech-primary, #2FB344);
+            color: #fff;
+        }
     </style>
+    <link href="../css/mobile-nav.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
     <div class="dashboard-layout">
@@ -248,18 +380,17 @@
                     </a>
                 </div>
                 
-                <!-- 
                 <div class="nav-section">
                     <div class="nav-section-title">Gestión</div>
-                    <a href="http://localhost:8080/templates/inventory/inventario-dashboard.html" class="nav-item-glass">
+                    <a href="inventory/inventario-dashboard.html" class="nav-item-glass">
                         <i class="ti ti-box"></i>
                         <span>Inventario</span>
                     </a>
-                    <a href="http://localhost:8080/templates/employees/RRHH-dashboard.html" class="nav-item-glass">
+                    <a href="employees/RRHH-dashboard.html" class="nav-item-glass">
                         <i class="ti ti-users"></i>
                         <span>Empleados</span>
                     </a>
-                    <a href="http://localhost:8080/templates/labores/labores-dashboard.html" class="nav-item-glass">
+                    <a href="labores/labores-dashboard.html" class="nav-item-glass">
                         <i class="ti ti-checkbox"></i>
                         <span>Labores</span>
                     </a>
@@ -279,28 +410,31 @@
                 
                 <div class="nav-section">
                     <div class="nav-section-title">Cuenta</div>
-                    <a href="http://localhost:8080/templates/pages/profile.html" class="nav-item-glass">
+                    <a href="pages/profile.html" class="nav-item-glass">
                         <i class="ti ti-settings"></i>
                         <span>Configuración</span>
                     </a>
-                    <a href="#" class="nav-item-glass" onclick="logout()">
+                    <a href="#" class="nav-item-glass" onclick="if(confirm('¿Cerrar sesión?')){localStorage.clear();sessionStorage.clear();window.location.href='/auth-login.html';}return false;">
                         <i class="ti ti-logout"></i>
                         <span>Cerrar Sesión</span>
                     </a>
                 </div>
-                -->
             </nav>
         </aside>
         
-        <!-- Main Content -->
+        <!-- Contenido Principal -->
         <main class="main-content">
-            <!-- Header -->
+            <!-- Encabezado -->
             <header class="header">
                 <div class="header-title">
                     <h1>Bienvenido de nuevo 👋</h1>
                     <p class="header-subtitle">Aquí está el resumen de tu operación agrícola</p>
                 </div>
                 <div class="header-actions">
+                    <button id="devModeToggle" class="devmode-toggle devmode-off" style="display:none" title="Modo Desarrollador">
+                        <span class="devmode-dot"></span>
+                        <span class="devmode-label">DEV OFF</span>
+                    </button>
                     <button class="btn-glass">
                         <i class="ti ti-bell"></i>
                     </button>
@@ -311,7 +445,7 @@
                 </div>
             </header>
             
-            <!-- Stats Grid -->
+            <!-- Estadísticas -->
             <div class="stats-grid">
                 <div class="stat-card">
                     <div class="icon-circle green">
@@ -346,26 +480,39 @@
                 </div>
             </div>
             
-            <!-- Content Grid -->
+            <!-- Panel de Suscripción + Acciones -->
             <div class="content-grid">
-                <!-- Subscription Status -->
+                <!-- Estado de Suscripción -->
                 <div class="glass-card">
                     <h2 style="margin-bottom: var(--space-lg); font-size: 1.25rem;">Estado de Suscripción</h2>
                     <div id="subscriptionInfo">
-                        <div class="skeleton" style="height: 100px; margin-bottom: var(--space-md);"></div>
-                        <div class="skeleton" style="height: 60px;"></div>
+                        <div style="display: flex; align-items: center; gap: 16px; padding: 16px 0;">
+                            <div style="font-size: 2.5rem;">
+                                <i class="ti ti-credit-card" style="color: var(--agrotech-primary);"></i>
+                            </div>
+                            <div>
+                                <p id="subPlanName" style="font-weight: 600; font-size: 1.1rem; margin: 0;">Plan Básico</p>
+                                <p id="subStatus" style="color: var(--text-secondary); margin: 4px 0 0 0; font-size: 0.9rem;">Activo</p>
+                            </div>
+                        </div>
+                        <div style="margin-top: 8px;">
+                            <button class="btn-glass" style="width: 100%; justify-content: center;" onclick="window.location.href='billing.html'">
+                                <i class="ti ti-arrow-right"></i>
+                                <span>Gestionar Suscripción</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- Quick Actions -->
+                <!-- Acciones Rápidas -->
                 <div class="glass-card">
                     <h2 style="margin-bottom: var(--space-lg); font-size: 1.25rem;">Acciones Rápidas</h2>
                     <div style="display: flex; flex-direction: column; gap: var(--space-sm);">
-                        <button class="btn-glass" style="justify-content: flex-start; width: 100%;" onclick="location.href='parcels.html'">
+                        <button class="btn-glass" style="justify-content: flex-start; width: 100%;" onclick="location.href='parcels/parcels-dashboard.html'">
                             <i class="ti ti-plus"></i>
                             <span>Nueva Parcela</span>
                         </button>
-                        <button class="btn-glass" style="justify-content: flex-start; width: 100%;" onclick="location.href='crops.html'">
+                        <button class="btn-glass" style="justify-content: flex-start; width: 100%;" onclick="location.href='crop/crop_list.html'">
                             <i class="ti ti-plant"></i>
                             <span>Registrar Cultivo</span>
                         </button>
@@ -377,19 +524,41 @@
                 </div>
             </div>
             
-            <!-- Recent Activity -->
+            <!-- Actividad Reciente -->
             <div class="glass-card">
                 <h2 style="margin-bottom: var(--space-lg); font-size: 1.25rem;">Actividad Reciente</h2>
                 <div id="recentActivity">
-                    <p style="color: var(--text-secondary); text-align: center; padding: var(--space-xl);">
-                        Cargando actividad...
-                    </p>
+                    <div style="display: flex; flex-direction: column; gap: 16px;">
+                        <div style="display: flex; align-items: center; gap: 14px; padding: 12px; background: rgba(47, 179, 68, 0.05); border-radius: 12px;">
+                            <div style="font-size: 1.5rem;">🌾</div>
+                            <div style="flex: 1;">
+                                <p style="font-weight: 600; margin: 0; font-size: 0.95rem;" id="activityText1">Sin actividad reciente</p>
+                                <p style="color: var(--text-tertiary); margin: 2px 0 0 0; font-size: 0.8rem;" id="activityDate1">--</p>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 14px; padding: 12px; background: rgba(47, 179, 68, 0.03); border-radius: 12px;">
+                            <div style="font-size: 1.5rem;">📋</div>
+                            <div style="flex: 1;">
+                                <p style="font-weight: 600; margin: 0; font-size: 0.95rem;" id="activityText2">Explora las herramientas disponibles</p>
+                                <p style="color: var(--text-tertiary); margin: 2px 0 0 0; font-size: 0.8rem;" id="activityDate2">--</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
     
     <!-- Scripts -->
+    <script src="../js/utils/api-utils.js"></script>
     <script src="../js/dashboard-liquid.js"></script>
+    <!-- Barra de navegación inferior (móvil) -->
+    <nav class="mobile-bottom-nav">
+        <a href="dashboard.html" class="active"><i>📊</i><span>Dashboard</span></a>
+        <a href="parcels/parcels-dashboard.html"><i>🗺️</i><span>Parcelas</span></a>
+        <a href="crop/crop_list.html"><i>🌱</i><span>Cultivos</span></a>
+        <a href="billing.html"><i>💳</i><span>Facturación</span></a>
+        <a href="pages/profile.html"><i>👤</i><span>Perfil</span></a>
+    </nav>
 </body>
 </html>

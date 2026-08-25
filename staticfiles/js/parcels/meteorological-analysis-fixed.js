@@ -85,8 +85,10 @@ function loadMeteorologicalAnalysisWithRefresh(parcelId) {
     
     showMeteorologicalLoading(true);
     
-    // Construir URL - usar siempre window.location.origin para producción
-    const baseUrl = window.location.origin;
+    // Construir URL - usar config.js centralizado
+    const baseUrl = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+        ? window.AGROTECH_CONFIG.API_BASE
+        : window.location.origin;
     const endpoint = `${baseUrl}/api/parcels/parcel/${parcelId}/ndvi-weather-comparison/?refresh=${Date.now()}`;
     
     console.log(`[METEOROLOGICAL] Haciendo petición de actualización a: ${endpoint}`);
@@ -136,8 +138,10 @@ function loadMeteorologicalAnalysis(parcelId) {
     
     showMeteorologicalLoading(true);
     
-    // Construir URL - usar siempre window.location.origin para producción
-    const baseUrl = window.location.origin;
+    // Construir URL - usar config.js centralizado
+    const baseUrl = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+        ? window.AGROTECH_CONFIG.API_BASE
+        : window.location.origin;
     const endpoint = `${baseUrl}/api/parcels/parcel/${parcelId}/ndvi-weather-comparison/`;
     
     console.log(`[METEOROLOGICAL] Haciendo petición a: ${endpoint}`);

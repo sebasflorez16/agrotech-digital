@@ -1,5 +1,9 @@
 // Definir la URL base de la API
-const PAYMENT_HANDLER_BASE_URL = `http://${window.location.hostname}:8000/api/RRHH`;
+const _PAY_BASE = (window.AGROTECH_CONFIG && window.AGROTECH_CONFIG.API_BASE)
+    ? window.AGROTECH_CONFIG.API_BASE
+    : (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        ? `http://${window.location.hostname}:8000` : 'https://agrotech-digital-production.up.railway.app');
+const PAYMENT_HANDLER_BASE_URL = `${_PAY_BASE}/api/RRHH`;
 
 // Función para cargar los métodos de pago
 async function cargarMetodosPago() {

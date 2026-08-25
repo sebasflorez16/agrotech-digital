@@ -6,6 +6,7 @@ from .simple_analytics import SimpleAnalyticsView
 from django.http import JsonResponse
 from .metereological import WeatherForecastView
 from .elevation import ElevationView
+from .sentinel2 import Sentinel2IndexImagesView, Sentinel2ScenesView, Sentinel2ObservationView, Sentinel2HistoryView
 from .report_views import CropCycleReportView
 
 # ELIMINADO: app_name = "parcels" - causaba conflicto con el router DRF
@@ -57,6 +58,15 @@ urlpatterns = [
 
     # Elevación / Topografía de la parcela (Open-Meteo Elevation API - gratuito)
     path('parcel/<int:parcel_id>/elevation/', ElevationView.as_view(), name='parcel_elevation'),
+
+    # Índices Sentinel-2 en imagen de color (gratis) - NDVI/NDMI/SAVI/NDRE
+    path('parcel/<int:parcel_id>/sentinel2-images/', Sentinel2IndexImagesView.as_view(), name='parcel_sentinel2_images'),
+    # Lista de escenas Sentinel-2 con nubosidad (gratis)
+    path('parcel/<int:parcel_id>/sentinel2-scenes/', Sentinel2ScenesView.as_view(), name='parcel_sentinel2_scenes'),
+    # Recomendación de observación (óptica vs radar) según nubosidad
+    path('parcel/<int:parcel_id>/observation/', Sentinel2ObservationView.as_view(), name='parcel_observation'),
+    # Serie temporal de índices Sentinel-2 (histórico)
+    path('parcel/<int:parcel_id>/sentinel2-history/', Sentinel2HistoryView.as_view(), name='parcel_sentinel2_history'),
 
     # Salud del cultivo — Monitoreo Continuo Fase 1
     path('parcel/<int:parcel_id>/health/', views.CropHealthAPIView.as_view(), name='parcel_health'),

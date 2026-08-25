@@ -66,6 +66,7 @@ class SmartTenantMiddleware(TenantMainMiddleware):
     PUBLIC_PATH_PREFIXES = [
         '/api/auth/',
         '/api/token/',
+        '/api/parcels/geocode',
         '/billing/',
         '/health/',
         '/staff/',
@@ -75,6 +76,10 @@ class SmartTenantMiddleware(TenantMainMiddleware):
     DEV_HOSTNAMES = ['localhost', '127.0.0.1']
 
     def process_request(self, request):
+        # Resetear la conexión a schema public ANTES de cualquier consulta a Client.
+        # Evita fuga de schema entre requests (la conexión puede quedar en un tenant).
+        connection.set_schema_to_public()
+
         # Detectar si estamos en desarrollo local
         hostname = request.get_host().split(':')[0].lower()
         is_dev = hostname in self.DEV_HOSTNAMES
@@ -86,7 +91,9 @@ class SmartTenantMiddleware(TenantMainMiddleware):
         )
 
         if is_public_path:
-            self._set_public_tenant(request)
+            # geocode es utilidad pública que vive en parcels → usa urlconf completo
+            use_full = request.path.startswith('/api/parcels/geocode')
+            self._set_public_tenant(request, use_full_urlconf=use_full)
             return
 
         # 🔒 Resolver tenant desde JWT primero (verificacion criptografica)

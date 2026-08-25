@@ -52,6 +52,9 @@ class ParcelZonificationViewSet(viewsets.ModelViewSet):
                     'savi_mean': zone.savi_mean,
                     'ndre_mean': zone.ndre_mean,
                     'recomendacion': zone.recomendacion,
+                    'brecha_pct': zone.brecha_pct,
+                    'priority': zone.priority,
+                    'drainage_direction': zone.drainage_direction,
                 },
             })
         return Response({
