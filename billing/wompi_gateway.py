@@ -114,6 +114,28 @@ class WompiGateway(PaymentGateway):
             logger.error(f"[WOMPI] Excepcion creando payment link: {e}")
             return {"success": False, "error": str(e)}
 
+    def get_transaction_status(self, reference: str) -> Dict[str, Any]:
+        """Consulta el estado de la transacción por referencia (para confirmar pago)."""
+        base = _wompi_base()
+        try:
+            resp = requests.get(
+                f"{base}/transactions",
+                params={"reference": reference},
+                headers=_wompi_headers(),
+                timeout=15,
+            )
+            if resp.status_code != 200:
+                return {"success": False, "error": f"HTTP {resp.status_code}"}
+            data = resp.json()
+            transactions = data.get("data", [])
+            if not transactions:
+                return {"success": False, "error": "no_transactions"}
+            tx = transactions[0]
+            return {"success": True, "status": tx.get("status", ""), "transaction_id": tx.get("id", "")}
+        except Exception as e:
+            logger.error(f"[WOMPI] Error consultando transacción: {e}")
+            return {"success": False, "error": str(e)}
+
     def cancel_subscription(self, subscription_id: str) -> Dict[str, Any]:
         return {"success": True, "message": "Wompi no maneja cancelacion de payment links"}
 

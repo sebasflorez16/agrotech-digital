@@ -1381,7 +1381,9 @@ def confirm_payment_create_tenant(request):
     """
     try:
         data = json.loads(request.body)
+        gateway = data.get('gateway', 'mercadopago')
         preapproval_id = data.get('preapproval_id', '')
+        reference = data.get('reference', '')
         plan_tier = data.get('plan_tier', 'basic')
         billing_cycle = data.get('billing_cycle', 'monthly')
         payer_email = data.get('payer_email', '')
@@ -1390,10 +1392,12 @@ def confirm_payment_create_tenant(request):
         if not payer_email:
             return JsonResponse({'error': 'payer_email requerido'}, status=400)
         
-        # Idempotencia: si ya existe una suscripción con ese preapproval_id, retornar ok
-        if preapproval_id:
+        external_id = preapproval_id if gateway == 'mercadopago' else reference
+        
+        # Idempotencia: si ya existe una suscripción con ese ID externo, retornar ok
+        if external_id:
             existing = Subscription.objects.filter(
-                external_subscription_id=preapproval_id
+                external_subscription_id=external_id
             ).select_related('tenant').first()
             
             if existing:
@@ -1406,43 +1410,52 @@ def confirm_payment_create_tenant(request):
                     'status': existing.status,
                 })
         
-        # Verificar con MercadoPago (si hay preapproval_id)
-        mp_verified = False
-        if preapproval_id:
-            try:
-                sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
-                result = sdk.preapproval().get(preapproval_id)
-                if result['status'] == 200:
-                    mp_status = result['response'].get('status', '')
-                    if mp_status in ['authorized', 'pending']:
-                        mp_verified = True
-                        logger.info(f"MercadoPago verificado: {preapproval_id} status={mp_status}")
-                    else:
-                        logger.warning(f"MercadoPago status inesperado: {mp_status} para {preapproval_id}")
-            except Exception as e:
-                logger.warning(f"No se pudo verificar con MercadoPago: {e}")
+        # Verificar el pago con la pasarela correspondiente
+        payment_verified = False
+        if gateway == 'wompi':
+            if reference:
+                from .wompi_gateway import WompiGateway
+                check = WompiGateway().get_transaction_status(reference)
+                if check.get('success') and check.get('status') == 'APPROVED':
+                    payment_verified = True
+                    logger.info(f"Wompi verificado: ref={reference} status=APPROVED")
+                else:
+                    logger.warning(f"Wompi NO verificado: ref={reference} check={check}")
+        else:
+            if preapproval_id:
+                try:
+                    sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
+                    result = sdk.preapproval().get(preapproval_id)
+                    if result['status'] == 200:
+                        mp_status = result['response'].get('status', '')
+                        if mp_status in ['authorized', 'pending']:
+                            payment_verified = True
+                            logger.info(f"MercadoPago verificado: {preapproval_id} status={mp_status}")
+                        else:
+                            logger.warning(f"MercadoPago status inesperado: {mp_status} para {preapproval_id}")
+                except Exception as e:
+                    logger.warning(f"No se pudo verificar con MercadoPago: {e}")
 
         # ── SEGURIDAD CRÍTICA ──────────────────────────────────────────────────
-        # Los planes de pago REQUIEREN verificación con MercadoPago.
-        # Sin esto, cualquiera podría crear un tenant de 599.000 COP gratis.
+        # Los planes de pago REQUIEREN verificación con la pasarela.
         if plan_tier != 'free':
-            if not preapproval_id:
+            if not external_id:
                 logger.warning(
-                    f"[SECURITY] Intento de crear tenant de pago sin preapproval_id: "
-                    f"plan={plan_tier} email={payer_email} ip={request.META.get('REMOTE_ADDR')}"
+                    f"[SECURITY] Intento de crear tenant de pago sin ID de pago: "
+                    f"plan={plan_tier} email={payer_email} gateway={gateway} ip={request.META.get('REMOTE_ADDR')}"
                 )
                 return JsonResponse(
                     {'error': 'Se requiere un ID de pago. Completa el checkout primero.'},
                     status=402
                 )
-            if not mp_verified:
+            if not payment_verified:
                 logger.warning(
-                    f"[SECURITY] Intento de crear tenant sin verificación MP: "
-                    f"plan={plan_tier} email={payer_email} preapproval={preapproval_id} "
+                    f"[SECURITY] Intento de crear tenant sin verificación de pago: "
+                    f"plan={plan_tier} email={payer_email} gateway={gateway} "
                     f"ip={request.META.get('REMOTE_ADDR')}"
                 )
                 return JsonResponse(
-                    {'error': 'El pago no fue confirmado por MercadoPago. Intenta de nuevo o contacta soporte.'},
+                    {'error': 'El pago no fue confirmado por la pasarela. Intenta de nuevo o contacta soporte.'},
                     status=402
                 )
         # ── FIN SEGURIDAD ──────────────────────────────────────────────────────
@@ -1464,8 +1477,8 @@ def confirm_payment_create_tenant(request):
             plan_tier=plan_tier,
             billing_cycle=billing_cycle,
             payer_email=payer_email,
-            external_subscription_id=preapproval_id,
-            payment_gateway='mercadopago' if preapproval_id else 'manual',
+            external_subscription_id=external_id,
+            payment_gateway=gateway if external_id else 'manual',
             username=username,
             password=password or None,  # None = auto-generate + email
             user_name=data.get('user_name', ''),
@@ -1475,7 +1488,7 @@ def confirm_payment_create_tenant(request):
         if result['success']:
             logger.info(
                 f"✅ Tenant creado post-pago: {tenant_name} plan={plan_tier} "
-                f"mp_verified={mp_verified} preapproval={preapproval_id}"
+                f"gateway={gateway} verified={payment_verified} external_id={external_id}"
             )
             response_data = {
                 'success': True,
@@ -1485,7 +1498,8 @@ def confirm_payment_create_tenant(request):
                 'plan': plan_tier,
                 'status': result['status'],
                 'paid_until': result['paid_until'],
-                'mp_verified': mp_verified,
+                'gateway': gateway,
+                'payment_verified': payment_verified,
                 'username': result.get('username', username),
             }
             # Incluir tokens JWT para auto-login
