@@ -75,6 +75,7 @@ class WompiGateway(PaymentGateway):
         tenant_id = tenant.id if tenant else (user.id if user else 0)
         reference = f"sub_{tenant_id}_{plan.tier}_{uuid.uuid4().hex[:8]}"
 
+        frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:8080").rstrip("/")
         payload = {
             "name": f"Suscripcion AgroTech — {plan.name}",
             "description": plan.description or f"Plan {plan.name}",
@@ -84,9 +85,7 @@ class WompiGateway(PaymentGateway):
             "amount_in_cents": price_cents,
             "reference": reference,
             "expires_at": None,  # Sin expiracion
-            "redirect_url": getattr(settings, "SITE_URL", "http://localhost:8000")
-            + "/billing/success/?ref="
-            + reference,
+            "redirect_url": f"{frontend_url}/templates/billing/success.html?plan={plan.tier}&cycle=monthly&ref={reference}",
         }
 
         try:
