@@ -29,27 +29,28 @@ logger = logging.getLogger(__name__)
 
 
 def _wompi_base():
-    sandbox = getattr(settings, "WOMPI_SANDBOX", "true").lower() in ("1", "true", "yes")
+    sandbox = (getattr(settings, "WOMPI_SANDBOX", "true") or "").strip().lower() in ("1", "true", "yes")
     return "https://sandbox.wompi.co/v1" if sandbox else "https://production.wompi.co/v1"
 
 
 def _wompi_headers():
+    key = (getattr(settings, 'WOMPI_PRIVATE_KEY', '') or '').strip()
     return {
-        "Authorization": f"Bearer {getattr(settings, 'WOMPI_PRIVATE_KEY', '')}",
+        "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
     }
 
 
 def _integrity_signature(reference: str, amount_in_cents: int, currency: str) -> str:
     """Firma de integridad de Wompi (SHA256 de referencia + monto + moneda + llave de integridad)."""
-    key = getattr(settings, "WOMPI_INTEGRITY_KEY", "")
+    key = (getattr(settings, "WOMPI_INTEGRITY_KEY", "") or "").strip()
     raw = f"{reference}{amount_in_cents}{currency}{key}"
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
 def _verify_wompi_signature(payload: bytes, signature_header: str) -> bool:
     """Verifica firma HMAC-SHA256 del webhook de Wompi."""
-    secret = getattr(settings, "WOMPI_EVENTS_KEY", "")
+    secret = (getattr(settings, "WOMPI_EVENTS_KEY", "") or "").strip()
     if not secret or not signature_header:
         return False
     expected = hmac.new(
@@ -146,7 +147,7 @@ class WompiGateway(PaymentGateway):
         """Obtiene los tokens de aceptación (Habeas Data) requeridos para crear
         transacciones y fuentes de pago."""
         base = _wompi_base()
-        pub_key = getattr(settings, "WOMPI_PUBLIC_KEY", "")
+        pub_key = (getattr(settings, "WOMPI_PUBLIC_KEY", "") or "").strip()
         try:
             resp = requests.get(f"{base}/merchants/{pub_key}", timeout=15)
             if resp.status_code == 200:
