@@ -638,31 +638,34 @@ def usage_dashboard_view(request):
     def get_resource_usage(used, limit_key, resource_name):
         """Helper para calcular métricas de un recurso."""
         limit = plan.get_limit(limit_key, 0)
-        
-        if limit == 0:
+        # Los planes "ilimitados" usan un sentinel grande (>= 9999). Tratarlo como ilimitado.
+        is_unlimited = (limit is None) or (limit == 0) or (limit >= 9999)
+
+        if is_unlimited:
+            limit = 0
             percentage = 0
             status = 'unlimited'
         else:
             percentage = round((used / limit) * 100, 2) if limit > 0 else 0
-            
+
             if percentage >= 100:
                 status = 'exceeded'
             elif percentage >= 80:
                 status = 'warning'
             else:
                 status = 'ok'
-        
+
         result = {
             'used': used,
-            'limit': limit if limit > 0 else 'unlimited',
+            'limit': 'unlimited' if is_unlimited else limit,
             'percentage': percentage,
             'status': status
         }
-        
+
         # Agregar overage si aplica
-        if used > limit > 0:
+        if (not is_unlimited) and used > limit > 0:
             result['overage'] = used - limit
-        
+
         return result
     
     current_usage = {
