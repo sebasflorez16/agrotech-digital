@@ -27,6 +27,9 @@ django-allauth==65.0.2
 django-browser-reload==1.16.0
 django-cors-headers==4.7.0
 django-crispy-forms==2.3
+django-ckeditor==6.7.3
+django-js-asset==4.0.2
+django-jazzmin==3.0.5
 django-debug-toolbar==4.4.6
 django-environ==0.11.2
 django-extensions==3.2.3
@@ -48,6 +51,9 @@ geojson==3.2.0
 geopandas==1.1.1
 numpy<2
 scipy>=1.10
+# Geo/ML — Sentinel-2 (COGs) y zonificación K-means
+rasterio==1.3.9
+scikit-learn==1.8.0
 # GDAL se instala desde el sistema en Docker (no pip) — ver Dockerfile
 gunicorn==21.2.0
 idna==3.10
