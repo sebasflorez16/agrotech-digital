@@ -30,9 +30,10 @@ experiencia es **AgroTech**. Esas referencias solo van en código/documentación
 ## 2. Arquitectura técnica (lo esencial)
 
 - **Backend**: Django 5 + **django-tenants** (cada tenant = un schema PostgreSQL).
-- **Frontend operativo**: HTML/JS servido por Django — `metrica/static/js/parcels/`
+- **Dashboard (frontend operativo)**: HTML/JS servido por Django — `metrica/static/js/parcels/`
   (dashboard Leaflet) y `metrica/templates/parcels/parcels-dashboard.html`.
-- **SPA React**: `frontend/` (registro/login/landing). Parcialmente conectado.
+- **SPA React (registro/login/landing)**: repo **separado** `agrotech-client-frontend`
+  (Netlify). Dentro de `agrotech-digital` solo queda `frontend-react-backup/` (histórico, no operable).
 - **Autenticación**: JWT (simplejwt) con `tenant_id` en el token; middleware
   `config/middleware.py` resuelve el tenant.
 - **EOSDA**: todo pasa por `parcels/eosda_client.py` (cache + rate limiter + log).
@@ -78,37 +79,39 @@ experiencia es **AgroTech**. Esas referencias solo van en código/documentación
 
 ---
 
-## 4. Repositorios (IMPORTANTE — son DOS)
+## 4. Repositorios (fuente de verdad)
 
 | Repo | Qué contiene | Deploy |
 |---|---|---|
-| `agrotech-digital` (el de siempre) | Backend Django + dashboard (`metrica/`). ⚠️ La carpeta `frontend/` aquí es una **copia vieja**, NO es la fuente de verdad | — |
-| `agrotech-client-frontend` | Frontend React (SPA: registro/login/landing) | Netlify |
+| `agrotech-client-frontend` | **Frontend React (SPA). Única fuente de verdad** | Netlify |
+| `agrotech-digital` | Backend Django + dashboard (`metrica/templates` + `metrica/static`, sin romper) | Railway |
+| `frontend-react-backup/` (dentro de `agrotech-digital`) | React SPA **viejo. No operable, solo histórico** | — |
 
+URLs:
 - `https://github.com/sebasflorez16/agrotech-digital.git`
 - `https://github.com/sebasflorez16/agrotech-client-frontend.git`
 
-Los cambios de esta fase están en `agrotech-digital` (backend + dashboard), EXCEPTO
-los del frontend React, que van en `agrotech-client-frontend` (ver `docs/CAMBIOS_FRONTEND_REACT.md`).
+**No tocar `frontend-react-backup/`** — es solo histórico. El frontend real vive en
+`agrotech-client-frontend`.
 
 ## 5. Los dos cambios a traer
 
 | Dónde | Contenido |
 |---|---|
-| `agrotech-digital` (commits `bf86208` + `30be284` + `2acdd6e`) | Backend Django + dashboard `metrica/` + migraciones + tests + docs |
-| `agrotech-client-frontend` (aplicar manualmente) | 3 archivos React: `src/api/client.js`, `src/pages/Register.jsx`, `src/pages/Landing.jsx` — ver `docs/CAMBIOS_FRONTEND_REACT.md` |
+| `agrotech-digital` | Backend Django + dashboard `metrica/` + migraciones + tests + docs |
+| `agrotech-client-frontend` | 3 archivos React: `src/api/client.js`, `src/pages/Register.jsx`, `src/pages/Landing.jsx` — ver `docs/CAMBIOS_FRONTEND_REACT.md` |
 
 ## 6. Pasos para traer los cambios en el Mac Mini
 
 ```bash
-# Repo backend + dashboard
+# Repo backend + dashboard (Railway)
 cd <ruta>/agrotech-digital
 git fetch origin && git pull origin main
 # activar venv, luego:
 python manage.py migrate_schemas --schema public   # y por cada tenant
 python manage.py collectstatic --noinput
 
-# Repo frontend React (Netlify)
+# Repo frontend React (Netlify) — única fuente de verdad
 cd <ruta>/agrotech-client-frontend
 git pull origin main
 # aplicar los 3 cambios de docs/CAMBIOS_FRONTEND_REACT.md
