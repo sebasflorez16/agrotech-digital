@@ -70,6 +70,19 @@ class SmartTenantMiddleware(TenantMainMiddleware):
         '/billing/',
         '/health/',
         '/staff/',
+        '/admin/',      # Admin de Django (superuser/owner)
+        '/media/',      # Archivos subidos (imágenes del blog, etc.)
+        '/ckeditor/',   # Upload de imágenes del editor de texto enriquecido
+        '/static/',     # Archivos estáticos (CSS/JS servidos por el backend)
+    ]
+
+    # Prefijos públicos que además deben usar ROOT_URLCONF completo
+    # (rutas que viven en config/urls.py y no en public_urls.py)
+    FULL_URLCONF_PREFIXES = [
+        '/api/parcels/geocode',
+        '/admin/',
+        '/media/',
+        '/ckeditor/',
     ]
     
     # Hostnames que deben usar ROOT_URLCONF completo en desarrollo
@@ -91,8 +104,11 @@ class SmartTenantMiddleware(TenantMainMiddleware):
         )
 
         if is_public_path:
-            # geocode es utilidad pública que vive en parcels → usa urlconf completo
-            use_full = request.path.startswith('/api/parcels/geocode')
+            # Rutas públicas que viven en ROOT_URLCONF usan el urlconf completo
+            use_full = any(
+                request.path.startswith(prefix)
+                for prefix in self.FULL_URLCONF_PREFIXES
+            )
             self._set_public_tenant(request, use_full_urlconf=use_full)
             return
 
