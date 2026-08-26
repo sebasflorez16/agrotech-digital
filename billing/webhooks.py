@@ -250,7 +250,13 @@ def _process_wompi_payment(payment_data, reference):
                 sub.save()
         else:
             from billing.models import Plan
-            plan = Plan.objects.filter(tier=plan_tier, is_active=True).first() or Plan.objects.filter(is_active=True).exclude(tier="free").first()
+            # El plan viene en la referencia; si no existe, usar 'basic' (NO .first(),
+            # que puede devolver cualquier plan según el orden de IDs).
+            plan = (
+                Plan.objects.filter(tier=plan_tier, is_active=True).first()
+                or Plan.objects.filter(tier='basic', is_active=True).first()
+                or Plan.objects.filter(is_active=True).exclude(tier="free").first()
+            )
             Subscription.objects.create(
                 tenant=tenant, plan=plan, payment_gateway="wompi",
                 status="active", current_period_start=now,
