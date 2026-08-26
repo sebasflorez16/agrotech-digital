@@ -258,6 +258,13 @@ class Subscription(models.Model):
         verbose_name='ID externo',
         help_text='ID de la suscripción en la pasarela de pago'
     )
+    payment_source_id = models.CharField(
+        max_length=200,
+        blank=True,
+        null=True,
+        verbose_name='ID de fuente de pago',
+        help_text='Fuente de pago tokenizada (Wompi) para cobros automáticos recurrentes (3RI)'
+    )
     
     # Estado
     status = models.CharField(

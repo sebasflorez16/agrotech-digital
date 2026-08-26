@@ -135,6 +135,55 @@ class WompiGateway(PaymentGateway):
             logger.error(f"[WOMPI] Error consultando transacción: {e}")
             return {"success": False, "error": str(e)}
 
+    def create_payment_source(self, card_token: str, customer_email: str) -> Dict[str, Any]:
+        """Crea una fuente de pago (tarjeta tokenizada) para cobros recurrentes (3RI)."""
+        base = _wompi_base()
+        try:
+            resp = requests.post(
+                f"{base}/payment_sources",
+                json={"type": "CARD", "token": card_token, "customer_email": customer_email},
+                headers=_wompi_headers(),
+                timeout=20,
+            )
+            data = resp.json()
+            if resp.status_code in (200, 201):
+                ps = data.get("data", data)
+                return {"success": True, "payment_source_id": str(ps.get("id", ""))}
+            error_msg = data.get("error", {}).get("reason", resp.text)
+            logger.error(f"[WOMPI] Error creando fuente de pago: {resp.status_code} — {error_msg}")
+            return {"success": False, "error": error_msg}
+        except Exception as e:
+            logger.error(f"[WOMPI] Excepción creando fuente de pago: {e}")
+            return {"success": False, "error": str(e)}
+
+    def charge_payment_source(self, payment_source_id: str, amount_in_cents: int,
+                              reference: str, customer_email: str) -> Dict[str, Any]:
+        """Cobra automáticamente una fuente de pago (3RI, sin cliente presente)."""
+        base = _wompi_base()
+        try:
+            resp = requests.post(
+                f"{base}/transactions",
+                json={
+                    "payment_source_id": int(payment_source_id),
+                    "amount_in_cents": amount_in_cents,
+                    "currency": "COP",
+                    "reference": reference,
+                    "customer_email": customer_email,
+                },
+                headers=_wompi_headers(),
+                timeout=25,
+            )
+            data = resp.json()
+            if resp.status_code in (200, 201):
+                tx = data.get("data", data)
+                return {"success": True, "status": tx.get("status", ""), "transaction_id": tx.get("id", "")}
+            error_msg = data.get("error", {}).get("reason", resp.text)
+            logger.error(f"[WOMPI] Error cobrando fuente de pago: {resp.status_code} — {error_msg}")
+            return {"success": False, "error": error_msg}
+        except Exception as e:
+            logger.error(f"[WOMPI] Excepción cobrando fuente de pago: {e}")
+            return {"success": False, "error": str(e)}
+
     def cancel_subscription(self, subscription_id: str) -> Dict[str, Any]:
         return {"success": True, "message": "Wompi no maneja cancelacion de payment links"}
 
