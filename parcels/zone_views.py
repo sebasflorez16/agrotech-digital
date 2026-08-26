@@ -109,13 +109,32 @@ class ParcelZonificationViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(zonification)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    def list(self, request, *args, **kwargs):
+        """Marca como fallidas las zonificaciones 'processing' que quedaron colgadas."""
+        from django.utils import timezone
+        from datetime import timedelta
+        ParcelZonification.objects.filter(
+            status='processing',
+            updated_at__lt=timezone.now() - timedelta(minutes=10),
+        ).update(status='failed', notes='Procesamiento interrumpido (timeout).')
+        return super().list(request, *args, **kwargs)
+
     @action(detail=False, methods=['post'], url_path='generate-for-parcel')
     def generate_for_parcel(self, request):
-        """Atajo: crea (o reutiliza pendiente) una zonificación y la ejecuta en un paso.
+        """Atajo: crea una zonificación y la procesa EN SEGUNDO PLANO.
 
         Body: { "parcel": <id>, "k_zones": 3..5, "index_base": "ndvi", "scene_date": "YYYY-MM-DD" }
+
+        Devuelve 202 con la zonificación en estado 'processing'. El frontend
+        consulta GET /parcel-zonifications/?parcel=<id> hasta que pase a 'ready' o 'failed'.
         """
         from datetime import date
+        from django.db import connections
+        from django_tenants.utils import schema_context
+        import threading
+        import logging
+
+        logger = logging.getLogger(__name__)
         parcel_id = request.data.get('parcel')
         if not parcel_id:
             return Response({'detail': 'parcel es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -134,21 +153,32 @@ class ParcelZonificationViewSet(viewsets.ModelViewSet):
             index_base=index_base,
             method='kmeans',
             k_zones=k_zones,
-            status='pending',
+            status='processing',
         )
-        result = run_zonification(zonification)
-        zonification.refresh_from_db()
-        if not result.get('ok'):
-            return Response(
-                {
-                    'detail': result.get('reason', 'No se pudo generar la zonificación.'),
-                    'zonification_id': zonification.id,
-                    'status': zonification.status,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        zonification_id = zonification.id
+        from django.db import connection as db_connection
+        tenant_obj = getattr(request, 'tenant', None) or getattr(db_connection, 'tenant', None)
+        schema_name = tenant_obj.schema_name if tenant_obj else None
+
+        def _run_async():
+            try:
+                if schema_name:
+                    with schema_context(schema_name):
+                        z = ParcelZonification.objects.get(pk=zonification_id)
+                        run_zonification(z)
+                else:
+                    z = ParcelZonification.objects.get(pk=zonification_id)
+                    run_zonification(z)
+            except Exception:
+                logger.exception("[ZONIFICACIÓN] Error en procesamiento en segundo plano")
+            finally:
+                connections.close_all()
+
+        from django.db import transaction
+        transaction.on_commit(lambda: threading.Thread(target=_run_async, daemon=True).start())
+
         serializer = self.get_serializer(zonification)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.data, status=status.HTTP_202_ACCEPTED)
 
 
 class ParcelZoneViewSet(viewsets.ReadOnlyModelViewSet):
