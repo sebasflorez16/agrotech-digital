@@ -191,12 +191,41 @@ def wompi_webhook(request):
 
 
 def _process_wompi_payment(payment_data, reference):
-    """Activa o crea la suscripcion cuando Wompi confirma pago."""
+    """Activa/crea la suscripción (primer pago) o la renueva (pago recurrente)."""
     import re
     from billing.models import Subscription
     from django.utils import timezone
     from datetime import timedelta
 
+    now = timezone.now()
+
+    # ── RENOVACIÓN: referencia renew_{tenant_id}_{uuid} ──
+    renew_match = re.search(r"renew_(\d+)_", reference)
+    if renew_match:
+        tenant_id = int(renew_match.group(1))
+        try:
+            from base_agrotech.models import Client
+            tenant = Client.objects.filter(id=tenant_id).first()
+            if not tenant:
+                logger.warning(f"[WOMPI] Tenant no encontrado (renovación) tenant_id={tenant_id}")
+                return
+            sub = Subscription.objects.filter(tenant=tenant).first()
+            if sub:
+                base = sub.current_period_end if (sub.current_period_end and sub.current_period_end > now) else now
+                sub.status = "active"
+                sub.current_period_start = now
+                sub.current_period_end = base + timedelta(days=30)
+                sub.payment_gateway = "wompi"
+                sub.save(update_fields=[
+                    "status", "current_period_start", "current_period_end",
+                    "payment_gateway", "updated_at",
+                ])
+                logger.info(f"[WOMPI] Suscripción renovada: tenant_id={tenant.id} hasta {sub.current_period_end.date()}")
+        except Exception as e:
+            logger.error(f"[WOMPI] Error renovando suscripción: {e}")
+        return
+
+    # ── PRIMER PAGO: referencia sub_{tenant_id}_{plan_tier}_{uuid} ──
     match = re.search(r"sub_(\d+)_([a-z]+)_", reference)
     if not match:
         logger.warning(f"[WOMPI] No se puede extraer tenant_id/plan de referencia: {reference}")
@@ -212,7 +241,6 @@ def _process_wompi_payment(payment_data, reference):
             return
 
         sub = Subscription.objects.filter(tenant=tenant).first()
-        now = timezone.now()
         if sub:
             if sub.status in ("trialing", "canceled"):
                 sub.status = "active"

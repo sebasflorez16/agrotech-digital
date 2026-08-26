@@ -211,6 +211,48 @@ class WompiGateway(PaymentGateway):
             logger.error(f"[WOMPI] Excepción cobrando fuente de pago: {e}")
             return {"success": False, "error": str(e)}
 
+    def create_renewal_link(self, tenant_id: int, plan, payer_email: str) -> Dict[str, Any]:
+        """Crea un link de pago de RENOVACIÓN (referencia renew_<tenant_id>_<uuid>).
+
+        Se usa como alternativa al cobro 3RI mientras se activa 3DS: el sistema
+        envía el link por email y el cliente paga manualmente el siguiente mes.
+        """
+        base = _wompi_base()
+        import uuid
+        reference = f"renew_{tenant_id}_{uuid.uuid4().hex[:8]}"
+        frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:8080").rstrip("/")
+        try:
+            resp = requests.post(
+                f"{base}/payment_links",
+                json={
+                    "name": f"Renovación AgroTech — {plan.name}",
+                    "description": plan.description or f"Renovación mensual {plan.name}",
+                    "single_use": True,
+                    "collect_shipping": False,
+                    "currency": "COP",
+                    "amount_in_cents": int(plan.price_cop * 100),
+                    "reference": reference,
+                    "redirect_url": f"{frontend_url}/templates/billing/success.html?plan={plan.tier}&cycle=monthly&ref={reference}",
+                },
+                headers=_wompi_headers(),
+                timeout=20,
+            )
+            data = resp.json()
+            if resp.status_code in (200, 201):
+                link_data = data.get("data", data)
+                link_id = link_data.get("id", "")
+                return {
+                    "success": True,
+                    "reference": reference,
+                    "checkout_url": f"https://checkout.wompi.co/l/{link_id}",
+                }
+            error_msg = data.get("error", {}).get("reason", resp.text)
+            logger.error(f"[WOMPI] Error creando link de renovación: {resp.status_code} — {error_msg}")
+            return {"success": False, "error": error_msg}
+        except Exception as e:
+            logger.error(f"[WOMPI] Excepción creando link de renovación: {e}")
+            return {"success": False, "error": str(e)}
+
     def cancel_subscription(self, subscription_id: str) -> Dict[str, Any]:
         return {"success": True, "message": "Wompi no maneja cancelacion de payment links"}
 
