@@ -40,6 +40,13 @@ def _wompi_headers():
     }
 
 
+def _integrity_signature(reference: str, amount_in_cents: int, currency: str) -> str:
+    """Firma de integridad de Wompi (SHA256 de referencia + monto + moneda + llave de integridad)."""
+    key = getattr(settings, "WOMPI_INTEGRITY_KEY", "")
+    raw = f"{reference}{amount_in_cents}{currency}{key}"
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
 def _verify_wompi_signature(payload: bytes, signature_header: str) -> bool:
     """Verifica firma HMAC-SHA256 del webhook de Wompi."""
     secret = getattr(settings, "WOMPI_EVENTS_KEY", "")
@@ -181,7 +188,7 @@ class WompiGateway(PaymentGateway):
             return {"success": False, "error": str(e)}
 
     def charge_payment_source(self, payment_source_id: str, amount_in_cents: int,
-                              reference: str, customer_email: str) -> Dict[str, Any]:
+                              reference: str, customer_email: str, recurring: bool = True) -> Dict[str, Any]:
         """Cobra automáticamente una fuente de pago (3RI, sin cliente presente)."""
         base = _wompi_base()
         tokens = self.get_acceptance_tokens()
@@ -194,6 +201,8 @@ class WompiGateway(PaymentGateway):
                     "currency": "COP",
                     "reference": reference,
                     "customer_email": customer_email,
+                    "recurrent": recurring,
+                    "signature": _integrity_signature(reference, amount_in_cents, "COP"),
                     "acceptance_token": tokens.get("acceptance_token", ""),
                     "accept_personal_auth": tokens.get("accept_personal_auth", ""),
                 },
