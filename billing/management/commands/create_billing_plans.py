@@ -63,7 +63,7 @@ class Command(BaseCommand):
                 'price_usd': 20,
                 'frequency': 1,
                 'limits': {
-                    'hectares': 300,
+                    'hectares': 100,
                     'users': 2,
                     'eosda_requests': 100,
                     'parcels': 10,
@@ -96,7 +96,7 @@ class Command(BaseCommand):
                 'price_usd': 45,
                 'frequency': 1,
                 'limits': {
-                    'hectares': 1000,
+                    'hectares': 300,
                     'users': 3,
                     'eosda_requests': 500,
                     'parcels': 50,
