@@ -1519,3 +1519,92 @@ def confirm_payment_create_tenant(request):
     except Exception as e:
         logger.exception(f"Error en confirm_payment_create_tenant: {e}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def subscribe_with_card(request):
+    """Suscripción con tarjeta tokenizada (pago recurrente automático 3RI).
+
+    POST /billing/api/subscribe-card/
+    Body: { "card_token", "plan_tier", "billing_cycle", "payer_email",
+            "tenant_name", "username", "password", "user_name", "user_last_name" }
+
+    Flujo:
+      1. Tokeniza la tarjeta (fuente de pago con 3DS).
+      2. Cobra el primer mes con la fuente (3RI).
+      3. Crea tenant + usuario + suscripción.
+      4. Guarda payment_source_id para que el cron cobre los siguientes meses.
+    """
+    try:
+        data = json.loads(request.body)
+        card_token = (data.get('card_token') or '').strip()
+        plan_tier = data.get('plan_tier', 'basic')
+        billing_cycle = data.get('billing_cycle', 'monthly')
+        payer_email = (data.get('payer_email') or '').strip()
+
+        if not card_token or not payer_email:
+            return JsonResponse({'error': 'card_token y payer_email son requeridos.'}, status=400)
+
+        plan = Plan.objects.filter(tier=plan_tier, is_active=True).first()
+        if not plan:
+            return JsonResponse({'error': 'Plan no válido.'}, status=400)
+
+        from .wompi_gateway import WompiGateway
+        gw = WompiGateway()
+
+        # 1. Tokenizar la tarjeta → fuente de pago (para cobros recurrentes)
+        ps = gw.create_payment_source(card_token, payer_email)
+        if not ps.get('success'):
+            return JsonResponse({'error': ps.get('error', 'No se pudo tokenizar la tarjeta.')}, status=402)
+
+        # 2. Cobrar el primer mes (3RI)
+        import uuid
+        reference = f"sub_0_{plan.tier}_{uuid.uuid4().hex[:8]}"
+        charge = gw.charge_payment_source(ps['payment_source_id'], int(plan.price_cop * 100), reference, payer_email)
+        if not (charge.get('success') and charge.get('status') == 'APPROVED'):
+            return JsonResponse({
+                'error': 'El pago no fue aprobado: ' + str(charge.get('error') or charge.get('status') or 'desconocido'),
+            }, status=402)
+
+        # 3. Crear tenant + usuario + suscripción
+        result = TenantService.create_tenant_for_subscription(
+            tenant_name=data.get('tenant_name', ''),
+            plan_tier=plan_tier,
+            billing_cycle=billing_cycle,
+            payer_email=payer_email,
+            external_subscription_id=reference,
+            payment_gateway='wompi',
+            username=data.get('username', ''),
+            password=data.get('password') or None,
+            user_name=data.get('user_name', ''),
+            user_last_name=data.get('user_last_name', ''),
+        )
+        if not result['success']:
+            return JsonResponse({'error': result.get('error', 'Error creando la cuenta.')}, status=500)
+
+        # 4. Guardar la fuente de pago para renovación automática (cron charge_recurring)
+        sub = Subscription.objects.filter(tenant=result['tenant']).first()
+        if sub:
+            sub.payment_source_id = ps['payment_source_id']
+            sub.auto_renew = True
+            sub.save(update_fields=['payment_source_id', 'auto_renew', 'updated_at'])
+
+        response_data = {
+            'success': True,
+            'tenant_name': result['tenant'].name,
+            'schema_name': result['schema_name'],
+            'plan': plan_tier,
+            'status': result['status'],
+            'paid_until': result['paid_until'],
+            'username': result.get('username', data.get('username', '')),
+        }
+        if result.get('tokens'):
+            response_data['tokens'] = result['tokens']
+        return JsonResponse(response_data)
+
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    except Exception as e:
+        logger.exception(f"Error en subscribe_with_card: {e}")
+        return JsonResponse({'error': str(e)}, status=500)

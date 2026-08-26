@@ -135,13 +135,37 @@ class WompiGateway(PaymentGateway):
             logger.error(f"[WOMPI] Error consultando transacción: {e}")
             return {"success": False, "error": str(e)}
 
+    def get_acceptance_tokens(self) -> Dict[str, Any]:
+        """Obtiene los tokens de aceptación (Habeas Data) requeridos para crear
+        transacciones y fuentes de pago."""
+        base = _wompi_base()
+        pub_key = getattr(settings, "WOMPI_PUBLIC_KEY", "")
+        try:
+            resp = requests.get(f"{base}/merchants/{pub_key}", timeout=15)
+            if resp.status_code == 200:
+                data = resp.json().get("data", {})
+                acc = (data.get("presigned_acceptance") or {}).get("acceptance_token", "")
+                pda = (data.get("presigned_personal_data_auth") or {}).get("acceptance_token", "")
+                return {"success": True, "acceptance_token": acc, "accept_personal_auth": pda}
+            return {"success": False, "error": f"HTTP {resp.status_code}"}
+        except Exception as e:
+            logger.error(f"[WOMPI] Error obteniendo tokens de aceptación: {e}")
+            return {"success": False, "error": str(e)}
+
     def create_payment_source(self, card_token: str, customer_email: str) -> Dict[str, Any]:
         """Crea una fuente de pago (tarjeta tokenizada) para cobros recurrentes (3RI)."""
         base = _wompi_base()
+        tokens = self.get_acceptance_tokens()
         try:
             resp = requests.post(
                 f"{base}/payment_sources",
-                json={"type": "CARD", "token": card_token, "customer_email": customer_email},
+                json={
+                    "type": "CARD",
+                    "token": card_token,
+                    "customer_email": customer_email,
+                    "acceptance_token": tokens.get("acceptance_token", ""),
+                    "accept_personal_auth": tokens.get("accept_personal_auth", ""),
+                },
                 headers=_wompi_headers(),
                 timeout=20,
             )
@@ -160,6 +184,7 @@ class WompiGateway(PaymentGateway):
                               reference: str, customer_email: str) -> Dict[str, Any]:
         """Cobra automáticamente una fuente de pago (3RI, sin cliente presente)."""
         base = _wompi_base()
+        tokens = self.get_acceptance_tokens()
         try:
             resp = requests.post(
                 f"{base}/transactions",
@@ -169,6 +194,8 @@ class WompiGateway(PaymentGateway):
                     "currency": "COP",
                     "reference": reference,
                     "customer_email": customer_email,
+                    "acceptance_token": tokens.get("acceptance_token", ""),
+                    "accept_personal_auth": tokens.get("accept_personal_auth", ""),
                 },
                 headers=_wompi_headers(),
                 timeout=25,

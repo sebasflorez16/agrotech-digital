@@ -49,6 +49,7 @@ urlpatterns = [
     
     # Confirmar pago y crear tenant (llamado desde success page o webhook)
     path('api/confirm-payment/', views.confirm_payment_create_tenant, name='confirm_payment'),
+    path('api/subscribe-card/', views.subscribe_with_card, name='subscribe_card'),
     
     # ============== API ENDPOINTS (router DRF) ==============
     path('api/', include(router.urls)),
