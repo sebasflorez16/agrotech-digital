@@ -1,11 +1,16 @@
 """
 Corrige suscripciones cuyo plan no coincide con el plan del pago.
 
+Los planes válidos son: free (Explorador), basic (Agricultor), pro (Empresarial).
+'enterprise' (Corporativo) fue descontinuado.
+
 La referencia del pago (external_subscription_id) tiene el formato:
     sub_<tenant_id>_<plan_tier>_<uuid>  (primer pago)
-    renew_<tenant_id>_<uuid>            (renovación)
 
-Si el plan actual no coincide con el plan_tier de la referencia, se corrige.
+Reglas:
+    - Si la suscripción tiene un plan inválido (ej. enterprise), se corrige al
+      plan de la referencia; si no hay referencia, se usa 'basic'.
+    - Si la referencia indica otro plan, se corrige a ese plan.
 
 Uso:
     python manage.py fix_subscription_plans
@@ -15,6 +20,8 @@ Uso:
 from django.core.management.base import BaseCommand
 from billing.models import Subscription, Plan
 import re
+
+VALID_TIERS = ['free', 'basic', 'pro']
 
 
 class Command(BaseCommand):
@@ -27,25 +34,30 @@ class Command(BaseCommand):
         dry_run = options['dry_run']
         fixed = 0
 
-        subs = Subscription.objects.filter(
-            payment_gateway='wompi',
-        ).exclude(external_subscription_id__isnull=True).exclude(external_subscription_id='')
+        subs = Subscription.objects.select_related('tenant', 'plan').all()
 
         for sub in subs:
-            ref = sub.external_subscription_id
+            ref = sub.external_subscription_id or ''
             m = re.search(r'sub_\d+_([a-z]+)_', ref)
-            if not m:
-                continue
-            intended_tier = m.group(1)
-            if sub.plan.tier == intended_tier:
+            intended_tier = m.group(1) if m else None
+
+            target = None
+            if sub.plan.tier not in VALID_TIERS:
+                # Plan inválido → corregir al de la referencia, o 'basic' si no hay
+                target = intended_tier if intended_tier in VALID_TIERS else 'basic'
+            elif intended_tier and intended_tier in VALID_TIERS and intended_tier != sub.plan.tier:
+                # La referencia indica otro plan → corregir
+                target = intended_tier
+
+            if not target:
                 continue
 
-            plan = Plan.objects.filter(tier=intended_tier, is_active=True).first()
+            plan = Plan.objects.filter(tier=target, is_active=True).first()
             if not plan:
-                self.stdout.write(self.style.WARNING(f'⚠️ {sub.tenant.schema_name}: plan {intended_tier} no disponible'))
+                self.stdout.write(self.style.WARNING(f'⚠️ {sub.tenant.schema_name}: plan {target} no disponible'))
                 continue
 
-            self.stdout.write(f'🔧 {sub.tenant.schema_name}: {sub.plan.tier} → {intended_tier}')
+            self.stdout.write(f'🔧 {sub.tenant.schema_name}: {sub.plan.tier} → {target}')
             if not dry_run:
                 sub.plan = plan
                 sub.save(update_fields=['plan', 'updated_at'])

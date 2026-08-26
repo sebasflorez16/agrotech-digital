@@ -148,7 +148,7 @@ class Command(BaseCommand):
                     'dedicated_account',
                 ],
                 'features_excluded': [],
-                'is_active': True,
+                'is_active': False,
                 'is_custom': True,
                 'trial_days': 0,
                 'sort_order': 4,
