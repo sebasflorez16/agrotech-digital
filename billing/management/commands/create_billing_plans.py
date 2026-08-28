@@ -5,10 +5,10 @@ Uso:
     python manage.py create_billing_plans
 
 Planes (pricing validado con costos reales EOSDA — RESUMEN_EJECUTIVO_PRICING.md):
-    - Explorador (Gratis): 50ha, 20 análisis/mes, solo NDVI, sin clima. Embudo.
-    - Agricultor ($79.000/mes): 300ha, 100 análisis/mes, NDVI+NDMI+SAVI, clima básico.
-    - Empresarial ($179.000/mes): 1.000ha, 500 análisis/mes, todos los índices, monitoreo continuo.
-    - Corporativo ($600.000+/mes): límites superiores y soporte dedicado.
+    - Explorador (Gratis): 30ha, 5 análisis/mes, 1 parcela, solo NDVI. Embudo (probadita).
+    - Agricultor ($79.000/mes): 100ha, 100 análisis/mes, NDVI+NDMI+SAVI, clima básico.
+    - Empresarial ($179.000/mes): 300ha, 500 análisis/mes, todos los índices, monitoreo continuo.
+    - Corporativo ($600.000+/mes): personalizado, desactivado por defecto.
 """
 
 from django.core.management.base import BaseCommand
@@ -25,15 +25,15 @@ class Command(BaseCommand):
             {
                 'tier': 'free',
                 'name': 'Explorador',
-                'description': 'Gratis para siempre. Ideal para conocer la plataforma con NDVI básico en parcelas pequeñas.',
+                'description': 'Gratis para siempre. Para probar la plataforma: NDVI básico en una parcela pequeña (5 análisis/mes).',
                 'price_cop': 0,
                 'price_usd': 0,
                 'frequency': 1,
                 'limits': {
-                    'hectares': 50,
+                    'hectares': 30,
                     'users': 1,
-                    'eosda_requests': 20,
-                    'parcels': 5,
+                    'eosda_requests': 5,
+                    'parcels': 1,
                     'storage_mb': 100,
                 },
                 'features_included': [
@@ -203,7 +203,7 @@ class Command(BaseCommand):
             )
 
         self.stdout.write('=' * 80)
-        self.stdout.write('\n💡 FREE = embudo permanente (NDVI básico, 20 análisis/mes).')
+        self.stdout.write('\n💡 FREE = embudo permanente (NDVI básico, 5 análisis/mes, 1 parcela).')
         self.stdout.write('💰 COSTOS EOSDA: Plan Innovator $125/mes (20,000 requests)')
         self.stdout.write('🎯 BREAK-EVEN: ~15-18 clientes pagos (mes 3-4)')
         self.stdout.write('=' * 80 + '\n')

@@ -3265,3 +3265,79 @@ async function loadRadarLayers(parcelId) {
     }
 }
 window.loadRadarLayers = loadRadarLayers;
+
+// =========================================================================
+// Recordatorio de límite de análisis (embudo de conversión)
+// Muestra un banner cuando el plan FREE se acerca o alcanza su límite.
+// =========================================================================
+
+const API_ORIGIN = BASE_URL.replace(/\/api\/parcels\/?$/, '');
+
+const PLAN_BENEFITS = {
+    basic: [
+        'Índices NDVI + NDMI + SAVI',
+        '100 análisis/mes (hoy tienes 5)',
+        'Hasta 10 parcelas',
+        'Pronóstico climático',
+        'Historial de índices',
+    ],
+};
+
+async function checkPlanUsageReminder() {
+    const banner = document.getElementById('planUsageBanner');
+    if (!banner) return;
+
+    const token = localStorage.getItem('accessToken');
+    if (!token) return;
+
+    try {
+        const resp = await fetch(`${API_ORIGIN}/billing/api/status/`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        if (!data.has_subscription) return;
+
+        const tier = data.plan && data.plan.tier;
+        const req = data.limits && data.limits.eosda_requests;
+        if (!req || tier !== 'free') return;
+
+        const used = req.used || 0;
+        const limit = req.limit || 0;
+        if (limit <= 0) return;
+        const pct = Math.round((used / limit) * 100);
+
+        // Mostrar banner desde el 60% (aviso temprano) y reforzar al 100%.
+        if (pct < 60) return;
+
+        banner.style.display = 'block';
+
+        const title = document.getElementById('planUsageBannerTitle');
+        const detail = document.getElementById('planUsageBannerDetail');
+        const benefits = document.getElementById('planUsageBannerBenefits');
+
+        if (title) {
+            title.textContent = pct >= 100
+                ? 'Te quedaste sin análisis este mes'
+                : `Has usado ${used} de ${limit} análisis (${pct}%)`;
+        }
+        if (detail) {
+            detail.textContent = pct >= 100
+                ? 'Para seguir analizando tus cultivos, sube de plan. El plan Agricultor incluye 100 análisis/mes.'
+                : 'Cuando llegues al límite no podrás hacer más análisis. Sube de plan para no quedarte sin seguimiento.';
+        }
+        if (benefits) {
+            benefits.innerHTML = `<strong>Con el plan Agricultor obtienes:</strong> ${PLAN_BENEFITS.basic.join(' · ')}.`;
+        }
+    } catch (e) {
+        console.error('[PLAN_USAGE_REMINDER] Error:', e);
+    }
+}
+window.checkPlanUsageReminder = checkPlanUsageReminder;
+
+document.addEventListener('DOMContentLoaded', function () {
+    const token = localStorage.getItem('accessToken');
+    if (token && token !== 'null' && token !== 'undefined' && token.trim() !== '') {
+        setTimeout(checkPlanUsageReminder, 1500);
+    }
+});

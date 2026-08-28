@@ -56,10 +56,10 @@ class BillingAlertManager:
         # Verificar cada recurso
         resources = {
             'eosda_requests': {
-                'name': 'Requests EOSDA',
+                'name': 'Análisis satelitales',
                 'current': self.metrics.eosda_requests,
                 'limit': self.plan.get_limit('eosda_requests', 0),
-                'unit': 'requests'
+                'unit': 'análisis'
             },
             'parcels': {
                 'name': 'Parcelas',
