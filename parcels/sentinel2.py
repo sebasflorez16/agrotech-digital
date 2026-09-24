@@ -111,7 +111,7 @@ def search_sentinel2_scenes(geometry, scene_date=None, max_results=10, date_from
             best_by_date[d] = scene
     scenes = list(best_by_date.values())
 
-    scenes.sort(key=lambda s: s.get("date", ""), reverse=True)
+    scenes.sort(key=lambda s: s.get("cloud_cover") if s.get("cloud_cover") is not None else 100.0)
     return scenes
 
 
@@ -171,27 +171,14 @@ def _sample_band(href, points_lonlat):
 def get_real_indices(geometry, points_lonlat, scene_date):
     """Devuelve (ndvi, ndmi, savi, ndre, scene_date) REALES en los puntos dados, o None.
 
-    Los valores se muestrean de una escena Sentinel-2 L2A real. Si la fecha pedida
-    no tiene escena (±10 días), se usa la escena real más reciente (últimos 90 días).
-    Si no hay escena o el muestreo falla, devuelve None (NUNCA se inventan valores).
+    Los valores se muestrean de una escena Sentinel-2 L2A real (mejor escena de
+    ±10 días alrededor de scene_date). Si no hay escena o el muestreo falla,
+    devuelve None (NUNCA se hace fallback a otra fecha ni se inventan valores).
     """
     if not points_lonlat or rasterio is None:
         return None
 
     scene = search_sentinel2_scene(geometry, scene_date)
-    if not scene:
-        # Fallback: escena real más reciente de los últimos 90 días
-        try:
-            dt = datetime.strptime(str(scene_date)[:10], "%Y-%m-%d")
-        except (ValueError, TypeError):
-            dt = datetime.utcnow()
-        recent = search_sentinel2_scenes(
-            geometry,
-            date_from=(dt - timedelta(days=90)).strftime("%Y-%m-%d"),
-            date_to=dt.strftime("%Y-%m-%d"),
-            max_results=5,
-        )
-        scene = recent[0] if recent else None
     if not scene:
         return None
 
@@ -509,21 +496,37 @@ def _compute_index_arrays(scene, geometry):
     return arrays
 
 
-def get_index_images(geometry, scene_date, mode='contrast', smoothing='none', exact_date=False):
+def _find_scene_and_arrays(geometry, scene_date, exact_date=False):
+    """Selecciona la escena del rango pedido y devuelve (scene, arrays).
+
+    - exact_date=True: escena EXACTA de scene_date.
+    - exact_date=False: mejor escena (menor nubosidad) de ±10 días.
+
+    Si no hay escena real, devuelve (None, None). NUNCA hace fallback a otra
+    fecha ni simula valores.
+    """
+    scene = search_sentinel2_scene(geometry, scene_date, exact_date=exact_date)
+    if not scene:
+        return None, None
+    return scene, _compute_index_arrays(scene, geometry)
+
+
+def get_index_images(geometry, scene_date, mode='contrast', smoothing='none', exact_date=False, arrays=None):
     """Genera imágenes de color (base64 PNG) de NDVI/NDMI/SAVI/NDRE.
 
     mode: 'contrast' (adaptativo por percentiles) o 'standard' (escala fija).
     smoothing: 'none' | 'median' | 'gaussian'.
     exact_date: si True, usa la escena EXACTA de scene_date (no la mejor de ±10 días).
+    arrays: si se pasan, evita recalcular la lectura de bandas (misma escena).
     """
     import io
     import base64
     from PIL import Image
 
-    scene = search_sentinel2_scene(geometry, scene_date, exact_date=exact_date)
-    if not scene:
+    if arrays is None:
+        _, arrays = _find_scene_and_arrays(geometry, scene_date, exact_date=exact_date)
+    if not arrays:
         return None
-    arrays = _compute_index_arrays(scene, geometry)
 
     out = {}
     for name, idx in arrays.items():
@@ -560,15 +563,15 @@ def get_index_images(geometry, scene_date, mode='contrast', smoothing='none', ex
     return out or None
 
 
-def get_index_analysis(geometry, scene_date, exact_date=False):
+def get_index_analysis(geometry, scene_date, exact_date=False, arrays=None):
     """Estadísticas + percentiles de cada índice (mismos valores que las imágenes).
 
     Retorna dict {indice: {mean, min, max, std, percentiles: {...}}} o None.
     """
-    scene = search_sentinel2_scene(geometry, scene_date, exact_date=exact_date)
-    if not scene:
+    if arrays is None:
+        _, arrays = _find_scene_and_arrays(geometry, scene_date, exact_date=exact_date)
+    if not arrays:
         return None
-    arrays = _compute_index_arrays(scene, geometry)
 
     analysis = {}
     for name, arr in arrays.items():
@@ -597,16 +600,16 @@ NDVI_CATEGORIES = [
 ]
 
 
-def get_index_categories(geometry, scene_date, index='ndvi', exact_date=False):
+def get_index_categories(geometry, scene_date, index='ndvi', exact_date=False, arrays=None):
     """Clasifica los píxeles válidos del índice en categorías agronómicas REALES.
 
     Retorna {index, total_pixels, mean, categories: [{key, label, pct, count}],
              alerts: [...], recommendations: [...]} o None.
     """
-    scene = search_sentinel2_scene(geometry, scene_date, exact_date=exact_date)
-    if not scene:
+    if arrays is None:
+        _, arrays = _find_scene_and_arrays(geometry, scene_date, exact_date=exact_date)
+    if not arrays:
         return None
-    arrays = _compute_index_arrays(scene, geometry)
     arr = arrays.get(index)
     if arr is None:
         return None
@@ -806,16 +809,21 @@ class Sentinel2IndexImagesView(APIView):
         smoothing = request.query_params.get("smoothing", "none")
         mode = request.query_params.get("mode", "contrast")
         exact_date = request.query_params.get("exact_date", "false").lower() in ("1", "true", "yes")
-        images = get_index_images(parcel.geom, scene_date, mode=mode, smoothing=smoothing, exact_date=exact_date)
-        if not images:
+        scene, arrays = _find_scene_and_arrays(parcel.geom, scene_date, exact_date=exact_date)
+        if not scene or not arrays:
             return Response(
-                {"error": "No se encontró una escena Sentinel-2 real para esta fecha."},
+                {"error": "No se encontró una escena Sentinel-2 real sin nubes para esta fecha."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        analysis = get_index_analysis(parcel.geom, scene_date, exact_date=exact_date)
+        images = get_index_images(parcel.geom, scene_date, mode=mode, smoothing=smoothing, exact_date=exact_date, arrays=arrays)
+        if not images:
+            return Response(
+                {"error": "No se pudo generar la imagen Sentinel-2 para esta fecha."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        analysis = get_index_analysis(parcel.geom, scene_date, exact_date=exact_date, arrays=arrays)
         analysis_index = request.query_params.get("analysis_index", "ndvi")
-        categories = get_index_categories(parcel.geom, scene_date, index=analysis_index, exact_date=exact_date)
-        scene = search_sentinel2_scene(parcel.geom, scene_date, exact_date=exact_date)
+        categories = get_index_categories(parcel.geom, scene_date, index=analysis_index, exact_date=exact_date, arrays=arrays)
         return Response({
             "images": images,
             "statistics": analysis,

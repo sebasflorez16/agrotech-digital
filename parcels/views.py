@@ -1815,39 +1815,22 @@ class EosdaBulkAnalyticsView(APIView):
             else:
                 cache_misses.append(scene)
         
-        # Para las escenas que no están en cache, usar la API básica por ahora
-        # En el futuro se puede implementar usando la Advanced Statistics API
+        # Las escenas que no están en cache no se inventan: se devuelve un error
+        # honesto indicando que no hay datos reales disponibles.
         for scene in cache_misses:
-            try:
-                # Placeholder: por ahora devolver datos de ejemplo
-                results.append({
-                    "view_id": scene.get("view_id"),
-                    "date": scene.get("date"),
-                    "data": {
-                        "analytics": {
-                            "ndvi": {"mean": 0.65, "std": 0.15, "source": "bulk_placeholder"},
-                            "ndmi": {"mean": 0.42, "std": 0.12, "source": "bulk_placeholder"},
-                            "evi": {"mean": 0.38, "std": 0.11, "source": "bulk_placeholder"}
-                        }
-                    },
-                    "source": "generated",
-                    "note": "Datos de ejemplo - implementar con Advanced Statistics API"
-                })
-            except Exception as e:
-                results.append({
-                    "view_id": scene.get("view_id"),
-                    "date": scene.get("date"),
-                    "error": str(e),
-                    "source": "error"
-                })
-        
+            results.append({
+                "view_id": scene.get("view_id"),
+                "date": scene.get("date"),
+                "error": "No hay datos reales disponibles para esta escena.",
+                "source": "unavailable",
+            })
+
         return Response({
             "field_id": field_id,
             "total_scenes": len(scenes),
             "cache_hits": len(scenes) - len(cache_misses),
             "cache_misses": len(cache_misses),
             "results": results,
-            "note": "Implementación básica - mejorar con Advanced Statistics API para procesamiento en lote"
         }, status=200)
 
 class ParcelHistoricalIndicesView(APIView):

@@ -254,33 +254,6 @@ def run_zonification(zonification) -> dict:
     }
 
 
-def _simulate_pixel_indices(coords: np.ndarray, poly: Polygon, parcel_id: int,
-                            zonif_id: int, index_base: str):
-    """Genera vectores NDVI/NDMI/SAVI/NDRE coherentes con un gradiente espacial."""
-    rng = np.random.default_rng(int(parcel_id) * 7919 + int(zonif_id) * 31 + 17)
-    cx, cy = poly.centroid.x, poly.centroid.y
-    minx, miny, maxx, maxy = poly.bounds
-    span = max(maxx - minx, maxy - miny) or 1.0
-    centered = coords - np.array([cx, cy])
-
-    direction = rng.uniform(0, 2 * np.pi)
-    dvec1 = np.array([np.cos(direction), np.sin(direction)])
-    dvec2 = np.array([-np.sin(direction), np.cos(direction)])
-    g1 = centered @ dvec1 / span
-    g2 = centered @ dvec2 / span
-
-    base_map = {'ndvi': 0.62, 'ndmi': 0.38, 'savi': 0.55, 'ndre': 0.42}
-    base = base_map.get(index_base, 0.62)
-
-    n = len(coords)
-    ndvi = np.clip(base + 0.30 * g1 + 0.10 * np.sin(3 * g2)
-                   + rng.normal(0, 0.04, n), 0.05, 0.95)
-    ndmi = np.clip(0.55 * ndvi + 0.10 * g2 + rng.normal(0, 0.03, n), 0.05, 0.85)
-    savi = np.clip(0.88 * ndvi + rng.normal(0, 0.03, n), 0.05, 0.95)
-    ndre = np.clip(0.62 * ndvi + rng.normal(0, 0.03, n), 0.05, 0.80)
-    return ndvi, ndmi, savi, ndre
-
-
 def _r(value) -> float:
     try:
         return round(float(value), 3)
