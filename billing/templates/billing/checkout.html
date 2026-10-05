@@ -414,7 +414,7 @@
 <!-- Loading Overlay -->
 <div class="loading-overlay" id="loadingOverlay">
     <div class="loading-spinner"></div>
-    <div class="loading-text">Redirigiendo a Wompi...</div>
+    <div class="loading-text">Abriendo el pago seguro...</div>
 </div>
 
 <div class="container">
@@ -499,6 +499,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://checkout.wompi.co/widget.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const path = window.location.pathname;
@@ -538,13 +539,14 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch(e) { console.error('Error cargando plan', e); }
     }
 
-    // Submit
+    // Submit → abre el Widget de Wompi (reference + firma generadas en el backend)
     btnCheckout.addEventListener('click', async function() {
         btnCheckout.disabled = true;
-        document.getElementById('loadingOverlay').classList.add('show');
+        const overlay = document.getElementById('loadingOverlay');
+        overlay.classList.add('show');
 
         try {
-            const res = await fetch('/billing/api/create-checkout/', {
+            const res = await fetch('/billing/api/wompi/checkout-params/', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -554,17 +556,36 @@ document.addEventListener('DOMContentLoaded', function() {
                     plan_tier: planTier,
                     billing_cycle: billingCycle,
                     payer_email: emailInput.value.trim(),
-                    gateway: 'wompi',
                 })
             });
-            const data = await res.json();
-            if (data.checkout_url) {
-                window.location.href = data.checkout_url;
-            } else {
-                throw new Error(data.error || 'Error al crear el checkout');
+            const p = await res.json();
+            if (!res.ok || !p.public_key) {
+                throw new Error(p.error || 'No se pudo iniciar el pago');
             }
+
+            const Widget = window.WidgetCheckout || window.Checkout;
+            if (!Widget) {
+                throw new Error('No se pudo cargar el widget de Wompi');
+            }
+
+            const checkout = new Widget({
+                currency: p.currency,
+                amountInCents: p.amount_in_cents,
+                reference: p.reference,
+                publicKey: p.public_key,
+                signature: { integrity: p.signature_integrity },
+                redirectUrl: p.redirect_url,
+                customerData: { email: p.customer_email },
+            });
+
+            overlay.classList.remove('show');
+            checkout.open(function(result) {
+                const tx = (result && result.transaction) || {};
+                const url = p.redirect_url + '&id=' + encodeURIComponent(tx.id || '');
+                window.location.href = url;
+            });
         } catch (e) {
-            document.getElementById('loadingOverlay').classList.remove('show');
+            overlay.classList.remove('show');
             btnCheckout.disabled = false;
             alert('Error: ' + e.message);
         }

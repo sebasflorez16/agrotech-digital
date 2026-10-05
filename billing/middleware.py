@@ -33,6 +33,7 @@ class SubscriptionLimitMiddleware(MiddlewareMixin):
         '/api/token/',          # JWT token endpoints
         '/billing/api/plans/',  # Consultar planes (público)
         '/billing/api/create-checkout/',  # Crear checkout (público)
+        '/billing/api/wompi/checkout-params/',  # Params del Widget Wompi (público)
         '/billing/api/confirm-payment/',  # Confirmar pago y crear tenant
         '/billing/webhooks/',   # Webhooks de pasarelas
         '/static/',

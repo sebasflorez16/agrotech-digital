@@ -46,6 +46,9 @@ urlpatterns = [
     
     # Crear checkout (redirige a MercadoPago)
     path('api/create-checkout/', views.create_checkout_view, name='create_checkout'),
+
+    # Parámetros para el Widget/Web Checkout de Wompi (reference + firma de integridad)
+    path('api/wompi/checkout-params/', views.wompi_checkout_params, name='wompi_checkout_params'),
     
     # Confirmar pago y crear tenant (llamado desde success page o webhook)
     path('api/confirm-payment/', views.confirm_payment_create_tenant, name='confirm_payment'),

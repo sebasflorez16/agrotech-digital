@@ -1293,19 +1293,18 @@ def create_checkout_view(request):
                 return JsonResponse({'error': result.get('error', 'Error creando tenant')}, status=error_status)
 
         # ── WOMPI ──────────────────────────────────────────────────
+        # Ya NO se generan Payment Links: no conservan nuestra `reference` y el
+        # webhook no puede asociar el pago a la cuenta. Redirigimos al checkout
+        # con Widget de Wompi (que envía reference + firma de integridad).
         if gateway == 'wompi':
-            from .wompi_gateway import WompiGateway
-            wompi = WompiGateway()
-            result = wompi.create_subscription(request.user if request.user.is_authenticated else None, plan)
-            if result.get('success'):
-                return JsonResponse({
-                    'success': True,
-                    'checkout_url': result['checkout_url'],
-                    'gateway': 'wompi',
-                    'wompi_link_id': result.get('wompi_link_id'),
-                    'reference': result.get('reference'),
-                })
-            return JsonResponse({'error': result.get('error', 'Error creando checkout Wompi')}, status=400)
+            base = (getattr(settings, 'SITE_URL', '') or '').rstrip('/')
+            base = base or request.build_absolute_uri('/').rstrip('/')
+            return JsonResponse({
+                'success': True,
+                'gateway': 'wompi',
+                'widget': True,
+                'checkout_url': f"{base}/billing/checkout/{plan.tier}/?cycle={billing_cycle}",
+            })
 
         # ── MERCADOPAGO (default) ──────────────────────────────────
         if billing_cycle == 'yearly':
@@ -1356,6 +1355,102 @@ def create_checkout_view(request):
     except Exception as e:
         logger.exception(f"Error en create_checkout: {e}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+@throttle_classes([CheckoutRateThrottle])
+def wompi_checkout_params(request):
+    """
+    Devuelve los parámetros para abrir el Widget / Web Checkout de Wompi.
+
+    La firma de integridad se genera SIEMPRE en el servidor (nunca exponer el
+    secreto de integridad). Wompi exige un `reference` único por transacción y
+    la firma SHA256(reference + amount_in_cents + currency + integrity_secret).
+
+    POST /billing/api/wompi/checkout-params/
+    Body: { plan_tier, billing_cycle, payer_email }
+    """
+    import uuid
+    from django.core.cache import cache
+    from .wompi_gateway import _integrity_signature
+
+    try:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    plan_tier = (data.get('plan_tier') or '').strip()
+    billing_cycle = data.get('billing_cycle', 'monthly')
+    payer_email = (data.get('payer_email') or '').strip()
+
+    if not plan_tier:
+        return JsonResponse({'error': 'plan_tier is required'}, status=400)
+    if plan_tier == 'free':
+        return JsonResponse({'error': 'El plan gratuito no requiere pago.'}, status=400)
+    if not payer_email and request.user.is_authenticated:
+        payer_email = (request.user.email or '').strip()
+    if not payer_email or '@' not in payer_email:
+        return JsonResponse({'error': 'Se requiere un correo electrónico válido para continuar.'}, status=400)
+
+    try:
+        plan = Plan.objects.get(tier=plan_tier, is_active=True)
+    except Plan.DoesNotExist:
+        return JsonResponse({'error': 'Plan no encontrado'}, status=404)
+
+    public_key = (getattr(settings, 'WOMPI_PUBLIC_KEY', '') or '').strip()
+    integrity_key = (getattr(settings, 'WOMPI_INTEGRITY_KEY', '') or '').strip()
+    if not public_key or not integrity_key:
+        logger.error("[WOMPI] Faltan WOMPI_PUBLIC_KEY / WOMPI_INTEGRITY_KEY")
+        return JsonResponse(
+            {'error': 'La pasarela de pago no está configurada. Contacta a soporte.'},
+            status=503,
+        )
+
+    if billing_cycle == 'yearly':
+        amount_cop = plan.get_yearly_discount()['yearly_price_cop']
+    else:
+        amount_cop = plan.price_cop
+    amount_in_cents = int(round(float(amount_cop) * 100))
+
+    tenant = getattr(request.user, 'tenant', None) if request.user.is_authenticated else None
+    tenant_id = tenant.id if tenant else 0
+    reference = f"sub_{tenant_id}_{plan.tier}_{uuid.uuid4().hex[:8]}"
+
+    base_url = (
+        (getattr(settings, 'FRONTEND_URL', '') or '').rstrip('/')
+        or (getattr(settings, 'SITE_URL', '') or '').rstrip('/')
+    )
+    redirect_url = f"{base_url}/templates/billing/success.html?plan={plan.tier}&cycle={billing_cycle}&ref={reference}"
+
+    signature = _integrity_signature(reference, amount_in_cents, 'COP')
+
+    # Guardamos la intención para que el webhook pueda nombrar el tenant creado
+    # en un pago anónimo (tenant_id=0).
+    try:
+        local = payer_email.split('@')[0]
+        cache.set(f"wompi_intent:{reference}", {
+            'payer_email': payer_email,
+            'tenant_name': data.get('tenant_name') or local,
+            'username': data.get('username') or local.replace('.', '_').replace('-', '_'),
+            'plan_tier': plan.tier,
+            'billing_cycle': billing_cycle,
+        }, 3600)
+    except Exception as e:
+        logger.warning(f"[WOMPI] No se pudo guardar intención de checkout: {e}")
+
+    logger.info(f"[WOMPI] Checkout params: plan={plan.tier} cycle={billing_cycle} ref={reference}")
+    return JsonResponse({
+        'success': True,
+        'gateway': 'wompi',
+        'public_key': public_key,
+        'currency': 'COP',
+        'amount_in_cents': amount_in_cents,
+        'reference': reference,
+        'signature_integrity': signature,
+        'redirect_url': redirect_url,
+        'customer_email': payer_email,
+    })
 
 
 @csrf_exempt

@@ -5,13 +5,16 @@ Tests de regresión:
 """
 
 import hashlib
+import json
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest
 from django.conf import settings
+from django.test import override_settings
 from django.utils import timezone
 
-from billing.models import Subscription
+from billing.models import Plan, Subscription
 from billing.wompi_gateway import _wompi_event_checksum, _verify_wompi_event
 
 
@@ -178,3 +181,88 @@ def test_wompi_anonymous_payment_creates_tenant(monkeypatch):
     assert captured.get("plan_tier") == "basic"
     assert captured.get("payment_gateway") == "wompi"
     assert captured.get("external_subscription_id") == "sub_0_basic_abcd1234"
+
+
+# ---------------------------------------------------------------------------
+# Endpoint de parámetros del Widget Wompi (referencia + firma de integridad)
+# ---------------------------------------------------------------------------
+
+def _make_plan(tier="basic", price_cop="79000"):
+    plan, _ = Plan.objects.update_or_create(
+        tier=tier,
+        defaults={
+            "name": f"Plan {tier}",
+            "description": "test",
+            "price_cop": Decimal(price_cop),
+            "price_usd": Decimal("20"),
+            "is_active": True,
+        },
+    )
+    return plan
+
+
+@pytest.mark.django_db
+@override_settings(
+    WOMPI_PUBLIC_KEY="pub_test_abc",
+    WOMPI_INTEGRITY_KEY="test_integrity_abc",
+)
+def test_wompi_checkout_params_monthly(client):
+    _make_plan()
+    resp = client.post(
+        "/billing/api/wompi/checkout-params/",
+        data=json.dumps({
+            "plan_tier": "basic",
+            "billing_cycle": "monthly",
+            "payer_email": "juan@finca.com",
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["public_key"] == "pub_test_abc"
+    assert body["currency"] == "COP"
+    assert body["amount_in_cents"] == 7900000
+    assert body["reference"].startswith("sub_0_basic_")
+    expected = hashlib.sha256(
+        f"{body['reference']}{body['amount_in_cents']}COPtest_integrity_abc".encode()
+    ).hexdigest()
+    assert body["signature_integrity"] == expected
+
+
+@pytest.mark.django_db
+@override_settings(
+    WOMPI_PUBLIC_KEY="pub_test_abc",
+    WOMPI_INTEGRITY_KEY="test_integrity_abc",
+)
+def test_wompi_checkout_params_yearly_two_months_free(client):
+    _make_plan()
+    resp = client.post(
+        "/billing/api/wompi/checkout-params/",
+        data=json.dumps({
+            "plan_tier": "basic",
+            "billing_cycle": "yearly",
+            "payer_email": "juan@finca.com",
+        }),
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    assert resp.json()["amount_in_cents"] == 79000000  # 79000 * 10
+
+
+@pytest.mark.django_db
+def test_wompi_checkout_params_rejects_free_and_missing_email(client):
+    _make_plan("free", "0")
+    free = client.post(
+        "/billing/api/wompi/checkout-params/",
+        data=json.dumps({"plan_tier": "free", "payer_email": "a@b.com"}),
+        content_type="application/json",
+    )
+    assert free.status_code == 400
+
+    _make_plan("pro", "179000")
+    no_email = client.post(
+        "/billing/api/wompi/checkout-params/",
+        data=json.dumps({"plan_tier": "pro"}),
+        content_type="application/json",
+    )
+    assert no_email.status_code == 400

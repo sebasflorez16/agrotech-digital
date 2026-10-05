@@ -190,6 +190,43 @@ def wompi_webhook(request):
         return Response({"status": "processed", "error": str(e)}, status=200)
 
 
+def _create_wompi_invoice(tenant, sub, payment_data, reference):
+    """Crea (idempotente) la factura pagada de un pago aprobado de Wompi."""
+    from decimal import Decimal
+    from django.utils import timezone
+    from billing.models import Invoice
+
+    try:
+        if Invoice.objects.filter(tenant=tenant, metadata__reference=reference).exists():
+            return
+        amount_cents = int((payment_data or {}).get("amount_cents") or 0)
+        amount = (Decimal(amount_cents) / Decimal("100")).quantize(Decimal("0.01"))
+        now = timezone.now()
+        plan_name = sub.plan.name if (sub and sub.plan_id) else "AgroTech Digital"
+        Invoice.objects.create(
+            invoice_number=f"WOMPI-{payment_data.get('transaction_id') or reference}"[:50],
+            tenant=tenant,
+            subscription=sub,
+            subtotal=amount,
+            tax_amount=Decimal("0"),
+            total=amount,
+            currency="COP",
+            status="paid",
+            invoice_date=now.date(),
+            due_date=now.date(),
+            paid_at=now,
+            line_items=[{"description": f"Plan {plan_name}", "quantity": 1, "amount": float(amount)}],
+            metadata={
+                "gateway": "wompi",
+                "reference": reference,
+                "transaction_id": (payment_data or {}).get("transaction_id"),
+            },
+        )
+        logger.info(f"[WOMPI] Factura creada para {tenant.name} ref={reference}")
+    except Exception as e:
+        logger.error(f"[WOMPI] No se pudo crear factura para {reference}: {e}")
+
+
 def _process_wompi_payment(payment_data, reference):
     """Activa/crea la suscripción (primer pago) o la renueva (pago recurrente)."""
     import re
@@ -225,6 +262,7 @@ def _process_wompi_payment(payment_data, reference):
                 tenant.paid_until = sub.current_period_end.date()
                 tenant.on_trial = False
                 tenant.save(update_fields=["paid_until", "on_trial"])
+                _create_wompi_invoice(tenant, sub, payment_data, reference)
                 logger.info(f"[WOMPI] Suscripción renovada: tenant_id={tenant.id} hasta {sub.current_period_end.date()}")
         except Exception as e:
             logger.error(f"[WOMPI] Error renovando suscripción: {e}")
@@ -250,17 +288,35 @@ def _process_wompi_payment(payment_data, reference):
                 # de que la página de éxito llame a confirm-payment. Es idempotente
                 # por external_subscription_id y por email (protección de duplicados).
                 from billing.tenant_service import TenantService
+                intent = {}
+                try:
+                    from django.core.cache import cache
+                    intent = cache.get(f"wompi_intent:{reference}") or {}
+                except Exception:
+                    pass
+                local = payer_email.split("@")[0]
                 created = TenantService.create_tenant_for_subscription(
-                    tenant_name=payer_email.split("@")[0],
+                    tenant_name=intent.get("tenant_name") or local,
                     plan_tier=plan_tier,
-                    billing_cycle="monthly",
+                    billing_cycle=intent.get("billing_cycle", "monthly"),
                     payer_email=payer_email,
                     external_subscription_id=reference,
                     payment_gateway="wompi",
-                    username=payer_email.split("@")[0].replace(".", "_").replace("-", "_"),
+                    username=intent.get("username") or local.replace(".", "_").replace("-", "_"),
                 )
                 if created.get("success"):
                     logger.info(f"[WOMPI] Cuenta creada desde webhook (pago anónimo): {payer_email}")
+                    try:
+                        new_sub = Subscription.objects.filter(
+                            external_subscription_id=reference
+                        ).first()
+                        new_tenant = getattr(new_sub, "tenant", None) or Client.objects.filter(
+                            schema_name=created.get("schema_name")
+                        ).first()
+                        if new_sub and new_tenant:
+                            _create_wompi_invoice(new_tenant, new_sub, payment_data, reference)
+                    except Exception as e:
+                        logger.error(f"[WOMPI] Factura (anónimo) falló: {e}")
                 else:
                     logger.error(f"[WOMPI] No se pudo crear cuenta anónima: {created.get('error')}")
                 return
@@ -303,7 +359,7 @@ def _process_wompi_payment(payment_data, reference):
                 f"{old_tier} → {plan.tier}"
             )
         else:
-            Subscription.objects.create(
+            sub = Subscription.objects.create(
                 tenant=tenant, plan=plan, payment_gateway="wompi",
                 status="active", billing_cycle="monthly",
                 current_period_start=now,
@@ -315,5 +371,6 @@ def _process_wompi_payment(payment_data, reference):
         tenant.paid_until = (now + timedelta(days=30)).date()
         tenant.on_trial = False
         tenant.save(update_fields=["paid_until", "on_trial"])
+        _create_wompi_invoice(tenant, sub, payment_data, reference)
     except Exception as e:
         logger.error(f"[WOMPI] Error activando suscripcion: {e}")
