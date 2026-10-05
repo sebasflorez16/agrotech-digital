@@ -847,7 +847,9 @@ El equipo de AgroTech Digital
         Debe ejecutarse como cron job diario.
 
         Reglas:
-        1. Trial gratuito expirado → ELIMINAR tenant
+        1. Trial expirado (cualquier plan en estado 'trialing') → DESACTIVAR
+           tenant (datos conservados; reactivable al pagar). El plan FREE
+           permanente se crea en estado 'active' y no se ve afectado.
         2. Plan pago expirado (>7 días de gracia) → DESACTIVAR tenant
         3. Plan pago en gracia (1-7 días vencido) → marcar past_due
 
@@ -875,6 +877,17 @@ El equipo de AgroTech Digital
             results['checked'] += 1
 
             try:
+                # ── Trial expirado (cualquier plan en 'trialing') ──
+                if sub.status == 'trialing' and sub.is_trial_expired():
+                    result = cls.deactivate_tenant(sub.tenant, reason='trial_expired')
+                    if result['success']:
+                        results['trials_deleted'] += 1
+                    else:
+                        results['errors'].append(
+                            f"Error desactivando trial {sub.tenant.name}: {result.get('error')}"
+                        )
+                    continue
+
                 # ── Plan pago vencido ──
                 if sub.plan.tier != 'free' and sub.current_period_end:
                     if now > sub.current_period_end:

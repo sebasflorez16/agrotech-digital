@@ -344,10 +344,25 @@ class Subscription(models.Model):
         return self.status in ['active', 'trialing']
     
     def is_trial_expired(self):
-        """Verifica si el trial expiró."""
-        if self.trial_end and self.status == 'trialing':
+        """Verifica si el trial expiró.
+
+        Un trial solo aplica a suscripciones en estado 'trialing'. Se considera
+        expirado si:
+        - tiene `trial_end` y ya pasó, o
+        - no tiene `trial_end` pero su período (`current_period_end`) ya pasó, o
+        - está en 'trialing' sin fechas (dato legacy/incompleto): se trata como
+          expirado para no regalar acceso indefinido.
+
+        Los planes FREE permanentes se crean en estado 'active' (no 'trialing'),
+        por lo que nunca se ven afectados por esta regla.
+        """
+        if self.status != 'trialing':
+            return False
+        if self.trial_end:
             return timezone.now() > self.trial_end
-        return False
+        if self.current_period_end:
+            return timezone.now() > self.current_period_end
+        return True
     
     def days_until_renewal(self):
         """Días hasta la próxima renovación."""

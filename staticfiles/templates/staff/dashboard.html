@@ -136,6 +136,9 @@ tr:hover { background:rgba(255,255,255,0.02) }
 
 <script>
 // ─── STATE ────────────────────────────────────────────────
+// API base: usa el mismo origen del panel (Django) en producción y local;
+// permite override explícito con window.AGROTECH_CONFIG.API_BASE.
+const API_BASE = window.AGROTECH_CONFIG?.API_BASE || window.location.origin;
 let JWT = null;
 let ACCESS_KEY = "";
 let tenantData = [];
@@ -149,8 +152,7 @@ async function doLogin() {
   errEl.textContent = '';
   if (!email || !pass || !key) { errEl.textContent='Todos los campos son obligatorios.'; return; }
   try {
-    const base = window.AGROTECH_CONFIG?.API_BASE || 'http://localhost:8000';
-    const resp = await fetch(base+'/api/auth/login/', {
+    const resp = await fetch(API_BASE+'/api/auth/login/', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body:JSON.stringify({username:email,password:pass}),
     });
@@ -169,8 +171,7 @@ function doLogout() { JWT=null; ACCESS_KEY=''; document.getElementById('login-sc
 
 // ─── API HELPER ───────────────────────────────────────────
 async function staffFetch(path) {
-  const base = window.AGROTECH_CONFIG?.API_BASE || 'http://localhost:8000';
-  const resp = await fetch(base+path, {
+  const resp = await fetch(API_BASE+path, {
     headers: { 'Authorization':'Bearer '+JWT, 'X-Staff-Access-Key':ACCESS_KEY },
   });
   if (resp.status === 403) { alert('Clave de operador inválida. Recarga y vuelve a ingresar.'); doLogout(); throw new Error('403') }
@@ -260,7 +261,7 @@ function closeModal(){document.getElementById('tenant-modal').classList.remove('
 async function tenantAction(id, action) {
   const tier = action==='change-plan'?document.getElementById('change-tier-'+id).value:null;
   const body = tier ? JSON.stringify({tier}) : '{}';
-  const resp = await fetch((window.AGROTECH_CONFIG?.API_BASE||'http://localhost:8000')+`/staff/api/tenants/${id}/${action}/`, {
+  const resp = await fetch(API_BASE+`/staff/api/tenants/${id}/${action}/`, {
     method:'POST', headers:{'Authorization':'Bearer '+JWT,'X-Staff-Access-Key':ACCESS_KEY,'Content-Type':'application/json'}, body,
   });
   const data = await resp.json();

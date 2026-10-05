@@ -108,11 +108,12 @@ class SubscriptionLimitMiddleware(MiddlewareMixin):
         
         # Verificar trial expirado
         if subscription.is_trial_expired():
+            trial_end = subscription.trial_end or subscription.current_period_end
             return JsonResponse({
                 'error': 'Período de prueba finalizado',
                 'code': 'trial_expired',
-                'message': 'Tu período de prueba de 14 días ha finalizado.',
-                'trial_end': subscription.trial_end.isoformat(),
+                'message': 'Tu período de prueba ha finalizado.',
+                'trial_end': trial_end.isoformat() if trial_end else None,
                 'upgrade_url': '/billing/upgrade/'
             }, status=402)
         

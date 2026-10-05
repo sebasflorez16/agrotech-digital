@@ -8,7 +8,8 @@ Uso:
     python manage.py check_subscriptions --dry-run   # Solo reportar, no actuar
 
 Reglas:
-    - Trial gratuito expirado sin upgrade → ELIMINAR tenant
+    - Trial expirado (cualquier plan en estado 'trialing') → DESACTIVAR tenant
+      (datos conservados; se reactiva al pagar)
     - Plan pago >7 días vencido → DESACTIVAR tenant (datos conservados)
     - Plan pago 1-7 días vencido → marcar como past_due (período de gracia)
 """
@@ -69,28 +70,35 @@ class Command(BaseCommand):
             tenant = sub.tenant
             plan = sub.plan
 
-            # ── TRIAL GRATUITO EXPIRADO ──
-            if plan.tier == 'free' and sub.status == 'trialing':
-                if sub.trial_end and now > sub.trial_end:
+            # ── TRIAL EXPIRADO (cualquier plan en estado 'trialing') ──
+            # NOTA: el plan FREE permanente se crea en estado 'active' (nunca
+            # 'trialing'), por lo que no entra aquí y no se desactiva el embudo.
+            if sub.status == 'trialing':
+                reference_end = sub.trial_end or sub.current_period_end
+                if sub.is_trial_expired():
                     stats['trials_to_delete'] += 1
-                    days_expired = (now - sub.trial_end).days
-                    
+                    days_expired = (now - reference_end).days if reference_end else 0
+
                     self.stdout.write(self.style.WARNING(
-                        f"  🗑️  TRIAL EXPIRADO: {tenant.name} "
-                        f"(schema={tenant.schema_name}, expiró hace {days_expired}d)"
+                        f"  ⏳ TRIAL EXPIRADO: {tenant.name} "
+                        f"(schema={tenant.schema_name}, plan={plan.name}, hace {days_expired}d)"
                     ))
-                    
+
                     if not dry_run:
-                        result = TenantService.delete_tenant(tenant, reason='trial_expired_cron')
+                        result = TenantService.deactivate_tenant(
+                            tenant, reason='trial_expired_cron'
+                        )
                         if result['success']:
                             stats['trials_deleted'] += 1
-                            self.stdout.write(self.style.SUCCESS(f"     → Eliminado ✓"))
+                            self.stdout.write(self.style.SUCCESS(
+                                "     → Desactivado ✓ (datos conservados)"
+                            ))
                         else:
-                            stats['errors'].append(f"Error eliminando {tenant.name}: {result.get('error')}")
+                            stats['errors'].append(f"Error desactivando {tenant.name}: {result.get('error')}")
                             self.stdout.write(self.style.ERROR(f"     → Error: {result.get('error')}"))
                     continue
                 else:
-                    remaining = (sub.trial_end - now).days if sub.trial_end else '?'
+                    remaining = (reference_end - now).days if reference_end else '?'
                     self.stdout.write(
                         f"  ✅ TRIAL OK: {tenant.name} ({remaining}d restantes)"
                     )

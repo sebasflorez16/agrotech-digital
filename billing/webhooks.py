@@ -215,11 +215,16 @@ def _process_wompi_payment(payment_data, reference):
                 sub.status = "active"
                 sub.current_period_start = now
                 sub.current_period_end = base + timedelta(days=30)
+                sub.trial_end = None
+                sub.auto_renew = True
                 sub.payment_gateway = "wompi"
                 sub.save(update_fields=[
                     "status", "current_period_start", "current_period_end",
-                    "payment_gateway", "updated_at",
+                    "trial_end", "auto_renew", "payment_gateway", "updated_at",
                 ])
+                tenant.paid_until = sub.current_period_end.date()
+                tenant.on_trial = False
+                tenant.save(update_fields=["paid_until", "on_trial"])
                 logger.info(f"[WOMPI] Suscripción renovada: tenant_id={tenant.id} hasta {sub.current_period_end.date()}")
         except Exception as e:
             logger.error(f"[WOMPI] Error renovando suscripción: {e}")
@@ -235,34 +240,80 @@ def _process_wompi_payment(payment_data, reference):
     plan_tier = match.group(2)
     try:
         from base_agrotech.models import Client
+        from billing.models import Plan
+
         tenant = Client.objects.filter(id=tenant_id).first()
         if not tenant:
-            logger.warning(f"[WOMPI] Tenant no encontrado para tenant_id={tenant_id}")
+            payer_email = (payment_data or {}).get("customer_email", "")
+            if tenant_id == 0 and payer_email:
+                # Pago de visitante anónimo: creamos la cuenta aquí, sin depender
+                # de que la página de éxito llame a confirm-payment. Es idempotente
+                # por external_subscription_id y por email (protección de duplicados).
+                from billing.tenant_service import TenantService
+                created = TenantService.create_tenant_for_subscription(
+                    tenant_name=payer_email.split("@")[0],
+                    plan_tier=plan_tier,
+                    billing_cycle="monthly",
+                    payer_email=payer_email,
+                    external_subscription_id=reference,
+                    payment_gateway="wompi",
+                    username=payer_email.split("@")[0].replace(".", "_").replace("-", "_"),
+                )
+                if created.get("success"):
+                    logger.info(f"[WOMPI] Cuenta creada desde webhook (pago anónimo): {payer_email}")
+                else:
+                    logger.error(f"[WOMPI] No se pudo crear cuenta anónima: {created.get('error')}")
+                return
+            logger.warning(
+                f"[WOMPI] Tenant no encontrado para tenant_id={tenant_id} "
+                f"(ref={reference}). Sin customer_email no se puede crear la cuenta."
+            )
+            return
+
+        # El plan viene en la referencia; si no existe, usar 'basic' (NO .first(),
+        # que puede devolver cualquier plan según el orden de IDs).
+        plan = (
+            Plan.objects.filter(tier=plan_tier, is_active=True).first()
+            or Plan.objects.filter(tier='basic', is_active=True).first()
+            or Plan.objects.filter(is_active=True).exclude(tier="free").first()
+        )
+        if not plan:
+            logger.error(f"[WOMPI] No hay plan activo para activar tenant_id={tenant_id}")
             return
 
         sub = Subscription.objects.filter(tenant=tenant).first()
         if sub:
-            if sub.status in ("trialing", "canceled"):
-                sub.status = "active"
-                sub.current_period_start = now
-                sub.current_period_end = now + timedelta(days=30)
-                sub.payment_gateway = "wompi"
-                sub.save()
-        else:
-            from billing.models import Plan
-            # El plan viene en la referencia; si no existe, usar 'basic' (NO .first(),
-            # que puede devolver cualquier plan según el orden de IDs).
-            plan = (
-                Plan.objects.filter(tier=plan_tier, is_active=True).first()
-                or Plan.objects.filter(tier='basic', is_active=True).first()
-                or Plan.objects.filter(is_active=True).exclude(tier="free").first()
+            # Upgrade/activación: pasa del plan free (o trial) al plan pagado.
+            old_tier = sub.plan.tier if sub.plan_id else None
+            sub.plan = plan
+            sub.status = "active"
+            sub.billing_cycle = "monthly"
+            sub.current_period_start = now
+            sub.current_period_end = now + timedelta(days=30)
+            sub.trial_end = None
+            sub.payment_gateway = "wompi"
+            sub.external_subscription_id = reference
+            sub.auto_renew = True
+            sub.cancel_at_period_end = False
+            sub.ended_at = None
+            sub.canceled_at = None
+            sub.save()
+            logger.info(
+                f"[WOMPI] Suscripción activada/upgrade: tenant_id={tenant.id} "
+                f"{old_tier} → {plan.tier}"
             )
+        else:
             Subscription.objects.create(
                 tenant=tenant, plan=plan, payment_gateway="wompi",
-                status="active", current_period_start=now,
+                status="active", billing_cycle="monthly",
+                current_period_start=now,
                 current_period_end=now + timedelta(days=30),
+                external_subscription_id=reference, auto_renew=True,
             )
+            logger.info(f"[WOMPI] Suscripción creada: tenant_id={tenant.id} plan={plan.tier}")
 
-        logger.info(f"[WOMPI] Suscripcion activada: tenant_id={tenant.id}")
+        tenant.paid_until = (now + timedelta(days=30)).date()
+        tenant.on_trial = False
+        tenant.save(update_fields=["paid_until", "on_trial"])
     except Exception as e:
         logger.error(f"[WOMPI] Error activando suscripcion: {e}")

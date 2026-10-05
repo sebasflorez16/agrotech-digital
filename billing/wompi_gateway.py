@@ -48,15 +48,41 @@ def _integrity_signature(reference: str, amount_in_cents: int, currency: str) ->
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-def _verify_wompi_signature(payload: bytes, signature_header: str) -> bool:
-    """Verifica firma HMAC-SHA256 del webhook de Wompi."""
+def _wompi_event_checksum(event: dict) -> str:
+    """Calcula el checksum SHA256 real de un evento Wompi.
+
+    Wompi concatena (en el orden de `signature.properties`) los valores de esos
+    campos (ubicados dentro de `data`), luego el `timestamp` del evento y el
+    Secreto de Eventos, y aplica SHA256.
+
+    Ref: https://docs.wompi.co/docs/colombia/eventos/
+    """
+    signature = event.get("signature") or {}
+    properties = signature.get("properties") or []
+    data = event.get("data") or {}
+
+    values = []
+    for path in properties:
+        current = data
+        for part in str(path).split("."):
+            current = current.get(part) if isinstance(current, dict) else None
+            if current is None:
+                break
+        values.append("" if current is None else str(current))
+
+    timestamp = event.get("timestamp", "")
     secret = (getattr(settings, "WOMPI_EVENTS_KEY", "") or "").strip()
-    if not secret or not signature_header:
+    raw = "".join(values) + str(timestamp) + secret
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def _verify_wompi_event(event: dict, provided_checksum: str) -> bool:
+    """Verifica el checksum de un evento Wompi (comparación en tiempo constante)."""
+    secret = (getattr(settings, "WOMPI_EVENTS_KEY", "") or "").strip()
+    if not secret or not provided_checksum:
         return False
-    expected = hmac.new(
-        secret.encode(), payload, hashlib.sha256
-    ).hexdigest()
-    return hmac.compare_digest(expected, signature_header)
+    expected = _wompi_event_checksum(event)
+    return hmac.compare_digest(expected.lower(), str(provided_checksum).strip().lower())
 
 
 class WompiGateway(PaymentGateway):
@@ -282,15 +308,21 @@ class WompiGateway(PaymentGateway):
             return {"status": "error", "error": str(e)}
 
     def handle_webhook(self, request) -> Dict[str, Any]:
-        payload = request.body
-        signature = request.headers.get("X-Event-Checksum", "")
+        try:
+            event = json.loads(request.body)
+        except Exception as e:
+            logger.error(f"[WOMPI] Evento JSON inválido: {e}")
+            return {"success": False, "error": "invalid_json"}
 
-        if not _verify_wompi_signature(payload, signature):
-            logger.warning("[WOMPI] Firma de webhook invalida")
+        provided = (
+            request.headers.get("X-Event-Checksum")
+            or (event.get("signature") or {}).get("checksum", "")
+        )
+        if not _verify_wompi_event(event, provided):
+            logger.warning("[WOMPI] Checksum de evento invalido")
             return {"success": False, "error": "invalid_signature"}
 
         try:
-            event = json.loads(payload)
             event_type = event.get("event", "")
             data = event.get("data", {})
 
@@ -306,6 +338,7 @@ class WompiGateway(PaymentGateway):
                         "reference": reference,
                         "transaction_id": transaction.get("id", ""),
                         "amount_cents": transaction.get("amount_in_cents", 0),
+                        "customer_email": transaction.get("customer_email", ""),
                     }
                 elif tx_status == "DECLINED":
                     return {
