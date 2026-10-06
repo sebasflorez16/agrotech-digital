@@ -703,7 +703,7 @@ def get_index_time_series(geometry, date_from=None, date_to=None, days_back=180,
     if not date_from:
         date_from = (datetime.utcnow() - timedelta(days=days_back)).strftime('%Y-%m-%d')
 
-    cache_key = f"s2:series:{hashlib_md5_geometry(geometry)}:{date_from}:{date_to}"
+    cache_key = f"s2:series:v2:{hashlib_md5_geometry(geometry)}:{date_from}:{date_to}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
