@@ -467,16 +467,28 @@ def _apply_premium_finish(img):
 
 
 def _compute_index_arrays(scene, geometry):
-    """Lee las bandas + SCL y devuelve {indice: array} con máscara de nubes/sombras."""
+    """Lee las bandas + SCL y devuelve {indice: array} con máscara de nubes/sombras.
+
+    Cada banda se lee UNA sola vez (caché por href): NDVI y SAVI comparten NIR/rojo,
+    así evitamos releer y que un fallo de red deje un índice vacío mientras el otro
+    (misma banda) sí queda con datos.
+    """
     scl_mask = _read_scl_mask(scene.get('scl_href'), geometry)
+    _band_reads = {}
+
+    def _band(href):
+        if href not in _band_reads:
+            _band_reads[href] = _read_band_window(href, geometry)
+        return _band_reads[href]
+
     arrays = {}
     for name, (hi_key, lo_key) in _BAND_PAIRS.items():
         hi_href = scene.get(hi_key)
         lo_href = scene.get(lo_key)
         if not hi_href or not lo_href:
             continue
-        hi_res = _read_band_window(hi_href, geometry)
-        lo_res = _read_band_window(lo_href, geometry)
+        hi_res = _band(hi_href)
+        lo_res = _band(lo_href)
         if hi_res is None or lo_res is None:
             continue
         hi, _, _ = hi_res
@@ -703,48 +715,50 @@ def get_index_time_series(geometry, date_from=None, date_to=None, days_back=180,
     if not date_from:
         date_from = (datetime.utcnow() - timedelta(days=days_back)).strftime('%Y-%m-%d')
 
-    cache_key = f"s2:series:v2:{hashlib_md5_geometry(geometry)}:{date_from}:{date_to}"
+    cache_key = f"s2:series:v4:{hashlib_md5_geometry(geometry)}:{date_from}:{date_to}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
 
-    # Buscar más escenas de las que usaremos, para poder filtrar por nubosidad.
-    # `max_results` alto (250) para cubrir un año completo de pasadas (~3 satélites).
+    # Buscar todas las escenas del rango (max_results alto: ~3 satélites por año).
     scenes = search_sentinel2_scenes(
         geometry, date_from=date_from, date_to=date_to, max_results=250
     )
-    # Escenas con nubosidad <= 60% (el enmascarado SCL ya quita nubes por píxel;
-    # 30% era demasiado estricto en Colombia y dejaba meses enteros sin punto).
-    scenes = [s for s in scenes if s.get('cloud_cover') is not None and s['cloud_cover'] <= 60]
+    # Nos quedamos con las que reporten nubosidad (el enmascarado SCL quita nubes
+    # por píxel, así que una escena nublada igual aporta píxeles limpios).
+    scenes = [s for s in scenes if s.get('cloud_cover') is not None]
 
-    # Agrupar por mes y quedarnos con la MEJOR escena (menor nubosidad) de cada mes.
-    # Así el gráfico no se satura: 1 punto limpio por mes.
+    # Agrupar por mes y, en cada mes, usar la PRIMERA escena que dé datos reales
+    # (empezando por la menos nublada). Objetivo: un punto por mes, sin inventar.
     by_month = {}
     for s in scenes:
         month = (s.get('date') or '')[:7]
-        if month not in by_month or (s['cloud_cover'] or 100) < (by_month[month]['cloud_cover'] or 100):
-            by_month[month] = s
-
-    scenes_sorted = sorted(by_month.values(), key=lambda s: s.get('date', ''))[:max_scenes]
+        if month:
+            by_month.setdefault(month, []).append(s)
 
     series = []
-    for scene in scenes_sorted:
-        arrays = _compute_index_arrays(scene, geometry)
-        if not arrays:
-            continue
-        point = {
-            'date': scene.get('date'),
-            'cloud_cover': round(scene['cloud_cover'], 1) if scene.get('cloud_cover') is not None else None,
-        }
-        for name in ['ndvi', 'ndmi', 'savi', 'ndre']:
-            arr = arrays.get(name)
-            if arr is not None:
-                valid = arr[np.isfinite(arr)]
-                if valid.size > 0:
-                    point[f'{name}_mean'] = round(float(np.nanmean(valid)), 4)
-        # No agregar puntos sin ningún índice válido (evita filas vacías en la tabla)
-        if any(f'{n}_mean' in point for n in ['ndvi', 'ndmi', 'savi', 'ndre']):
-            series.append(point)
+    for month in sorted(by_month.keys()):
+        month_scenes = sorted(by_month[month], key=lambda s: s.get('cloud_cover') or 100)
+        for scene in month_scenes:
+            arrays = _compute_index_arrays(scene, geometry)
+            point = {
+                'date': scene.get('date'),
+                'month': month,
+                'cloud_cover': round(scene['cloud_cover'], 1) if scene.get('cloud_cover') is not None else None,
+            }
+            for name in ['ndvi', 'ndmi', 'savi', 'ndre']:
+                arr = arrays.get(name) if arrays else None
+                if arr is not None:
+                    valid = arr[np.isfinite(arr)]
+                    if valid.size > 0:
+                        point[f'{name}_mean'] = round(float(np.nanmean(valid)), 4)
+            # El mes entra en cuanto haya al menos un índice válido
+            if any(f'{n}_mean' in point for n in ['ndvi', 'ndmi', 'savi', 'ndre']):
+                series.append(point)
+                break
+
+    if max_scenes and len(series) > max_scenes:
+        series = series[-max_scenes:]
 
     cache.set(cache_key, series, INDICES_CACHE_TTL)
     return series
@@ -852,26 +866,30 @@ class Sentinel2IndexImagesView(APIView):
         mode = request.query_params.get("mode", "contrast")
         exact_date = request.query_params.get("exact_date", "false").lower() in ("1", "true", "yes")
         scene, arrays = _find_scene_and_arrays(parcel.geom, scene_date, exact_date=exact_date)
-        if not scene or not arrays:
+        if not scene:
             return Response(
-                {"error": "No se encontró una escena Sentinel-2 real sin nubes para esta fecha."},
+                {"error": "No hay ninguna imagen Sentinel-2 con datos para este lote en los últimos 90 días. Prueba otra fecha."},
                 status=status.HTTP_404_NOT_FOUND,
             )
         images = get_index_images(parcel.geom, scene_date, mode=mode, smoothing=smoothing, exact_date=exact_date, arrays=arrays)
         if not images:
             return Response(
-                {"error": "No se pudo generar la imagen Sentinel-2 para esta fecha."},
+                {"error": "La imagen de esa fecha está demasiado nublada para mostrar datos. Elige otra fecha en 'Imágenes disponibles'."},
                 status=status.HTTP_404_NOT_FOUND,
             )
         analysis = get_index_analysis(parcel.geom, scene_date, exact_date=exact_date, arrays=arrays)
         analysis_index = request.query_params.get("analysis_index", "ndvi")
         categories = get_index_categories(parcel.geom, scene_date, index=analysis_index, exact_date=exact_date, arrays=arrays)
+        requested = str(scene_date)[:10]
+        used = scene.get("date")
         return Response({
             "images": images,
             "statistics": analysis,
             "analysis": categories,
             "scene": _public_scene_list([scene])[0] if scene else None,
             "bounds": get_bounds(parcel.geom),
+            "requested_date": requested,
+            "fallback": bool(used and used != requested),
         }, status=status.HTTP_200_OK)
 
 
