@@ -295,30 +295,31 @@ def _read_band_window(href, geometry):
     from rasterio.warp import transform_geom, transform_bounds as _tb
     from rasterio.windows import from_bounds, Window
 
-    signed = _sign_url(href)
-    if not signed:
-        return None
-    try:
-        with rasterio.Env(
-            GDAL_HTTP_MULTIRANGE="YES",
-            CPL_VSIL_CURL_USE_HEAD="NO",
-            GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
-        ):
-            with rasterio.open(signed) as ds:
-                bb = _tb("EPSG:4326", ds.crs, *bbox)
-                window = from_bounds(*bb, ds.transform).intersection(Window(0, 0, ds.width, ds.height))
-                if window.width <= 0 or window.height <= 0:
-                    return None
-                arr = ds.read(1, window=window).astype("float64")
-                arr = np.where(arr > 0, arr, np.nan)  # no-data (0) → NaN
-                wt = ds.window_transform(window)
-                geom_crs = transform_geom("EPSG:4326", ds.crs, geometry)
-                mask = geometry_mask([geom_crs], out_shape=arr.shape, transform=wt, invert=True)
-                arr = np.where(mask, arr, np.nan)
-                return arr, wt, ds.crs
-    except Exception as e:
-        logger.error(f"[S2] Error leyendo ventana de banda: {e}")
-        return None
+    for attempt in range(2):
+        signed = _sign_url(href)
+        if not signed:
+            return None
+        try:
+            with rasterio.Env(
+                GDAL_HTTP_MULTIRANGE="YES",
+                CPL_VSIL_CURL_USE_HEAD="NO",
+                GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+            ):
+                with rasterio.open(signed) as ds:
+                    bb = _tb("EPSG:4326", ds.crs, *bbox)
+                    window = from_bounds(*bb, ds.transform).intersection(Window(0, 0, ds.width, ds.height))
+                    if window.width <= 0 or window.height <= 0:
+                        return None
+                    arr = ds.read(1, window=window).astype("float64")
+                    arr = np.where(arr > 0, arr, np.nan)  # no-data (0) → NaN
+                    wt = ds.window_transform(window)
+                    geom_crs = transform_geom("EPSG:4326", ds.crs, geometry)
+                    mask = geometry_mask([geom_crs], out_shape=arr.shape, transform=wt, invert=True)
+                    arr = np.where(mask, arr, np.nan)
+                    return arr, wt, ds.crs
+        except Exception as e:
+            logger.warning(f"[S2] Error leyendo banda (intento {attempt + 1}/2): {e}")
+    return None
 
 
 def _align(a, b):
@@ -715,7 +716,7 @@ def get_index_time_series(geometry, date_from=None, date_to=None, days_back=180,
     if not date_from:
         date_from = (datetime.utcnow() - timedelta(days=days_back)).strftime('%Y-%m-%d')
 
-    cache_key = f"s2:series:v4:{hashlib_md5_geometry(geometry)}:{date_from}:{date_to}"
+    cache_key = f"s2:series:v8:{hashlib_md5_geometry(geometry)}:{date_from}:{date_to}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -724,21 +725,21 @@ def get_index_time_series(geometry, date_from=None, date_to=None, days_back=180,
     scenes = search_sentinel2_scenes(
         geometry, date_from=date_from, date_to=date_to, max_results=250
     )
-    # Nos quedamos con las que reporten nubosidad (el enmascarado SCL quita nubes
-    # por píxel, así que una escena nublada igual aporta píxeles limpios).
     scenes = [s for s in scenes if s.get('cloud_cover') is not None]
 
-    # Agrupar por mes y, en cada mes, usar la PRIMERA escena que dé datos reales
-    # (empezando por la menos nublada). Objetivo: un punto por mes, sin inventar.
+    # Filtro de calidad interno: se prefieren escenas <= 30% de nubosidad (van
+    # primero por el orden por nubosidad). Para cada mes se usa la PRIMERA escena
+    # con datos reales (píxeles limpios vía SCL): un punto por mes, sin huecos.
     by_month = {}
     for s in scenes:
         month = (s.get('date') or '')[:7]
         if month:
             by_month.setdefault(month, []).append(s)
 
-    series = []
-    for month in sorted(by_month.keys()):
-        month_scenes = sorted(by_month[month], key=lambda s: s.get('cloud_cover') or 100)
+    import concurrent.futures
+
+    def _month_point(month, month_scenes):
+        month_scenes = sorted(month_scenes, key=lambda s: s.get('cloud_cover') or 100)
         for scene in month_scenes:
             arrays = _compute_index_arrays(scene, geometry)
             point = {
@@ -750,12 +751,28 @@ def get_index_time_series(geometry, date_from=None, date_to=None, days_back=180,
                 arr = arrays.get(name) if arrays else None
                 if arr is not None:
                     valid = arr[np.isfinite(arr)]
-                    if valid.size > 0:
+                    if valid.size:
                         point[f'{name}_mean'] = round(float(np.nanmean(valid)), 4)
-            # El mes entra en cuanto haya al menos un índice válido
             if any(f'{n}_mean' in point for n in ['ndvi', 'ndmi', 'savi', 'ndre']):
+                return point
+        return None
+
+    # Procesar los meses EN PARALELO (lecturas de red, I/O-bound): baja el tiempo
+    # total muy por debajo del timeout del servidor (120 s).
+    series = []
+    months = sorted(by_month.keys())
+    max_workers = min(6, max(1, len(months)))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        futures = [executor.submit(_month_point, m, by_month[m]) for m in months]
+        for fut in concurrent.futures.as_completed(futures):
+            try:
+                point = fut.result()
+            except Exception as e:
+                logger.warning(f"[S2] Error procesando mes: {e}")
+                point = None
+            if point:
                 series.append(point)
-                break
+    series.sort(key=lambda p: p.get('date') or '')
 
     if max_scenes and len(series) > max_scenes:
         series = series[-max_scenes:]
