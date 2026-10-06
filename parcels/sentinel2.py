@@ -496,19 +496,58 @@ def _compute_index_arrays(scene, geometry):
     return arrays
 
 
+def _arrays_have_data(arrays, min_pixels=10):
+    """True si al menos un índice tiene suficientes píxeles válidos tras el enmascarado."""
+    if not arrays:
+        return False
+    for arr in arrays.values():
+        if arr is not None and np.isfinite(arr).sum() >= min_pixels:
+            return True
+    return False
+
+
 def _find_scene_and_arrays(geometry, scene_date, exact_date=False):
-    """Selecciona la escena del rango pedido y devuelve (scene, arrays).
+    """Selecciona la escena y devuelve (scene, arrays) con datos reales.
 
-    - exact_date=True: escena EXACTA de scene_date.
-    - exact_date=False: mejor escena (menor nubosidad) de ±10 días.
+    - exact_date=True: escena EXACTA de scene_date (el usuario eligió esa fecha).
+    - exact_date=False: la ÚLTIMA imagen realmente utilizable. Primero busca
+      cerca de scene_date (±10 días); si esa escena queda sin píxeles válidos
+      (muy nublada), recorre las escenas más recientes de los últimos ~90 días
+      hasta encontrar una con datos. Nunca simula valores.
 
-    Si no hay escena real, devuelve (None, None). NUNCA hace fallback a otra
-    fecha ni simula valores.
+    Devuelve (None, None) si ninguna escena real tiene datos.
     """
     scene = search_sentinel2_scene(geometry, scene_date, exact_date=exact_date)
-    if not scene:
-        return None, None
-    return scene, _compute_index_arrays(scene, geometry)
+    if scene:
+        arrays = _compute_index_arrays(scene, geometry)
+        if _arrays_have_data(arrays):
+            return scene, arrays
+
+    if exact_date:
+        # Fecha exacta: no saltamos a otra fecha; el front invita a elegir otra.
+        return (scene, _compute_index_arrays(scene, geometry)) if scene else (None, None)
+
+    # Fallback: escenas reales de los últimos ~90 días, la más reciente con datos.
+    try:
+        dt = datetime.strptime(str(scene_date)[:10], "%Y-%m-%d")
+    except (ValueError, TypeError):
+        dt = datetime.utcnow()
+    d_to = (dt + timedelta(days=10)).strftime("%Y-%m-%d")
+    d_from = (dt - timedelta(days=90)).strftime("%Y-%m-%d")
+    candidates = search_sentinel2_scenes(
+        geometry, date_from=d_from, date_to=d_to, max_results=20
+    )
+    candidates = sorted(candidates, key=lambda s: s.get("date", ""), reverse=True)
+    for cand in candidates:
+        if scene and cand.get("id") == scene.get("id"):
+            continue
+        arrays = _compute_index_arrays(cand, geometry)
+        if _arrays_have_data(arrays):
+            logger.info(
+                f"[S2] Fallback a escena {cand.get('date')} (sin datos en {scene_date})"
+            )
+            return cand, arrays
+    return None, None
 
 
 def get_index_images(geometry, scene_date, mode='contrast', smoothing='none', exact_date=False, arrays=None):
@@ -674,8 +713,9 @@ def get_index_time_series(geometry, date_from=None, date_to=None, days_back=180,
     scenes = search_sentinel2_scenes(
         geometry, date_from=date_from, date_to=date_to, max_results=250
     )
-    # Solo escenas con nubosidad <= 30% (calidad para el gráfico)
-    scenes = [s for s in scenes if s.get('cloud_cover') is not None and s['cloud_cover'] <= 30]
+    # Escenas con nubosidad <= 60% (el enmascarado SCL ya quita nubes por píxel;
+    # 30% era demasiado estricto en Colombia y dejaba meses enteros sin punto).
+    scenes = [s for s in scenes if s.get('cloud_cover') is not None and s['cloud_cover'] <= 60]
 
     # Agrupar por mes y quedarnos con la MEJOR escena (menor nubosidad) de cada mes.
     # Así el gráfico no se satura: 1 punto limpio por mes.
@@ -702,7 +742,9 @@ def get_index_time_series(geometry, date_from=None, date_to=None, days_back=180,
                 valid = arr[np.isfinite(arr)]
                 if valid.size > 0:
                     point[f'{name}_mean'] = round(float(np.nanmean(valid)), 4)
-        series.append(point)
+        # No agregar puntos sin ningún índice válido (evita filas vacías en la tabla)
+        if any(f'{n}_mean' in point for n in ['ndvi', 'ndmi', 'savi', 'ndre']):
+            series.append(point)
 
     cache.set(cache_key, series, INDICES_CACHE_TTL)
     return series
