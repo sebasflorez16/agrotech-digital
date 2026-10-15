@@ -37,7 +37,7 @@ S2_BANDS = {
 INDICES_CACHE_TTL = 7 * 86400  # 7 días
 
 
-def search_sentinel2_scenes(geometry, scene_date=None, max_results=10, date_from=None, date_to=None):
+def search_sentinel2_scenes(geometry, scene_date=None, max_results=10, date_from=None, date_to=None, dedup=True):
     """Busca escenas Sentinel-2 L2A que cubran la geometría.
 
     Si se pasan date_from/date_to se usa ese rango; si no, ±10 días alrededor
@@ -102,14 +102,16 @@ def search_sentinel2_scenes(geometry, scene_date=None, max_results=10, date_from
 
     # Deduplicar por fecha: Sentinel-2A y 2C pueden pasar el mismo día.
     # Quedarnos con la escena de MENOR nubosidad de cada fecha.
-    best_by_date = {}
-    for scene in scenes:
-        d = scene.get("date")
-        if not d:
-            continue
-        if d not in best_by_date or (scene.get("cloud_cover") or 100) < (best_by_date[d].get("cloud_cover") or 100):
-            best_by_date[d] = scene
-    scenes = list(best_by_date.values())
+    # (Con dedup=False se conservan TODOS los tiles, para poder mosaicar.)
+    if dedup:
+        best_by_date = {}
+        for scene in scenes:
+            d = scene.get("date")
+            if not d:
+                continue
+            if d not in best_by_date or (scene.get("cloud_cover") or 100) < (best_by_date[d].get("cloud_cover") or 100):
+                best_by_date[d] = scene
+        scenes = list(best_by_date.values())
 
     scenes.sort(key=lambda s: s.get("cloud_cover") if s.get("cloud_cover") is not None else 100.0)
     return scenes
@@ -322,6 +324,77 @@ def _read_band_window(href, geometry):
     return None
 
 
+def _read_band_window_multi(hrefs, geometry):
+    """Mosaica varios tiles de la MISMA banda sobre el bbox del polígono.
+
+    Una parcela en el borde de dos tiles MGRS se pintaba solo a medias al usar un
+    único tile. Con un solo href delega a _read_band_window. Devuelve
+    (array, transform, crs) enmascarado al polígono, o None.
+    """
+    if isinstance(hrefs, str):
+        hrefs = [hrefs]
+    hrefs = [h for h in (hrefs or []) if h]
+    if not hrefs:
+        return None
+    if len(hrefs) == 1:
+        return _read_band_window(hrefs[0], geometry)
+    if rasterio is None:
+        return None
+    bbox = _geometry_bbox_lonlat(geometry)
+    if not bbox:
+        return None
+    from rasterio.features import geometry_mask
+    from rasterio.warp import transform_geom, transform_bounds as _tb
+    from rasterio.merge import merge
+
+    signed = [s for s in (_sign_url(h) for h in hrefs) if s]
+    if not signed:
+        return None
+    srcs = []
+    try:
+        with rasterio.Env(
+            GDAL_HTTP_MULTIRANGE="YES",
+            CPL_VSIL_CURL_USE_HEAD="NO",
+            GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+        ):
+            for s in signed:
+                srcs.append(rasterio.open(s))
+            crs = srcs[0].crs
+            res = srcs[0].res
+            bb = _tb("EPSG:4326", crs, *bbox)  # (left, bottom, right, top) en crs
+            arr, transform = merge(srcs, bounds=bb, res=res, nodata=0, method="first")
+    except Exception as e:
+        logger.warning(f"[S2] Error mosaico de banda, fallback a 1 tile: {e}")
+        return _read_band_window(hrefs[0], geometry)
+    finally:
+        for d in srcs:
+            try:
+                d.close()
+            except Exception:
+                pass
+
+    if arr is None or arr.size == 0:
+        return _read_band_window(hrefs[0], geometry)
+    arr = np.ma.filled(arr[0], 0).astype("float64")
+    arr = np.where(arr > 0, arr, np.nan)  # no-data (0) → NaN
+    geom_crs = transform_geom("EPSG:4326", crs, geometry)
+    mask = geometry_mask([geom_crs], out_shape=arr.shape, transform=transform, invert=True)
+    return np.where(mask, arr, np.nan), transform, crs
+
+
+def _tiles_for_date(geometry, scene_date):
+    """TODOS los tiles que intersectan la geometría en esa fecha (sin deduplicar)."""
+    if not scene_date:
+        return []
+    try:
+        return search_sentinel2_scenes(
+            geometry, date_from=scene_date, date_to=scene_date, max_results=50, dedup=False
+        )
+    except Exception as e:
+        logger.warning(f"[S2] Error obteniendo tiles por fecha: {e}")
+        return []
+
+
 def _align(a, b):
     """Alinea dos arrays a la misma forma, reescalando el MENOR al MAYOR (10m).
 
@@ -405,7 +478,7 @@ def _read_scl_mask(scl_href, geometry):
     """
     if not scl_href:
         return None
-    res = _read_band_window(scl_href, geometry)
+    res = _read_band_window_multi(scl_href, geometry)
     if res is None:
         return None
     scl, _, _ = res
@@ -474,22 +547,29 @@ def _compute_index_arrays(scene, geometry):
     así evitamos releer y que un fallo de red deje un índice vacío mientras el otro
     (misma banda) sí queda con datos.
     """
-    scl_mask = _read_scl_mask(scene.get('scl_href'), geometry)
+    # Mosaicar TODOS los tiles de la fecha (parcela en el borde de dos tiles MGRS).
+    tiles = _tiles_for_date(geometry, scene.get('date')) or [scene]
+    scl_hrefs = [t.get('scl_href') for t in tiles if t.get('scl_href')]
+    scl_mask = _read_scl_mask(scl_hrefs, geometry) if scl_hrefs else None
     _band_reads = {}
 
-    def _band(href):
-        if href not in _band_reads:
-            _band_reads[href] = _read_band_window(href, geometry)
-        return _band_reads[href]
+    def _hrefs_for(role):
+        return tuple(t.get(role) for t in tiles if t.get(role))
+
+    def _band(role):
+        hrefs = _hrefs_for(role)
+        if not hrefs:
+            return None
+        if hrefs not in _band_reads:
+            _band_reads[hrefs] = _read_band_window_multi(list(hrefs), geometry)
+        return _band_reads[hrefs]
 
     arrays = {}
     for name, (hi_key, lo_key) in _BAND_PAIRS.items():
-        hi_href = scene.get(hi_key)
-        lo_href = scene.get(lo_key)
-        if not hi_href or not lo_href:
+        if not _hrefs_for(hi_key) or not _hrefs_for(lo_key):
             continue
-        hi_res = _band(hi_href)
-        lo_res = _band(lo_href)
+        hi_res = _band(hi_key)
+        lo_res = _band(lo_key)
         if hi_res is None or lo_res is None:
             continue
         hi, _, _ = hi_res
@@ -937,6 +1017,8 @@ class Sentinel2ScenesView(APIView):
             )
         else:
             scenes = search_sentinel2_scenes(parcel.geom, scene_date or str(date.today()), max_results=20)
+        # El usuario ve las fechas en orden cronológico ASCENDENTE (no por nubosidad).
+        scenes = sorted(scenes, key=lambda s: s.get("date", ""))
         return Response({"scenes": _public_scene_list(scenes), "total": len(scenes)}, status=status.HTTP_200_OK)
 
 
