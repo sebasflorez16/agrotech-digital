@@ -540,7 +540,7 @@ def _apply_premium_finish(img):
     return Image.merge('RGBA', (r2, g2, b2, a))
 
 
-def _compute_index_arrays(scene, geometry):
+def _compute_index_arrays(scene, geometry, mask_clouds=True):
     """Lee las bandas + SCL y devuelve {indice: array} con máscara de nubes/sombras.
 
     Cada banda se lee UNA sola vez (caché por href): NDVI y SAVI comparten NIR/rojo,
@@ -581,8 +581,10 @@ def _compute_index_arrays(scene, geometry):
             else:
                 idx = (hi - lo) / (hi + lo)
         idx = np.where(np.isfinite(idx), idx, np.nan)
-        # Enmascarar nubes/sombras/cirros/saturados (SCL L2A, como EOSDA)
-        if scl_mask is not None:
+        # Enmascarar nubes/sombras/cirros/saturados (SCL L2A) — solo si se pide.
+        # Para la CAPA visual NO se enmascara: si no, la parcela queda "a medias"
+        # (solo se pintan las zonas sin nubes → parecían dos esquinas).
+        if mask_clouds and scl_mask is not None:
             m = _resample_mask(scl_mask, idx.shape)
             idx = np.where(m, idx, np.nan)
         arrays[name] = idx
@@ -599,7 +601,7 @@ def _arrays_have_data(arrays, min_pixels=10):
     return False
 
 
-def _find_scene_and_arrays(geometry, scene_date, exact_date=False):
+def _find_scene_and_arrays(geometry, scene_date, exact_date=False, mask_clouds=True):
     """Selecciona la escena y devuelve (scene, arrays) con datos reales.
 
     - exact_date=True: escena EXACTA de scene_date (el usuario eligió esa fecha).
@@ -612,13 +614,13 @@ def _find_scene_and_arrays(geometry, scene_date, exact_date=False):
     """
     scene = search_sentinel2_scene(geometry, scene_date, exact_date=exact_date)
     if scene:
-        arrays = _compute_index_arrays(scene, geometry)
+        arrays = _compute_index_arrays(scene, geometry, mask_clouds=mask_clouds)
         if _arrays_have_data(arrays):
             return scene, arrays
 
     if exact_date:
         # Fecha exacta: no saltamos a otra fecha; el front invita a elegir otra.
-        return (scene, _compute_index_arrays(scene, geometry)) if scene else (None, None)
+        return (scene, _compute_index_arrays(scene, geometry, mask_clouds=mask_clouds)) if scene else (None, None)
 
     # Fallback: escenas reales de los últimos ~90 días, la más reciente con datos.
     try:
@@ -634,7 +636,7 @@ def _find_scene_and_arrays(geometry, scene_date, exact_date=False):
     for cand in candidates:
         if scene and cand.get("id") == scene.get("id"):
             continue
-        arrays = _compute_index_arrays(cand, geometry)
+        arrays = _compute_index_arrays(cand, geometry, mask_clouds=mask_clouds)
         if _arrays_have_data(arrays):
             logger.info(
                 f"[S2] Fallback a escena {cand.get('date')} (sin datos en {scene_date})"
@@ -962,7 +964,7 @@ class Sentinel2IndexImagesView(APIView):
         smoothing = request.query_params.get("smoothing", "none")
         mode = request.query_params.get("mode", "contrast")
         exact_date = request.query_params.get("exact_date", "false").lower() in ("1", "true", "yes")
-        scene, arrays = _find_scene_and_arrays(parcel.geom, scene_date, exact_date=exact_date)
+        scene, arrays = _find_scene_and_arrays(parcel.geom, scene_date, exact_date=exact_date, mask_clouds=False)
         if not scene:
             return Response(
                 {"error": "No hay ninguna imagen Sentinel-2 con datos para este lote en los últimos 90 días. Prueba otra fecha."},
