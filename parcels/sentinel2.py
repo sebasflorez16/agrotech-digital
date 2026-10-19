@@ -36,6 +36,17 @@ S2_BANDS = {
 
 INDICES_CACHE_TTL = 7 * 86400  # 7 días
 
+# ============================================================================
+# ⚠️  NO TOCAR — CAPA VISUAL DE ÍNDICES (NDVI/NDMI/SAVI/NDRE)  ⚠️
+# ----------------------------------------------------------------------------
+# La capa del mapa DEBE mostrarse SIEMPRE completa sobre la parcela.
+# Si se activa la máscara de nubes (SCL) para la imagen, los píxeles nublados
+# se vuelven transparentes y el lote se pinta "a medias" (solo se veían dos
+# esquinas). Es un bug ya corregido: NO volver a poner True aquí.
+# Las estadísticas sí conservan su propia máscara (mask_clouds=True).
+# ============================================================================
+VISUAL_MASK_CLOUDS = False
+
 
 def search_sentinel2_scenes(geometry, scene_date=None, max_results=10, date_from=None, date_to=None, dedup=True):
     """Busca escenas Sentinel-2 L2A que cubran la geometría.
@@ -326,6 +337,10 @@ def _read_band_window(href, geometry):
 
 def _read_band_window_multi(hrefs, geometry):
     """Mosaica varios tiles de la MISMA banda sobre el bbox del polígono.
+
+    ⚠️ NO TOCAR: el mosaico es necesario porque una parcela puede caer en el
+    borde de dos tiles MGRS (p. ej. T18NYM + T18NYL en Yopal). Si se vuelve a
+    leer un único tile, la capa se pinta solo a medias. Mantener el mosaico.
 
     Una parcela en el borde de dos tiles MGRS se pintaba solo a medias al usar un
     único tile. Con un solo href delega a _read_band_window. Devuelve
@@ -964,7 +979,7 @@ class Sentinel2IndexImagesView(APIView):
         smoothing = request.query_params.get("smoothing", "none")
         mode = request.query_params.get("mode", "contrast")
         exact_date = request.query_params.get("exact_date", "false").lower() in ("1", "true", "yes")
-        scene, arrays = _find_scene_and_arrays(parcel.geom, scene_date, exact_date=exact_date, mask_clouds=False)
+        scene, arrays = _find_scene_and_arrays(parcel.geom, scene_date, exact_date=exact_date, mask_clouds=VISUAL_MASK_CLOUDS)
         if not scene:
             return Response(
                 {"error": "No hay ninguna imagen Sentinel-2 con datos para este lote en los últimos 90 días. Prueba otra fecha."},
