@@ -18,3 +18,7 @@ conftest.py
 bun.lockb
 node_modules/
 .pytest_cache/
+.kilo/
+staticfiles/
+**/farmer-rice-field-with-laptop.jpg
+metrica/static/.git/
