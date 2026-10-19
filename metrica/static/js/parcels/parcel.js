@@ -3160,6 +3160,10 @@ async function loadRadarMonitoring(parcelId) {
         const data = response.data;
 
         panel.style.display = 'block';
+        const lockedEl = document.getElementById('radarLocked');
+        const contentEl = document.getElementById('radarMonitoringContent');
+        if (lockedEl) lockedEl.style.display = 'none';
+        if (contentEl) contentEl.style.display = 'block';
 
         if (!data.available) {
             setText('radarLastObservation', 'No disponible');
@@ -3197,8 +3201,17 @@ async function loadRadarMonitoring(parcelId) {
             setText('radarInterpretation', '');
         }
     } catch (e) {
-        // 403 = feature no incluida en el plan; no romper el flujo.
+        // 403 = feature no incluida en el plan; mostrar bloqueo + CTA de mejora.
         panel.style.display = 'block';
+        const lockedEl = document.getElementById('radarLocked');
+        const contentEl = document.getElementById('radarMonitoringContent');
+        if (e.response && e.response.status === 403) {
+            if (lockedEl) lockedEl.style.display = 'block';
+            if (contentEl) contentEl.style.display = 'none';
+        } else {
+            if (lockedEl) lockedEl.style.display = 'none';
+            if (contentEl) contentEl.style.display = 'block';
+        }
         setText('radarLastObservation', 'No disponible');
         setText('radarAttentionLevel', '—');
         setText('radarChangeDetail', e.response && e.response.status === 403
