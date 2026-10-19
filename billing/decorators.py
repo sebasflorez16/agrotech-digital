@@ -340,7 +340,23 @@ def require_feature(feature_name):
     def decorator(view_method):
         @wraps(view_method)
         def wrapper(self, request, *args, **kwargs):
+            # 🛡️ El dueño (superusuario) tiene acceso total a TODAS las features,
+            # sin importar plan/tenant. Es el único superusuario del sistema.
+            if getattr(request.user, 'is_authenticated', False) and request.user.is_superuser:
+                return view_method(self, request, *args, **kwargs)
+
             subscription = getattr(request, 'subscription', None)
+
+            # Si el middleware no dejó la suscripción en request, resolverla desde
+            # el tenant (resuelto por SmartTenantMiddleware a partir del JWT).
+            if not subscription:
+                tenant = getattr(request, 'tenant', None)
+                if tenant is not None and getattr(tenant, 'schema_name', 'public') != 'public':
+                    try:
+                        subscription = tenant.subscription
+                    except Subscription.DoesNotExist:
+                        subscription = None
+                request.subscription = subscription
 
             if not subscription:
                 return DRFResponse({
