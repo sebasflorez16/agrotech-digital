@@ -41,6 +41,7 @@ REGLAS
 import logging
 import math
 import hashlib
+import time
 from collections import Counter
 
 import requests
@@ -70,21 +71,32 @@ SIGMA0_CACHE_TTL = 7 * 86400  # 7 días: sigma0 medio por parcela+escena es esta
 # ---------------------------------------------------------------- firma SAS
 
 def _sign_url(href):
-    """Firma pública del COG (SAS) con caché breve."""
+    """Firma pública del COG (SAS) con caché breve y reintentos."""
     key = f"s1:sas:{href[-80:]}"
     signed = cache.get(key)
     if signed:
         return signed
-    try:
-        r = requests.get(PLANETARY_SAS_URL, params={"href": href}, timeout=30)
-        if r.status_code == 200:
-            signed = r.json().get("href")
-            if signed:
-                cache.set(key, signed, SAS_CACHE_TTL)
-                return signed
-    except Exception as e:
-        logger.error(f"[S1] Error firmando URL: {e}")
+    for attempt in range(3):
+        try:
+            r = requests.get(PLANETARY_SAS_URL, params={"href": href}, timeout=30)
+            if r.status_code == 200:
+                signed = r.json().get("href")
+                if signed:
+                    cache.set(key, signed, SAS_CACHE_TTL)
+                    return signed
+            logger.warning(f"[S1] SAS sign intento {attempt + 1} status={r.status_code}")
+        except Exception as e:
+            logger.warning(f"[S1] Error firmando URL (intento {attempt + 1}): {e}")
+        time.sleep(0.5 * (attempt + 1))
     return None
+
+
+def _invalidate_sas(href):
+    """Invalida la firma SAS cacheada para reintentar con una nueva."""
+    try:
+        cache.delete(f"s1:sas:{href[-80:]}")
+    except Exception:
+        pass
 
 
 # --------------------------------------------------------------- geometría
@@ -155,28 +167,31 @@ def _mean_sigma0_db(href, bbox_lonlat):
     """
     if rasterio is None:
         return None
-    signed = _sign_url(href)
-    if not signed:
-        return None
-    try:
-        with rasterio.Env(
-            GDAL_HTTP_MULTIRANGE="YES",
-            CPL_VSIL_CURL_USE_HEAD="NO",
-            GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
-        ):
-            with rasterio.open(signed) as ds:
-                bb = transform_bounds("EPSG:4326", ds.crs, *bbox_lonlat)
-                w = from_bounds(*bb, ds.transform).intersection(Window(0, 0, ds.width, ds.height))
-                if w.width <= 0 or w.height <= 0:
-                    return None
-                arr = ds.read(1, window=w).astype("float64")
-                arr = arr[arr > 0]  # descartar no-data (0)
-                if arr.size == 0:
-                    return None
-                return 10.0 * math.log10(float(np.mean(arr)))
-    except Exception as e:
-        logger.error(f"[S1] Error leyendo sigma0: {e}")
-        return None
+    for attempt in range(2):
+        signed = _sign_url(href)
+        if not signed:
+            _invalidate_sas(href)
+            continue
+        try:
+            with rasterio.Env(
+                GDAL_HTTP_MULTIRANGE="YES",
+                CPL_VSIL_CURL_USE_HEAD="NO",
+                GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+            ):
+                with rasterio.open(signed) as ds:
+                    bb = transform_bounds("EPSG:4326", ds.crs, *bbox_lonlat)
+                    w = from_bounds(*bb, ds.transform).intersection(Window(0, 0, ds.width, ds.height))
+                    if w.width <= 0 or w.height <= 0:
+                        return None
+                    arr = ds.read(1, window=w).astype("float64")
+                    arr = arr[arr > 0]  # descartar no-data (0)
+                    if arr.size == 0:
+                        return None
+                    return 10.0 * math.log10(float(np.mean(arr)))
+        except Exception as e:
+            logger.warning(f"[S1] Error leyendo sigma0 (intento {attempt + 1}): {e}")
+            _invalidate_sas(href)
+    return None
 
 
 def _sigma0_for_scene(scene, bbox_lonlat):
@@ -273,33 +288,36 @@ def read_aoi_sigma0(scene, geometry, max_side=800):
     from rasterio.warp import transform_geom
 
     def _read(href):
-        signed = _sign_url(href)
-        if not signed:
-            return None
-        try:
-            with rasterio.Env(
-                GDAL_HTTP_MULTIRANGE="YES",
-                CPL_VSIL_CURL_USE_HEAD="NO",
-                GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
-            ):
-                with rasterio.open(signed) as ds:
-                    bb = transform_bounds("EPSG:4326", ds.crs, *bbox)
-                    window = from_bounds(*bb, ds.transform).intersection(Window(0, 0, ds.width, ds.height))
-                    if window.width <= 0 or window.height <= 0:
-                        return None
-                    if window.width > max_side or window.height > max_side:
-                        return None
-                    arr = ds.read(1, window=window).astype("float64")
-                    arr = np.where(arr > 0, arr, np.nan)
-                    # Enmascarar al polígono (reproyectado al CRS del raster)
-                    wt = ds.window_transform(window)
-                    geom_crs = transform_geom("EPSG:4326", ds.crs, geometry)
-                    mask = geometry_mask([geom_crs], out_shape=arr.shape, transform=wt, invert=True)
-                    arr = np.where(mask, arr, np.nan)
-                    return arr
-        except Exception as e:
-            logger.error(f"[S1] Error leyendo raster AOI: {e}")
-            return None
+        for attempt in range(2):
+            signed = _sign_url(href)
+            if not signed:
+                _invalidate_sas(href)
+                continue
+            try:
+                with rasterio.Env(
+                    GDAL_HTTP_MULTIRANGE="YES",
+                    CPL_VSIL_CURL_USE_HEAD="NO",
+                    GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+                ):
+                    with rasterio.open(signed) as ds:
+                        bb = transform_bounds("EPSG:4326", ds.crs, *bbox)
+                        window = from_bounds(*bb, ds.transform).intersection(Window(0, 0, ds.width, ds.height))
+                        if window.width <= 0 or window.height <= 0:
+                            return None
+                        if window.width > max_side or window.height > max_side:
+                            return None
+                        arr = ds.read(1, window=window).astype("float64")
+                        arr = np.where(arr > 0, arr, np.nan)
+                        # Enmascarar al polígono (reproyectado al CRS del raster)
+                        wt = ds.window_transform(window)
+                        geom_crs = transform_geom("EPSG:4326", ds.crs, geometry)
+                        mask = geometry_mask([geom_crs], out_shape=arr.shape, transform=wt, invert=True)
+                        arr = np.where(mask, arr, np.nan)
+                        return arr
+            except Exception as e:
+                logger.warning(f"[S1] Error leyendo raster AOI (intento {attempt + 1}): {e}")
+                _invalidate_sas(href)
+        return None
 
     vv = _read(scene.get("vv_href"))
     vh = _read(scene.get("vh_href"))
