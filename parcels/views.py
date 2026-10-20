@@ -2789,19 +2789,37 @@ class RadarAssessmentView(APIView):
         if not parcel.geom:
             return Response({'error': 'Parcela sin geometria'}, status=400)
 
-        result = get_radar_monitoring(parcel.geom, days_back=60)
+        days_back = 60
+        schema = getattr(request.tenant, 'schema_name', 'public')
+        force = str(request.query_params.get('refresh', '')).lower() in ('1', 'true', 'yes')
+        cache_key = f"s1:assess:{schema}:{parcel.id}:{days_back}"
+
+        result = None
+        if not force:
+            result = cache.get(cache_key)
+
+        if result is None:
+            result = get_radar_monitoring(parcel.geom, days_back=days_back)
+            try:
+                # disponibles 30 min; sin datos 2 min (para permitir reintento)
+                cache.set(cache_key, result, 1800 if result.get('available') else 120)
+            except Exception:
+                pass
+
         try:
             logger.info(
-                "[RADAR_VIEW] tenant=%s parcel=%s user=%s avail=%s n=%s",
-                getattr(request.tenant, 'schema_name', '?'),
+                "[RADAR_VIEW] tenant=%s parcel=%s user=%s avail=%s n=%s force=%s",
+                schema,
                 parcel.id,
                 getattr(request.user, 'id', None),
                 result.get('available'),
                 len(result.get('time_series') or []),
+                force,
             )
         except Exception:
             pass
 
+        result = dict(result)
         result['parcel_id'] = parcel.id
         result['parcel_name'] = parcel.name
         return Response(result)
@@ -2831,7 +2849,22 @@ class RadarLayersView(APIView):
         date_to = date.today().isoformat()
         date_from = (date.today() - timedelta(days=days_back)).isoformat()
 
-        result = get_radar_layers(parcel.geom, date_from, date_to)
+        schema = getattr(request.tenant, 'schema_name', 'public')
+        force = str(request.query_params.get('refresh', '')).lower() in ('1', 'true', 'yes')
+        cache_key = f"s1:layers:{schema}:{parcel.id}:{date_from}:{date_to}"
+
+        result = None
+        if not force:
+            result = cache.get(cache_key)
+
+        if result is None:
+            result = get_radar_layers(parcel.geom, date_from, date_to)
+            try:
+                cache.set(cache_key, result, 3600)  # 1 hora
+            except Exception:
+                pass
+
+        result = dict(result)
         result['parcel_id'] = parcel.id
         result['parcel_name'] = parcel.name
         return Response(result)
