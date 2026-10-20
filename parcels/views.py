@@ -2790,6 +2790,17 @@ class RadarAssessmentView(APIView):
             return Response({'error': 'Parcela sin geometria'}, status=400)
 
         result = get_radar_monitoring(parcel.geom, days_back=60)
+        try:
+            logger.info(
+                "[RADAR_VIEW] tenant=%s parcel=%s user=%s avail=%s n=%s",
+                getattr(request.tenant, 'schema_name', '?'),
+                parcel.id,
+                getattr(request.user, 'id', None),
+                result.get('available'),
+                len(result.get('time_series') or []),
+            )
+        except Exception:
+            pass
 
         result['parcel_id'] = parcel.id
         result['parcel_name'] = parcel.name
