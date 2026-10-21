@@ -49,6 +49,34 @@ def test_detect_change_insufficient_data():
     assert sentinel1.detect_radar_change(series)["change_detected"] is False
 
 
+def test_detect_change_uses_calibrated_threshold(settings):
+    """Umbral calibrado (6 dB): 5.5 dB no es cambio; 6.5 dB sí."""
+    settings.SENTINEL1_CHANGE_THRESHOLD_DB = 6.0
+    series = [
+        {"date": "2026-01-01", "available": True, "vv_db": -6.0, "vh_db": -12.0},
+        {"date": "2026-02-01", "available": True, "vv_db": -9.5, "vh_db": -14.0},  # 5.5 dB
+    ]
+    out = sentinel1.detect_radar_change(series)
+    assert out["threshold_db"] == 6.0
+    assert out["change_detected"] is False
+
+    series[-1] = {"date": "2026-02-01", "available": True, "vv_db": -10.5, "vh_db": -14.0}  # 6.5 dB
+    out = sentinel1.detect_radar_change(series)
+    assert out["change_detected"] is True
+
+
+def test_change_threshold_is_configurable(settings):
+    """El umbral se puede bajar por settings sin tocar código."""
+    settings.SENTINEL1_CHANGE_THRESHOLD_DB = 2.0
+    series = [
+        {"date": "2026-01-01", "available": True, "vv_db": -6.0, "vh_db": -12.0},
+        {"date": "2026-02-01", "available": True, "vv_db": -9.5, "vh_db": -14.0},  # 5.5 dB
+    ]
+    out = sentinel1.detect_radar_change(series)
+    assert out["threshold_db"] == 2.0
+    assert out["change_detected"] is True
+
+
 def test_dominant_orbit():
     scenes = [
         {"relative_orbit": 69},
@@ -117,12 +145,24 @@ def test_get_radar_monitoring_with_data(monkeypatch):
 
     monkeypatch.setattr(sentinel1, "search_sentinel1_scenes", lambda *a, **k: scenes)
     monkeypatch.setattr(sentinel1, "_sigma0_for_scene", lambda scene, bbox: vals.get(scene["id"]))
+    # Evitar red: el monitoreo reutiliza el resumen por píxel de get_radar_layers.
+    monkeypatch.setattr(sentinel1, "get_radar_layers", lambda *a, **k: {
+        "available": True,
+        "layers": {"date": "2026-02-01", "scene_id": "s1"},
+        "change": {
+            "change_detected": True, "attention_level": "high", "changed_percent": 35.0,
+            "from_date": "2026-01-01", "to_date": "2026-02-01", "threshold_db": 6.0,
+            "metric": "por_pixel", "kind": "cambio_reciente",
+        },
+    })
 
     result = sentinel1.get_radar_monitoring(POLYGON, days_back=60)
     assert result["available"] is True
     assert result["data_nature"] == "real"
     assert len(result["time_series"]) == 2
     assert result["change"]["change_detected"] is True
+    assert result["recent_change"]["changed_percent"] == 35.0
+    assert result["attention_level"] == "high"
 
 
 def test_sectorization_attributes_change(monkeypatch):
@@ -160,6 +200,48 @@ def test_compat_wrapper_no_simulation(monkeypatch):
     result = sentinel1.get_crop_status_from_radar(POLYGON, days_back=30)
     assert result["radar_status"] == "no_data"
     assert result["change_detected"] is False
+
+
+def test_compat_wrapper_recent_high_alerts(monkeypatch):
+    fake = {
+        "available": True, "time_series": [], "data_nature": "real",
+        "recent_change": {
+            "change_detected": True, "attention_level": "high", "changed_percent": 42.0,
+            "from_date": "2026-01-01", "to_date": "2026-02-01", "threshold_db": 6.0,
+        },
+        "change": {"change_detected": False},
+    }
+    monkeypatch.setattr(sentinel1, "get_radar_monitoring", lambda *a, **k: dict(fake))
+    out = sentinel1.get_crop_status_from_radar(POLYGON, days_back=30)
+    assert out["change_detected"] is True
+    assert out["change_info"]["changed_percent"] == 42.0
+
+
+def test_compat_wrapper_recent_moderate_no_alert(monkeypatch):
+    fake = {
+        "available": True, "time_series": [], "data_nature": "real",
+        "recent_change": {
+            "change_detected": True, "attention_level": "moderate", "changed_percent": 18.0,
+            "from_date": "2026-01-01", "to_date": "2026-02-01", "threshold_db": 6.0,
+        },
+        "change": {"change_detected": False},
+    }
+    monkeypatch.setattr(sentinel1, "get_radar_monitoring", lambda *a, **k: dict(fake))
+    out = sentinel1.get_crop_status_from_radar(POLYGON, days_back=30)
+    assert out["change_detected"] is False          # evita ruido por cambio moderado
+    assert out["change_info"]["changed_percent"] == 18.0
+
+
+def test_compat_wrapper_trend_fallback(monkeypatch):
+    fake = {
+        "available": True, "time_series": [], "data_nature": "real",
+        "recent_change": None,
+        "change": {"change_detected": True, "magnitude": 9.0},
+    }
+    monkeypatch.setattr(sentinel1, "get_radar_monitoring", lambda *a, **k: dict(fake))
+    out = sentinel1.get_crop_status_from_radar(POLYGON, days_back=30)
+    assert out["change_detected"] is True
+    assert out["change_info"]["magnitude"] == 9.0
 
 
 # --------------------------------------------------------------- capas raster
@@ -225,3 +307,25 @@ def test_get_radar_layers_with_mock(monkeypatch):
     assert result["layers"]["rvi"]["image_base64"] is not None
     assert result["change"]["change_detected"] is True
     assert result["change"]["change_heatmap"] is not None
+    assert result["change"]["threshold_db"] == 6.0
+
+
+def test_get_radar_layers_target_date_picks_nearest(monkeypatch):
+    """Sin óptico: elige la pasada radar más cercana a la fecha pedida."""
+    import numpy as np
+    scenes = [
+        {"id": "s1", "date": "2026-03-01", "relative_orbit": 69, "vv_href": "x", "vh_href": "y"},
+        {"id": "s2", "date": "2026-02-20", "relative_orbit": 69, "vv_href": "x", "vh_href": "y"},
+        {"id": "s3", "date": "2026-02-10", "relative_orbit": 69, "vv_href": "x", "vh_href": "y"},
+    ]
+    arr = (np.full((20, 20), 0.5), np.full((20, 20), 0.2), (-74.0, 4.0, -73.99, 4.01))
+
+    monkeypatch.setattr(sentinel1, "search_sentinel1_scenes", lambda *a, **k: scenes)
+    monkeypatch.setattr(sentinel1, "read_aoi_sigma0", lambda scene, geom, **k: arr)
+
+    result = sentinel1.get_radar_layers(
+        POLYGON, "2026-02-01", "2026-03-10", force=True, target_date="2026-02-19",
+    )
+    assert result["layers"]["date"] == "2026-02-20"   # la más cercana a 2026-02-19
+    assert result["change"]["from_date"] == "2026-02-10"
+    assert result["change"]["to_date"] == "2026-02-20"

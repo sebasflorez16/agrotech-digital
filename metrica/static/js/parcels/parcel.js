@@ -3180,25 +3180,48 @@ async function loadRadarMonitoring(parcelId) {
             setText('radarLastObservation', d);
         }
 
+        const recent = data.recent_change || null;
         const change = data.change || {};
-        const levelMap = { moderate: 'Moderado', high: 'Alto', none: 'Sin cambios' };
-        const level = levelMap[data.attention_level] || (change.change_detected ? 'Moderado' : 'Sin cambios');
+        const levelMap = { none: 'Estable', moderate: 'Revisar', high: 'Revisar pronto' };
+        const level = levelMap[data.attention_level] || (recent && recent.change_detected ? 'Revisar' : 'Estable');
         const levelEl = document.getElementById('radarAttentionLevel');
         if (levelEl) {
             levelEl.textContent = level;
-            levelEl.style.color = change.change_detected ? '#e67e22' : '#6c757d';
+            levelEl.style.color = data.attention_level === 'high' ? '#c0392b'
+                : (data.attention_level === 'moderate' ? '#e67e22' : '#6c757d');
         }
 
-        if (change.change_detected) {
-            const types = (change.change_types || []).map(t => `• ${t}`).join('<br>');
-            const detailEl = document.getElementById('radarChangeDetail');
-            if (detailEl) {
-                detailEl.innerHTML = `Cambio detectado (${change.magnitude} dB) entre ${change.from_date} y ${change.to_date}.<br>${types}`;
+        // Métrica principal: cambio reciente por píxel (últimas dos pasadas).
+        const primary = recent || change;
+        if (primary && primary.change_detected != null) {
+            const detected = !!primary.change_detected;
+            const from = primary.from_date || '—';
+            const to = primary.to_date || '—';
+            const thr = primary.threshold_db != null ? Number(primary.threshold_db).toFixed(1) : '6.0';
+            let detail;
+            if (recent) {
+                const pct = recent.changed_percent != null ? `${recent.changed_percent}%` : '—';
+                const mean = recent.mean_magnitude_db != null ? Number(recent.mean_magnitude_db).toFixed(2) : '—';
+                const max = recent.max_magnitude_db != null ? Number(recent.max_magnitude_db).toFixed(2) : '—';
+                detail = `${detected ? 'Cambio reciente por píxel' : 'Sin cambios recientes por píxel'}: `
+                    + `${pct} del lote cambió (>${thr} dB) entre ${from} y ${to}. `
+                    + `Magnitud media ${mean} dB (máx ${max} dB).`;
+            } else {
+                detail = `${detected ? 'Cambio en la media del lote' : 'Sin cambios en la media del lote'} `
+                    + `entre ${from} y ${to} (umbral ${thr} dB).`;
             }
-            setText('radarInterpretation', change.interpretation || '');
-        } else {
-            setText('radarChangeDetail', 'Sin cambios significativos detectados por radar.');
-            setText('radarInterpretation', '');
+            const detailEl = document.getElementById('radarChangeDetail');
+            if (detailEl) detailEl.innerHTML = detail;
+
+            let interp = 'Señal para revisar en campo; no es un diagnóstico.';
+            if (recent && change.change_detected != null) {
+                const tFrom = change.from_date || '—';
+                const tTo = change.to_date || '—';
+                const tMag = change.magnitude != null ? `${change.magnitude} dB` : '—';
+                interp += ` Tendencia 60 días (secundaria, media del lote): ${tFrom} → ${tTo}, `
+                    + `Δ ${tMag} (${change.change_detected ? 'cambió' : 'sin cambio'}).`;
+            }
+            setText('radarInterpretation', interp);
         }
     } catch (e) {
         // 403 = feature no incluida en el plan; mostrar bloqueo + CTA de mejora.
@@ -3264,10 +3287,15 @@ async function loadRadarLayers(parcelId) {
         if (data.change && data.change.change_detected && data.change.change_heatmap) {
             overlayRadarImage(data.change.change_heatmap, data.change.bounds);
         }
-        // Resumen visual: % de la parcela con cambio.
+        // Resumen visual: % de la parcela con cambio (píxel a píxel).
         if (summaryEl) {
-            if (data.change && data.change.change_detected) {
-                summaryEl.textContent = `⚠️ ${data.change.changed_percent}% de la parcela muestra cambios (celdas en rojo). Revisar.`;
+            if (data.change) {
+                const thr = data.change.threshold_db != null ? Number(data.change.threshold_db).toFixed(1) : '6.0';
+                const from = data.change.from_date || '—';
+                const to = data.change.to_date || '—';
+                summaryEl.textContent = data.change.change_detected
+                    ? `⚠️ ${data.change.changed_percent}% del lote cambió entre ${from} y ${to} (>${thr} dB). Rojo = cambio significativo; revisar.`
+                    : `Sin cambios por encima de ${thr} dB entre ${from} y ${to}.`;
             } else {
                 summaryEl.textContent = '';
             }

@@ -2792,14 +2792,17 @@ class RadarAssessmentView(APIView):
         days_back = 60
         schema = getattr(request.tenant, 'schema_name', 'public')
         force = str(request.query_params.get('refresh', '')).lower() in ('1', 'true', 'yes')
-        cache_key = f"s1:assess:{schema}:{parcel.id}:{days_back}"
+        target_date = request.query_params.get('target_date') or None
+        cache_key = f"s1:assess:{schema}:{parcel.id}:{days_back}:{target_date or '-'}"
 
         result = None
         if not force:
             result = cache.get(cache_key)
 
         if result is None:
-            result = get_radar_monitoring(parcel.geom, days_back=days_back)
+            result = get_radar_monitoring(
+                parcel.geom, days_back=days_back, force=force, target_date=target_date,
+            )
             try:
                 # disponibles 30 min; sin datos 2 min (para permitir reintento)
                 cache.set(cache_key, result, 1800 if result.get('available') else 120)
@@ -2839,34 +2842,49 @@ class RadarLayersView(APIView):
     @require_feature('continuous_monitoring')
     def get(self, request, parcel_id):
         from .sentinel1 import get_radar_layers
-        from datetime import date, timedelta
+        from datetime import date, timedelta, datetime
 
         parcel = get_object_or_404(Parcel, pk=parcel_id, is_deleted=False)
         if not parcel.geom:
             return Response({'error': 'Parcela sin geometría'}, status=400)
 
         days_back = getattr(settings, 'SENTINEL1_LOOKBACK_DAYS', 60)
-        date_to = date.today().isoformat()
-        date_from = (date.today() - timedelta(days=days_back)).isoformat()
+        target_date = request.query_params.get('target_date') or None
+        if target_date:
+            try:
+                t = datetime.strptime(str(target_date)[:10], '%Y-%m-%d').date()
+            except (TypeError, ValueError):
+                t = date.today()
+            half = max(14, min(days_back, 60))
+            date_from = (t - timedelta(days=half)).isoformat()
+            date_to = (t + timedelta(days=half)).isoformat()
+        else:
+            date_to = date.today().isoformat()
+            date_from = (date.today() - timedelta(days=days_back)).isoformat()
 
         schema = getattr(request.tenant, 'schema_name', 'public')
         force = str(request.query_params.get('refresh', '')).lower() in ('1', 'true', 'yes')
-        cache_key = f"s1:layers:{schema}:{parcel.id}:{date_from}:{date_to}"
+        cache_key = f"s1:layers:{schema}:{parcel.id}:{date_from}:{date_to}:{target_date or '-'}"
 
         result = None
         if not force:
             result = cache.get(cache_key)
 
         if result is None:
-            result = get_radar_layers(parcel.geom, date_from, date_to)
+            result = get_radar_layers(
+                parcel.geom, date_from, date_to, force=force, target_date=target_date,
+            )
             try:
-                cache.set(cache_key, result, 3600)  # 1 hora
+                # Completo: 1 h. Sin datos/parcial: 2 min para permitir reintento.
+                complete = result.get("available") and result.get("change") is not None
+                cache.set(cache_key, result, 3600 if complete else 120)
             except Exception:
                 pass
 
         result = dict(result)
         result['parcel_id'] = parcel.id
         result['parcel_name'] = parcel.name
+        result['target_date'] = target_date
         return Response(result)
 
 

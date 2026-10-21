@@ -755,9 +755,13 @@
                         <div style="display:inline-block;font-size:10px;font-weight:700;letter-spacing:.4px;color:#145A32;background:#e6f4ea;border-radius:20px;padding:2px 8px;margin-bottom:8px;">ATRAVIESA NUBES</div>
                         <div style="font-size:12px;color:#888;margin-bottom:14px;">
                             Es distinto del <strong>Sentinel-2 (óptico)</strong>: el radar sigue observando el cultivo aunque haya nubes.
+                            Comparamos las <strong>dos últimas imágenes radar</strong> píxel por píxel; un cambio significativo
+                            es una variación de la señal (VV+VH) mayor al umbral configurado (6 dB por defecto).
+                            <br><strong>No es una fotografía:</strong> es un mapa de la señal radar; cada color es una medición
+                            real y el rojo indica dónde cambió más.
                         </div>
                         <div id="radarLocked" style="display:none;background:#fff8e1;border:1px solid #ffe0a3;border-radius:10px;padding:14px;">
-                            <div style="font-weight:600;color:#8a5a00;font-size:13px;margin-bottom:4px;">Disponible en planes Pro y Corporativo</div>
+                            <div style="font-weight:600;color:#8a5a00;font-size:13px;margin-bottom:4px;">Disponible en el plan Empresarial</div>
                             <div style="font-size:12px;color:#7a6a45;margin-bottom:10px;">Tu plan actual no incluye el monitoreo radar. Mejora tu plan para ver el cultivo a través de las nubes.</div>
                             <a href="/templates/billing/pricing.html" style="display:inline-block;background:#145A32;color:#fff;border-radius:8px;padding:8px 14px;font-size:12px;font-weight:600;text-decoration:none;">Mejorar plan →</a>
                         </div>
@@ -777,8 +781,10 @@
                                 <div id="radarChangeSummary" style="margin-top:6px;font-size:12px;color:#c0392b;font-weight:600;"></div>
                                 <div id="radarInterpretation" style="margin-top:8px;font-size:12px;color:#888;line-height:1.5;"></div>
                                 <div id="radarLegend" style="margin-top:10px;font-size:11px;color:#666;display:flex;flex-wrap:wrap;gap:14px;border-top:1px solid #eee;padding-top:8px;">
-                                    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#147a2e;margin-right:4px;"></span>Verde = vegetación (RVI)</span>
-                                    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e03c28;margin-right:4px;"></span>Rojo = cambio detectado</span>
+                                    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#147a2e;margin-right:4px;"></span>Verde = mayor vigor (RVI)</span>
+                                    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#c8a428;margin-right:4px;"></span>Amarillo = vigor medio</span>
+                                    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#8a4b1e;margin-right:4px;"></span>Café = menor vigor</span>
+                                    <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#e03c28;margin-right:4px;"></span>Rojo = cambio significativo (VV+VH > umbral)</span>
                                 </div>
                             </div>
                         </div>

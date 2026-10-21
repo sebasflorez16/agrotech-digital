@@ -149,6 +149,11 @@ COPERNICUS_CLIENT_SECRET = env.str("COPERNICUS_CLIENT_SECRET", default="")
 # Sentinel-1 (Planetary Computer) — vigilancia radar complementaria
 # Ventana de búsqueda en días (configurable; NO hardcodeada en el código).
 SENTINEL1_LOOKBACK_DAYS = env.int("SENTINEL1_LOOKBACK_DAYS", default=60)
+# Umbral de "cambio significativo" por píxel en dB, sobre |ΔVV| + |ΔVH|.
+# Calibrado con datos reales (varias parcelas/pasadas): 2 dB marcaba ~70% de los
+# píxeles (falsos positivos por humedad/geometría); 6 dB deja ~15%, que resalta
+# las zonas realmente distintas. Ajustable sin tocar código (env).
+SENTINEL1_CHANGE_THRESHOLD_DB = env.float("SENTINEL1_CHANGE_THRESHOLD_DB", default=6.0)
 
 # EOSDA DATASET ID (por defecto Sentinel-2 L2A)
 EOSDA_DATASET_ID = os.getenv('EOSDA_DATASET_ID', 'S2L2A')

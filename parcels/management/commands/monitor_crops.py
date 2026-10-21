@@ -95,12 +95,24 @@ class Command(BaseCommand):
 
                         if result.get("change_detected"):
                             info = result.get("change_info", {})
+                            pct = info.get("changed_percent")
+                            if pct is not None:
+                                message = (
+                                    f"El {pct}% del lote cambió entre {info.get('from_date')} y "
+                                    f"{info.get('to_date')} (señal radar VV+VH > "
+                                    f"{info.get('threshold_db', 6.0)} dB). "
+                                    "Señal para revisar en campo; no es un diagnóstico."
+                                )
+                            else:
+                                message = (
+                                    f"{info.get('interpretation', 'Cambio detectado')} "
+                                    f"(magnitud: {info.get('magnitude', '?')} dB, "
+                                    f"escenas: {result.get('scenes_found', 0)})"
+                                )
                             alert = {
                                 "type": "radar_change",
                                 "title": f"Cambio radar en {parcel.name}",
-                                "message": f"{info.get('interpretation', 'Cambio detectado')} "
-                                           f"(magnitud: {info.get('magnitude', '?')} dB, "
-                                           f"escenas: {result.get('scenes_found', 0)})",
+                                "message": message,
                             }
                             self._create_alert(parcel, alert, dry_run)
                             alerts_generated += 1
