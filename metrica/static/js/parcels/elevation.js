@@ -164,8 +164,6 @@
         });
 
         elevationVisible = true;
-        // Pantalla completa al cargar la capa (mejor lectura en móvil y PC).
-        if (window.enterMapFullscreen) setTimeout(() => window.enterMapFullscreen(), 150);
         console.log(`${MODULE_TAG} Imagen de elevación superpuesta en el mapa`);
     }
 

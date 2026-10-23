@@ -154,6 +154,10 @@ SENTINEL1_LOOKBACK_DAYS = env.int("SENTINEL1_LOOKBACK_DAYS", default=60)
 # píxeles (falsos positivos por humedad/geometría); 6 dB deja ~15%, que resalta
 # las zonas realmente distintas. Ajustable sin tocar código (env).
 SENTINEL1_CHANGE_THRESHOLD_DB = env.float("SENTINEL1_CHANGE_THRESHOLD_DB", default=6.0)
+# Nubosidad máxima de escena (%) para la sectorización automática. Si el NDVI
+# que el usuario está viendo tiene otra fecha, se intenta esa primero; luego se
+# elige la escena más reciente dentro de este umbral.
+SENTINEL2_ZONIFICATION_MAX_CLOUD = env.float("SENTINEL2_ZONIFICATION_MAX_CLOUD", default=40.0)
 
 # EOSDA DATASET ID (por defecto Sentinel-2 L2A)
 EOSDA_DATASET_ID = os.getenv('EOSDA_DATASET_ID', 'S2L2A')

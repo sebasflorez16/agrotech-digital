@@ -110,25 +110,43 @@ def run_zonification(zonification) -> dict:
 
     coords = np.asarray(pts)
 
-    # Índices REALES de Sentinel-2. Elige AUTOMÁTICAMENTE la escena más reciente
-    # (últimos 60 días) que tenga suficientes píxeles válidos sin nubes/sombras.
+    # Índices REALES de Sentinel-2. Prioridad:
+    #  1) la MISMA fecha que el usuario está viendo en el NDVI (si se envió),
+    #  2) la escena más reciente de los últimos 60 días con nubosidad
+    #     <= SENTINEL2_ZONIFICATION_MAX_CLOUD (30% por defecto).
     from .sentinel2 import get_real_indices, search_sentinel2_scenes
     from datetime import date, timedelta
+    from django.conf import settings as django_settings
     pts_lonlat = [(float(p[0]), float(p[1])) for p in coords]
     today = date.today()
     candidates = search_sentinel2_scenes(
         geom,
         date_from=(today - timedelta(days=60)).isoformat(),
         date_to=today.isoformat(),
-        max_results=16,
+        max_results=20,
     )
-    # La búsqueda devuelve por nubosidad; aquí priorizamos la fecha más reciente
-    # y vamos bajando hasta encontrar una con cobertura útil.
-    candidates.sort(key=lambda s: s.get('date', ''), reverse=True)
+    by_date = {s.get('date'): s for s in candidates if s.get('date')}
+    max_cloud = float(getattr(django_settings, 'SENTINEL2_ZONIFICATION_MAX_CLOUD', 30.0))
+
+    ordered = []
+    requested = str(zonification.scene_date or '')[:10]
+    if requested in by_date:
+        ordered.append(by_date[requested])  # misma fecha que el NDVI mostrado
+
+    low_cloud = [
+        s for s in candidates
+        if s.get('cloud_cover') is not None and float(s.get('cloud_cover')) <= max_cloud
+    ]
+    low_cloud.sort(key=lambda s: s.get('date', ''), reverse=True)
+    for s in low_cloud:
+        if s.get('date') not in {x.get('date') for x in ordered}:
+            ordered.append(s)
+
     need = zonification.k_zones * 8
     chosen = None
+    chosen_scene = None
     tried = set()
-    for cand in candidates[:6]:
+    for cand in ordered[:6]:
         scene_day = cand.get('date')
         if not scene_day or scene_day in tried:
             continue
@@ -142,14 +160,21 @@ def run_zonification(zonification) -> dict:
         )
         if valid_mask.sum() >= need:
             chosen = (ndvi, ndmi, savi, ndre, effective_scene_date, valid_mask)
+            chosen_scene = cand
             break
 
     if chosen is None:
         zonification.status = 'failed'
-        zonification.notes = (
-            'No se encontró una escena Sentinel-2 real con suficientes píxeles '
-            'sin nubes en los últimos 60 días. Reintenta más tarde.'
-        )
+        if not low_cloud:
+            zonification.notes = (
+                f'No hay escena Sentinel-2 con nubosidad menor o igual a {max_cloud:.0f}% '
+                'en los últimos 60 días para esta parcela. Reintenta más adelante.'
+            )
+        else:
+            zonification.notes = (
+                'No se encontró una escena Sentinel-2 con suficientes píxeles válidos '
+                f'(se probaron {len(tried)} fechas, nubosidad <= {max_cloud:.0f}%).'
+            )
         zonification.save(update_fields=['status', 'notes', 'updated_at'])
         return {'ok': False, 'reason': zonification.notes}
 
@@ -264,9 +289,15 @@ def run_zonification(zonification) -> dict:
     zonification.total_pixels = int(len(coords))
     zonification.pixel_resolution_m = round((step_x * deg_to_m_x + step_y * deg_to_m_y) / 2.0, 2)
     zonification.status = 'ready'
-    if not zonification.notes:
+    cloud_txt = chosen_scene.get('cloud_cover') if chosen_scene else None
+    if cloud_txt is not None:
         zonification.notes = (
-            'Zonificación con índices Sentinel-2 reales (Planetary Computer).'
+            f'Zonificación con Sentinel-2 real. Escena {effective_scene_date} '
+            f'({float(cloud_txt):.1f}% de nubes de escena, {int(valid_mask.sum())} puntos válidos).'
+        )
+    else:
+        zonification.notes = (
+            f'Zonificación con Sentinel-2 real. Escena {effective_scene_date}.'
         )
     zonification.save(update_fields=[
         'total_pixels', 'pixel_resolution_m', 'status', 'notes', 'scene_date',
