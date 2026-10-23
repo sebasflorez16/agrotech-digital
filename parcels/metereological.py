@@ -102,7 +102,7 @@ class WeatherForecastView(APIView):
         today = datetime.now()
 
         # Cache por 6 horas
-        weather_cache_key = f"weather_forecast_openmeteo_{parcel_id}_{today.strftime('%Y-%m-%d')}"
+        weather_cache_key = f"weather_forecast_openmeteo_v2_{parcel_id}_{today.strftime('%Y-%m-%d')}"
         cached_forecast = cache.get(weather_cache_key)
         if cached_forecast:
             logger.info("[WEATHER_FORECAST] ✅ CACHE HIT: Retornando pronóstico cacheado")
@@ -113,7 +113,7 @@ class WeatherForecastView(APIView):
         params = {
             "latitude": lat,
             "longitude": lng,
-            "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,relative_humidity_2m_mean,pressure_msl_mean,cloud_cover_mean",
+            "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,relative_humidity_2m_mean,pressure_msl_mean,cloud_cover_mean,shortwave_radiation_sum",
             "timezone": "America/Bogota",
             "forecast_days": 16,
         }
@@ -159,6 +159,7 @@ class WeatherForecastView(APIView):
                     "wind_speed": round(daily.get("wind_speed_10m_max", [0])[i] or 0, 1),
                     "pressure": round(daily.get("pressure_msl_mean", [0])[i] or 0, 1),
                     "cloud_cover": round(daily.get("cloud_cover_mean", [0])[i] or 0, 1),
+                    "solar_radiation": round(daily.get("shortwave_radiation_sum", [0])[i] or 0, 1),
                     "is_real_data": True,
                 })
 

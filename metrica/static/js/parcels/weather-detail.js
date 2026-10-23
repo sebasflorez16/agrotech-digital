@@ -319,7 +319,21 @@ function showWeatherDetailModal(dayData) {
     document.getElementById('detailHumidity').textContent = humidityValue ? `${parseFloat(humidityValue).toFixed(0)}%` : 'N/A';
     
     console.log("[WEATHER_DETAIL] Humedad:", humidityValue);
-    
+
+    // Radiación solar (Open-Meteo, MJ/m²)
+    const solarValue = dayData.solar_radiation ?? dayData.shortwave_radiation_sum;
+    const solarEl = document.getElementById('detailSolarRadiation');
+    if (solarEl) {
+        solarEl.textContent = (solarValue !== null && solarValue !== undefined && !isNaN(solarValue))
+            ? `${parseFloat(solarValue).toFixed(1)} MJ/m²`
+            : 'N/A';
+    }
+    const radiationBar = document.getElementById('radiationProgressBar');
+    if (radiationBar) {
+        const pct = Math.max(0, Math.min(100, (parseFloat(solarValue || 0) / 30) * 100));
+        radiationBar.style.width = `${pct}%`;
+    }
+
     // Precipitación - usar campos reales de EOSDA
     let precipTotal = dayData.precipitation || dayData.calculated_precipitation || 0;
     

@@ -192,6 +192,17 @@
                 padding: 20px 15px;
             }
         }
+
+        /* ── Modales responsive: nunca se salen de la pantalla ── */
+        @media (max-width: 767.98px) {
+            .modal-dialog { margin: 0.5rem; max-width: calc(100vw - 1rem); }
+            .modal-content { max-height: calc(100vh - 1rem); display: flex; flex-direction: column; }
+            .modal-body { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+            .modal-header { position: sticky; top: 0; z-index: 5; background: #fff; }
+            .modal-footer { position: sticky; bottom: 0; z-index: 5; background: #fff; }
+            #weatherDetailModal .modal-dialog-centered { align-items: center !important; }
+            #weatherDetailModal .modal-content { max-height: calc(100vh - 1rem); }
+        }
         
         /* Hacer que el modal se sienta más responsivo */
         .modal-lg {
@@ -985,13 +996,13 @@
                                     </div>
                                 </div>
                                 
-                                <!-- Radiación Solar NO disponible en EOSDA -->
-                                <div class="card mt-3" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); display: none !important;">
+                                <!-- Radiación Solar (Open-Meteo) -->
+                                <div class="card mt-3" style="background: rgba(255, 255, 255, 0.15); border: none; border-radius: 12px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);">
                                     <div class="card-body">
                                         <h6 class="card-title fw-bold text-success mb-2">Radiación Solar</h6>
                                         <div class="d-flex justify-content-between align-items-center mb-2">
-                                            <div class="small text-muted">Radiación solar</div>
-                                            <div class="fw-bold" id="detailSolarRadiation">No disponible</div>
+                                            <div class="small text-muted">Radiación solar (MJ/m²)</div>
+                                            <div class="fw-bold" id="detailSolarRadiation">—</div>
                                         </div>
                                         <div class="progress mt-1 mb-2" style="height: 5px;">
                                             <div id="radiationProgressBar" class="progress-bar bg-warning" role="progressbar" style="width: 0%"></div>

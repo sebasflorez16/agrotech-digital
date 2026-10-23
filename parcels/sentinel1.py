@@ -561,6 +561,8 @@ def _compute_radar_layers(geometry, date_from, date_to, target_date=None):
                 "changed_percent": changed_pct,
                 "mean_magnitude_db": round(float(np.nanmean(mag)), 2),
                 "max_magnitude_db": round(float(np.nanmax(mag)), 2) if np.any(~np.isnan(mag)) else 0.0,
+                "vv_db": round(float(np.nanmean(vv_db)), 2),
+                "vh_db": round(float(np.nanmean(vh_db)), 2),
                 "change_heatmap": _change_grid_to_png(mag, threshold),
                 "bounds": list(bounds),
             }

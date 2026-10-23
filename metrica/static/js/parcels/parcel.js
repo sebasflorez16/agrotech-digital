@@ -3201,25 +3201,20 @@ async function loadRadarMonitoring(parcelId) {
             let detail;
             if (recent) {
                 const pct = recent.changed_percent != null ? `${recent.changed_percent}%` : '—';
-                const mean = recent.mean_magnitude_db != null ? Number(recent.mean_magnitude_db).toFixed(2) : '—';
-                const max = recent.max_magnitude_db != null ? Number(recent.max_magnitude_db).toFixed(2) : '—';
-                detail = `${detected ? 'Cambio reciente por píxel' : 'Sin cambios recientes por píxel'}: `
-                    + `${pct} del lote cambió (>${thr} dB) entre ${from} y ${to}. `
-                    + `Magnitud media ${mean} dB (máx ${max} dB).`;
+                const friendly = recent.changed_percent >= 50 ? 'más de la mitad del lote'
+                    : recent.changed_percent >= 25 ? 'cerca de 1 de cada 4 partes'
+                    : recent.changed_percent >= 10 ? 'varias zonas' : 'unas zonas pequeñas';
+                detail = `${detected ? 'Se detectaron cambios' : 'No se detectaron cambios relevantes'}: `
+                    + `cambió el ${pct} del lote (${friendly}) entre ${from} y ${to}.`;
             } else {
-                detail = `${detected ? 'Cambio en la media del lote' : 'Sin cambios en la media del lote'} `
-                    + `entre ${from} y ${to} (umbral ${thr} dB).`;
+                detail = `${detected ? 'Se detectaron cambios' : 'Sin cambios relevantes'} entre ${from} y ${to}.`;
             }
             const detailEl = document.getElementById('radarChangeDetail');
             if (detailEl) detailEl.innerHTML = detail;
 
-            let interp = 'Señal para revisar en campo; no es un diagnóstico.';
+            let interp = 'Revisa las zonas rojas del mapa. Es una señal para revisar, no un diagnóstico.';
             if (recent && change.change_detected != null) {
-                const tFrom = change.from_date || '—';
-                const tTo = change.to_date || '—';
-                const tMag = change.magnitude != null ? `${change.magnitude} dB` : '—';
-                interp += ` Tendencia 60 días (secundaria, media del lote): ${tFrom} → ${tTo}, `
-                    + `Δ ${tMag} (${change.change_detected ? 'cambió' : 'sin cambio'}).`;
+                interp += ` Tendencia general: ${change.change_detected ? 'con cambios' : 'estable'} en los últimos 60 días.`;
             }
             setText('radarInterpretation', interp);
         }
@@ -3294,8 +3289,8 @@ async function loadRadarLayers(parcelId) {
                 const from = data.change.from_date || '—';
                 const to = data.change.to_date || '—';
                 summaryEl.textContent = data.change.change_detected
-                    ? `⚠️ ${data.change.changed_percent}% del lote cambió entre ${from} y ${to} (>${thr} dB). Rojo = cambio significativo; revisar.`
-                    : `Sin cambios por encima de ${thr} dB entre ${from} y ${to}.`;
+                    ? `⚠️ Cambió el ${data.change.changed_percent}% del lote entre ${from} y ${to}. Revisa las zonas rojas.`
+                    : `Sin cambios relevantes entre ${from} y ${to}.`;
             } else {
                 summaryEl.textContent = '';
             }

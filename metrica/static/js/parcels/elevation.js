@@ -193,7 +193,16 @@
      * Obtener referencia al mapa Leaflet (buscar en variables globales)
      */
     function getMapInstance() {
+        // Intentar obtener de variable global directa
         if (window.map && window.map._leaflet_id) return window.map;
+        
+        // Buscar en el contenedor del mapa
+        const container = document.getElementById('mapContainer');
+        if (container && container._leaflet_id) {
+            // Leaflet almacena la instancia en _leaflet
+            return container._leaflet;
+        }
+
         return null;
     }
 
@@ -226,31 +235,49 @@
             interpretColor = '#D32F2F';
         }
 
+        // Overlay centrado por encima del sidebar/topbar (z-index alto) y con
+        // cierre claro en móvil. Evita que el panel quede detrás del menú.
+        const overlay = document.createElement('div');
+        overlay.id = 'elevationStatsOverlay';
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            background: rgba(0,0,0,0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        `;
+        overlay.addEventListener('click', (ev) => {
+            if (ev.target === overlay) overlay.remove();
+        });
+
         panel = document.createElement('div');
         panel.id = 'elevationStatsPanel';
         panel.style.cssText = `
-            position: fixed;
-            bottom: 80px;
-            left: 20px;
-            z-index: 10000;
-            background: rgba(255, 255, 255, 0.96);
-            border-radius: 12px;
-            padding: 16px 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            position: relative;
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 14px;
+            padding: 18px 20px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.25);
             font-family: 'Inter', sans-serif;
-            max-width: 320px;
+            width: min(420px, 100%);
+            max-height: calc(100vh - 32px);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
             border-left: 4px solid ${interpretColor};
-            backdrop-filter: blur(10px);
         `;
 
         panel.innerHTML = `
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;">
                 <strong style="color:#333;font-size:14px;">
                     <i class="fas fa-mountain" style="color:#8B4513;margin-right:6px;"></i>
                     Elevación del Terreno
                 </strong>
-                <button onclick="document.getElementById('elevationStatsPanel').remove()" 
-                        style="border:none;background:none;cursor:pointer;font-size:16px;color:#999;padding:0;">✕</button>
+                <button onclick="document.getElementById('elevationStatsOverlay').remove()"
+                        aria-label="Cerrar"
+                        style="border:none;background:#f1f1f1;cursor:pointer;font-size:16px;color:#666;padding:6px 10px;border-radius:8px;">✕</button>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
                 <div style="background:#E3F2FD;border-radius:8px;padding:8px;text-align:center;">
@@ -275,11 +302,8 @@
                     📋 ${interpretation}
                 </div>
             </div>
-            <div style="font-size:10px;color:#999;text-align:center;">
-                Resolución: ~${stats.resolution_m}m | Puntos: ${stats.grid_points} | Grilla: ${stats.grid_size}
-            </div>
             <div style="margin-top:8px;padding-top:8px;border-top:1px solid #eee;">
-                <div style="display:flex;align-items:center;gap:4px;justify-content:center;">
+                <div style="display:flex;align-items:center;gap:4px;justify-content:center;flex-wrap:wrap;">
                     <div style="width:16px;height:10px;background:linear-gradient(to right, #1E50AA, #46B4FF);border-radius:2px;"></div>
                     <span style="font-size:10px;color:#666;">Bajo</span>
                     <div style="width:16px;height:10px;background:linear-gradient(to right, #64F064, #DCC840);border-radius:2px;margin-left:4px;"></div>
@@ -288,10 +312,38 @@
                     <span style="font-size:10px;color:#666;">Alto</span>
                 </div>
             </div>
+            <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+                <button onclick="window.ocultarElevacionCapa && window.ocultarElevacionCapa()"
+                        style="flex:1;min-width:150px;border:none;border-radius:10px;padding:10px 12px;background:#8B4513;color:#fff;font-weight:600;cursor:pointer;">
+                    Ocultar capa de elevación
+                </button>
+                <button onclick="document.getElementById('elevationStatsOverlay').remove()"
+                        style="flex:1;min-width:120px;border:1px solid #ddd;border-radius:10px;padding:10px 12px;background:#fff;color:#444;font-weight:600;cursor:pointer;">
+                    Cerrar
+                </button>
+            </div>
+            <div style="font-size:10px;color:#999;text-align:center;margin-top:10px;">
+                Resolución: ~${stats.resolution_m}m | Puntos: ${stats.grid_points} | Grilla: ${stats.grid_size}
+            </div>
         `;
 
-        document.body.appendChild(panel);
+        overlay.appendChild(panel);
+        document.body.appendChild(overlay);
     }
+
+    // Oculta la capa y cierra el panel (botón del modal y control externo).
+    function hideElevationLayer() {
+        const mapInstance = getMapInstance();
+        removeElevationLayer(mapInstance);
+        const overlay = document.getElementById('elevationStatsOverlay');
+        if (overlay) overlay.remove();
+        const btn = document.getElementById('elevationToggleBtn');
+        if (btn) {
+            btn.innerHTML = '<i class="fas fa-mountain me-1"></i> Mostrar Elevación';
+            btn.style.display = 'block';
+        }
+    }
+    window.ocultarElevacionCapa = hideElevationLayer;
 
     /**
      * Botón flotante para mostrar/ocultar elevación
@@ -304,10 +356,11 @@
             btn.className = 'btn';
             btn.style.cssText = `
                 position: fixed;
-                bottom: 32px;
-                left: 20px;
-                z-index: 10001;
-                box-shadow: 0 2px 10px rgba(139, 69, 19, 0.4);
+                bottom: 20px;
+                right: 20px;
+                left: auto;
+                z-index: 100000;
+                box-shadow: 0 4px 16px rgba(139, 69, 19, 0.45);
                 background: linear-gradient(135deg, #8B4513, #2E7D32);
                 color: white;
                 border: none;
@@ -324,19 +377,11 @@
         btn.style.display = 'block';
 
         btn.onclick = () => {
-            const mapInstance = getMapInstance();
             if (elevationVisible) {
-                removeElevationLayer(mapInstance);
-                btn.innerHTML = '<i class="fas fa-mountain me-1"></i> Mostrar Elevación';
-                // Ocultar panel de stats
-                const panel = document.getElementById('elevationStatsPanel');
-                if (panel) panel.style.display = 'none';
+                hideElevationLayer();
             } else {
                 showElevationOnLeaflet(imageBase64, bounds);
                 btn.innerHTML = '<i class="fas fa-mountain me-1"></i> Ocultar Elevación';
-                // Mostrar panel de stats
-                const panel = document.getElementById('elevationStatsPanel');
-                if (panel) panel.style.display = 'block';
             }
         };
     }
