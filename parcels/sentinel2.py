@@ -181,17 +181,18 @@ def _sample_band(href, points_lonlat):
         return None
 
 
-def get_real_indices(geometry, points_lonlat, scene_date):
+def get_real_indices(geometry, points_lonlat, scene_date, exact_date=False):
     """Devuelve (ndvi, ndmi, savi, ndre, scene_date) REALES en los puntos dados, o None.
 
-    Los valores se muestrean de una escena Sentinel-2 L2A real (mejor escena de
-    ±10 días alrededor de scene_date). Si no hay escena o el muestreo falla,
-    devuelve None (NUNCA se hace fallback a otra fecha ni se inventan valores).
+    Los valores se muestrean de una escena Sentinel-2 L2A real. Con exact_date=True
+    usa EXACTAMENTE la fecha indicada (para elegir la escena más reciente válida
+    en la zonificación); si no, usa la mejor escena de ±10 días alrededor.
+    Si no hay escena o el muestreo falla, devuelve None (NUNCA inventa valores).
     """
     if not points_lonlat or rasterio is None:
         return None
 
-    scene = search_sentinel2_scene(geometry, scene_date)
+    scene = search_sentinel2_scene(geometry, scene_date, exact_date=exact_date)
     if not scene:
         return None
 

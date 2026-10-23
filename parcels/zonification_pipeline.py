@@ -84,7 +84,13 @@ def run_zonification(zonification) -> dict:
     zonification.save(update_fields=['status', 'updated_at'])
 
     minx, miny, maxx, maxy = poly.bounds
-    nx = ny = 40  # grilla 40x40 = 1600 candidatos
+    # Resolución adaptativa (~12 m por celda), entre 40x40 y 100x100, para que
+    # las zonas sigan el patrón real del NDVI y no queden bloques demasiado gruesos.
+    mid_lat = (miny + maxy) / 2.0
+    width_m = (maxx - minx) * 111320.0 * np.cos(np.deg2rad(mid_lat))
+    height_m = (maxy - miny) * 110540.0
+    nx = int(np.clip(round(width_m / 12.0), 40, 100))
+    ny = int(np.clip(round(height_m / 12.0), 40, 100))
     xs = np.linspace(minx, maxx, nx)
     ys = np.linspace(miny, maxy, ny)
 
@@ -104,30 +110,51 @@ def run_zonification(zonification) -> dict:
 
     coords = np.asarray(pts)
 
-    # Índices REALES de Sentinel-2 (nunca simulados)
-    from .sentinel2 import get_real_indices
+    # Índices REALES de Sentinel-2. Elige AUTOMÁTICAMENTE la escena más reciente
+    # (últimos 60 días) que tenga suficientes píxeles válidos sin nubes/sombras.
+    from .sentinel2 import get_real_indices, search_sentinel2_scenes
+    from datetime import date, timedelta
     pts_lonlat = [(float(p[0]), float(p[1])) for p in coords]
-    real = get_real_indices(geom, pts_lonlat, zonification.scene_date)
-    if real is None:
+    today = date.today()
+    candidates = search_sentinel2_scenes(
+        geom,
+        date_from=(today - timedelta(days=60)).isoformat(),
+        date_to=today.isoformat(),
+        max_results=16,
+    )
+    # La búsqueda devuelve por nubosidad; aquí priorizamos la fecha más reciente
+    # y vamos bajando hasta encontrar una con cobertura útil.
+    candidates.sort(key=lambda s: s.get('date', ''), reverse=True)
+    need = zonification.k_zones * 8
+    chosen = None
+    tried = set()
+    for cand in candidates[:6]:
+        scene_day = cand.get('date')
+        if not scene_day or scene_day in tried:
+            continue
+        tried.add(scene_day)
+        real = get_real_indices(geom, pts_lonlat, scene_day, exact_date=True)
+        if real is None:
+            continue
+        ndvi, ndmi, savi, ndre, effective_scene_date = real
+        valid_mask = (
+            np.isfinite(ndvi) & np.isfinite(ndmi) & np.isfinite(savi) & np.isfinite(ndre)
+        )
+        if valid_mask.sum() >= need:
+            chosen = (ndvi, ndmi, savi, ndre, effective_scene_date, valid_mask)
+            break
+
+    if chosen is None:
         zonification.status = 'failed'
         zonification.notes = (
-            'No se encontró una escena Sentinel-2 real para esta fecha/geometría. '
-            'Reintenta con otra fecha de escena.'
+            'No se encontró una escena Sentinel-2 real con suficientes píxeles '
+            'sin nubes en los últimos 60 días. Reintenta más tarde.'
         )
         zonification.save(update_fields=['status', 'notes', 'updated_at'])
         return {'ok': False, 'reason': zonification.notes}
-    ndvi, ndmi, savi, ndre, effective_scene_date = real
-    zonification.scene_date = effective_scene_date
 
-    # Descartar puntos sin dato real (fuera de escena / nubes)
-    valid_mask = (
-        np.isfinite(ndvi) & np.isfinite(ndmi) & np.isfinite(savi) & np.isfinite(ndre)
-    )
-    if valid_mask.sum() < zonification.k_zones * 8:
-        zonification.status = 'failed'
-        zonification.notes = 'Puntos válidos insuficientes en la escena Sentinel-2 real.'
-        zonification.save(update_fields=['status', 'notes', 'updated_at'])
-        return {'ok': False, 'reason': zonification.notes}
+    ndvi, ndmi, savi, ndre, effective_scene_date, valid_mask = chosen
+    zonification.scene_date = effective_scene_date
     coords = coords[valid_mask]
     ndvi = ndvi[valid_mask]
     ndmi = ndmi[valid_mask]

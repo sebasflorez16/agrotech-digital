@@ -3377,3 +3377,19 @@ document.addEventListener('DOMContentLoaded', function () {
         setTimeout(checkPlanUsageReminder, 1500);
     }
 });
+
+// Pantalla completa del mapa principal (móvil y PC), reutilizable por las capas.
+window.enterMapFullscreen = function () {
+    const mc = document.getElementById('mapContainer');
+    if (mc) mc.classList.add('fullscreen');
+    const btn = document.getElementById('mapFullscreenExit');
+    if (btn) btn.classList.add('show');
+    if (window.map) setTimeout(() => window.map.invalidateSize(), 150);
+};
+window.exitMapFullscreen = function () {
+    const mc = document.getElementById('mapContainer');
+    if (mc) mc.classList.remove('fullscreen');
+    const btn = document.getElementById('mapFullscreenExit');
+    if (btn) btn.classList.remove('show');
+    if (window.map) setTimeout(() => window.map.invalidateSize(), 150);
+};
