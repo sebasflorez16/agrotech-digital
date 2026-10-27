@@ -11,7 +11,7 @@ DEBUG = True
 import secrets
 SECRET_KEY = env("DJANGO_SECRET_KEY", default=secrets.token_urlsafe(50))
 # Verificación de email obligatoria para pruebas
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_VERIFICATION = "optional"  # acceso inmediato; verificación se exige en checkout/pagos
 # https://docs.djangoproject.com/en/dev/ref/settings/#allowed-hosts
 ALLOWED_HOSTS = ["*"]
 

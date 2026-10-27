@@ -233,7 +233,7 @@ SERVER_EMAIL = env("SERVER_EMAIL", default=DEFAULT_FROM_EMAIL)
 EMAIL_SUBJECT_PREFIX = env("EMAIL_SUBJECT_PREFIX", default="[AgroTech] ")
 
 # Verificación de email obligatoria en producción
-ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+ACCOUNT_EMAIL_VERIFICATION = "optional"  # acceso inmediato; verificación se exige en checkout/pagos
 
 # Admin notification emails
 ADMINS = [

@@ -101,16 +101,35 @@ class RegisterView(APIView):
             domain = result['domain']
             email_sent = result.get('email_sent', True)
 
-            # Construir respuesta — sin tokens JWT (usuario debe verificar email)
-            response_data = {
-                'success': True,
-                'message': (
+            # Con verificación opcional la cuenta queda activa y devolvemos sesión
+            # inmediata para que el usuario pueda entrar al panel en el momento.
+            tokens = None
+            if user.is_active:
+                refresh = RefreshToken.for_user(user)
+                if getattr(user, 'tenant_id', None):
+                    refresh['tenant_id'] = user.tenant_id
+                    refresh.access_token['tenant_id'] = user.tenant_id
+                tokens = {
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh),
+                }
+            requires_verification = not user.is_active
+            if tokens:
+                message = (
+                    'Cuenta creada. Ya puedes entrar a la plataforma; '
+                    'te enviamos un correo para verificar tu cuenta.'
+                )
+            else:
+                message = (
                     'Cuenta creada. Revisa tu correo para verificarla.'
                     if email_sent else
                     'Cuenta creada, pero no pudimos enviar el correo de verificación. '
                     'Usa la opción de reenviar correo.'
-                ),
-                'requires_email_verification': True,
+                )
+            response_data = {
+                'success': True,
+                'message': message,
+                'requires_email_verification': requires_verification,
                 'email_sent': email_sent,
                 'data': {
                     'user': {
@@ -138,6 +157,8 @@ class RegisterView(APIView):
                     } if subscription else None,
                 }
             }
+            if tokens:
+                response_data['data']['tokens'] = tokens
 
             logger.info(f"Registro exitoso (pendiente verificacion): {user.username} -> {tenant.schema_name}")
             return Response(response_data, status=status.HTTP_201_CREATED)

@@ -652,16 +652,18 @@ class TestRegisterEndpointIntegration:
         )
         assert response.status_code == 201, response.json()
 
-    def test_register_requires_email_verification(self, api_client, unique_payload):
-        """Registro exitoso NO retorna tokens; requiere verificación de email."""
+    def test_register_returns_session_immediately(self, api_client, unique_payload):
+        """Con verificación opcional el registro devuelve sesión y entra al panel."""
         response = api_client.post(
             '/api/auth/register/', unique_payload, format='json',
             SERVER_NAME='127.0.0.1'
         )
         data = response.json()
         assert data['success'] is True
-        assert data['requires_email_verification'] is True
-        assert 'tokens' not in data['data']
+        assert data['requires_email_verification'] is False
+        assert 'tokens' in data['data']
+        assert data['data']['tokens'].get('access')
+        assert data['data']['tokens'].get('refresh')
 
     def test_register_creates_tenant(self, api_client, unique_payload):
         """Registro crea tenant con datos correctos."""
@@ -1215,7 +1217,8 @@ class TestEmpresarialPlan:
         from billing.models import Plan
         plan = Plan.objects.filter(tier='pro').first()
         if plan:
-            assert plan.limits.get('hectares', 0) >= 500
+            assert plan.limits.get('hectares', 0) >= 300
+            assert plan.limits.get('parcels', 0) >= 50
             assert plan.limits.get('users', 0) >= 3
             assert plan.price_cop > 0
 
