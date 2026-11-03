@@ -43,6 +43,11 @@ def check_hectare_limit(view_func):
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
         from django.conf import settings
+        from .access import is_unlimited_user
+
+        # Dueño/superusuario: sin límites de plan.
+        if is_unlimited_user(getattr(request, 'user', None)):
+            return view_func(request, *args, **kwargs)
 
         # 🛡️ MODO DESARROLLADOR: superusuario + DEVELOPER_MODE + toggle activo = sin límites
         from config.devmode import is_dev_mode_active
@@ -167,6 +172,11 @@ def check_eosda_limit(view_func):
         else:
             logger.error("[check_eosda_limit] No se pudo determinar el request")
             return JsonResponse({'error': 'Internal error'}, status=500)
+
+        # Dueño/superusuario: sin límites de plan.
+        from .access import is_unlimited_user
+        if is_unlimited_user(getattr(request, 'user', None)):
+            return view_func(*args, **kwargs)
 
         # 🛡️ MODO DESARROLLADOR: primer chequeo, antes de cualquier lógica de suscripción
         from config.devmode import is_dev_mode_active

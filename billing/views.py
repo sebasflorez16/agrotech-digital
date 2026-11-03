@@ -26,6 +26,7 @@ from .serializers import (
 import mercadopago
 import json
 import logging
+from .access import is_unlimited_user
 
 logger = logging.getLogger(__name__)
 
@@ -880,20 +881,20 @@ def current_invoice_preview(request):
         'usage_summary': {
             'eosda_requests': {
                 'used': metrics.eosda_requests,
-                'limit': plan.get_limit('eosda_requests', 0),
+                'limit': 'unlimited' if is_unlimited_user(request.user) else plan.get_limit('eosda_requests', 0),
                 'overage': metrics.eosda_requests_overage
             },
             'parcels': {
                 'used': metrics.parcels_count,
-                'limit': plan.get_limit('parcels', 0)
+                'limit': 'unlimited' if is_unlimited_user(request.user) else plan.get_limit('parcels', 0)
             },
             'hectares': {
                 'used': round(metrics.hectares_used, 2),
-                'limit': plan.get_limit('hectares', 0)
+                'limit': 'unlimited' if is_unlimited_user(request.user) else plan.get_limit('hectares', 0)
             },
             'users': {
                 'used': metrics.users_count,
-                'limit': plan.get_limit('users', 0)
+                'limit': 'unlimited' if is_unlimited_user(request.user) else plan.get_limit('users', 0)
             }
         },
         'invoice_preview': {
@@ -1096,6 +1097,18 @@ def my_subscription_view(request):
         for inv in invoices
     ]
 
+    from .access import is_unlimited_user
+    unlimited = is_unlimited_user(request.user)
+    limits = (
+        {'hectares': 'unlimited', 'eosda_requests': 'unlimited',
+         'users': 'unlimited', 'parcels': 'unlimited'}
+        if unlimited else
+        {'hectares': plan.get_limit('hectares'),
+         'eosda_requests': plan.get_limit('eosda_requests'),
+         'users': plan.get_limit('users'),
+         'parcels': plan.get_limit('parcels')}
+    )
+
     return Response({
         'has_subscription': True,
         'plan_tier': plan.tier,
@@ -1110,12 +1123,8 @@ def my_subscription_view(request):
         'mp_preapproval_id': subscription.external_subscription_id,
         'auto_renew': subscription.auto_renew,
         'cancel_at_period_end': subscription.cancel_at_period_end,
-        'limits': {
-            'hectares': plan.get_limit('hectares'),
-            'eosda_requests': plan.get_limit('eosda_requests'),
-            'users': plan.get_limit('users'),
-            'parcels': plan.get_limit('parcels'),
-        },
+        'unlimited': unlimited,
+        'limits': limits,
         'usage': {
             'hectares': round(metrics.hectares_used, 2),
             'eosda_requests': metrics.eosda_requests,

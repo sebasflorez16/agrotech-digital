@@ -458,16 +458,30 @@ function initializeLeaflet() {
             console.warn('[LEAFLET] Plugin Geocoder no disponible - verifique que el script esté cargado');
         }
 
-        // 📺 Agregar control de pantalla completa
-        if (typeof L.Control.Fullscreen !== 'undefined') {
-            map.addControl(new L.Control.Fullscreen({
-                position: 'topright',
-                title: 'Ver en pantalla completa',
-                titleCancel: 'Salir de pantalla completa'
-            }));
-            console.log('[LEAFLET] Control de pantalla completa agregado');
-        } else {
-            console.warn('[LEAFLET] Plugin Fullscreen no disponible - verifique que el script esté cargado');
+        // 📺 Control de pantalla completa opcional (esquina inferior derecha)
+        if (typeof L.Control === 'function') {
+            const FullscreenToggle = L.Control.extend({
+                options: { position: 'bottomright' },
+                onAdd: function () {
+                    const btn = L.DomUtil.create('button', 'leaflet-bar');
+                    btn.type = 'button';
+                    btn.title = 'Pantalla completa';
+                    btn.setAttribute('aria-label', 'Pantalla completa');
+                    btn.innerHTML = '⛶';
+                    btn.style.cssText = 'background:#fff;width:34px;height:34px;font-size:18px;line-height:32px;text-align:center;cursor:pointer;border:none;';
+                    L.DomEvent.disableClickPropagation(btn);
+                    L.DomEvent.on(btn, 'click', function (e) {
+                        L.DomEvent.stop(e);
+                        window.toggleMapFullscreen();
+                        const on = document.getElementById('mapContainer').classList.contains('fullscreen');
+                        btn.innerHTML = on ? '⤢' : '⛶';
+                        btn.title = on ? 'Salir de pantalla completa' : 'Pantalla completa';
+                    });
+                    return btn;
+                }
+            });
+            map.addControl(new FullscreenToggle());
+            console.log('[LEAFLET] Control de pantalla completa (bottomright) agregado');
         }
 
         console.log('[LEAFLET] Mapa satelital Esri World Imagery cargado correctamente');
@@ -3392,4 +3406,10 @@ window.exitMapFullscreen = function () {
     const btn = document.getElementById('mapFullscreenExit');
     if (btn) btn.classList.remove('show');
     if (window.map) setTimeout(() => window.map.invalidateSize(), 150);
+};
+window.toggleMapFullscreen = function () {
+    const mc = document.getElementById('mapContainer');
+    if (!mc) return;
+    if (mc.classList.contains('fullscreen')) window.exitMapFullscreen();
+    else window.enterMapFullscreen();
 };

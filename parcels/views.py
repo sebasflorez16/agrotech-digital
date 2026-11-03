@@ -348,6 +348,11 @@ class ParcelViewSet(viewsets.ModelViewSet):
         Returns:
             tuple: (is_allowed: bool, error_response: Response or None)
         """
+        # Dueño/superusuario: sin límites de plan.
+        from billing.access import is_unlimited_user
+        if is_unlimited_user(getattr(request, 'user', None)):
+            return True, None
+
         subscription = getattr(request, 'subscription', None)
         
         if not subscription:
