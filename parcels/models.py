@@ -19,8 +19,8 @@ class Parcel(models.Model):
     updated_on =models.DateTimeField(auto_now=True, verbose_name="Fecha de actualización", blank=True, null=True)
     unique_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name="ID Único", blank=True, null=True)
     manager = models.ForeignKey(Employee, on_delete=models.CASCADE, verbose_name="Responsable del campo", blank=True, null=True)
-    soil_type = models.CharField(max_length=20, verbose_name='Tipo de suelo', help_text='Especifica si es arenoso, arcillozo, etc')
-    topography = models.CharField(max_length=20, verbose_name='Topografìa', help_text='Indica si es plano, inclinido, etc')
+    soil_type = models.CharField(max_length=100, blank=True, default='', verbose_name='Tipo de suelo', help_text='Especifica si es arenoso, arcilloso, etc')
+    topography = models.CharField(max_length=100, blank=True, default='', verbose_name='Topografia', help_text='Indica si es plano, inclinado, etc')
     # Estado de sincronización con EOSDA (creación del campo en field-management)
     SYNC_STATUS_CHOICES = [
         ('local', 'Solo local'),

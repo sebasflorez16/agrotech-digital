@@ -638,8 +638,8 @@ function savePolygon() {
     const name = document.getElementById("parcelName").value.trim();
     const description = document.getElementById("parcelDescription").value.trim();
     const fieldType = document.getElementById("parcelFieldType").value.trim();
-    const soilType = document.getElementById("parcelSoilType").value.trim();
-    const topography = document.getElementById("parcelTopography").value.trim();
+    const soilType = document.getElementById("parcelSoilType").value.trim() || "No especificado";
+    const topography = document.getElementById("parcelTopography").value.trim() || "No especificado";
 
     // Validar que el nombre esté completo
     if (!name) {
@@ -678,8 +678,14 @@ function savePolygon() {
         location.reload();
     })
     .catch(error => {
-        console.error("Error al guardar la parcela:", error);
-        showErrorToast("Hubo un error al guardar la parcela. Revisa la consola para más detalles.");
+        const detail = error.response && error.response.data;
+        console.error("Error al guardar la parcela:", detail || error);
+        let msg = "No se pudo guardar la parcela.";
+        if (detail && typeof detail === "object") {
+            const parts = Object.entries(detail).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`);
+            if (parts.length) msg += " " + parts.join(" | ");
+        }
+        showErrorToast(msg);
     });
 }
 
