@@ -89,6 +89,13 @@ class RegisterSerializer(serializers.Serializer):
         default='free',
         help_text='Tier del plan: free, basic, pro'
     )
+
+    # Atribución de marketing (opcional, no afecta el registro)
+    fbp = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    fbc = serializers.CharField(required=False, allow_blank=True, max_length=500)
+    event_id = serializers.CharField(required=False, allow_blank=True, max_length=100)
+    attribution = serializers.JSONField(required=False)
+    marketing_consent = serializers.BooleanField(required=False, default=False)
     
     def validate_email(self, value):
         """Validar que el email sea único en todo el sistema."""

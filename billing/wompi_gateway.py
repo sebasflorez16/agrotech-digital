@@ -164,7 +164,17 @@ class WompiGateway(PaymentGateway):
             if not transactions:
                 return {"success": False, "error": "no_transactions"}
             tx = transactions[0]
-            return {"success": True, "status": tx.get("status", ""), "transaction_id": tx.get("id", "")}
+            payment_method = tx.get("payment_method") or {}
+            return {
+                "success": True,
+                "status": tx.get("status", ""),
+                "transaction_id": tx.get("id", ""),
+                "reference": tx.get("reference", reference),
+                "amount_in_cents": tx.get("amount_in_cents"),
+                "currency": tx.get("currency"),
+                "customer_email": tx.get("customer_email", ""),
+                "payment_method_type": payment_method.get("type", ""),
+            }
         except Exception as e:
             logger.error(f"[WOMPI] Error consultando transacción: {e}")
             return {"success": False, "error": str(e)}

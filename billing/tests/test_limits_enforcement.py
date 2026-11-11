@@ -225,7 +225,11 @@ class TestWebhookSecurity(TestCase):
     
     def test_webhook_duplicate_detection(self):
         """Verificar detección de webhooks duplicados."""
-        from billing.webhooks import _get_request_fingerprint, _is_duplicate_webhook
+        from billing.webhooks import (
+            _get_request_fingerprint,
+            _is_duplicate_webhook,
+            _mark_webhook_processed,
+        )
         from django.core.cache import cache
         
         # Limpiar cache
@@ -237,11 +241,12 @@ class TestWebhookSecurity(TestCase):
         
         fingerprint = _get_request_fingerprint(mock_request)
         
-        # Primera vez no es duplicado
-        self.assertFalse(_is_duplicate_webhook(fingerprint, ttl=60))
+        # Antes de procesar no es duplicado
+        self.assertFalse(_is_duplicate_webhook(fingerprint))
         
-        # Segunda vez SÍ es duplicado
-        self.assertTrue(_is_duplicate_webhook(fingerprint, ttl=60))
+        # Se marca SOLO después de procesar correctamente
+        _mark_webhook_processed(fingerprint, ttl=60)
+        self.assertTrue(_is_duplicate_webhook(fingerprint))
         
         # Limpiar
         cache.clear()

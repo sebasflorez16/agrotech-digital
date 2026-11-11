@@ -7,7 +7,13 @@ echo "🚀 Iniciando aplicación AgroTech Digital..."
 # 1. VERIFICACIÓN DE VARIABLES DE ENTORNO
 # ============================================================
 echo "🔍 Verificando variables críticas de Railway..."
-env | grep -E "(DATABASE|POSTGRES|DB_|RAILWAY)" | head -10
+for var in DATABASE_URL PGHOST PGDATABASE PGUSER REDIS_URL RAILWAY_ENVIRONMENT; do
+    if [ -n "${!var}" ]; then
+        echo "  ✅ $var configurada"
+    else
+        echo "  ⚠️ $var no configurada"
+    fi
+done
 
 # Verificar DATABASE_URL
 if [ -z "$DATABASE_URL" ]; then
@@ -15,13 +21,13 @@ if [ -z "$DATABASE_URL" ]; then
     
     if [ ! -z "$PGHOST" ] && [ ! -z "$PGDATABASE" ]; then
         export DATABASE_URL="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE"
-        echo "✅ DATABASE_URL construido desde variables PG: ${DATABASE_URL:0:50}..."
+        echo "✅ DATABASE_URL construido desde variables PG (credenciales ocultas)"
     else
         echo "❌ No se pueden construir credenciales de base de datos"
         exit 1
     fi
 else
-    echo "✅ DATABASE_URL configurado: ${DATABASE_URL:0:50}..."
+    echo "✅ DATABASE_URL configurado (credenciales ocultas)"
 fi
 
 # Configurar variables de entorno
@@ -98,7 +104,13 @@ fi
 # 6. ARCHIVOS ESTÁTICOS
 # ============================================================
 echo "📁 Recolectando archivos estáticos..."
-python manage.py collectstatic --noinput 2>/dev/null || echo "⚠️ collectstatic falló"
+if ! python manage.py collectstatic --noinput; then
+    echo "⚠️ collectstatic falló; reintentando con --clear para resolver duplicados..."
+    if ! python manage.py collectstatic --noinput --clear; then
+        echo "❌ collectstatic falló: el sitio quedaría sin CSS/JS. Abortando deploy."
+        exit 1
+    fi
+fi
 
 # ============================================================
 # 7. INICIAR SERVIDOR

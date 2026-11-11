@@ -101,6 +101,35 @@ class RegisterView(APIView):
             domain = result['domain']
             email_sent = result.get('email_sent', True)
 
+            # Medición server-side (CAPI) con el mismo event_id del pixel.
+            try:
+                from uuid import uuid4
+                from core.meta_capi import request_meta_context, send_event
+
+                event_id = serializer.validated_data.get('event_id') or uuid4().hex
+                if serializer.validated_data.get('marketing_consent'):
+                    ctx = request_meta_context(request)
+                    send_event(
+                        'CompleteRegistration',
+                        event_id,
+                        email=user.email,
+                        phone=getattr(user, 'phone', '') or '',
+                        first_name=user.name or '',
+                        last_name=user.last_name or '',
+                        external_id=str(user.id),
+                        fbp=serializer.validated_data.get('fbp') or ctx['fbp'],
+                        fbc=serializer.validated_data.get('fbc') or ctx['fbc'],
+                        client_ip=ctx['client_ip'],
+                        user_agent=ctx['user_agent'],
+                        event_source_url=request.build_absolute_uri('/register'),
+                        custom_data={
+                            'status': 'active' if user.is_active else 'pending_verification',
+                            'content_name': 'register',
+                        },
+                    )
+            except Exception:
+                logger.warning('No se pudo enviar CompleteRegistration a Meta CAPI', exc_info=True)
+
             # Con verificación opcional la cuenta queda activa y devolvemos sesión
             # inmediata para que el usuario pueda entrar al panel en el momento.
             tokens = None
@@ -227,14 +256,19 @@ class ResendVerificationView(APIView):
     throttle_classes = [ResendVerificationThrottle]
 
     def post(self, request):
-        email = (request.data.get('email') or '').strip().lower()
-        if not email:
-            return Response({'success': False, 'error': 'Email requerido.'}, status=400)
+        from django.db.models import Q
 
-        try:
-            user = User.objects.get(email__iexact=email)
-        except User.DoesNotExist:
-            # No revelar si el email existe o no.
+        email = (request.data.get('email') or '').strip().lower()
+        username = (request.data.get('username') or '').strip()
+        identifier = email or username
+        if not identifier:
+            return Response({'success': False, 'error': 'Email o usuario requerido.'}, status=400)
+
+        user = User.objects.filter(
+            Q(email__iexact=identifier) | Q(username__iexact=identifier)
+        ).first()
+        if user is None:
+            # No revelar si la cuenta existe o no.
             return Response({
                 'success': True,
                 'message': 'Si existe una cuenta con ese correo, se enviará el enlace de verificación.',
@@ -256,7 +290,7 @@ class ResendVerificationView(APIView):
             service.send_verification_email(user, user.tenant)
             sent = True
         except Exception as e:
-            logger.warning(f"Fallo al reenviar email de verificación a {email}: {e}")
+            logger.warning(f"Fallo al reenviar email de verificación a {identifier}: {e}")
             sent = False
 
         if not sent:

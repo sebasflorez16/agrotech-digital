@@ -16,6 +16,7 @@ from django.utils import timezone
 from django.db import transaction
 from .gateways import PaymentGateway, PaymentGatewayFactory
 from .models import Subscription, Invoice, BillingEvent
+from .payment_utils import add_billing_days
 from .tenant_service import TenantService
 from datetime import timedelta
 import logging
@@ -365,8 +366,9 @@ class MercadoPagoGateway(PaymentGateway):
                     )
         
         except Subscription.DoesNotExist:
-            # No existe suscripción local — crear tenant si MercadoPago dice authorized
-            if mp_status in ['authorized', 'pending']:
+            # No existe suscripción local — crear tenant solo si MercadoPago
+            # autorizó el cobro. Un preapproval 'pending' NO es un pago.
+            if mp_status == 'authorized':
                 logger.info(
                     f"Webhook: suscripción {preapproval_id} authorized sin tenant local. "
                     f"Creando tenant automáticamente..."
@@ -442,9 +444,12 @@ class MercadoPagoGateway(PaymentGateway):
                     if subscription.status == 'trialing':
                         subscription.status = 'active'
                     
-                    # Extender período
+                    # Extender período según el ciclo real (mensual/anual)
                     subscription.current_period_start = timezone.now()
-                    subscription.current_period_end = timezone.now() + timedelta(days=30)
+                    subscription.current_period_end = add_billing_days(
+                        subscription.current_period_end,
+                        subscription.billing_cycle or 'monthly',
+                    )
                     subscription.save()
                     
                     # Registrar evento de pago exitoso

@@ -100,8 +100,9 @@ class TenantService:
             dict con tenant, subscription, domain y status info
         """
         # ── VALIDACIÓN DE DUPLICADOS ──
-        # Impedir que un mismo email cree múltiples tenants
+        # Impedir que un mismo email cree múltiples tenants.
         if payer_email:
+            # 1) Suscripciones pagas creadas por este servicio.
             existing_subs = Subscription.objects.filter(
                 metadata__payer_email=payer_email,
                 status__in=['active', 'trialing'],
@@ -122,6 +123,36 @@ class TenantService:
                     'existing_tenant': existing.tenant.name,
                     'existing_schema': existing.tenant.schema_name,
                 }
+
+            # 2) Usuarios ya registrados (incluye el plan free, cuyo metadata
+            #    de suscripción está vacío). Evita crear un segundo tenant para
+            #    el mismo correo y posibles secuestros de cuenta.
+            try:
+                from django.contrib.auth import get_user_model
+
+                User = get_user_model()
+                existing_user = User.objects.filter(
+                    email__iexact=payer_email,
+                    tenant_id__isnull=False,
+                ).first()
+                if existing_user:
+                    tenant = Client.objects.filter(id=existing_user.tenant_id).first()
+                    if tenant:
+                        logger.warning(
+                            f"⚠️ Email {payer_email} ya pertenece al tenant "
+                            f"{tenant.schema_name}; no se crea otro."
+                        )
+                        return {
+                            'success': False,
+                            'error': (
+                                'Este correo ya tiene una cuenta. Inicia sesión '
+                                'para mejorar tu plan.'
+                            ),
+                            'existing_tenant': tenant.name,
+                            'existing_schema': tenant.schema_name,
+                        }
+            except Exception as exc:
+                logger.debug(f"No se pudo comprobar usuario existente: {exc}")
 
         # 1. Generar schema_name si no se provee
         if not schema_name:

@@ -33,6 +33,37 @@ def django_db_setup():
     pass
 
 
+@pytest.fixture(scope="session", autouse=True)
+def ensure_public_tenant(django_db_setup, django_db_blocker):
+    """Garantiza el tenant 'public' que django-tenants necesita.
+
+    Sin esta fila, SmartTenantMiddleware no puede forzar el schema public y
+    las rutas /billing/api/* devuelven 404 en los tests.
+    """
+    from django.db import connection
+
+    with django_db_blocker.unblock():
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT 1 FROM base_agrotech_client WHERE schema_name = 'public'"
+            )
+            if cursor.fetchone() is None:
+                cursor.execute(
+                    """
+                    INSERT INTO base_agrotech_client
+                        (schema_name, name, paid_until, on_trial, created_on, uuid)
+                    VALUES
+                        ('public', 'Public', CURRENT_DATE, false, CURRENT_DATE, gen_random_uuid())
+                    """
+                )
+        # Evitar colisión de IDs con el tenant público insertado manualmente.
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT setval(pg_get_serial_sequence('base_agrotech_client','id'), "
+                "GREATEST((SELECT COALESCE(MAX(id), 1) FROM base_agrotech_client), 1))"
+            )
+
+
 @pytest.fixture
 def api_client():
     """Cliente API REST para tests."""

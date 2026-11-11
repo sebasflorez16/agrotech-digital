@@ -171,19 +171,25 @@ class Plan(models.Model):
     
     def get_yearly_discount(self):
         """
-        Calcular descuento para pago anual (2 meses gratis).
-        
+        Calcular descuento para pago anual (20% real sobre 12 meses).
+
+        Antes se cobraban 10 meses y se comunicaba 20% (que en realidad era
+        16.7%). Ahora el precio anual es 12 meses con 20% de descuento, que es
+        exactamente lo que muestran la landing y el checkout.
+
         Returns:
             dict con precio anual y ahorro
         """
+        discount = Decimal('0.20')
+        months = Decimal('12')
         monthly_price_cop = self.price_cop
-        yearly_price_cop = monthly_price_cop * 10  # 12 meses - 2 gratis
-        savings_cop = monthly_price_cop * 2
-        
+        yearly_price_cop = (monthly_price_cop * months * (Decimal('1') - discount)).quantize(Decimal('0.01'))
+        savings_cop = (monthly_price_cop * months * discount).quantize(Decimal('0.01'))
+
         monthly_price_usd = self.price_usd
-        yearly_price_usd = monthly_price_usd * 10
-        savings_usd = monthly_price_usd * 2
-        
+        yearly_price_usd = (monthly_price_usd * months * (Decimal('1') - discount)).quantize(Decimal('0.01'))
+        savings_usd = (monthly_price_usd * months * discount).quantize(Decimal('0.01'))
+
         return {
             'yearly_price_cop': yearly_price_cop,
             'savings_cop': savings_cop,
@@ -719,9 +725,14 @@ class Invoice(models.Model):
             else:
                 self.invoice_number = "AGRO-000001"
         
-        # Calcular IVA (19% Colombia) si no está establecido
-        if self.tax_amount == 0 and self.currency == 'COP':
-            self.tax_amount = self.subtotal * Decimal('0.19')
+        # Calcular IVA (19% Colombia) solo cuando el llamador no lo definió.
+        # Si total == subtotal y tax_amount == 0, se asume precio sin IVA.
+        if (
+            self.tax_amount == 0
+            and self.currency == 'COP'
+            and self.total == self.subtotal
+        ):
+            self.tax_amount = (self.subtotal * Decimal('0.19')).quantize(Decimal('0.01'))
             self.total = self.subtotal + self.tax_amount
         
         super().save(*args, **kwargs)

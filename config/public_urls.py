@@ -6,6 +6,8 @@ from django.http import HttpResponse
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from config.health_checks import DetailedHealthCheckView
+
 
 def health_check(request):
     """Endpoint de salud para Railway - NO requiere tenant"""
@@ -14,6 +16,8 @@ def health_check(request):
 
 urlpatterns = [
     path('health/', health_check, name='health'),
+    # Healthcheck profundo (DB, caché, EOSDA, storage). No requiere tenant.
+    path('health/detailed/', DetailedHealthCheckView.as_view(), name='health_detailed'),
 
     # 🔹 Autenticación JWT - NO requiere tenant
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),

@@ -147,10 +147,13 @@ def test_wompi_verify_rejects_without_secret(monkeypatch):
 # Webhook: pago anónimo (tenant_id=0) debe crear la cuenta con customer_email
 # ---------------------------------------------------------------------------
 
+@pytest.mark.django_db
 def test_wompi_anonymous_payment_creates_tenant(monkeypatch):
     from billing import webhooks
     import base_agrotech.models as bam
     import billing.tenant_service as ts
+
+    _make_plan()
 
     class _FakeQueryset:
         def first(self):
@@ -174,7 +177,8 @@ def test_wompi_anonymous_payment_creates_tenant(monkeypatch):
     )
 
     webhooks._process_wompi_payment(
-        {"customer_email": "juan@finca.com"}, "sub_0_basic_abcd1234"
+        {"customer_email": "juan@finca.com", "amount_cents": 7_900_000},
+        "sub_0_basic_abcd1234",
     )
 
     assert captured.get("payer_email") == "juan@finca.com"
@@ -234,7 +238,7 @@ def test_wompi_checkout_params_monthly(client):
     WOMPI_PUBLIC_KEY="pub_test_abc",
     WOMPI_INTEGRITY_KEY="test_integrity_abc",
 )
-def test_wompi_checkout_params_yearly_two_months_free(client):
+def test_wompi_checkout_params_yearly_20_percent_discount(client):
     _make_plan()
     resp = client.post(
         "/billing/api/wompi/checkout-params/",
@@ -246,7 +250,8 @@ def test_wompi_checkout_params_yearly_two_months_free(client):
         content_type="application/json",
     )
     assert resp.status_code == 200
-    assert resp.json()["amount_in_cents"] == 79000000  # 79000 * 10
+    # 79.000 * 12 * 0.8 = 758.400 COP
+    assert resp.json()["amount_in_cents"] == 75840000
 
 
 @pytest.mark.django_db

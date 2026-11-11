@@ -587,9 +587,27 @@ class ParcelViewSet(viewsets.ModelViewSet):
         # Top 3 tipos de campo
         top_tipos = sorted(tipos.items(), key=lambda x: x[1], reverse=True)[:3]
         area_promedio = round(total_area / total, 2) if total > 0 else 0
-        # Cambiar el límite a 300 hectáreas
-        AREA_LIMIT = 300  # en hectáreas
-        area_restante = max(AREA_LIMIT - total_area, 0)  # en hectáreas
+
+        # Límites reales del plan (nunca hardcodear 50/300).
+        from billing.access import is_unlimited_user
+
+        unlimited = is_unlimited_user(getattr(request, 'user', None))
+        subscription = getattr(request, 'subscription', None)
+        if subscription is None:
+            try:
+                subscription = request.tenant.subscription
+            except Exception:
+                subscription = None
+        if unlimited:
+            parcel_limit = 0
+            area_limit = 0
+        elif subscription and subscription.plan_id:
+            parcel_limit = subscription.plan.get_limit('parcels', 0)
+            area_limit = subscription.plan.get_limit('hectares', 0)
+        else:
+            parcel_limit = 0
+            area_limit = 0
+        area_restante = max(area_limit - total_area, 0) if area_limit else 0
 
         # Datos satelitales REALES (nunca simulados):
         # - ndvi_data: observaciones reales por mes desde el cache de escenas EOSDA
@@ -653,6 +671,10 @@ class ParcelViewSet(viewsets.ModelViewSet):
             "last_parcel": last_parcel.name if last_parcel else None,
             "last_parcel_date": last_parcel.created_on.strftime('%d/%m/%Y %H:%M') if last_parcel and last_parcel.created_on else None,
             "area_restante": round(area_restante, 2),
+            "parcel_limit": parcel_limit,
+            "area_limit": area_limit,
+            "parcel_restante": max(parcel_limit - total, 0) if parcel_limit else 0,
+            "unlimited": unlimited,
             "ndvi_data": ndvi_data,
             "ndvi_available": ndvi_available,
             "ndvi_message": ndvi_message,

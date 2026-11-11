@@ -1,5 +1,9 @@
 # DOCUMENTO 2 — FLUJO DE TRABAJO DEL CLIENTE EN AGROTECH
 
+> ⚠️ **Actualización 2026-11:** el plan gratuito es **permanente** (1 parcela /
+> 30 ha / 5 análisis/mes). No existe un trial de 14 días. Los precios anuales
+> ahora usan 20% real de descuento. Ver `IMPLEMENTACION_AUDITORIA_2026-11.md`.
+>
 > Auditoría del flujo **real actualmente implementado**, de extremo a extremo,
 > desde la perspectiva de un cliente/tenant. No describe lo que "debería"
 > existir ni funcionalidades futuras.

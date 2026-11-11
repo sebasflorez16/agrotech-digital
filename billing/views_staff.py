@@ -427,8 +427,12 @@ class StaffTenantActionsAPI(APIView):
         elif action == "activate":
             if not sub:
                 return Response({"error": "Sin suscripción"}, status=400)
+            from billing.payment_utils import add_billing_days
+
             sub.status = "active"
-            sub.current_period_end = timezone.now() + timedelta(days=30)
+            sub.current_period_end = add_billing_days(
+                sub.current_period_end, sub.billing_cycle or 'monthly'
+            )
             sub.save()
             BillingEvent.objects.create(
                 tenant=tenant, subscription=sub, event_type="tenant.reactivated",
@@ -445,11 +449,14 @@ class StaffTenantActionsAPI(APIView):
                 )
             plan = get_object_or_404(Plan, tier=new_tier, is_active=True)
             if not sub:
+                cycle = (request.data.get("billing_cycle") or "monthly").lower()
+                period_days = 365 if cycle == "yearly" else 30
                 sub = Subscription.objects.create(
                     tenant=tenant, plan=plan, payment_gateway="manual",
                     status="active",
+                    billing_cycle="yearly" if cycle == "yearly" else "monthly",
                     current_period_start=timezone.now(),
-                    current_period_end=timezone.now() + timedelta(days=30),
+                    current_period_end=timezone.now() + timedelta(days=period_days),
                 )
             else:
                 old_plan = sub.plan.name if sub.plan else "—"

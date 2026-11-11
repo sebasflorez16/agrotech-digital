@@ -1213,7 +1213,7 @@ class TestEmpresarialPlan:
             assert plan.is_active is True
 
     def test_pro_plan_has_limits(self):
-        """Plan Pro debe tener límites correctos."""
+        """Plan Pro debe tener los límites oficiales (300 ha / 3 usuarios)."""
         from billing.models import Plan
         plan = Plan.objects.filter(tier='pro').first()
         if plan:

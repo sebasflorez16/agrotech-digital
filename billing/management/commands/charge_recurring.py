@@ -11,15 +11,15 @@ Flujo:
     1. Encuentra suscripciones activas con renovación automática vencidas
        (current_period_end <= hoy) y con fuente de pago tokenizada (3RI).
     2. Cobra la tarjeta con Wompi (transacción automática 3RI).
-    3. Si APRUEBA → extiende el período 30 días.
+    3. Si APRUEBA → extiende el período según el ciclo (30 o 365 días).
     4. Si FALLA → registra el error en metadata (luego check_subscriptions
        aplica el período de gracia y desactiva).
 """
 
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from datetime import timedelta
-from billing.models import Subscription
+from billing.models import BillingEvent, Subscription
+from billing.payment_utils import add_billing_days, plan_amount_cents
 from billing.wompi_gateway import WompiGateway
 import uuid
 import logging
@@ -58,12 +58,14 @@ class Command(BaseCommand):
 
         for sub in due_subs:
             plan = sub.plan
-            amount_in_cents = int(plan.price_cop * 100)
+            cycle = sub.billing_cycle or 'monthly'
+            amount_in_cents = plan_amount_cents(plan, cycle)
             customer_email = (sub.metadata or {}).get('payer_email', '') or sub.tenant.name
-            reference = f"sub_{sub.tenant_id}_{plan.tier}_{uuid.uuid4().hex[:8]}"
+            # `renew_` permite que el webhook renueve en vez de crear/activar.
+            reference = f"renew_{sub.tenant_id}_{uuid.uuid4().hex[:8]}"
 
             self.stdout.write(f"\n  💳 {sub.tenant.name} — plan {plan.name} "
-                              f"(${plan.price_cop:,.0f} COP) · ref={reference[:20]}…")
+                              f"({cycle}) · ref={reference[:20]}…")
 
             if dry_run:
                 self.stdout.write(self.style.WARNING("     [DRY RUN] no se cobra"))
@@ -78,9 +80,26 @@ class Command(BaseCommand):
 
             if result.get('success') and result.get('status') == 'APPROVED':
                 sub.current_period_start = now
-                sub.current_period_end = now + timedelta(days=30)
+                sub.current_period_end = add_billing_days(sub.current_period_end, cycle)
                 sub.status = 'active'
                 sub.save(update_fields=['current_period_start', 'current_period_end', 'status', 'updated_at'])
+                sub.tenant.paid_until = sub.current_period_end.date()
+                sub.tenant.on_trial = False
+                sub.tenant.save(update_fields=['paid_until', 'on_trial'])
+                # Bloquea el doble procesamiento cuando llegue el webhook.
+                BillingEvent.objects.create(
+                    tenant=sub.tenant,
+                    subscription=sub,
+                    event_type='subscription.renewed',
+                    event_data={
+                        'gateway': 'wompi',
+                        'reference': reference,
+                        'billing_cycle': cycle,
+                        'period_end': sub.current_period_end.isoformat(),
+                        'created_via': 'charge_recurring',
+                    },
+                    external_event_id=result.get('transaction_id') or reference,
+                )
                 charged += 1
                 self.stdout.write(self.style.SUCCESS(f"     → Cobrado ✓ (hasta {sub.current_period_end.date()})"))
             else:

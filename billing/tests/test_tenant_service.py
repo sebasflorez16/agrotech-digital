@@ -637,33 +637,54 @@ class TestConfirmPaymentEndpoint:
         response = confirm_payment_create_tenant(request)
         assert response.status_code == 405
 
-    def test_missing_email_returns_400(self):
-        """Sin payer_email → 400."""
+    def test_missing_payment_id_returns_402(self):
+        """Sin ID de pago verificado → 402 (no se puede confiar en el body)."""
         from billing.views import confirm_payment_create_tenant
 
         factory = RequestFactory()
         request = factory.post(
             '/billing/api/confirm-payment/',
             data=json.dumps({
-                'preapproval_id': 'abc123',
                 'plan_tier': 'basic',
             }),
             content_type='application/json',
         )
         response = confirm_payment_create_tenant(request)
-        assert response.status_code == 400
+        assert response.status_code == 402
 
     @pytest.mark.django_db
+    @patch('billing.wompi_gateway.WompiGateway.get_transaction_status')
+    @patch('billing.views.Plan.objects.get')
     @patch('billing.views.Subscription')
-    def test_existing_subscription_returns_ok(self, MockSub):
-        """Suscripción ya existente → success + already_exists."""
+    def test_existing_subscription_returns_ok(self, MockSub, mock_plan_get, mock_tx):
+        """Suscripción ya existente y pago verificado → success + already_exists."""
+        from decimal import Decimal
+
+        from billing.models import Plan
         from billing.views import confirm_payment_create_tenant
+
+        reference = 'sub_0_basic_monthly_abcd1234'
+        mock_tx.return_value = {
+            'success': True,
+            'status': 'APPROVED',
+            'amount_in_cents': 7_900_000,
+            'currency': 'COP',
+            'customer_email': 'user@test.com',
+            'reference': reference,
+        }
+        mock_plan_get.return_value = Plan(
+            tier='basic',
+            name='Agricultor',
+            price_cop=Decimal('79000'),
+            price_usd=Decimal('20'),
+        )
 
         factory = RequestFactory()
         request = factory.post(
             '/billing/api/confirm-payment/',
             data=json.dumps({
-                'preapproval_id': 'existing_sub_123',
+                'gateway': 'wompi',
+                'reference': reference,
                 'plan_tier': 'basic',
                 'billing_cycle': 'monthly',
                 'payer_email': 'user@test.com',
@@ -675,7 +696,10 @@ class TestConfirmPaymentEndpoint:
         mock_sub.tenant.name = 'Finca Existente'
         mock_sub.tenant.schema_name = 'finca_existente'
         mock_sub.status = 'active'
+        mock_sub.plan_id = 1
         mock_sub.plan.tier = 'basic'
+        mock_sub.plan.price_cop = Decimal('79000')
+        mock_sub.billing_cycle = 'monthly'
         MockSub.objects.filter.return_value.select_related.return_value.first.return_value = mock_sub
 
         response = confirm_payment_create_tenant(request)
@@ -921,3 +945,146 @@ class TestTenantLifecycleIntegration:
                 self._cleanup(s1)
             if s2:
                 self._cleanup(s2)
+
+
+# ═══════════════════════════════════════════════════════════════
+#  SEGURIDAD DE CONFIRMACIÓN DE PAGOS
+# ═══════════════════════════════════════════════════════════════
+
+@pytest.mark.unit
+class TestConfirmPaymentSecurity:
+    """El body no puede alterar plan, ciclo ni monto del pago verificado."""
+
+    @pytest.mark.django_db
+    @patch('billing.views.TenantService.create_tenant_for_subscription')
+    @patch('billing.views.Subscription')
+    @patch('billing.views.Plan.objects.get')
+    @patch('billing.wompi_gateway.WompiGateway.get_transaction_status')
+    def test_body_plan_is_ignored_uses_verified_plan(
+        self, mock_tx, mock_plan_get, MockSub, mock_create
+    ):
+        from billing.models import Plan
+        from billing.views import confirm_payment_create_tenant
+
+        reference = 'sub_0_basic_monthly_abcd1234'
+        mock_tx.return_value = {
+            'success': True,
+            'status': 'APPROVED',
+            'amount_in_cents': 7_900_000,
+            'currency': 'COP',
+            'customer_email': 'user@test.com',
+            'reference': reference,
+        }
+        mock_plan_get.return_value = Plan(
+            tier='basic', name='Agricultor',
+            price_cop=Decimal('79000'), price_usd=Decimal('20'),
+        )
+        MockSub.objects.filter.return_value.select_related.return_value.first.return_value = None
+
+        tenant = Mock()
+        tenant.name = 'Finca Nueva'
+        mock_create.return_value = {
+            'success': True,
+            'tenant': tenant,
+            'schema_name': 'finca_nueva',
+            'domain': 'finca_nueva.agrotechcolombia.com',
+            'status': 'active',
+            'paid_until': date(2026, 12, 10),
+            'username': 'user',
+        }
+
+        request = RequestFactory().post(
+            '/billing/api/confirm-payment/',
+            data=json.dumps({
+                'gateway': 'wompi',
+                'reference': reference,
+                'plan_tier': 'pro',          # ← intento de manipulación
+                'billing_cycle': 'yearly',   # ← intento de manipulación
+                'payer_email': 'user@test.com',
+            }),
+            content_type='application/json',
+        )
+
+        response = confirm_payment_create_tenant(request)
+        data = json.loads(response.content)
+
+        assert response.status_code == 200
+        assert data['plan'] == 'basic'
+        assert mock_create.call_args.kwargs['plan_tier'] == 'basic'
+        assert mock_create.call_args.kwargs['billing_cycle'] == 'monthly'
+
+    @pytest.mark.django_db
+    @patch('billing.views.TenantService.create_tenant_for_subscription')
+    @patch('billing.views.Subscription')
+    @patch('billing.views.Plan.objects.get')
+    @patch('billing.wompi_gateway.WompiGateway.get_transaction_status')
+    def test_amount_mismatch_blocks_activation(
+        self, mock_tx, mock_plan_get, MockSub, mock_create
+    ):
+        from billing.models import Plan
+        from billing.views import confirm_payment_create_tenant
+
+        reference = 'sub_0_basic_monthly_abcd1234'
+        mock_tx.return_value = {
+            'success': True,
+            'status': 'APPROVED',
+            'amount_in_cents': 100,  # pagó 1 COP, no 79.000
+            'currency': 'COP',
+            'customer_email': 'user@test.com',
+            'reference': reference,
+        }
+        mock_plan_get.return_value = Plan(
+            tier='basic', name='Agricultor',
+            price_cop=Decimal('79000'), price_usd=Decimal('20'),
+        )
+        MockSub.objects.filter.return_value.select_related.return_value.first.return_value = None
+
+        request = RequestFactory().post(
+            '/billing/api/confirm-payment/',
+            data=json.dumps({
+                'gateway': 'wompi',
+                'reference': reference,
+                'plan_tier': 'basic',
+                'billing_cycle': 'monthly',
+                'payer_email': 'user@test.com',
+            }),
+            content_type='application/json',
+        )
+
+        response = confirm_payment_create_tenant(request)
+
+        assert response.status_code == 402
+        mock_create.assert_not_called()
+
+    @pytest.mark.django_db
+    @patch('billing.views.mercadopago.SDK')
+    def test_mercadopago_pending_is_rejected(self, mock_sdk):
+        from billing.views import confirm_payment_create_tenant
+
+        mock_sdk.return_value.preapproval.return_value.get.return_value = {
+            'status': 200,
+            'response': {
+                'status': 'pending',  # no autorizado → no debe activar
+                'payer_email': 'user@test.com',
+                'external_reference': (
+                    'plan_basic_monthly__email_user@test.com'
+                    '__tenant_Finca__user_user'
+                ),
+            },
+        }
+
+        request = RequestFactory().post(
+            '/billing/api/confirm-payment/',
+            data=json.dumps({
+                'gateway': 'mercadopago',
+                'preapproval_id': 'mp_pending_123',
+                'plan_tier': 'basic',
+                'billing_cycle': 'monthly',
+                'payer_email': 'user@test.com',
+            }),
+            content_type='application/json',
+        )
+
+        response = confirm_payment_create_tenant(request)
+
+        assert response.status_code == 402

@@ -12,11 +12,13 @@ SECRET_KEY = env("DJANGO_SECRET_KEY")
 ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=[
     "agrotechcolombia.com",
     "www.agrotechcolombia.com",
+    ".agrotechcolombia.com",  # Subdominios de tenants (schema.agrotechcolombia.com)
     "agrotech-digital-production.up.railway.app",
     ".railway.app",  # Permitir cualquier subdominio de Railway
     "localhost",
     "127.0.0.1",
     "agrotechcolombia.netlify.app",  # Sin protocolo https://
+    "frontend-cliente-agrotech.netlify.app",
 ])
 
 # DATABASES - Ya configurado automáticamente en base.py cuando IS_RAILWAY=True
@@ -192,11 +194,13 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 # URL del sitio para callbacks de pagos (MercadoPago back_url)
 SITE_URL = env('SITE_URL', default='https://agrotech-digital-production.up.railway.app')
 
-# URL del frontend estático (Netlify) para redirecciones post-pago
-FRONTEND_URL = env('FRONTEND_URL', default='https://frontend-cliente-agrotech.netlify.app')
+# URL del frontend estático para redirecciones post-pago y verificación
+FRONTEND_URL = env('FRONTEND_URL', default='https://agrotechcolombia.com')
 
-# Redirigir al frontend estático después del login
-LOGIN_REDIRECT_URL = "https://agrotechcolombia.netlify.app/templates/vertical_base.html"
+# Redirigir al dashboard real después del login
+LOGIN_REDIRECT_URL = "https://agrotechcolombia.com/templates/dashboard.html"
+LOGIN_URL = "https://agrotechcolombia.com/templates/authentication/login.html"
+ACCOUNT_LOGOUT_REDIRECT_URL = "https://agrotechcolombia.com/templates/authentication/login.html"
 
 # ── Seguridad adicional ──────────────────────────────────────────────────
 # Referrer-Policy: controla que informacion se envia en el header Referer
@@ -241,3 +245,30 @@ ADMINS = [
     for admin in env.list("DJANGO_ADMINS", default=["Admin:admin@agrotechcolombia.com"])
 ]
 MANAGERS = ADMINS
+
+# CONNECTION POOLING
+# ------------------------------------------------------------------------------
+# Reutilizar conexiones para reducir latencia y presión sobre Postgres.
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
+
+# SENTRY (observabilidad)
+# ------------------------------------------------------------------------------
+SENTRY_DSN = env("SENTRY_DSN", default="")
+SENTRY_ENVIRONMENT = env("SENTRY_ENVIRONMENT", default="production")
+SENTRY_TRACES_SAMPLE_RATE = env.float("SENTRY_TRACES_SAMPLE_RATE", default=0.05)
+
+if SENTRY_DSN:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.django import DjangoIntegration
+
+        sentry_sdk.init(
+            dsn=SENTRY_DSN,
+            integrations=[DjangoIntegration()],
+            environment=SENTRY_ENVIRONMENT,
+            traces_sample_rate=SENTRY_TRACES_SAMPLE_RATE,
+            send_default_pii=False,
+        )
+        print("✅ Sentry inicializado")
+    except Exception as exc:
+        print(f"⚠️ No se pudo inicializar Sentry: {exc}")

@@ -225,18 +225,18 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https?://[\w\-]+\.localhost:3000$",  # Por ejemplo: tenant1.localhost:3000
     r"^https?://localhost:3000$",             # También acceso directo
     r"^https?://[\w\-]+\.localhost:8000$",  # Por si acceden directo al backend
-    r"^https://agrotechcolombia\\.com$",  # Backend en Railway
-    r"^https://site-production-208b.up.railway.app$",  # Backend en Railway (sin / al final)
-    r"^https://agrotechcolombia.netlify.app$",  # Frontend estático en Netlify
+    r"^https://(www\.)?agrotechcolombia\.com$",  # Dominio canónico
+    r"^https://agrotech-digital-production\.up\.railway\.app$",  # Backend en Railway
+    r"^https://agrotechcolombia\.netlify\.app$",  # Frontend antiguo (solo transición)
     r"^https://frontend-cliente-agrotech\.netlify\.app$",  # Frontend landing en Netlify
 ]
 
 # NOTA: No se usa CORS_ALLOW_ALL_ORIGINS=True para evitar riesgos de seguridad y exposición del API key de EOSDA.
 
 
-LOGIN_REDIRECT_URL = "https://agrotechcolombia.netlify.app/templates/vertical_base.html"  # Redirige al dashboard del frontend después de login
-LOGIN_URL = "https://agrotechcolombia.netlify.app/templates/vertical_base.html"  # Redirige a la página de login si no estás autenticado
-ACCOUNT_LOGOUT_REDIRECT_URL = "/authentication/login/"  # Redirige al login después de logout
+LOGIN_REDIRECT_URL = "http://localhost:8080/templates/dashboard.html"  # Dashboard del frontend en local
+LOGIN_URL = "http://localhost:8080/templates/authentication/login.html"  # Login del frontend en local
+ACCOUNT_LOGOUT_REDIRECT_URL = "http://localhost:8080/templates/authentication/login.html"
 
 # Configuraciones adicionales (opcional)
 #ACCOUNT_EMAIL_REQUIRED = True
@@ -540,6 +540,16 @@ PADDLE_API_KEY = env('PADDLE_API_KEY', default='')
 PADDLE_PUBLIC_KEY = env('PADDLE_PUBLIC_KEY', default='')
 PADDLE_WEBHOOK_SECRET = env('PADDLE_WEBHOOK_SECRET', default='')
 PADDLE_SANDBOX = env.bool('PADDLE_SANDBOX', default=True)  # True para testing
+# Paddle queda deshabilitado hasta implementar firma y provisioning verificados.
+PADDLE_ENABLED = env.bool('PADDLE_ENABLED', default=False)
+
+# Meta Ads / Conversions API
+# ------------------------------------------------------------------------------
+META_PIXEL_ID = env('META_PIXEL_ID', default='1521929183273863')
+META_CAPI_ACCESS_TOKEN = env('META_CAPI_ACCESS_TOKEN', default='')
+META_CAPI_TEST_EVENT_CODE = env('META_CAPI_TEST_EVENT_CODE', default='')
+META_CAPI_ENABLED = env.bool('META_CAPI_ENABLED', default=bool(META_CAPI_ACCESS_TOKEN))
+META_GRAPH_API_VERSION = env('META_GRAPH_API_VERSION', default='v20.0')
 
 # Default country para billing (cuando no se puede detectar)
 DEFAULT_COUNTRY = 'CO'  # Colombia por defecto

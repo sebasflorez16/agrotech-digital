@@ -15,10 +15,22 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
+from django.core.cache import cache
 from datetime import timedelta
+from functools import wraps
 from .models import Plan, Subscription, Invoice, UsageMetrics, BillingEvent
 from .gateways import PaymentGatewayFactory, get_gateway_for_user
 from .tenant_service import TenantService
+from .payment_utils import (
+    build_wompi_reference,
+    get_checkout_intent,
+    normalize_cycle,
+    parse_mercadopago_reference,
+    parse_wompi_reference,
+    plan_amount_cents,
+    sanitize_external_reference_part,
+    save_checkout_intent,
+)
 from .serializers import (
     PlanSerializer, SubscriptionSerializer, InvoiceSerializer,
     UsageMetricsSerializer, CreateSubscriptionSerializer
@@ -41,13 +53,44 @@ class CheckoutRateThrottle(AnonRateThrottle):
     scope = 'checkout'
 
 
+def _tenant_from_jwt_header(request):
+    """Resuelve el tenant desde el header Authorization (JWT).
+
+    Las rutas de billing corren en schema public y varias son vistas Django
+    planas (no DRF), así que `request.user` puede ser anónimo aunque el
+    frontend envíe un Bearer token. Sin esta resolución, un cliente existente
+    que intente mejorar su plan se trataría como tenant_id=0 y podría generar
+    un tenant duplicado.
+    """
+    auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+    if not auth_header.startswith('Bearer '):
+        return None
+    try:
+        from rest_framework_simplejwt.tokens import AccessToken
+        from django.db import connection
+        from base_agrotech.models import Client
+
+        token = AccessToken(auth_header.split(' ', 1)[1])
+        tenant_id = token.get('tenant_id')
+        if not tenant_id:
+            return None
+        connection.set_schema_to_public()
+        tenant = Client.objects.filter(id=tenant_id).first()
+        if tenant and tenant.schema_name != 'public':
+            return tenant
+    except Exception as exc:
+        logger.debug(f"_tenant_from_jwt_header: no se pudo resolver tenant: {exc}")
+    return None
+
+
 def resolve_tenant_for_request(request):
     """
     Resuelve el tenant para un request autenticado de forma segura.
     
     1. Intenta desde request.user.tenant_id → busca Client con raw SQL en public
-    2. Fallback a request.tenant (resuelto por middleware)
-    3. Retorna None si no se encuentra
+    2. Intenta desde el JWT del header Authorization (vistas Django planas)
+    3. Fallback a request.tenant (resuelto por middleware)
+    4. Retorna None si no se encuentra
     
     NOTA: No usar getattr(request.user, 'tenant', None) directamente
     porque Django ForeignKey lanza DoesNotExist si el Client no se
@@ -76,13 +119,48 @@ def resolve_tenant_for_request(request):
                     return Client.objects.get(id=tenant_id)
                 except Exception:
                     pass
+
+    # 2. JWT del header (billing corre en public y puede ser vista plana)
+    tenant = _tenant_from_jwt_header(request)
+    if tenant:
+        return tenant
     
-    # 2. Fallback a request.tenant (resuelto por SmartTenantMiddleware)
+    # 3. Fallback a request.tenant (resuelto por SmartTenantMiddleware)
     tenant = getattr(request, 'tenant', None)
     if tenant and tenant.schema_name != 'public':
         return tenant
     
     return None
+
+
+def rate_limit(scope, limit=10, window=3600):
+    """Rate limit simple por IP para vistas Django planas.
+
+    El decorador `@throttle_classes` de DRF no se ejecuta en funciones Django
+    normales, por lo que esos endpoints quedaban sin protección real.
+    """
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapped(request, *args, **kwargs):
+            ip = (
+                request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+                or request.META.get('REMOTE_ADDR', 'unknown')
+            )
+            key = f"rate_limit:{scope}:{ip}"
+            try:
+                current = int(cache.get(key, 0) or 0)
+                if current >= limit:
+                    return JsonResponse({
+                        'error': 'Demasiados intentos. Espera unos minutos e intenta de nuevo.',
+                        'code': 'rate_limited',
+                    }, status=429)
+                cache.set(key, current + 1, window)
+            except Exception:
+                # Si la caché falla, no bloquear el checkout.
+                pass
+            return view_func(request, *args, **kwargs)
+        return wrapped
+    return decorator
 
 
 class PlanViewSet(viewsets.ReadOnlyModelViewSet):
@@ -148,14 +226,14 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Solo la suscripción del tenant actual."""
-        tenant = getattr(self.request, 'tenant', None)
+        tenant = resolve_tenant_for_request(self.request)
         if tenant:
             return Subscription.objects.filter(tenant=tenant)
         return Subscription.objects.none()
     
     def list(self, request, *args, **kwargs):
         """Obtener suscripción actual del tenant."""
-        tenant = getattr(request, 'tenant', None)
+        tenant = resolve_tenant_for_request(request)
         
         if not tenant:
             return Response({
@@ -192,72 +270,20 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
                 "payment_method_token": "tok_xxx" (opcional)
             }
         """
-        serializer = CreateSubscriptionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        plan_tier = serializer.validated_data['plan_tier']
-        billing_cycle = serializer.validated_data.get('billing_cycle', 'monthly')
-        payment_method_token = serializer.validated_data.get('payment_method_token')
-        
-        try:
-            plan = Plan.objects.get(tier=plan_tier, is_active=True)
-        except Plan.DoesNotExist:
-            return Response({
-                'error': 'Plan no encontrado'
-            }, status=404)
-        
-        # Obtener gateway apropiado para el usuario
-        gateway = get_gateway_for_user(request.user)
-        
-        # Crear suscripción en la pasarela
-        result = gateway.create_subscription(
-            user=request.user,
-            plan=plan,
-            payment_method_token=payment_method_token
-        )
-        
-        if not result['success']:
-            return Response({
-                'error': result.get('error', 'Error creating subscription')
-            }, status=400)
-        
-        # Crear suscripción en BD
-        tenant = getattr(request, 'tenant', None)
-        
-        now = timezone.now()
-        period_days = 30 if billing_cycle == 'monthly' else 365
-        
-        subscription = Subscription.objects.create(
-            tenant=tenant,
-            plan=plan,
-            payment_gateway=gateway.__class__.__name__.replace('Gateway', '').lower(),
-            external_subscription_id=result.get('subscription_id'),
-            status='pending',  # Se actualizará con webhook
-            billing_cycle=billing_cycle,
-            current_period_start=now,
-            current_period_end=now + timedelta(days=period_days),
-        )
-        
-        # Registrar evento
-        BillingEvent.objects.create(
-            tenant=tenant,
-            subscription=subscription,
-            event_type='subscription.created',
-            event_data={
-                'plan': plan.tier,
-                'billing_cycle': billing_cycle,
-                'gateway': subscription.payment_gateway
-            }
-        )
-        
-        logger.info(f"Suscripción creada para tenant {tenant.schema_name}: {subscription.id}")
-        
+        # La creación de suscripciones SIEMPRE debe pasar por el checkout
+        # verificado de la pasarela. Este endpoint permitía crear una
+        # suscripción sin pago y con estado inválido ('pending').
+        plan_tier = (request.data.get('plan_tier') or '').strip()
+        billing_cycle = normalize_cycle(request.data.get('billing_cycle'))
+        if not plan_tier:
+            return Response({'error': 'plan_tier es requerido'}, status=400)
+        if not Plan.objects.filter(tier=plan_tier, is_active=True).exists():
+            return Response({'error': 'Plan no encontrado'}, status=404)
         return Response({
-            'success': True,
-            'subscription': SubscriptionSerializer(subscription).data,
-            'checkout_url': result.get('checkout_url') or result.get('init_point'),
-            'message': 'Suscripción creada exitosamente'
-        }, status=status.HTTP_201_CREATED)
+            'error': 'Usa el checkout para activar o cambiar de plan.',
+            'code': 'use_checkout',
+            'checkout_url': f'/billing/checkout/{plan_tier}/?cycle={billing_cycle}',
+        }, status=402)
     
     @action(detail=False, methods=['post'])
     def cancel_subscription(self, request):
@@ -271,7 +297,9 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
                 "reason": "Ya no necesito el servicio"  # opcional
             }
         """
-        tenant = getattr(request, 'tenant', None)
+        tenant = resolve_tenant_for_request(request)
+        if not tenant:
+            return Response({'error': 'No tenant found'}, status=400)
         
         try:
             subscription = tenant.subscription
@@ -320,55 +348,24 @@ class SubscriptionViewSet(viewsets.ModelViewSet):
                 "new_plan_tier": "pro"
             }
         """
-        tenant = getattr(request, 'tenant', None)
-        new_plan_tier = request.data.get('new_plan_tier')
-        
+        tenant = resolve_tenant_for_request(request)
+        new_plan_tier = (request.data.get('new_plan_tier') or '').strip()
+        billing_cycle = normalize_cycle(request.data.get('billing_cycle'))
+
+        if not tenant:
+            return Response({'error': 'No tenant found'}, status=400)
         if not new_plan_tier:
-            return Response({
-                'error': 'new_plan_tier es requerido'
-            }, status=400)
-        
-        try:
-            subscription = tenant.subscription
-            new_plan = Plan.objects.get(tier=new_plan_tier, is_active=True)
-        except Subscription.DoesNotExist:
-            return Response({'error': 'No subscription found'}, status=404)
-        except Plan.DoesNotExist:
+            return Response({'error': 'new_plan_tier es requerido'}, status=400)
+        if not Plan.objects.filter(tier=new_plan_tier, is_active=True).exists():
             return Response({'error': 'Plan no encontrado'}, status=404)
-        
-        # Validar que sea upgrade
-        tier_order = ['free', 'basic', 'pro']
-        current_tier_idx = tier_order.index(subscription.plan.tier)
-        new_tier_idx = tier_order.index(new_plan.tier)
-        
-        if new_tier_idx <= current_tier_idx:
-            return Response({
-                'error': 'Usa el endpoint de downgrade para reducir tu plan'
-            }, status=400)
-        
-        # Calcular prorrateo (simplificado - TODO: implementar lógica completa)
-        old_plan = subscription.plan
-        subscription.plan = new_plan
-        subscription.save()
-        
-        # Registrar evento
-        BillingEvent.objects.create(
-            tenant=tenant,
-            subscription=subscription,
-            event_type='plan.upgraded',
-            event_data={
-                'from_plan': old_plan.tier,
-                'to_plan': new_plan.tier,
-            }
-        )
-        
-        logger.info(f"Plan mejorado de {old_plan.tier} a {new_plan.tier} para tenant {tenant.schema_name}")
-        
+
+        # Un upgrade NUNCA puede ser gratis. Se debe pagar por el checkout
+        # verificado de la pasarela; el webhook aplica el cambio.
         return Response({
-            'success': True,
-            'subscription': SubscriptionSerializer(subscription).data,
-            'message': f'Plan mejorado exitosamente a {new_plan.name}'
-        })
+            'error': 'Para cambiar de plan debes completar el pago.',
+            'code': 'payment_required',
+            'checkout_url': f'/billing/checkout/{new_plan_tier}/?cycle={billing_cycle}',
+        }, status=402)
 
 
 class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
@@ -385,7 +382,7 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         """Solo facturas del tenant actual."""
-        tenant = getattr(self.request, 'tenant', None)
+        tenant = resolve_tenant_for_request(self.request)
         if tenant:
             return Invoice.objects.filter(tenant=tenant)
         return Invoice.objects.none()
@@ -405,14 +402,14 @@ class UsageMetricsViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         """Solo métricas del tenant actual."""
-        tenant = getattr(self.request, 'tenant', None)
+        tenant = resolve_tenant_for_request(self.request)
         if tenant:
             return UsageMetrics.objects.filter(tenant=tenant)
         return UsageMetrics.objects.none()
     
     def list(self, request, *args, **kwargs):
         """Obtener métricas del mes actual."""
-        tenant = getattr(request, 'tenant', None)
+        tenant = resolve_tenant_for_request(request)
         
         if not tenant:
             return Response({'error': 'No tenant found'}, status=400)
@@ -462,7 +459,9 @@ class UsageMetricsViewSet(viewsets.ReadOnlyModelViewSet):
         
         GET /api/billing/usage/history/?months=6
         """
-        tenant = getattr(request, 'tenant', None)
+        tenant = resolve_tenant_for_request(request)
+        if not tenant:
+            return Response({'error': 'No tenant found'}, status=400)
         months = int(request.query_params.get('months', 6))
         
         metrics = UsageMetrics.objects.filter(
@@ -767,7 +766,7 @@ def usage_history_view(request):
     
     Retorna hasta 12 meses de historial.
     """
-    tenant = getattr(request, 'tenant', None)
+    tenant = resolve_tenant_for_request(request)
     
     if not tenant:
         return Response({
@@ -810,7 +809,7 @@ def current_invoice_preview(request):
     Retorna un preview de la factura que se generará al final del período,
     incluyendo el costo base del plan y los overages actuales.
     """
-    tenant = getattr(request, 'tenant', None)
+    tenant = resolve_tenant_for_request(request)
     
     if not tenant:
         return Response({
@@ -836,35 +835,41 @@ def current_invoice_preview(request):
     
     plan = subscription.plan
     
-    # Calcular líneas de la factura
+    # Calcular líneas de la factura. Los precios del plan son IVA incluido,
+    # por lo que se desglosa la base gravable y el impuesto sin sumar 19% extra.
+    tax_rate = 0.19
     line_items = []
-    
-    # Línea base del plan
-    base_amount = float(plan.price_cop)
+
+    is_yearly = subscription.billing_cycle == 'yearly'
+    period_label = 'anual' if is_yearly else 'mensual'
+    gross_base = float(
+        plan.get_yearly_discount()['yearly_price_cop'] if is_yearly else plan.price_cop
+    )
+    base_amount = round(gross_base / (1 + tax_rate), 2)
     line_items.append({
-        'description': f"{plan.name} - Suscripción mensual",
+        'description': f"{plan.name} - Suscripción {period_label}",
         'quantity': 1,
         'unit_price': base_amount,
         'total': base_amount
     })
-    
-    subtotal = base_amount
-    
-    # Líneas de overages
+
+    gross_total = gross_base
+
+    # Líneas de overages (también IVA incluido)
     if metrics.eosda_requests_overage > 0:
-        overage_cost = metrics.eosda_requests_overage * 500  # 500 COP por request
+        gross_overage = metrics.eosda_requests_overage * 500
+        overage_net = round(gross_overage / (1 + tax_rate), 2)
         line_items.append({
             'description': f"Análisis satelitales adicionales ({metrics.eosda_requests_overage} análisis)",
             'quantity': metrics.eosda_requests_overage,
-            'unit_price': 500,
-            'total': overage_cost
+            'unit_price': round(overage_net / metrics.eosda_requests_overage, 2),
+            'total': overage_net
         })
-        subtotal += overage_cost
-    
-    # Calcular IVA (19% en Colombia)
-    tax_rate = 0.19
-    tax_amount = subtotal * tax_rate
-    total = subtotal + tax_amount
+        gross_total += gross_overage
+
+    subtotal = round(gross_total / (1 + tax_rate), 2)
+    tax_amount = round(gross_total - subtotal, 2)
+    total = round(gross_total, 2)
     
     # Construir response
     return Response({
@@ -993,7 +998,7 @@ def subscription_status_view(request):
     El frontend puede llamar a este endpoint periódicamente para verificar
     si la suscripción se activó después del checkout.
     """
-    tenant = getattr(request, 'tenant', None)
+    tenant = resolve_tenant_for_request(request)
     
     if not tenant:
         return Response({
@@ -1072,7 +1077,7 @@ def my_subscription_view(request):
 
     GET /billing/api/my-subscription/
     """
-    tenant = getattr(request, 'tenant', None)
+    tenant = resolve_tenant_for_request(request)
     if not tenant:
         return Response({'error': 'No tenant found'}, status=400)
 
@@ -1143,7 +1148,7 @@ def cancel_my_subscription_view(request):
 
     POST /billing/api/cancel-subscription/
     """
-    tenant = getattr(request, 'tenant', None)
+    tenant = resolve_tenant_for_request(request)
     if not tenant:
         return Response({'error': 'No tenant found'}, status=400)
 
@@ -1227,7 +1232,7 @@ def subscription_page_view(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@throttle_classes([CheckoutRateThrottle])
+@rate_limit('checkout_create', 20, 3600)
 def create_checkout_view(request):
     """
     Crear sesion de checkout y redirigir a la pasarela de pago.
@@ -1252,12 +1257,15 @@ def create_checkout_view(request):
     """
     try:
         data = json.loads(request.body)
-        plan_tier = data.get('plan_tier')
-        gateway = data.get('gateway', 'mercadopago')
-        billing_cycle = data.get('billing_cycle', 'monthly')
-        tenant_name = data.get('tenant_name', '')
-        username = data.get('username', '')
+        plan_tier = (data.get('plan_tier') or '').strip()
+        gateway = (data.get('gateway') or 'mercadopago').strip().lower()
+        billing_cycle = normalize_cycle(data.get('billing_cycle'))
+        tenant_name = (data.get('tenant_name') or '').strip()
+        username = (data.get('username') or '').strip()
         password = data.get('password', '')
+
+        if gateway not in ('wompi', 'mercadopago'):
+            return JsonResponse({'error': 'Pasarela no soportada'}, status=400)
 
         if not plan_tier:
             return JsonResponse({'error': 'plan_tier is required'}, status=400)
@@ -1317,7 +1325,7 @@ def create_checkout_view(request):
 
         # ── MERCADOPAGO (default) ──────────────────────────────────
         if billing_cycle == 'yearly':
-            price = float(plan.price_cop) * 12 * 0.8
+            price = float(plan.get_yearly_discount()['yearly_price_cop'])
             frequency = 12
             frequency_type = 'months'
         else:
@@ -1333,7 +1341,12 @@ def create_checkout_view(request):
 
         frontend_url = getattr(settings, 'FRONTEND_URL', 'https://frontend-cliente-agrotech.netlify.app')
         ext_username = username or payer_email.split('@')[0].replace('.', '_').replace('-', '_')
-        external_ref = f"plan_{plan_tier}_{billing_cycle}__email_{payer_email}__tenant_{tenant_name}__user_{ext_username}"
+        external_ref = (
+            f"plan_{plan_tier}_{billing_cycle}"
+            f"__email_{sanitize_external_reference_part(payer_email)}"
+            f"__tenant_{sanitize_external_reference_part(tenant_name)}"
+            f"__user_{sanitize_external_reference_part(ext_username)}"
+        )
 
         preapproval_data = {
             'reason': f'AgroTech Digital - {plan.name}',
@@ -1351,6 +1364,16 @@ def create_checkout_view(request):
         if result['status'] == 201:
             checkout_url = result['response'].get('init_point')
             preapproval_id = result['response'].get('id')
+            save_checkout_intent(preapproval_id, {
+                'gateway': 'mercadopago',
+                'plan_tier': plan.tier,
+                'billing_cycle': billing_cycle,
+                'payer_email': payer_email,
+                'tenant_name': tenant_name,
+                'username': ext_username,
+                'amount_cop': price,
+                'external_reference': external_ref,
+            })
             logger.info(f"Checkout creado: {preapproval_id} para plan {plan_tier}")
             return JsonResponse({'success': True, 'checkout_url': checkout_url, 'preapproval_id': preapproval_id})
         else:
@@ -1368,7 +1391,7 @@ def create_checkout_view(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@throttle_classes([CheckoutRateThrottle])
+@rate_limit('wompi_params', 20, 3600)
 def wompi_checkout_params(request):
     """
     Devuelve los parámetros para abrir el Widget / Web Checkout de Wompi.
@@ -1380,8 +1403,6 @@ def wompi_checkout_params(request):
     POST /billing/api/wompi/checkout-params/
     Body: { plan_tier, billing_cycle, payer_email }
     """
-    import uuid
-    from django.core.cache import cache
     from .wompi_gateway import _integrity_signature
 
     try:
@@ -1390,15 +1411,25 @@ def wompi_checkout_params(request):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
     plan_tier = (data.get('plan_tier') or '').strip()
-    billing_cycle = data.get('billing_cycle', 'monthly')
+    billing_cycle = normalize_cycle(data.get('billing_cycle'))
     payer_email = (data.get('payer_email') or '').strip()
 
     if not plan_tier:
         return JsonResponse({'error': 'plan_tier is required'}, status=400)
     if plan_tier == 'free':
         return JsonResponse({'error': 'El plan gratuito no requiere pago.'}, status=400)
-    if not payer_email and request.user.is_authenticated:
-        payer_email = (request.user.email or '').strip()
+
+    # Si el cliente ya inició sesión, usar su email y su tenant (upgrade real).
+    existing_tenant = resolve_tenant_for_request(request)
+    if not payer_email and existing_tenant:
+        if request.user.is_authenticated:
+            payer_email = (request.user.email or '').strip()
+        else:
+            from django.contrib.auth import get_user_model
+
+            User = get_user_model()
+            owner = User.objects.filter(tenant_id=existing_tenant.id).order_by('id').first()
+            payer_email = (owner.email or '').strip() if owner else ''
     if not payer_email or '@' not in payer_email:
         return JsonResponse({'error': 'Se requiere un correo electrónico válido para continuar.'}, status=400)
 
@@ -1416,15 +1447,10 @@ def wompi_checkout_params(request):
             status=503,
         )
 
-    if billing_cycle == 'yearly':
-        amount_cop = plan.get_yearly_discount()['yearly_price_cop']
-    else:
-        amount_cop = plan.price_cop
-    amount_in_cents = int(round(float(amount_cop) * 100))
+    amount_in_cents = plan_amount_cents(plan, billing_cycle)
 
-    tenant = getattr(request.user, 'tenant', None) if request.user.is_authenticated else None
-    tenant_id = tenant.id if tenant else 0
-    reference = f"sub_{tenant_id}_{plan.tier}_{uuid.uuid4().hex[:8]}"
+    tenant_id = existing_tenant.id if existing_tenant else 0
+    reference = build_wompi_reference(tenant_id, plan.tier, billing_cycle)
 
     base_url = (
         (getattr(settings, 'FRONTEND_URL', '') or '').rstrip('/')
@@ -1434,19 +1460,25 @@ def wompi_checkout_params(request):
 
     signature = _integrity_signature(reference, amount_in_cents, 'COP')
 
-    # Guardamos la intención para que el webhook pueda nombrar el tenant creado
-    # en un pago anónimo (tenant_id=0).
-    try:
-        local = payer_email.split('@')[0]
-        cache.set(f"wompi_intent:{reference}", {
-            'payer_email': payer_email,
-            'tenant_name': data.get('tenant_name') or local,
-            'username': data.get('username') or local.replace('.', '_').replace('-', '_'),
-            'plan_tier': plan.tier,
-            'billing_cycle': billing_cycle,
-        }, 3600)
-    except Exception as e:
-        logger.warning(f"[WOMPI] No se pudo guardar intención de checkout: {e}")
+    local = payer_email.split('@')[0]
+    # La contraseña se guarda solo en caché de servidor y por 1 hora. Se usa
+    # para que el webhook cree la cuenta con la clave elegida por el usuario
+    # aunque la página de éxito no llegue a llamar a confirm-payment.
+    checkout_password = (data.get('password') or '').strip()
+    save_checkout_intent(reference, {
+        'payer_email': payer_email,
+        'tenant_id': tenant_id,
+        'tenant_name': (data.get('tenant_name') or (existing_tenant.name if existing_tenant else local)).strip(),
+        'username': (data.get('username') or local.replace('.', '_').replace('-', '_')).strip(),
+        'password': checkout_password if len(checkout_password) >= 8 else '',
+        'plan_tier': plan.tier,
+        'billing_cycle': billing_cycle,
+        'amount_in_cents': amount_in_cents,
+        'currency': 'COP',
+        'fbp': (data.get('fbp') or '').strip(),
+        'fbc': (data.get('fbc') or '').strip(),
+        'marketing_consent': bool(data.get('marketing_consent')),
+    })
 
     logger.info(f"[WOMPI] Checkout params: plan={plan.tier} cycle={billing_cycle} ref={reference}")
     return JsonResponse({
@@ -1464,168 +1496,305 @@ def wompi_checkout_params(request):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-@throttle_classes([CheckoutRateThrottle])
+@rate_limit('confirm_payment', 30, 3600)
 def confirm_payment_create_tenant(request):
-    """
-    Confirmar pago exitoso y crear tenant automáticamente.
-    
+    """Confirma un pago ya verificado y activa/crea el tenant.
+
+    Regla de oro: el plan, el ciclo y el monto SIEMPRE se derivan de la
+    pasarela o de la intención firmada en servidor; nunca del body. Esto evita
+    pagar Básico y activar Pro, o pagar mensual y recibir anual.
+
     POST /billing/api/confirm-payment/
-    Body: {
-        "preapproval_id": "...",
-        "plan_tier": "basic",
-        "billing_cycle": "monthly",
-        "payer_email": "user@example.com",
-        "tenant_name": "Mi Finca"   (opcional)
-    }
-    
-    Flujo:
-    1. Verifica con MercadoPago que el preapproval esté authorized/pending
-    2. Crea tenant + schema + dominio + suscripción
-    3. Devuelve datos del tenant creado
-    
-    SEGURIDAD: Verificación doble — solo crea si MercadoPago confirma.
-    Idempotente — si el tenant ya existe para ese preapproval_id, devuelve ok.
     """
     try:
-        data = json.loads(request.body)
-        gateway = data.get('gateway', 'mercadopago')
-        preapproval_id = data.get('preapproval_id', '')
-        reference = data.get('reference', '')
-        plan_tier = data.get('plan_tier', 'basic')
-        billing_cycle = data.get('billing_cycle', 'monthly')
-        payer_email = data.get('payer_email', '')
-        tenant_name = data.get('tenant_name', '')
-        
-        if not payer_email:
-            return JsonResponse({'error': 'payer_email requerido'}, status=400)
-        
-        external_id = preapproval_id if gateway == 'mercadopago' else reference
-        
-        # Idempotencia: si ya existe una suscripción con ese ID externo, retornar ok
-        if external_id:
-            existing = Subscription.objects.filter(
-                external_subscription_id=external_id
-            ).select_related('tenant').first()
-            
-            if existing:
+        data = json.loads(request.body or '{}')
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    gateway = (data.get('gateway') or 'mercadopago').strip().lower()
+    if gateway not in ('wompi', 'mercadopago'):
+        return JsonResponse({'error': 'Pasarela no soportada'}, status=400)
+
+    preapproval_id = (data.get('preapproval_id') or '').strip()
+    reference = (data.get('reference') or '').strip()
+    body_plan = (data.get('plan_tier') or '').strip()
+    body_cycle = normalize_cycle(data.get('billing_cycle'))
+    payer_email = (data.get('payer_email') or '').strip()
+    tenant_name = (data.get('tenant_name') or '').strip()
+    username = (data.get('username') or '').strip()
+    password = data.get('password') or ''
+    existing_tenant = resolve_tenant_for_request(request)
+
+    verified_plan_tier = ''
+    verified_cycle = body_cycle
+    verified_amount_cents = None
+    verified_currency = 'COP'
+    external_id = ''
+    payment_verified = False
+
+    # ── Verificación Wompi ──────────────────────────────────────────────────
+    if gateway == 'wompi':
+        if not reference:
+            return JsonResponse({'error': 'Se requiere la referencia del pago.'}, status=402)
+        from .wompi_gateway import WompiGateway
+
+        check = WompiGateway().get_transaction_status(reference)
+        if (
+            not check.get('success')
+            or check.get('status') != 'APPROVED'
+            or (check.get('reference') and check.get('reference') != reference)
+        ):
+            logger.warning(
+                f"[SECURITY] Wompi no aprobado: ref={reference} check={check} "
+                f"ip={request.META.get('REMOTE_ADDR')}"
+            )
+            return JsonResponse(
+                {'error': 'El pago no fue confirmado por Wompi.'},
+                status=402,
+            )
+
+        parsed = parse_wompi_reference(reference)
+        intent = get_checkout_intent(reference)
+        verified_plan_tier = (
+            intent.get('plan_tier') or parsed.get('plan_tier') or body_plan
+        )
+        verified_cycle = normalize_cycle(
+            intent.get('billing_cycle') or parsed.get('cycle') or body_cycle
+        )
+        verified_amount_cents = check.get('amount_in_cents')
+        verified_currency = (check.get('currency') or intent.get('currency') or 'COP')
+        payer_email = (
+            check.get('customer_email') or intent.get('payer_email') or payer_email
+        )
+        tenant_name = intent.get('tenant_name') or tenant_name
+        username = intent.get('username') or username
+        password = password or intent.get('password') or ''
+        external_id = reference
+        payment_verified = True
+
+    # ── Verificación MercadoPago ────────────────────────────────────────────
+    else:
+        if not preapproval_id:
+            return JsonResponse({'error': 'Se requiere el ID de preaprobación.'}, status=402)
+        try:
+            sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
+            result = sdk.preapproval().get(preapproval_id)
+        except Exception as exc:
+            logger.warning(f"[SECURITY] No se pudo verificar MercadoPago {preapproval_id}: {exc}")
+            return JsonResponse({'error': 'No se pudo verificar el pago.'}, status=402)
+
+        if result.get('status') != 200:
+            return JsonResponse({'error': 'No se pudo verificar el pago.'}, status=402)
+
+        mp = result.get('response') or {}
+        mp_status = (mp.get('status') or '').lower()
+        if mp_status != 'authorized':
+            # pending/failure: NUNCA otorgar acceso antes de autorización.
+            logger.warning(
+                f"[SECURITY] MercadoPago no autorizado: {preapproval_id} status={mp_status}"
+            )
+            return JsonResponse(
+                {'error': 'El pago aún no está autorizado por MercadoPago.'},
+                status=402,
+            )
+
+        parsed = parse_mercadopago_reference(mp.get('external_reference', ''))
+        intent = get_checkout_intent(preapproval_id)
+        verified_plan_tier = intent.get('plan_tier') or parsed.get('plan_tier') or body_plan
+        verified_cycle = normalize_cycle(
+            intent.get('billing_cycle') or parsed.get('cycle') or body_cycle
+        )
+        payer_email = (mp.get('payer_email') or intent.get('payer_email') or payer_email).strip()
+        tenant_name = intent.get('tenant_name') or parsed.get('tenant_name') or tenant_name
+        username = intent.get('username') or parsed.get('username') or username
+        auto = mp.get('auto_recurring') or {}
+        try:
+            verified_amount_cents = int(round(float(auto.get('transaction_amount') or 0) * 100))
+        except (TypeError, ValueError):
+            verified_amount_cents = None
+        verified_currency = (auto.get('currency_id') or 'COP').upper()
+        external_id = preapproval_id
+        payment_verified = True
+
+    if not payment_verified:
+        return JsonResponse({'error': 'Pago no verificado.'}, status=402)
+    if not payer_email:
+        return JsonResponse({'error': 'No se pudo obtener el email del pagador.'}, status=400)
+    if verified_plan_tier == 'free':
+        return JsonResponse(
+            {'error': 'El plan gratuito se activa desde create-checkout, no desde confirm-payment.'},
+            status=400,
+        )
+
+    try:
+        plan = Plan.objects.get(tier=verified_plan_tier, is_active=True)
+    except Plan.DoesNotExist:
+        return JsonResponse({'error': 'El plan pagado no está disponible.'}, status=409)
+
+    expected_cents = plan_amount_cents(plan, verified_cycle)
+    if verified_amount_cents is not None and int(verified_amount_cents) != expected_cents:
+        logger.error(
+            f"[SECURITY] Monto no coincide: gateway={gateway} ref={external_id} "
+            f"recibido={verified_amount_cents} esperado={expected_cents} "
+            f"plan={verified_plan_tier} cycle={verified_cycle}"
+        )
+        return JsonResponse(
+            {'error': 'El monto pagado no corresponde al plan seleccionado.'},
+            status=402,
+        )
+    if verified_currency and verified_currency.upper() != 'COP':
+        return JsonResponse({'error': 'La moneda del pago no es COP.'}, status=402)
+
+    if body_plan and body_plan != verified_plan_tier:
+        logger.warning(
+            f"[SECURITY] El cliente intentó confirmar plan={body_plan} pero pagó "
+            f"plan={verified_plan_tier} ref={external_id}. Se usa el plan pagado."
+        )
+
+    # ── Idempotencia ────────────────────────────────────────────────────────
+    existing = Subscription.objects.filter(
+        external_subscription_id=external_id
+    ).select_related('tenant', 'plan').first()
+    if existing:
+        existing_amount = (
+            plan_amount_cents(existing.plan, existing.billing_cycle) / 100
+            if existing.plan_id else None
+        )
+        return JsonResponse({
+            'success': True,
+            'already_exists': True,
+            'tenant_name': existing.tenant.name,
+            'schema_name': existing.tenant.schema_name,
+            'plan': existing.plan.tier if existing.plan_id else verified_plan_tier,
+            'status': existing.status,
+            'amount_cop': existing_amount,
+            'payment_verified': True,
+        })
+
+    # ── Cliente existente: upgrade, no crear tenant duplicado ───────────────
+    if existing_tenant:
+        result = TenantService.upgrade_subscription(
+            tenant=existing_tenant,
+            new_plan_tier=verified_plan_tier,
+            billing_cycle=verified_cycle,
+            external_subscription_id=external_id,
+            payment_gateway=gateway,
+            payer_email=payer_email,
+        )
+        if not result.get('success'):
+            return JsonResponse({'error': result.get('error', 'No se pudo aplicar el plan.')}, status=409)
+        domain_obj = existing_tenant.domains.filter(is_primary=True).first() or existing_tenant.domains.first()
+        return JsonResponse({
+            'success': True,
+            'already_exists': True,
+            'tenant_name': existing_tenant.name,
+            'schema_name': existing_tenant.schema_name,
+            'domain': domain_obj.domain if domain_obj else '',
+            'plan': verified_plan_tier,
+            'status': 'active',
+            'paid_until': result.get('paid_until'),
+            'amount_cop': round(expected_cents / 100, 2),
+            'gateway': gateway,
+            'payment_verified': True,
+            'username': username,
+        })
+
+    # Si el email ya pertenece a una cuenta, no crear un segundo tenant.
+    from django.contrib.auth import get_user_model
+    from base_agrotech.models import Client as TenantModel
+
+    User = get_user_model()
+    existing_user = User.objects.filter(
+        email__iexact=payer_email,
+        tenant_id__isnull=False,
+    ).first()
+    if existing_user:
+        existing_account_tenant = TenantModel.objects.filter(id=existing_user.tenant_id).first()
+        if existing_account_tenant:
+            # El pago fue verificado con el email de una cuenta existente.
+            # Aplicamos el plan a esa cuenta en lugar de dejar el pago sin
+            # efecto o crear un tenant duplicado. El usuario entra con su
+            # login habitual (no emitimos tokens desde aquí).
+            result = TenantService.upgrade_subscription(
+                tenant=existing_account_tenant,
+                new_plan_tier=verified_plan_tier,
+                billing_cycle=verified_cycle,
+                external_subscription_id=external_id,
+                payment_gateway=gateway,
+                payer_email=payer_email,
+            )
+            if result.get('success'):
+                domain_obj = (
+                    existing_account_tenant.domains.filter(is_primary=True).first()
+                    or existing_account_tenant.domains.first()
+                )
                 return JsonResponse({
                     'success': True,
                     'already_exists': True,
-                    'tenant_name': existing.tenant.name,
-                    'schema_name': existing.tenant.schema_name,
-                    'plan': existing.plan.tier,
-                    'status': existing.status,
+                    'requires_login': True,
+                    'tenant_name': existing_account_tenant.name,
+                    'schema_name': existing_account_tenant.schema_name,
+                    'domain': domain_obj.domain if domain_obj else '',
+                    'plan': verified_plan_tier,
+                    'status': 'active',
+                    'paid_until': result.get('paid_until'),
+                    'amount_cop': round(expected_cents / 100, 2),
+                    'gateway': gateway,
+                    'payment_verified': True,
+                    'username': existing_user.username,
                 })
-        
-        # Verificar el pago con la pasarela correspondiente
-        payment_verified = False
-        if gateway == 'wompi':
-            if reference:
-                from .wompi_gateway import WompiGateway
-                check = WompiGateway().get_transaction_status(reference)
-                if check.get('success') and check.get('status') == 'APPROVED':
-                    payment_verified = True
-                    logger.info(f"Wompi verificado: ref={reference} status=APPROVED")
-                else:
-                    logger.warning(f"Wompi NO verificado: ref={reference} check={check}")
-        else:
-            if preapproval_id:
-                try:
-                    sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
-                    result = sdk.preapproval().get(preapproval_id)
-                    if result['status'] == 200:
-                        mp_status = result['response'].get('status', '')
-                        if mp_status in ['authorized', 'pending']:
-                            payment_verified = True
-                            logger.info(f"MercadoPago verificado: {preapproval_id} status={mp_status}")
-                        else:
-                            logger.warning(f"MercadoPago status inesperado: {mp_status} para {preapproval_id}")
-                except Exception as e:
-                    logger.warning(f"No se pudo verificar con MercadoPago: {e}")
+        return JsonResponse({
+            'error': 'Este correo ya tiene una cuenta. Inicia sesión para ver tu plan.',
+            'code': 'account_exists',
+            'existing_tenant': existing_account_tenant.name if existing_account_tenant else '',
+        }, status=409)
 
-        # ── SEGURIDAD CRÍTICA ──────────────────────────────────────────────────
-        # Los planes de pago REQUIEREN verificación con la pasarela.
-        if plan_tier != 'free':
-            if not external_id:
-                logger.warning(
-                    f"[SECURITY] Intento de crear tenant de pago sin ID de pago: "
-                    f"plan={plan_tier} email={payer_email} gateway={gateway} ip={request.META.get('REMOTE_ADDR')}"
-                )
-                return JsonResponse(
-                    {'error': 'Se requiere un ID de pago. Completa el checkout primero.'},
-                    status=402
-                )
-            if not payment_verified:
-                logger.warning(
-                    f"[SECURITY] Intento de crear tenant sin verificación de pago: "
-                    f"plan={plan_tier} email={payer_email} gateway={gateway} "
-                    f"ip={request.META.get('REMOTE_ADDR')}"
-                )
-                return JsonResponse(
-                    {'error': 'El pago no fue confirmado por la pasarela. Intenta de nuevo o contacta soporte.'},
-                    status=402
-                )
-        # ── FIN SEGURIDAD ──────────────────────────────────────────────────────
+    if not tenant_name:
+        tenant_name = payer_email.split('@')[0].replace('.', '_').replace('-', '_')
+    if not username:
+        username = payer_email.split('@')[0].replace('.', '_').replace('-', '_')
 
-        # Generar nombre del tenant si no se proporcionó
-        if not tenant_name:
-            tenant_name = payer_email.split('@')[0].replace('.', '_').replace('-', '_')
-        
-        # Extraer username del request o del external_reference
-        username = data.get('username', '')
-        password = data.get('password', '')
-        
-        if not username:
-            username = payer_email.split('@')[0].replace('.', '_').replace('-', '_')
-        
-        # Crear tenant + usuario con el servicio
-        result = TenantService.create_tenant_for_subscription(
-            tenant_name=tenant_name,
-            plan_tier=plan_tier,
-            billing_cycle=billing_cycle,
-            payer_email=payer_email,
-            external_subscription_id=external_id,
-            payment_gateway=gateway if external_id else 'manual',
-            username=username,
-            password=password or None,  # None = auto-generate + email
-            user_name=data.get('user_name', ''),
-            user_last_name=data.get('user_last_name', ''),
+    result = TenantService.create_tenant_for_subscription(
+        tenant_name=tenant_name,
+        plan_tier=verified_plan_tier,
+        billing_cycle=verified_cycle,
+        payer_email=payer_email,
+        external_subscription_id=external_id,
+        payment_gateway=gateway,
+        username=username,
+        password=password or None,
+        user_name=data.get('user_name', ''),
+        user_last_name=data.get('user_last_name', ''),
+    )
+
+    if result['success']:
+        logger.info(
+            f"✅ Tenant creado post-pago: {tenant_name} plan={verified_plan_tier} "
+            f"cycle={verified_cycle} gateway={gateway} external_id={external_id}"
         )
-        
-        if result['success']:
-            logger.info(
-                f"✅ Tenant creado post-pago: {tenant_name} plan={plan_tier} "
-                f"gateway={gateway} verified={payment_verified} external_id={external_id}"
-            )
-            response_data = {
-                'success': True,
-                'tenant_name': result['tenant'].name,
-                'schema_name': result['schema_name'],
-                'domain': result['domain'],
-                'plan': plan_tier,
-                'status': result['status'],
-                'paid_until': result['paid_until'],
-                'gateway': gateway,
-                'payment_verified': payment_verified,
-                'username': result.get('username', username),
-            }
-            # Incluir tokens JWT para auto-login
-            if result.get('tokens'):
-                response_data['tokens'] = result['tokens']
-            return JsonResponse(response_data)
-        else:
-            error_status = 409 if result.get('existing_tenant') else 500
-            return JsonResponse({
-                'error': result.get('error', 'Error creando tenant'),
-                'existing_tenant': result.get('existing_tenant', ''),
-                'existing_schema': result.get('existing_schema', ''),
-            }, status=error_status)
-    
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
-    except Exception as e:
-        logger.exception(f"Error en confirm_payment_create_tenant: {e}")
-        return JsonResponse({'error': str(e)}, status=500)
+        response_data = {
+            'success': True,
+            'tenant_name': result['tenant'].name,
+            'schema_name': result['schema_name'],
+            'domain': result['domain'],
+            'plan': verified_plan_tier,
+            'status': result['status'],
+            'paid_until': result['paid_until'],
+            'amount_cop': round(expected_cents / 100, 2),
+            'gateway': gateway,
+            'payment_verified': True,
+            'username': result.get('username', username),
+        }
+        if result.get('tokens'):
+            response_data['tokens'] = result['tokens']
+        return JsonResponse(response_data)
+
+    error_status = 409 if result.get('existing_tenant') else 500
+    return JsonResponse({
+        'error': result.get('error', 'Error creando tenant'),
+        'existing_tenant': result.get('existing_tenant', ''),
+        'existing_schema': result.get('existing_schema', ''),
+    }, status=error_status)
 
 
 @csrf_exempt
@@ -1643,75 +1812,14 @@ def subscribe_with_card(request):
       3. Crea tenant + usuario + suscripción.
       4. Guarda payment_source_id para que el cron cobre los siguientes meses.
     """
-    try:
-        data = json.loads(request.body)
-        card_token = (data.get('card_token') or '').strip()
-        plan_tier = data.get('plan_tier', 'basic')
-        billing_cycle = data.get('billing_cycle', 'monthly')
-        payer_email = (data.get('payer_email') or '').strip()
-
-        if not card_token or not payer_email:
-            return JsonResponse({'error': 'card_token y payer_email son requeridos.'}, status=400)
-
-        plan = Plan.objects.filter(tier=plan_tier, is_active=True).first()
-        if not plan:
-            return JsonResponse({'error': 'Plan no válido.'}, status=400)
-
-        from .wompi_gateway import WompiGateway
-        gw = WompiGateway()
-
-        # 1. Tokenizar la tarjeta → fuente de pago (para cobros recurrentes)
-        ps = gw.create_payment_source(card_token, payer_email)
-        if not ps.get('success'):
-            return JsonResponse({'error': ps.get('error', 'No se pudo tokenizar la tarjeta.')}, status=402)
-
-        # 2. Cobrar el primer mes (3RI)
-        import uuid
-        reference = f"sub_0_{plan.tier}_{uuid.uuid4().hex[:8]}"
-        charge = gw.charge_payment_source(ps['payment_source_id'], int(plan.price_cop * 100), reference, payer_email)
-        if not (charge.get('success') and charge.get('status') == 'APPROVED'):
-            return JsonResponse({
-                'error': 'El pago no fue aprobado: ' + str(charge.get('error') or charge.get('status') or 'desconocido'),
-            }, status=402)
-
-        # 3. Crear tenant + usuario + suscripción
-        result = TenantService.create_tenant_for_subscription(
-            tenant_name=data.get('tenant_name', ''),
-            plan_tier=plan_tier,
-            billing_cycle=billing_cycle,
-            payer_email=payer_email,
-            external_subscription_id=reference,
-            payment_gateway='wompi',
-            username=data.get('username', ''),
-            password=data.get('password') or None,
-            user_name=data.get('user_name', ''),
-            user_last_name=data.get('user_last_name', ''),
-        )
-        if not result['success']:
-            return JsonResponse({'error': result.get('error', 'Error creando la cuenta.')}, status=500)
-
-        # 4. Guardar la fuente de pago para renovación automática (cron charge_recurring)
-        sub = Subscription.objects.filter(tenant=result['tenant']).first()
-        if sub:
-            sub.payment_source_id = ps['payment_source_id']
-            sub.auto_renew = True
-            sub.save(update_fields=['payment_source_id', 'auto_renew', 'updated_at'])
-
-        response_data = {
-            'success': True,
-            'tenant_name': result['tenant'].name,
-            'schema_name': result['schema_name'],
-            'plan': plan_tier,
-            'status': result['status'],
-            'paid_until': result['paid_until'],
-            'username': result.get('username', data.get('username', '')),
-        }
-        if result.get('tokens'):
-            response_data['tokens'] = result['tokens']
-        return JsonResponse(response_data)
-
-    except json.JSONDecodeError:
-        return JsonResponse({'error': 'Invalid JSON'}, status=400)
-    except Exception as e:
-        logger.exception(f"Error en subscribe_with_card: {e}")
-        return JsonResponse({'error': str(e)}, status=500)
+    # Endpoint heredado sin autenticación, sin idempotencia y con cobro
+    # mensual que podía otorgar un año. Se desactiva hasta implementarlo con
+    # un token de checkout firmado y verificación de monto.
+    logger.warning(
+        f"[SECURITY] subscribe-card bloqueado (endpoint heredado) "
+        f"ip={request.META.get('REMOTE_ADDR')}"
+    )
+    return JsonResponse({
+        'error': 'Este endpoint está deshabilitado. Usa el checkout de Wompi.',
+        'code': 'endpoint_disabled',
+    }, status=410)
