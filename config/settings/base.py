@@ -407,10 +407,17 @@ WOMPI_SANDBOX = env("WOMPI_SANDBOX", default="true")
 
 # EMAIL
 # ------------------------------------------------------------------------------
-# https://docs.djangoproject.com/en/dev/ref/settings/#email-backend
+# Railway bloquea SMTP saliente (587). Si hay RESEND_API_KEY, se usa la API
+# HTTPS de Resend; si no, se mantiene SMTP como fallback local.
+RESEND_API_KEY = env("RESEND_API_KEY", default="")
+RESEND_API_URL = env("RESEND_API_URL", default="https://api.resend.com/emails")
 EMAIL_BACKEND = env(
     "DJANGO_EMAIL_BACKEND",
-    default="django.core.mail.backends.smtp.EmailBackend",
+    default=(
+        "core.email_backends.ResendEmailBackend"
+        if RESEND_API_KEY
+        else "django.core.mail.backends.smtp.EmailBackend"
+    ),
 )
 # https://docs.djangoproject.com/en/dev/ref/settings/#email-timeout
 EMAIL_TIMEOUT = 5

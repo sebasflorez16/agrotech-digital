@@ -125,11 +125,35 @@ Cron sugerido en Railway (cada hora):
 python manage.py run_billing_maintenance
 ```
 
+## Email transaccional (bloqueador operativo)
+
+Railway **bloquea SMTP saliente** (puerto 587): `smtp.gmail.com` devuelve
+`Network is unreachable`. Por eso se implementó `core/email_backends.py`, que
+envía por la API HTTPS de Resend.
+
+Para activarlo:
+
+1. Crear cuenta en https://resend.com.
+2. Agregar el dominio `agrotechcolombia.com` y crear los registros DNS
+   (SPF/DKIM) en Netlify.
+3. Generar un API key.
+4. En Railway (servicio `agrotech-digital`, environment `production`):
+   ```
+   RESEND_API_KEY=re_...
+   DEFAULT_FROM_EMAIL=AgroTech Digital <noreply@agrotechcolombia.com>
+   ```
+5. Redeploy y probar registro, reenvío de verificación y recuperación de
+   contraseña.
+
+Mientras no exista `RESEND_API_KEY`, los correos fallan y el registro sigue
+funcionando (verificación opcional), pero no hay recuperación de contraseña
+ni recibos por email.
+
 ## Pendiente (siguientes fases)
 
 1. Ejecutar la matriz E2E en staging con Wompi sandbox.
 2. Configurar `META_CAPI_ACCESS_TOKEN` y validar eventos en Test Events.
-3. Verificar entrega de email (SPF/DKIM/DMARC) y reenvío en Gmail/Outlook.
+3. Configurar Resend y verificar entrega en Gmail/Outlook.
 4. Implementar/decidir trial real de 14 días (hoy es freemium puro).
 5. Límites faltantes: storage, clima basic/full, tiles WMTS.
 6. Enviar `Contact` (WhatsApp) y `AddPaymentInfo` a Meta.
