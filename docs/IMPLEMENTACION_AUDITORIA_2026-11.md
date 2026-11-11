@@ -125,6 +125,16 @@ Cron sugerido en Railway (cada hora):
 python manage.py run_billing_maintenance
 ```
 
+## Importación de lotes (nuevo)
+
+- Endpoint: `POST /api/parcels/parcel/import/` (multipart, campo `file`).
+- Formatos: GeoJSON/JSON, KML, KMZ, Shapefile `.zip`, GPX y GeoPackage.
+- Normaliza a EPSG:4326, valida polígonos y reproyecta si el archivo trae CRS.
+- Si el archivo tiene varios lotes, crea una parcela por lote.
+- Respeta límites de parcelas y hectáreas del plan (atómico: si no cabe, no crea ninguna).
+- La sincronización con EOSDA se dispara desde el frontend en segundo plano.
+- Tests: `parcels/tests/test_importers.py` (8 pruebas).
+
 ## Email transaccional (bloqueador operativo)
 
 Railway **bloquea SMTP saliente** (puerto 587): `smtp.gmail.com` devuelve

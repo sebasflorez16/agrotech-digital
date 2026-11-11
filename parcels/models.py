@@ -81,8 +81,14 @@ class Parcel(models.Model):
         la parcela se guarda localmente con sync_status = 'synced' o 'error'.
         """
         self.full_clean()  # Ejecuta clean() y validaciones
-        # Si no tiene eosda_id, intenta crearlo en EOSDA
-        if not self.eosda_id and self.geom:
+        # Si no tiene eosda_id, intenta crearlo en EOSDA.
+        # La importación masiva usa _skip_eosda_sync para responder rápido;
+        # el frontend dispara la sincronización después de dibujar las parcelas.
+        if (
+            not self.eosda_id
+            and self.geom
+            and not getattr(self, '_skip_eosda_sync', False)
+        ):
             self._sync_to_eosda()
         super().save(*args, **kwargs)
 

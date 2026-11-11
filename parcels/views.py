@@ -290,10 +290,14 @@ class ParcelScenesByDateView(APIView):
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Sum
+from pathlib import Path
+from .importers import ParcelImportError, parse_geospatial_file
 from .models import Parcel, ParcelSceneCache
 from .serializers import ParcelSerializer
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework import status
 import requests
@@ -513,6 +517,136 @@ class ParcelViewSet(viewsets.ModelViewSet):
             logger.warning(f"[ONBOARDING] No se pudo enriquecer la respuesta: {onboarding_err}")
 
         return response
+
+    @action(
+        detail=False,
+        methods=['post'],
+        url_path='import',
+        parser_classes=[MultiPartParser, FormParser],
+    )
+    def import_parcel(self, request):
+        """Crea parcelas desde GeoJSON, KML, KMZ, Shapefile ZIP, GPX o GPKG.
+
+        Si el archivo contiene varios lotes, se crea una parcela por lote.
+        La respuesta es inmediata: la sincronización con EOSDA se dispara desde
+        el frontend para no bloquear la petición con decenas de llamadas.
+        """
+        uploaded = request.FILES.get('file')
+        if not uploaded:
+            return Response({
+                'error': 'Selecciona un archivo para importar.',
+                'code': 'file_required',
+            }, status=400)
+
+        try:
+            parsed = parse_geospatial_file(uploaded)
+        except ParcelImportError as exc:
+            return Response({
+                'error': str(exc),
+                'code': 'invalid_file',
+            }, status=400)
+        except Exception as exc:
+            logger.exception(f"[IMPORT] Error interpretando archivo: {exc}")
+            return Response({
+                'error': 'No se pudo interpretar el archivo. Intenta con GeoJSON o KML.',
+                'code': 'invalid_file',
+            }, status=400)
+
+        tenant = getattr(request, 'tenant', None)
+        if not tenant:
+            return Response({
+                'error': 'No se pudo identificar tu cuenta.',
+            }, status=400)
+
+        polygons = parsed['polygons']
+        subscription = getattr(request, 'subscription', None)
+
+        # Límite de parcelas: se valida el total del archivo, no una por una.
+        from billing.access import is_unlimited_user
+
+        if subscription and not is_unlimited_user(request.user):
+            current_parcels = self.get_queryset().count()
+            is_within, limit = subscription.check_limit(
+                'parcels', current_parcels + len(polygons)
+            )
+            if not is_within:
+                return Response({
+                    'error': 'Límite de parcelas excedido',
+                    'code': 'parcels_limit_exceeded',
+                    'current': current_parcels,
+                    'requested': len(polygons),
+                    'limit': limit,
+                    'plan': subscription.plan.name,
+                    'message': (
+                        f'El archivo contiene {len(polygons)} lote(s). Tu plan '
+                        f'{subscription.plan.name} permite hasta {limit} parcelas '
+                        f'y ya tienes {current_parcels}.'
+                    ),
+                    'upgrade_url': '/billing/upgrade/',
+                }, status=403)
+
+        # Límite de hectáreas: se valida la suma del archivo.
+        is_allowed, error_response = self._verify_hectare_limit(
+            request, parsed['total_hectares']
+        )
+        if not is_allowed:
+            return error_response
+
+        base_name = (
+            (request.data.get('name') or '').strip()
+            or Path(uploaded.name).stem
+            or 'Parcela importada'
+        ).strip()
+        if not base_name:
+            base_name = 'Parcela importada'
+
+        description = (request.data.get('description') or '').strip()
+        field_type = (request.data.get('field_type') or '').strip()[:100]
+        soil_type = (request.data.get('soil_type') or '').strip()[:100]
+        topography = (request.data.get('topography') or '').strip()[:100]
+
+        created = []
+        try:
+            with transaction.atomic():
+                for index, geom in enumerate(polygons, start=1):
+                    name = base_name if len(polygons) == 1 else f'{base_name} - Lote {index}'
+                    parcel = Parcel(
+                        tenant_id=tenant.id,
+                        name=name[:100],
+                        description=description,
+                        field_type=field_type,
+                        soil_type=soil_type,
+                        topography=topography,
+                        geom=geom,
+                        sync_status='local',
+                    )
+                    # No bloquear la respuesta con la creación de campos en EOSDA.
+                    parcel._skip_eosda_sync = True
+                    parcel.save()
+                    created.append(parcel)
+        except Exception as exc:
+            logger.exception(f"[IMPORT] Error creando parcelas: {exc}")
+            return Response({
+                'error': 'No se pudieron crear las parcelas importadas.',
+                'code': 'import_failed',
+            }, status=500)
+
+        serializer = self.get_serializer(created, many=True)
+        logger.info(
+            f"[IMPORT] {len(created)} parcela(s) importadas para tenant={tenant.id} "
+            f"desde {uploaded.name} ({parsed['source_crs'] or 'CRS desconocido'})"
+        )
+
+        return Response({
+            'success': True,
+            'message': f'{len(created)} parcela(s) importada(s) correctamente.',
+            'count': len(created),
+            'parcels': serializer.data,
+            'total_hectares': round(parsed['total_hectares'], 2),
+            'source_crs': parsed['source_crs'],
+            'skipped': parsed['skipped'],
+            'sync_pending': True,
+        }, status=201)
 
     def update(self, request, *args, **kwargs):
         """
