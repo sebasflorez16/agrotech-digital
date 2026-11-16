@@ -960,10 +960,16 @@ def get_index_time_series(geometry, date_from=None, date_to=None, days_back=180,
             f"[S2] Serie parcial: {len(series)} meses listos, {pending} pendientes "
             f"(se devuelve en <75 s)"
         )
-        # Parcial: cache corto para no bloquear el reintento que completa.
-        cache.set(cache_key, series, 600)
-    else:
+        # Parcial con datos: cache corto. Parcial vacío: NO cachear, para que
+        # el siguiente intento pueda completar y no mostrar "sin datos" 10 min.
+        if series:
+            cache.set(cache_key, series, 600)
+    elif series:
         cache.set(cache_key, series, INDICES_CACHE_TTL)
+    else:
+        # Rango realmente sin escenas limpias: reintentar en 1 h por si entra
+        # una escena nueva (sobre todo si date_to es hoy).
+        cache.set(cache_key, series, 3600)
     return series
 
 
