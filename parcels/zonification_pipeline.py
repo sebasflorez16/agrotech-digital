@@ -146,7 +146,7 @@ def run_zonification(zonification) -> dict:
     chosen = None
     chosen_scene = None
     tried = set()
-    for cand in ordered[:6]:
+    for cand in ordered[:4]:
         scene_day = cand.get('date')
         if not scene_day or scene_day in tried:
             continue

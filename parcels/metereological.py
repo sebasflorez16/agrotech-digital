@@ -22,6 +22,152 @@ from billing.decorators import check_eosda_limit
 
 logger = logging.getLogger(__name__)
 
+MET_NO_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
+MET_NO_HEADERS = {
+    "User-Agent": "AgroTechDigital/1.0 (contacto@agrotechcolombia.com)",
+    "Accept": "application/json",
+}
+
+
+def _fetch_open_meteo(lat, lng):
+    """Pronóstico Open-Meteo. Devuelve lista procesada o None."""
+    meteo_url = "https://api.open-meteo.com/v1/forecast"
+    params = {
+        "latitude": lat,
+        "longitude": lng,
+        "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,relative_humidity_2m_mean,pressure_msl_mean,cloud_cover_mean,shortwave_radiation_sum",
+        "timezone": "America/Bogota",
+        "forecast_days": 16,
+    }
+    try:
+        logger.info(f"[WEATHER_FORECAST] Consultando Open-Meteo: lat={lat}, lng={lng}")
+        # 10 s: si Open-Meteo está lento desde Railway, pasamos rápido al fallback.
+        response = requests.get(meteo_url, params=params, timeout=10)
+        if response.status_code != 200:
+            logger.warning(
+                f"[WEATHER_FORECAST] Open-Meteo HTTP {response.status_code}: "
+                f"{response.text[:200]}"
+            )
+            return None
+
+        daily = response.json().get("daily", {})
+        if not daily or "time" not in daily:
+            logger.warning("[WEATHER_FORECAST] Open-Meteo sin datos daily")
+            return None
+
+        forecast = []
+        for i, date_str in enumerate(daily["time"]):
+            t_max = daily.get("temperature_2m_max", [0])[i] or 0
+            t_min = daily.get("temperature_2m_min", [0])[i] or 0
+            forecast.append({
+                "date": date_str,
+                "temperature_max": round(t_max, 1),
+                "temperature_min": round(t_min, 1),
+                "temperature": round((t_max + t_min) / 2, 1),
+                "precipitation": round(daily.get("precipitation_sum", [0])[i] or 0, 1),
+                "humidity": round(daily.get("relative_humidity_2m_mean", [0])[i] or 0, 1),
+                "wind_speed": round(daily.get("wind_speed_10m_max", [0])[i] or 0, 1),
+                "pressure": round(daily.get("pressure_msl_mean", [0])[i] or 0, 1),
+                "cloud_cover": round(daily.get("cloud_cover_mean", [0])[i] or 0, 1),
+                "solar_radiation": round(daily.get("shortwave_radiation_sum", [0])[i] or 0, 1),
+                "is_real_data": True,
+            })
+        return forecast or None
+    except requests.exceptions.RequestException as exc:
+        logger.warning(f"[WEATHER_FORECAST] Open-Meteo no disponible: {exc}")
+        return None
+
+
+def _fetch_met_norway(lat, lng):
+    """Fallback de pronóstico con MET Norway (sin API key).
+
+    Open-Meteo puede quedar inaccesible desde Railway (read timeout). MET Norway
+    responde por HTTPS y entrega ~9 días de pronóstico horario; se agrega a días.
+    """
+    from collections import defaultdict
+    from datetime import datetime as dt
+    from zoneinfo import ZoneInfo
+
+    try:
+        response = requests.get(
+            MET_NO_URL,
+            params={"lat": round(float(lat), 4), "lon": round(float(lng), 4)},
+            headers=MET_NO_HEADERS,
+            timeout=15,
+        )
+        if response.status_code != 200:
+            logger.warning(
+                f"[WEATHER_FORECAST] MET Norway HTTP {response.status_code}: "
+                f"{response.text[:200]}"
+            )
+            return None
+
+        timeseries = response.json().get("properties", {}).get("timeseries", [])
+        if not timeseries:
+            return None
+
+        bogota = ZoneInfo("America/Bogota")
+        days = defaultdict(lambda: {
+            "temps": [], "humidity": [], "wind": [], "pressure": [],
+            "cloud": [], "precip": 0.0,
+        })
+
+        for entry in timeseries:
+            time_str = entry.get("time")
+            if not time_str:
+                continue
+            try:
+                local = dt.fromisoformat(time_str.replace("Z", "+00:00")).astimezone(bogota)
+            except ValueError:
+                continue
+            date_key = local.date().isoformat()
+            details = entry.get("data", {}).get("instant", {}).get("details", {}) or {}
+            bucket = days[date_key]
+
+            if details.get("air_temperature") is not None:
+                bucket["temps"].append(float(details["air_temperature"]))
+            if details.get("relative_humidity") is not None:
+                bucket["humidity"].append(float(details["relative_humidity"]))
+            if details.get("wind_speed") is not None:
+                bucket["wind"].append(float(details["wind_speed"]))
+            if details.get("air_pressure_at_sea_level") is not None:
+                bucket["pressure"].append(float(details["air_pressure_at_sea_level"]))
+            if details.get("cloud_area_fraction") is not None:
+                bucket["cloud"].append(float(details["cloud_area_fraction"]))
+
+            next_data = entry.get("data", {})
+            one_hour = (next_data.get("next_1_hours") or {}).get("details", {})
+            six_hours = (next_data.get("next_6_hours") or {}).get("details", {})
+            if one_hour.get("precipitation_amount") is not None:
+                bucket["precip"] += float(one_hour["precipitation_amount"])
+            elif six_hours.get("precipitation_amount") is not None:
+                # Se reparte el acumulado de 6 h entre las horas del bloque.
+                bucket["precip"] += float(six_hours["precipitation_amount"]) / 6.0
+
+        forecast = []
+        for date_key in sorted(days.keys()):
+            bucket = days[date_key]
+            temps = bucket["temps"]
+            if not temps:
+                continue
+            forecast.append({
+                "date": date_key,
+                "temperature_max": round(max(temps), 1),
+                "temperature_min": round(min(temps), 1),
+                "temperature": round(sum(temps) / len(temps), 1),
+                "precipitation": round(bucket["precip"], 1),
+                "humidity": round(sum(bucket["humidity"]) / len(bucket["humidity"]), 1) if bucket["humidity"] else 0,
+                "wind_speed": round(max(bucket["wind"]), 1) if bucket["wind"] else 0,
+                "pressure": round(sum(bucket["pressure"]) / len(bucket["pressure"]), 1) if bucket["pressure"] else 0,
+                "cloud_cover": round(sum(bucket["cloud"]) / len(bucket["cloud"]), 1) if bucket["cloud"] else 0,
+                "solar_radiation": 0.0,
+                "is_real_data": True,
+            })
+        return forecast or None
+    except requests.exceptions.RequestException as exc:
+        logger.warning(f"[WEATHER_FORECAST] MET Norway no disponible: {exc}")
+        return None
+
 
 class WeatherForecastView(APIView):
     """
@@ -102,83 +248,41 @@ class WeatherForecastView(APIView):
         today = datetime.now()
 
         # Cache por 6 horas
-        weather_cache_key = f"weather_forecast_openmeteo_v2_{parcel_id}_{today.strftime('%Y-%m-%d')}"
+        weather_cache_key = f"weather_forecast_v3_{parcel_id}_{today.strftime('%Y-%m-%d')}"
         cached_forecast = cache.get(weather_cache_key)
         if cached_forecast:
             logger.info("[WEATHER_FORECAST] ✅ CACHE HIT: Retornando pronóstico cacheado")
             return Response(cached_forecast, status=200)
 
-        # Llamar a Open-Meteo API
-        meteo_url = "https://api.open-meteo.com/v1/forecast"
-        params = {
-            "latitude": lat,
-            "longitude": lng,
-            "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max,relative_humidity_2m_mean,pressure_msl_mean,cloud_cover_mean,shortwave_radiation_sum",
-            "timezone": "America/Bogota",
-            "forecast_days": 16,
-        }
+        # Open-Meteo es el primario; MET Norway es el fallback (Railway puede
+        # quedar sin salida estable hacia api.open-meteo.com).
+        forecast = _fetch_open_meteo(lat, lng)
+        source = "Open-Meteo"
+        if not forecast:
+            logger.warning("[WEATHER_FORECAST] Open-Meteo falló; probando MET Norway")
+            forecast = _fetch_met_norway(lat, lng)
+            source = "MET Norway"
 
-        try:
-            logger.info(f"[WEATHER_FORECAST] Consultando Open-Meteo: lat={lat}, lng={lng}")
-            response = requests.get(meteo_url, params=params, timeout=15)
-            logger.info(f"[WEATHER_FORECAST] Status: {response.status_code}")
-
-            if response.status_code != 200:
-                logger.error(f"[WEATHER_FORECAST] Error Open-Meteo HTTP {response.status_code}: {response.text[:200]}")
-                return Response({
-                    "error": f"Error del proveedor meteorológico HTTP {response.status_code}",
-                    "message": "No se pudo obtener el pronóstico del tiempo",
-                    "parcel_id": parcel_id,
-                    "parcel_name": parcel.name
-                }, status=503)
-
-            data = response.json()
-            daily = data.get("daily", {})
-            if not daily or "time" not in daily:
-                logger.error(f"[WEATHER_FORECAST] Respuesta Open-Meteo sin datos daily: {data}")
-                return Response({
-                    "error": "Formato de respuesta inesperado",
-                    "message": "No se pudo obtener datos meteorológicos",
-                    "parcel_id": parcel_id,
-                    "parcel_name": parcel.name
-                }, status=404)
-
-            # Procesar datos al formato del frontend (solo valores reales)
-            processed_forecast = []
-            days = daily["time"]
-            for i, date_str in enumerate(days):
-                t_max = daily.get("temperature_2m_max", [None])[i] or 0
-                t_min = daily.get("temperature_2m_min", [None])[i] or 0
-                processed_forecast.append({
-                    "date": date_str,
-                    "temperature_max": round(t_max, 1),
-                    "temperature_min": round(t_min, 1),
-                    "temperature": round((t_max + t_min) / 2, 1),
-                    "precipitation": round(daily.get("precipitation_sum", [0])[i] or 0, 1),
-                    "humidity": round(daily.get("relative_humidity_2m_mean", [0])[i] or 0, 1),
-                    "wind_speed": round(daily.get("wind_speed_10m_max", [0])[i] or 0, 1),
-                    "pressure": round(daily.get("pressure_msl_mean", [0])[i] or 0, 1),
-                    "cloud_cover": round(daily.get("cloud_cover_mean", [0])[i] or 0, 1),
-                    "solar_radiation": round(daily.get("shortwave_radiation_sum", [0])[i] or 0, 1),
-                    "is_real_data": True,
-                })
-
-            logger.info(f"[WEATHER_FORECAST] Procesados {len(processed_forecast)} días de pronóstico")
-
-            response_data = {
-                "forecast": processed_forecast,
-                "source": "Open-Meteo",
+        if not forecast:
+            logger.error("[WEATHER_FORECAST] Ningún proveedor meteorológico respondió")
+            return Response({
+                "error": "No se pudo obtener el pronóstico del tiempo",
+                "message": (
+                    "Los proveedores meteorológicos no respondieron. "
+                    "Intenta de nuevo en unos minutos."
+                ),
                 "parcel_id": parcel_id,
                 "parcel_name": parcel.name,
-            }
-            cache.set(weather_cache_key, response_data, 21600)
-            return Response(response_data, status=200)
-
-        except requests.exceptions.RequestException as e:
-            logger.error(f"[WEATHER_FORECAST] Error de conexión: {str(e)}")
-            return Response({
-                "error": "Error de conexión con la API meteorológica",
-                "message": str(e),
-                "parcel_id": parcel_id,
-                "parcel_name": parcel.name
             }, status=503)
+
+        logger.info(
+            f"[WEATHER_FORECAST] {len(forecast)} días de pronóstico desde {source}"
+        )
+        response_data = {
+            "forecast": forecast,
+            "source": source,
+            "parcel_id": parcel_id,
+            "parcel_name": parcel.name,
+        }
+        cache.set(weather_cache_key, response_data, 21600)
+        return Response(response_data, status=200)

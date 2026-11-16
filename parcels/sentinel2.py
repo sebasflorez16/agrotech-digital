@@ -161,6 +161,9 @@ def _sample_band(href, points_lonlat):
             GDAL_HTTP_MULTIRANGE="YES",
             CPL_VSIL_CURL_USE_HEAD="NO",
             GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+            GDAL_HTTP_TIMEOUT="25",
+            GDAL_HTTP_CONNECTTIMEOUT="10",
+            GDAL_HTTP_MAX_RETRY="1",
         ):
             with rasterio.open(signed) as ds:
                 lons = [p[0] for p in points_lonlat]
@@ -179,6 +182,43 @@ def _sample_band(href, points_lonlat):
     except Exception as e:
         logger.error(f"[S2] Error muestreando banda: {e}")
         return None
+
+
+def _sample_window_for_points(hrefs, points_lonlat, geometry):
+    """Lee UNA ventana por banda y muestrea todos los puntos de una vez.
+
+    Antes se hacía un `ds.read()` por cada punto (hasta 10.000 puntos × 5 bandas),
+    lo que dejaba la zonificación colgada varios minutos. Aquí se lee la ventana
+    del polígono una sola vez y se indexa con numpy.
+    """
+    if not points_lonlat or rasterio is None:
+        return None
+    result = _read_band_window_multi(hrefs, geometry)
+    if result is None:
+        return None
+    arr, transform, crs = result
+    if arr is None or arr.size == 0:
+        return None
+
+    from rasterio.warp import transform as _warp_transform
+
+    lons = [float(p[0]) for p in points_lonlat]
+    lats = [float(p[1]) for p in points_lonlat]
+    xs, ys = _warp_transform("EPSG:4326", crs, lons, lats)
+
+    inv = ~transform
+    cols, rows = inv * (np.asarray(xs), np.asarray(ys))
+    cols = np.floor(np.asarray(cols)).astype(int)
+    rows = np.floor(np.asarray(rows)).astype(int)
+
+    out = np.full(len(points_lonlat), np.nan, dtype="float64")
+    valid = (
+        (rows >= 0) & (rows < arr.shape[0]) &
+        (cols >= 0) & (cols < arr.shape[1])
+    )
+    if valid.any():
+        out[valid] = arr[rows[valid], cols[valid]]
+    return out
 
 
 def get_real_indices(geometry, points_lonlat, scene_date, exact_date=False):
@@ -204,11 +244,17 @@ def get_real_indices(geometry, points_lonlat, scene_date, exact_date=False):
     if cached is not None:
         return cached
 
-    red = _sample_band(scene.get("red_href"), points_lonlat)
-    rededge = _sample_band(scene.get("rededge_href"), points_lonlat)
-    nir = _sample_band(scene.get("nir_href"), points_lonlat)
-    nir08 = _sample_band(scene.get("nir08_href"), points_lonlat)
-    swir16 = _sample_band(scene.get("swir16_href"), points_lonlat)
+    # Mosaico de todos los tiles de la fecha (parcela en borde de dos MGRS).
+    tiles = _tiles_for_date(geometry, effective_date) or [scene]
+
+    def _hrefs(role):
+        return [t.get(role) for t in tiles if t.get(role)]
+
+    red = _sample_window_for_points(_hrefs("red_href"), points_lonlat, geometry)
+    rededge = _sample_window_for_points(_hrefs("rededge_href"), points_lonlat, geometry)
+    nir = _sample_window_for_points(_hrefs("nir_href"), points_lonlat, geometry)
+    nir08 = _sample_window_for_points(_hrefs("nir08_href"), points_lonlat, geometry)
+    swir16 = _sample_window_for_points(_hrefs("swir16_href"), points_lonlat, geometry)
 
     if any(a is None for a in (red, rededge, nir, nir08, swir16)):
         return None
@@ -372,6 +418,9 @@ def _read_band_window_multi(hrefs, geometry):
             GDAL_HTTP_MULTIRANGE="YES",
             CPL_VSIL_CURL_USE_HEAD="NO",
             GDAL_DISABLE_READDIR_ON_OPEN="EMPTY_DIR",
+            GDAL_HTTP_TIMEOUT="25",
+            GDAL_HTTP_CONNECTTIMEOUT="10",
+            GDAL_HTTP_MAX_RETRY="1",
         ):
             for s in signed:
                 srcs.append(rasterio.open(s))
@@ -814,7 +863,7 @@ def get_index_time_series(geometry, date_from=None, date_to=None, days_back=180,
     if not date_from:
         date_from = (datetime.utcnow() - timedelta(days=days_back)).strftime('%Y-%m-%d')
 
-    cache_key = f"s2:series:v8:{hashlib_md5_geometry(geometry)}:{date_from}:{date_to}"
+    cache_key = f"s2:series:v9:{hashlib_md5_geometry(geometry)}:{date_from}:{date_to}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -855,27 +904,56 @@ def get_index_time_series(geometry, date_from=None, date_to=None, days_back=180,
                 return point
         return None
 
-    # Procesar los meses EN PARALELO (lecturas de red, I/O-bound): baja el tiempo
-    # total muy por debajo del timeout del servidor (120 s).
+    # Procesar los meses EN PARALELO, pero con un límite duro de tiempo.
+    # Antes se esperaba a TODOS los meses (hasta 10.000 puntos y muchas escenas)
+    # y la petición quedaba colgada varios minutos. Ahora se devuelve lo que
+    # alcance en 75 s y se cachea como parcial; la siguiente consulta completa.
     series = []
     months = sorted(by_month.keys())
     max_workers = min(6, max(1, len(months)))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = [executor.submit(_month_point, m, by_month[m]) for m in months]
-        for fut in concurrent.futures.as_completed(futures):
-            try:
-                point = fut.result()
-            except Exception as e:
-                logger.warning(f"[S2] Error procesando mes: {e}")
-                point = None
-            if point:
-                series.append(point)
-    series.sort(key=lambda p: p.get('date') or '')
 
+    # Solo las 3 escenas con menos nubosidad de cada mes: suficiente para elegir
+    # una imagen limpia y evita leer decenas de COGs inútiles.
+    month_candidates = {
+        month: sorted(by_month[month], key=lambda s: s.get('cloud_cover') or 100)[:3]
+        for month in months
+    }
+
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+    futures = {
+        executor.submit(_month_point, month, month_candidates[month]): month
+        for month in months
+    }
+    done, not_done = concurrent.futures.wait(futures, timeout=75)
+
+    for fut in done:
+        try:
+            point = fut.result()
+        except Exception as e:
+            logger.warning(f"[S2] Error procesando mes: {e}")
+            point = None
+        if point:
+            series.append(point)
+
+    pending = 0
+    for fut in not_done:
+        pending += 1
+        fut.cancel()
+    executor.shutdown(wait=False, cancel_futures=True)
+
+    series.sort(key=lambda p: p.get('date') or '')
     if max_scenes and len(series) > max_scenes:
         series = series[-max_scenes:]
 
-    cache.set(cache_key, series, INDICES_CACHE_TTL)
+    if pending:
+        logger.warning(
+            f"[S2] Serie parcial: {len(series)} meses listos, {pending} pendientes "
+            f"(se devuelve en <75 s)"
+        )
+        # Parcial: cache corto para no bloquear el reintento que completa.
+        cache.set(cache_key, series, 600)
+    else:
+        cache.set(cache_key, series, INDICES_CACHE_TTL)
     return series
 
 
