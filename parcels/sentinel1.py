@@ -42,6 +42,7 @@ import logging
 import math
 import hashlib
 import time
+import threading
 from collections import Counter
 
 import requests
@@ -62,41 +63,105 @@ logger = logging.getLogger(__name__)
 
 PLANETARY_STAC_URL = "https://planetarycomputer.microsoft.com/api/stac/v1/search"
 PLANETARY_SAS_URL = "https://planetarycomputer.microsoft.com/api/sas/v1/sign"
+PLANETARY_SAS_TOKEN_URL = "https://planetarycomputer.microsoft.com/api/sas/v1/token/{collection}"
+SAS_TOKEN_TTL = 1800  # 30 min; el token de colección dura ~1 h
 S1_COLLECTION = "sentinel-1-rtc"
 
 SAS_CACHE_TTL = 600            # 10 min (los tokens SAS tienen TTL corto)
+_SAS_LOCK = threading.Lock()    # evita ráfagas de /sign que terminan en HTTP 429
+_SAS_TOKEN_LOCK = threading.Lock()  # una sola petición de token por colección
 SIGMA0_CACHE_TTL = 7 * 86400  # 7 días: sigma0 medio por parcela+escena es estable
 
 
 # ---------------------------------------------------------------- firma SAS
 
+def _sas_collection_for_href(href):
+    """Colección de Planetary Computer a la que pertenece un COG."""
+    lower = (href or "").lower()
+    if "sentinel2l2a" in lower:
+        return "sentinel-2-l2a"
+    if "sentinel1" in lower or "rtc" in lower:
+        return "sentinel-1-rtc"
+    return None
+
+
+def _get_collection_sas_token(collection):
+    """Token SAS reutilizable para todos los COG de una colección.
+
+    Evita una petición /sign por banda (que provocaba HTTP 429 y dejaba el
+    histórico/sectorización sin datos). Se cachea 30 min.
+    """
+    key = f"sas:token:{collection}"
+    token = cache.get(key)
+    if token:
+        return token
+
+    with _SAS_TOKEN_LOCK:
+        token = cache.get(key)
+        if token:
+            return token
+        try:
+            r = requests.get(
+                PLANETARY_SAS_TOKEN_URL.format(collection=collection), timeout=20
+            )
+            if r.status_code == 200:
+                token = (r.json() or {}).get("token")
+                if token:
+                    cache.set(key, token, SAS_TOKEN_TTL)
+                    return token
+            logger.warning(
+                f"[SAS] token {collection} status={r.status_code}: {r.text[:120]}"
+            )
+        except Exception as e:
+            logger.warning(f"[SAS] Error obteniendo token {collection}: {e}")
+    return None
+
+
 def _sign_url(href):
-    """Firma pública del COG (SAS) con caché breve y reintentos."""
+    """Firma pública del COG (SAS), con token de colección y fallback /sign.
+
+    Se serializa el fallback con un lock porque /sign limita la tasa y las
+    lecturas paralelas de histórico/sectorización producían ráfagas de 429.
+    """
     key = f"s1:sas:{href[-80:]}"
     signed = cache.get(key)
     if signed:
         return signed
-    for attempt in range(4):
-        try:
-            r = requests.get(PLANETARY_SAS_URL, params={"href": href}, timeout=30)
-            if r.status_code == 200:
-                signed = r.json().get("href")
-                if signed:
-                    cache.set(key, signed, SAS_CACHE_TTL)
-                    return signed
-            logger.warning(f"[S1] SAS sign intento {attempt + 1} status={r.status_code}")
-            if r.status_code == 429:
-                # Límite de tasa: respetar Retry-After y esperar con backoff.
-                retry_after = r.headers.get("Retry-After")
-                try:
-                    wait = float(retry_after) if retry_after else (2 ** attempt)
-                except (TypeError, ValueError):
-                    wait = 2 ** attempt
-                time.sleep(min(max(wait, 1.0), 10.0))
-                continue
-        except Exception as e:
-            logger.warning(f"[S1] Error firmando URL (intento {attempt + 1}): {e}")
-        time.sleep(min(2 ** attempt, 8))
+
+    collection = _sas_collection_for_href(href)
+    if collection:
+        token = _get_collection_sas_token(collection)
+        if token:
+            signed = href + ("&" if "?" in href else "?") + token
+            cache.set(key, signed, SAS_CACHE_TTL)
+            return signed
+
+    with _SAS_LOCK:
+        # Otra hebra pudo firmar el mismo href mientras esperábamos el lock.
+        signed = cache.get(key)
+        if signed:
+            return signed
+
+        for attempt in range(4):
+            try:
+                r = requests.get(PLANETARY_SAS_URL, params={"href": href}, timeout=30)
+                if r.status_code == 200:
+                    signed = r.json().get("href")
+                    if signed:
+                        cache.set(key, signed, SAS_CACHE_TTL)
+                        return signed
+                logger.warning(f"[S1] SAS sign intento {attempt + 1} status={r.status_code}")
+                if r.status_code == 429:
+                    retry_after = r.headers.get("Retry-After")
+                    try:
+                        wait = float(retry_after) if retry_after else (2 ** attempt)
+                    except (TypeError, ValueError):
+                        wait = 2 ** attempt
+                    time.sleep(min(max(wait, 1.0), 10.0))
+                    continue
+            except Exception as e:
+                logger.warning(f"[S1] Error firmando URL (intento {attempt + 1}): {e}")
+            time.sleep(min(2 ** attempt, 8))
     return None
 
 

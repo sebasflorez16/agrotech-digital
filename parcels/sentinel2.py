@@ -616,6 +616,11 @@ def _compute_index_arrays(scene, geometry, mask_clouds=True):
     tiles = _tiles_for_date(geometry, scene.get('date')) or [scene]
     scl_hrefs = [t.get('scl_href') for t in tiles if t.get('scl_href')]
     scl_mask = _read_scl_mask(scl_hrefs, geometry) if scl_hrefs else None
+    # Si la escena está completamente nublada sobre la parcela, no vale la pena
+    # leer las 5 bandas: con solo el SCL ya sabemos que no hay píxeles válidos.
+    # Esto evita que el histórico tarde minutos en meses sin datos limpios.
+    if mask_clouds and scl_mask is not None and not scl_mask.any():
+        return {}
     _band_reads = {}
 
     def _hrefs_for(role):
@@ -863,7 +868,7 @@ def get_index_time_series(geometry, date_from=None, date_to=None, days_back=180,
     if not date_from:
         date_from = (datetime.utcnow() - timedelta(days=days_back)).strftime('%Y-%m-%d')
 
-    cache_key = f"s2:series:v9:{hashlib_md5_geometry(geometry)}:{date_from}:{date_to}"
+    cache_key = f"s2:series:v10:{hashlib_md5_geometry(geometry)}:{date_from}:{date_to}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached
@@ -872,7 +877,12 @@ def get_index_time_series(geometry, date_from=None, date_to=None, days_back=180,
     scenes = search_sentinel2_scenes(
         geometry, date_from=date_from, date_to=date_to, max_results=250
     )
-    scenes = [s for s in scenes if s.get('cloud_cover') is not None]
+    # El docstring prometía filtrar >60% pero no se estaba aplicando.
+    # Una escena muy nublada no aporta píxeles limpios y solo gasta lecturas COG.
+    scenes = [
+        s for s in scenes
+        if s.get('cloud_cover') is not None and s.get('cloud_cover') <= 60
+    ]
 
     # Filtro de calidad interno: se prefieren escenas <= 30% de nubosidad (van
     # primero por el orden por nubosidad). Para cada mes se usa la PRIMERA escena
