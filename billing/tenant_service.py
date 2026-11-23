@@ -181,11 +181,13 @@ class TenantService:
         now = timezone.now()
 
         if plan_tier == 'free':
-            # Plan FREE = embudo permanente (no expira)
-            paid_until = (now + timedelta(days=365)).date()
-            status = 'active'
-            trial_end = None
-            period_end = now + timedelta(days=365)
+            # Plan FREE = prueba de 14 días. Si no se pasa a pago se desactiva
+            # (check_subscriptions / run_billing_maintenance).
+            trial_days = plan.trial_days or 14
+            trial_end = now + timedelta(days=trial_days)
+            paid_until = trial_end.date()
+            status = 'trialing'
+            period_end = trial_end
         else:
             # Plan pago — periodo según ciclo
             if billing_cycle == 'yearly':

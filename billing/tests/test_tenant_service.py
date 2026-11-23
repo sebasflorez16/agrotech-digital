@@ -90,11 +90,11 @@ class TestTenantServiceCreateMocked:
     @patch('billing.tenant_service.Client')
     @patch('billing.tenant_service.Plan')
     def test_create_free_trial_returns_success(self, MockPlan, MockClient, MockDomain, MockSub, MockEvent):
-        """Crear tenant con plan free → success=True, status=active (permanente, embudo)."""
+        """Crear tenant con plan free → success=True, status=trialing (prueba 14 días)."""
         from billing.tenant_service import TenantService
 
         mock_plan = Mock()
-        mock_plan.trial_days = 0
+        mock_plan.trial_days = 14
         MockPlan.objects.get.return_value = mock_plan
         # Mock: no existe suscripción previa con ese email
         MockSub.objects.filter.return_value.select_related.return_value.exists.return_value = False
@@ -113,10 +113,10 @@ class TestTenantServiceCreateMocked:
         )
 
         assert result['success'] is True
-        # El plan FREE es permanente: active, sin trial_end y con auto_renew=False
-        assert result['status'] == 'active'
+        # El plan FREE es prueba de 14 días: trialing, con trial_end y auto_renew=False
+        assert result['status'] == 'trialing'
         defaults = MockSub.objects.update_or_create.call_args.kwargs['defaults']
-        assert defaults['trial_end'] is None
+        assert defaults['trial_end'] is not None
         assert defaults['auto_renew'] is False
         MockClient.objects.get_or_create.assert_called_once()
         MockDomain.objects.get_or_create.assert_called_once()
@@ -829,7 +829,7 @@ class TestTenantLifecycleIntegration:
             pass
 
     def test_free_trial_create_and_delete(self):
-        """Ciclo completo: crear free (permanente) → verificar → eliminar."""
+        """Ciclo completo: crear free (14 días) → verificar → eliminar."""
         from billing.tenant_service import TenantService
         from base_agrotech.models import Client
         from billing.models import Subscription
@@ -847,16 +847,17 @@ class TestTenantLifecycleIntegration:
                 payer_email='intfree@test.com',
             )
             assert result['success'] is True
-            # FREE es permanente: status active y sin trial_end
-            assert result['status'] == 'active'
+            # FREE es prueba de 14 días: trialing y con trial_end
+            assert result['status'] == 'trialing'
 
             # Verificar en DB
             tenant = Client.objects.get(schema_name=schema)
             assert tenant.on_trial is True
             sub = Subscription.objects.get(tenant=tenant)
-            assert sub.status == 'active'
+            assert sub.status == 'trialing'
             assert sub.plan.tier == 'free'
-            assert sub.trial_end is None
+            assert sub.trial_end is not None
+            assert sub.trial_end > timezone.now()
             assert sub.auto_renew is False
 
             # Eliminar (limpieza explícita en el test)

@@ -24,6 +24,10 @@ def create_free_subscription_for_new_tenant(sender, instance, created, **kwargs)
     y este signal no hace nada.
     """
     if created:
+        # Si el tenant ya trae fecha de pago (creado por TenantService), no interferir:
+        # TenantService crea la suscripción correcta (free trial o plan pago).
+        if getattr(instance, 'paid_until', None) is not None:
+            return
         # Verificar si ya tiene suscripción (creada por TenantService)
         if Subscription.objects.filter(tenant=instance).exists():
             return
@@ -36,19 +40,23 @@ def create_free_subscription_for_new_tenant(sender, instance, created, **kwargs)
             # Obtener el plan FREE
             free_plan = Plan.objects.get(tier='free', is_active=True)
             
-            # Plan FREE = embudo permanente (no trial con expiración).
-            # Los planes pagos otorgan trial de 14 días al suscribirse vía checkout.
+            # Plan FREE = prueba de 14 días. Si no se pasa a pago, se desactiva.
             now = timezone.now()
+            trial_days = free_plan.trial_days or 14
+            trial_end = now + timedelta(days=trial_days)
             subscription = Subscription.objects.create(
                 tenant=instance,
                 plan=free_plan,
-                payment_gateway='manual',  # FREE no requiere pago
-                status='active',  # Nunca expira — evita bloquear el embudo
+                payment_gateway='manual',
+                status='trialing',
                 current_period_start=now,
-                current_period_end=now + timedelta(days=365),  # Rolling anual
-                trial_end=None,
-                auto_renew=False  # FREE no se renueva automáticamente
+                current_period_end=trial_end,
+                trial_end=trial_end,
+                auto_renew=False,
             )
+            instance.on_trial = True
+            instance.paid_until = trial_end.date()
+            instance.save(update_fields=['on_trial', 'paid_until'])
             
             # Registrar evento
             BillingEvent.objects.create(
@@ -58,7 +66,7 @@ def create_free_subscription_for_new_tenant(sender, instance, created, **kwargs)
                 event_data={
                     'plan': free_plan.tier,
                     'created_via': 'signal_fallback',
-                    'note': 'Plan FREE permanente — embudo de conversión',
+                    'note': 'Prueba FREE de 14 días',
                 }
             )
             

@@ -96,7 +96,7 @@ def test_complete_saas_flow():
             tier='pro',
             name='Plan Empresarial',
             description='Plan profesional para empresas',
-            price_cop=179000,
+            price_cop=229000,
             price_usd=45,
             frequency=1,
             limits={

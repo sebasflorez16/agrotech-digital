@@ -7,7 +7,7 @@ Uso:
 Planes (pricing validado con costos reales EOSDA — RESUMEN_EJECUTIVO_PRICING.md):
     - Explorador (Gratis): 30ha, 5 análisis/mes, 1 parcela, solo NDVI. Embudo (probadita).
     - Agricultor ($79.000/mes): 100ha, 100 análisis/mes, NDVI+NDMI+SAVI, clima básico.
-    - Empresarial ($179.000/mes): 300ha, 500 análisis/mes, todos los índices, monitoreo continuo.
+    - Empresarial ($229.000/mes): 300ha, 500 análisis/mes, todos los índices, monitoreo continuo.
     - Corporativo ($600.000+/mes): personalizado, desactivado por defecto.
 """
 
@@ -25,7 +25,7 @@ class Command(BaseCommand):
             {
                 'tier': 'free',
                 'name': 'Explorador',
-                'description': 'Gratis para siempre. Para probar la plataforma: NDVI básico en una parcela pequeña (5 análisis/mes).',
+                'description': '14 días gratis. Para probar la plataforma: NDVI básico en una parcela pequeña (5 análisis/mes).',
                 'price_cop': 0,
                 'price_usd': 0,
                 'frequency': 1,
@@ -52,7 +52,7 @@ class Command(BaseCommand):
                     'historical',
                 ],
                 'is_active': True,
-                'trial_days': 0,  # Free es permanente, no trial
+                'trial_days': 14,  # Prueba de 14 días; luego se desactiva si no paga
                 'sort_order': 1,
             },
             {
@@ -92,8 +92,8 @@ class Command(BaseCommand):
                 'tier': 'pro',
                 'name': 'Empresarial',
                 'description': 'Para empresas agrícolas. Todos los índices, monitoreo continuo de salud del cultivo y reportes PDF.',
-                'price_cop': 179000,
-                'price_usd': 45,
+                'price_cop': 229000,
+                'price_usd': 55,
                 'frequency': 1,
                 'limits': {
                     'hectares': 300,
@@ -203,7 +203,7 @@ class Command(BaseCommand):
             )
 
         self.stdout.write('=' * 80)
-        self.stdout.write('\n💡 FREE = embudo permanente (NDVI básico, 5 análisis/mes, 1 parcela).')
+        self.stdout.write('\n💡 FREE = prueba de 14 días (NDVI básico, 5 análisis/mes, 1 parcela); se desactiva si no se pasa a pago.')
         self.stdout.write('💰 COSTOS EOSDA: Plan Innovator $125/mes (20,000 requests)')
         self.stdout.write('🎯 BREAK-EVEN: ~15-18 clientes pagos (mes 3-4)')
         self.stdout.write('=' * 80 + '\n')
