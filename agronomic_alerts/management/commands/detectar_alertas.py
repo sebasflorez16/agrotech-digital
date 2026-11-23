@@ -1,25 +1,16 @@
 """
 Management command: detectar_alertas
 
-Dispara el motor agronómico para todas las parcelas activas de cada tenant
-(o las filtradas por flags) y envía notificaciones por correo.
+Dispara el motor agronómico para las parcelas activas de los tenants con
+'monitoreo continuo' (Pro+), usando índices REALES de Sentinel-2
+(Planetary Computer). NO depende de EOSDA.
 
-Se diseña para ejecutarse POR EVENTO (cuando hay una nueva escena Sentinel-2
-útil), no como un cron diario rígido. En la práctica:
+Se ejecuta por evento o cron:
 
-    # Procesar todo
     python manage.py detectar_alertas
-
-    # Procesar un tenant específico
     python manage.py detectar_alertas --tenant finca_demo
-
-    # Procesar una parcela específica (uso típico desde un webhook EOSDA)
     python manage.py detectar_alertas --tenant finca_demo --parcel 42
-
-    # Modo prueba sin persistir ni enviar
     python manage.py detectar_alertas --dry-run
-
-    # Persistir pero no enviar correo
     python manage.py detectar_alertas --no-notify
 """
 
@@ -29,128 +20,61 @@ import logging
 from datetime import date, datetime, timedelta
 
 from django.core.management.base import BaseCommand, CommandError
-from django.db import connection
 from django_tenants.utils import schema_context
 
 from agronomic_alerts.engine import AgronomicAlertEngine, IndexReading
 from agronomic_alerts.notifier import AlertNotifier
 from base_agrotech.models import Client
+from billing.models import Subscription
 from parcels.models import Parcel
 
 logger = logging.getLogger(__name__)
 
+S2_INDICES = ("ndvi", "ndmi", "savi", "ndre")
+
 
 # ---------------------------------------------------------------------------
-# Extracción de lecturas desde la respuesta de EOSDA
+# Lecturas desde Sentinel-2 (real, sin EOSDA)
 # ---------------------------------------------------------------------------
 
-def _normalize_geometry(geom):
-    """Convierte la geometría de la parcela a un dict GeoJSON."""
-    import json
-    if isinstance(geom, dict):
-        return geom
-    if isinstance(geom, str):
-        try:
-            return json.loads(geom)
-        except json.JSONDecodeError:
-            from django.contrib.gis.geos import GEOSGeometry
-            return json.loads(GEOSGeometry(geom).geojson)
-    return json.loads(geom.geojson)
+def _fetch_s2_readings(parcel, days: int) -> list[IndexReading]:
+    """Lecturas del último scene Sentinel-2 utilizable (píxeles válidos)."""
+    from parcels.sentinel2 import _find_scene_and_arrays, get_index_analysis
 
+    scene, arrays = _find_scene_and_arrays(
+        parcel.geom, str(date.today()), mask_clouds=True
+    )
+    if not scene or not arrays:
+        return []
 
-def _fetch_index_stats(parcel, fecha_inicio, fecha_fin, tenant=None):
-    """
-    Obtiene estadísticas multi-índice vía EosdaClient (v1/indices) y registra
-    el consumo real en EosdaRequestLog + UsageMetrics.
-    """
-    from parcels.eosda_client import get_eosda_client
+    try:
+        scene_date = datetime.strptime(str(scene.get("date"))[:10], "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        scene_date = date.today()
 
-    client = get_eosda_client()
-    geom = _normalize_geometry(parcel.geom)
-    stats = {}
-    for idx in ("NDVI", "NDMI", "SAVI", "EVI"):
-        url = f"https://api-connect.eos.com/v1/indices/{idx.lower()}"
-        payload = {
-            "geometry": geom,
-            "start_date": fecha_inicio.isoformat(),
-            "end_date": fecha_fin.isoformat(),
-        }
-        try:
-            resp = client.post(url, payload, headers=client.headers, timeout=30)
-            if resp.status_code == 200:
-                stats[idx] = resp.json()
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("EOSDA %s falló para parcela %s: %s", idx, parcel.pk, exc)
+    # No generar alertas con una escena demasiado vieja.
+    if (date.today() - scene_date).days > days:
+        return []
 
-    if stats:
-        client.record(tenant, operation="index", parcel_id=parcel.pk)
-    return stats
-
-
-def _extract_latest_reading(stats_payload: dict) -> tuple[date, float] | None:
-    """
-    Intenta extraer la (fecha, valor medio) más reciente de la respuesta
-    de Statistics API, defensivo frente a diferentes formatos.
-    """
-    if not stats_payload:
-        return None
-
-    # Formato típico: {'data': [{'date': 'YYYY-MM-DD', 'mean': 0.45, 'cloud': 12.3}, ...]}
-    data = stats_payload.get("data") if isinstance(stats_payload, dict) else None
-    if not data:
-        # Algunas variantes devuelven 'result' o ya la lista directa.
-        data = stats_payload.get("result") if isinstance(stats_payload, dict) else stats_payload
-    if not isinstance(data, list) or not data:
-        return None
-
-    # Ordenar por fecha desc, filtrar nubosidad si está disponible (<20%).
-    cleaned = []
-    for item in data:
-        if not isinstance(item, dict):
-            continue
-        fecha_raw = item.get("date") or item.get("fecha")
-        try:
-            if isinstance(fecha_raw, str):
-                fecha = datetime.strptime(fecha_raw[:10], "%Y-%m-%d").date()
-            elif isinstance(fecha_raw, date):
-                fecha = fecha_raw
-            else:
-                continue
-        except (TypeError, ValueError):
-            continue
-
-        valor = item.get("mean")
-        if valor is None:
-            valor = item.get("average") or item.get("avg")
-        try:
-            valor = float(valor)
-        except (TypeError, ValueError):
-            continue
-
-        nubes = item.get("cloud") or item.get("clouds") or item.get("cloud_cover")
-        try:
-            nubes_pct = float(nubes) if nubes is not None else None
-        except (TypeError, ValueError):
-            nubes_pct = None
-
-        # Filtrar escenas con >20% nubes (ya pedido por el cliente).
-        if nubes_pct is not None and nubes_pct > 20:
-            continue
-
-        cleaned.append((fecha, valor))
-
-    if not cleaned:
-        return None
-
-    cleaned.sort(key=lambda x: x[0], reverse=True)
-    return cleaned[0]
+    stats = get_index_analysis(parcel.geom, str(date.today()), arrays=arrays) or {}
+    readings = []
+    for idx in S2_INDICES:
+        s = stats.get(idx)
+        if s and s.get("mean") is not None:
+            readings.append(IndexReading(
+                indice=idx,
+                valor=float(s["mean"]),
+                fecha_escena=scene_date,
+            ))
+    return readings
 
 
 # ---------------------------------------------------------------------------
 # Procesamiento por parcela
 # ---------------------------------------------------------------------------
 
-def _process_parcel(parcel, days: int, dry_run: bool, notify: bool, notifier: AlertNotifier, tenant=None) -> dict:
+def _process_parcel(parcel, days: int, dry_run: bool, notify: bool,
+                    notifier: AlertNotifier, tenant=None) -> dict:
     """Procesa una parcela y devuelve un resumen."""
     summary = {
         "parcel_id": parcel.pk, "parcel": parcel.name,
@@ -161,28 +85,12 @@ def _process_parcel(parcel, days: int, dry_run: bool, notify: bool, notifier: Al
         summary["errors"].append("parcela sin geometría")
         return summary
 
-    fecha_fin = date.today()
-    fecha_inicio = fecha_fin - timedelta(days=days)
-
     try:
-        stats = _fetch_index_stats(parcel, fecha_inicio, fecha_fin, tenant)
+        readings = _fetch_s2_readings(parcel, days)
     except Exception as exc:  # noqa: BLE001
-        logger.exception("EOSDA falló para parcela %s: %s", parcel.pk, exc)
-        summary["errors"].append(f"eosda: {exc}")
+        logger.exception("Sentinel-2 falló para parcela %s: %s", parcel.pk, exc)
+        summary["errors"].append(f"sentinel2: {exc}")
         return summary
-
-    readings: list[IndexReading] = []
-    for indice in ("NDVI", "NDMI", "SAVI", "EVI"):
-        payload = stats.get(indice) if stats else None
-        latest = _extract_latest_reading(payload) if payload else None
-        if latest is None:
-            continue
-        fecha_escena, valor = latest
-        readings.append(IndexReading(
-            indice=indice.lower(),
-            valor=valor,
-            fecha_escena=fecha_escena,
-        ))
 
     summary["readings"] = len(readings)
     if not readings:
@@ -216,12 +124,12 @@ def _process_parcel(parcel, days: int, dry_run: bool, notify: bool, notifier: Al
 # ---------------------------------------------------------------------------
 
 class Command(BaseCommand):
-    help = "Detecta y persiste alertas agronómicas por evento de nueva escena satelital."
+    help = "Detecta alertas agronómicas con índices Sentinel-2 reales (plan Pro+)."
 
     def add_arguments(self, parser):
         parser.add_argument("--tenant", help="Schema del tenant a procesar (default: todos).")
         parser.add_argument("--parcel", type=int, help="ID de parcela específica.")
-        parser.add_argument("--days", type=int, default=14, help="Ventana de búsqueda (días).")
+        parser.add_argument("--days", type=int, default=14, help="Antigüedad máxima de la escena (días).")
         parser.add_argument("--dry-run", action="store_true", help="No persiste ni notifica.")
         parser.add_argument("--no-notify", action="store_true", help="Persiste pero no envía correos.")
 
@@ -236,15 +144,35 @@ class Command(BaseCommand):
         if not tenants:
             raise CommandError("No se encontraron tenants para procesar.")
 
+        # Suscripciones (schema público) para filtrar solo Pro/Enterprise.
+        subs = {
+            s.tenant_id: s
+            for s in Subscription.objects
+            .filter(tenant_id__in=[t.id for t in tenants])
+            .select_related("plan")
+        }
+
         notifier = AlertNotifier()
-        total = {"parcels": 0, "alerts": 0, "notified": 0, "errors": 0}
+        total = {"parcels": 0, "alerts": 0, "notified": 0, "errors": 0, "skipped_tenants": 0}
 
         for tenant in tenants:
+            sub = subs.get(tenant.id)
+            features = (sub.plan.features_included if sub and sub.plan else []) or []
+            if "continuous_monitoring" not in features:
+                total["skipped_tenants"] += 1
+                self.stdout.write(
+                    f"\n→ Tenant: {tenant.schema_name} ({tenant.name}) "
+                    f"— sin monitoreo continuo (omitido)"
+                )
+                continue
+
             self.stdout.write(self.style.MIGRATE_HEADING(
                 f"\n→ Tenant: {tenant.schema_name} ({tenant.name})"
             ))
             with schema_context(tenant.schema_name):
-                parcels_qs = Parcel.objects.filter(is_deleted=False, state=True)
+                parcels_qs = Parcel.objects.filter(
+                    is_deleted=False, state=True, crop_cycles__status="active"
+                ).distinct()
                 if parcel_id:
                     parcels_qs = parcels_qs.filter(pk=parcel_id)
 
@@ -260,7 +188,8 @@ class Command(BaseCommand):
             f"\n✓ Procesadas {total['parcels']} parcelas · "
             f"{total['alerts']} alertas creadas · "
             f"{total['notified']} notificaciones enviadas · "
-            f"{total['errors']} errores"
+            f"{total['errors']} errores · "
+            f"{total['skipped_tenants']} tenants sin monitoreo"
         ))
 
     # ---- Helpers ----

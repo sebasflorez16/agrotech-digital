@@ -154,6 +154,19 @@ def parcela_estado_hoy(request, parcel_pk: int):
     """
     parcel = get_object_or_404(Parcel, pk=parcel_pk, is_deleted=False)
 
+    # ── Gating por plan: alertas solo en Pro+ (continuous_monitoring) ──
+    subscription = getattr(request, 'subscription', None)
+    features = (subscription.plan.features_included
+                if subscription and subscription.plan else []) or []
+    if not getattr(request.user, 'is_superuser', False) and 'continuous_monitoring' not in features:
+        return Response({
+            'error': 'Las alertas agronómicas no están incluidas en tu plan',
+            'code': 'feature_not_available',
+            'feature': 'continuous_monitoring',
+            'message': 'Las alertas agronómicas están disponibles en el plan Empresarial.',
+            'upgrade_url': '/billing/upgrade/',
+        }, status=403)
+
     activas_qs = (
         AlertaOperativa.objects
         .select_related("crop_cycle")
