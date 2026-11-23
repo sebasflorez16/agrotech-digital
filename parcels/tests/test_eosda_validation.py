@@ -85,49 +85,33 @@ def test_ndre_in_scene_analytics_valid_indices():
     assert 'ndre' in src
 
 
-def test_parcel_sync_status_error_without_api_key(tenant):
-    """Sin API key, la parcela queda en sync_status='error' (no fatal)."""
+def test_parcel_save_does_not_call_eosda(tenant):
+    """Guardar una parcela NO sincroniza con EOSDA (la parcela es 100% local)."""
     from django_tenants.utils import schema_context
     from parcels.models import Parcel
 
     with schema_context(tenant.schema_name):
-        with mock.patch('parcels.eosda_client.get_eosda_client') as mock_client:
-            client = mock.Mock()
-            client.post.side_effect = Exception('sin key')
-            mock_client.return_value = client
-            # Simular que no hay API key forzando error en _sync_to_eosda
-            with mock.patch('parcels.models.settings') as mock_settings:
-                mock_settings.EOSDA_API_KEY = None
-                parcel = _make_parcel(tenant)
+        with mock.patch('parcels.models.Parcel._sync_to_eosda') as mock_sync:
+            parcel = _make_parcel(tenant)
+        mock_sync.assert_not_called()
         assert parcel.eosda_id is None
-        assert parcel.sync_status == 'error'
-        assert parcel.sync_error
+        assert parcel.sync_status == 'local'
 
 
-def test_parcel_sync_synced_with_valid_response(tenant):
-    """Con respuesta válida de EOSDA, la parcela queda sync_status='synced'."""
+def test_parcel_save_is_local_even_with_api_key(tenant):
+    """Aun con EOSDA_API_KEY configurada, la parcela se guarda local (sin sync)."""
     from django_tenants.utils import schema_context
     from parcels.models import Parcel
 
-    def fake_create_field(url, payload, **kwargs):
-        resp = mock.Mock()
-        resp.status_code = 201
-        resp.json.return_value = {'id': 'field_999'}
-        resp.text = '{}'
-        return resp
-
     with schema_context(tenant.schema_name):
-        with mock.patch('parcels.eosda_client.get_eosda_client') as mock_client:
-            client = mock.Mock()
-            client.post.side_effect = fake_create_field
-            client.record = mock.Mock()
-            mock_client.return_value = client
-            with mock.patch('parcels.models.settings') as mock_settings:
-                mock_settings.EOSDA_API_KEY = 'test-key'
-                parcel = _make_parcel(tenant, name='Sync OK')
-        assert parcel.eosda_id == 'field_999'
-        assert parcel.sync_status == 'synced'
-        assert parcel.sync_error is None
+        with mock.patch('parcels.eosda_client.get_eosda_client') as mock_client, \
+             mock.patch('parcels.models.settings') as mock_settings:
+            mock_settings.EOSDA_API_KEY = 'test-key'
+            parcel = _make_parcel(tenant, name='Local OK')
+        mock_client.assert_not_called()
+        assert parcel.eosda_id is None
+        assert parcel.sync_status == 'local'
+        assert not parcel.sync_error
 
 
 def test_consumption_record_increments_quota_and_logs(tenant):
