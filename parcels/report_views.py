@@ -27,7 +27,7 @@ from rest_framework.views import APIView
 
 from billing.decorators import require_feature
 from parcels.models import (
-    Parcel, ParcelSceneCache, CropHealthStatus, ParcelZonification,
+    Parcel, CropHealthStatus, ParcelZonification,
 )
 
 logger = logging.getLogger(__name__)
@@ -70,14 +70,15 @@ NDVI_LEGEND = [
 ]
 
 
-def _scene_cloud(scene):
-    """Nubosidad (%) desde el metadata del cache de escenas, o None."""
-    meta = scene.metadata or {}
-    val = meta.get('cloudCoverage', meta.get('cloud_cover', meta.get('clouds')))
+def _format_month(value):
+    """'2026-09' → 'sep 2026'."""
     try:
-        return float(val) if val is not None else None
-    except (TypeError, ValueError):
-        return None
+        from datetime import datetime
+        dt = datetime.strptime(str(value)[:7], '%Y-%m')
+    except Exception:
+        return str(value or '—')
+    meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+    return f'{meses[dt.month - 1]} {dt.year}'
 
 
 class CropCycleReportView(APIView):
@@ -115,23 +116,15 @@ class CropCycleReportView(APIView):
         except Exception:
             health = None
 
-        # ── Observaciones recientes: solo ≤60% nubes, una por fecha ──
-        recent_scenes = []
+        # ── Evolución mensual (Sentinel-2 real, últimos ~6 meses) ──
+        monthly_series = []
         try:
-            raw = list(
-                ParcelSceneCache.objects.filter(parcel=parcel).order_by('-date')[:80]
-            )
-            by_date = {}
-            for sc in raw:
-                cloud = _scene_cloud(sc)
-                if cloud is not None and cloud > 60:
-                    continue
-                prev = by_date.get(sc.date)
-                if prev is None or (cloud is not None and (_scene_cloud(prev) is None or cloud < _scene_cloud(prev))):
-                    by_date[sc.date] = sc
-            recent_scenes = sorted(by_date.values(), key=lambda s: s.date, reverse=True)[:6]
+            from .sentinel2 import get_index_time_series
+            monthly_series = get_index_time_series(
+                parcel.geom, days_back=180, max_scenes=6
+            ) or []
         except Exception as exc:
-            logger.warning(f"[REPORT] No se pudieron leer observaciones: {exc}")
+            logger.warning(f"[REPORT] No se pudo leer la serie mensual: {exc}")
 
         # ── Interpretación agronómica ──
         interpretation = None
@@ -186,7 +179,7 @@ class CropCycleReportView(APIView):
             logger.warning(f"[REPORT] No se pudo generar NDVI: {exc}")
 
         pdf_bytes = self._build_pdf(
-            parcel, crop_cycle, health, recent_scenes, interpretation,
+            parcel, crop_cycle, health, monthly_series, interpretation,
             ndvi_image=ndvi_image, zones=zones,
         )
 
@@ -202,7 +195,7 @@ class CropCycleReportView(APIView):
     #  CONSTRUCCIÓN DEL PDF
     # ────────────────────────────────────────────────────────────
 
-    def _build_pdf(self, parcel, crop_cycle, health, recent_scenes,
+    def _build_pdf(self, parcel, crop_cycle, health, monthly_series,
                    interpretation, ndvi_image=None, zones=None):
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(
@@ -472,23 +465,16 @@ class CropCycleReportView(APIView):
                 rows.append(('Rendimiento real', f'{crop_cycle.actual_yield} ton/ha'))
         story.append(kv_table(rows))
 
-        # ── Observaciones recientes ──
-        story += section('Observaciones satelitales recientes')
-        if recent_scenes:
-            sdata = [[
-                Paragraph('Fecha', cell_white), Paragraph('Índice', cell_white),
-                Paragraph('Nubosidad', cell_white),
+        # ── Evolución mensual (Sentinel-2) ──
+        story += section('Evolución mensual (Sentinel-2)')
+        if monthly_series:
+            col_w = (width - 52 * mm) / 4.0
+            mdata = [[
+                Paragraph('Mes', cell_white), Paragraph('Nubes', cell_white),
+                Paragraph('NDVI', cell_white), Paragraph('NDMI', cell_white),
+                Paragraph('SAVI', cell_white), Paragraph('NDRE', cell_white),
             ]]
-            for sc in recent_scenes:
-                cloud = _scene_cloud(sc)
-                cloud_txt = f'{cloud:.1f}%' if isinstance(cloud, (int, float)) else '—'
-                sdata.append([
-                    Paragraph(sc.date.strftime('%d/%m/%Y'), cell),
-                    Paragraph(sc.index_type, cell),
-                    Paragraph(cloud_txt, cell),
-                ])
-            st = Table(sdata, colWidths=[60 * mm, 60 * mm, width - 120 * mm])
-            sstyle = [
+            mstyle = [
                 ('BACKGROUND', (0, 0), (-1, 0), VERDE),
                 ('GRID', (0, 0), (-1, -1), 0.4, GRIS_LINEA),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, GRIS_SUAVE]),
@@ -497,15 +483,34 @@ class CropCycleReportView(APIView):
                 ('TOPPADDING', (0, 0), (-1, -1), 4),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]
-            for i, sc in enumerate(recent_scenes, start=1):
-                c = _scene_cloud(sc)
-                if c is not None:
-                    sstyle.append(('TEXTCOLOR', (2, i), (2, i), ACENTO if c <= 15 else (NARANJA if c <= 40 else ROJO)))
-            st.setStyle(TableStyle(sstyle))
-            story.append(st)
+            for i, p in enumerate(monthly_series, start=1):
+                cloud = p.get('cloud_cover')
+                cloud_txt = f'{cloud:.1f}%' if isinstance(cloud, (int, float)) else '—'
+
+                def val(key, _p=p):
+                    v = _p.get(key)
+                    return f'{v:.2f}' if isinstance(v, (int, float)) else '—'
+
+                mdata.append([
+                    Paragraph(_format_month(p.get('month') or p.get('date')), cell),
+                    Paragraph(cloud_txt, cell),
+                    Paragraph(val('ndvi_mean'), cell_bold),
+                    Paragraph(val('ndmi_mean'), cell),
+                    Paragraph(val('savi_mean'), cell),
+                    Paragraph(val('ndre_mean'), cell),
+                ])
+                if isinstance(cloud, (int, float)):
+                    mstyle.append(('TEXTCOLOR', (1, i), (1, i), ACENTO if cloud <= 15 else (NARANJA if cloud <= 40 else ROJO)))
+            mt = Table(mdata, colWidths=[32 * mm, 20 * mm, col_w, col_w, col_w, col_w])
+            mt.setStyle(TableStyle(mstyle))
+            story.append(mt)
+            story.append(Paragraph(
+                'Promedio del lote por mes, calculado con los píxeles válidos (sin nubes) de Sentinel-2.',
+                ParagraphStyle('NoteM', parent=small, spaceBefore=1.5 * mm),
+            ))
         else:
             story.append(Paragraph(
-                'No hay observaciones satelitales con nubosidad aceptable (≤60%).', small,
+                'No hay imágenes Sentinel-2 suficientes para construir la evolución mensual.', small,
             ))
 
         # ── Nota final ──
