@@ -12,6 +12,7 @@ import requests
 import numpy as np
 
 from django.core.cache import cache
+from billing.decorators import require_feature
 
 try:
     import rasterio
@@ -35,6 +36,23 @@ S2_BANDS = {
 }
 
 INDICES_CACHE_TTL = 7 * 86400  # 7 días
+
+ALL_INDICES = ('ndvi', 'ndmi', 'savi', 'ndre')
+
+
+def _allowed_indices_for_request(request):
+    """Índices que el plan del tenant permite (por defecto, solo NDVI).
+
+    Free → ndvi · Basic → ndvi/ndmi/savi · Pro/Enterprise → todos.
+    El superusuario (dueño) conserva acceso total.
+    """
+    user = getattr(request, 'user', None)
+    if getattr(user, 'is_superuser', False):
+        return list(ALL_INDICES)
+    sub = getattr(request, 'subscription', None)
+    features = (sub.plan.features_included if sub and getattr(sub, 'plan', None) else None) or []
+    allowed = [i for i in ALL_INDICES if i in features]
+    return allowed or ['ndvi']
 
 # ============================================================================
 # ⚠️  NO TOCAR — CAPA VISUAL DE ÍNDICES (NDVI/NDMI/SAVI/NDRE)  ⚠️
@@ -1086,8 +1104,23 @@ class Sentinel2IndexImagesView(APIView):
                 {"error": "La imagen de esa fecha está demasiado nublada para mostrar datos. Elige otra fecha en 'Imágenes disponibles'."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+
+        # ── Gating por plan: solo se devuelven los índices permitidos ──
+        allowed = _allowed_indices_for_request(request)
+        images = {k: v for k, v in images.items() if k in allowed}
+        if not images:
+            return Response({
+                "error": "Tu plan no incluye los índices disponibles para esta imagen.",
+                "code": "indices_not_available",
+                "allowed_indices": allowed,
+            }, status=status.HTTP_403_FORBIDDEN)
+
         analysis = get_index_analysis(parcel.geom, scene_date, exact_date=exact_date, arrays=arrays)
-        analysis_index = request.query_params.get("analysis_index", "ndvi")
+        if analysis:
+            analysis = {k: v for k, v in analysis.items() if k in allowed}
+        analysis_index = request.query_params.get("analysis_index", allowed[0])
+        if analysis_index not in allowed:
+            analysis_index = allowed[0]
         categories = get_index_categories(parcel.geom, scene_date, index=analysis_index, exact_date=exact_date, arrays=arrays)
         requested = str(scene_date)[:10]
         used = scene.get("date")
@@ -1095,6 +1128,8 @@ class Sentinel2IndexImagesView(APIView):
             "images": images,
             "statistics": analysis,
             "analysis": categories,
+            "analysis_index": analysis_index,
+            "allowed_indices": allowed,
             "scene": _public_scene_list([scene])[0] if scene else None,
             "bounds": get_bounds(parcel.geom),
             "requested_date": requested,
@@ -1131,7 +1166,11 @@ class Sentinel2ScenesView(APIView):
             scenes = search_sentinel2_scenes(parcel.geom, scene_date or str(date.today()), max_results=20)
         # El usuario ve las fechas en orden cronológico ASCENDENTE (no por nubosidad).
         scenes = sorted(scenes, key=lambda s: s.get("date", ""))
-        return Response({"scenes": _public_scene_list(scenes), "total": len(scenes)}, status=status.HTTP_200_OK)
+        return Response({
+            "scenes": _public_scene_list(scenes),
+            "total": len(scenes),
+            "allowed_indices": _allowed_indices_for_request(request),
+        }, status=status.HTTP_200_OK)
 
 
 class Sentinel2ObservationView(APIView):
@@ -1161,9 +1200,11 @@ class Sentinel2HistoryView(APIView):
     """Serie temporal de índices Sentinel-2 (evolución del cultivo).
 
     GET /api/parcels/parcel/<parcel_id>/sentinel2-history/?days_back=180
+    Requiere la feature 'historical' (planes Basic/Pro).
     """
     permission_classes = [IsAuthenticated]
 
+    @require_feature('historical')
     def get(self, request, parcel_id):
         from django.shortcuts import get_object_or_404
         from .models import Parcel
@@ -1181,4 +1222,15 @@ class Sentinel2HistoryView(APIView):
         series = get_index_time_series(
             parcel.geom, date_from=date_from, date_to=date_to, days_back=days_back
         )
-        return Response({"series": series, "total": len(series)}, status=status.HTTP_200_OK)
+        # Gating por plan: no exponer índices que el plan no incluye.
+        allowed = _allowed_indices_for_request(request)
+        allowed_set = set(allowed)
+        for point in series:
+            for name in ALL_INDICES:
+                if name not in allowed_set:
+                    point.pop(f'{name}_mean', None)
+        return Response({
+            "series": series,
+            "total": len(series),
+            "allowed_indices": allowed,
+        }, status=status.HTTP_200_OK)
