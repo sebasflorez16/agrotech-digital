@@ -4,7 +4,7 @@ Management command para crear planes iniciales de suscripción.
 Uso:
     python manage.py create_billing_plans
 
-Planes (pricing validado con costos reales EOSDA — RESUMEN_EJECUTIVO_PRICING.md):
+Planes (pricing de lanzamiento; los análisis usan Sentinel-2/1 + Open-Meteo):
     - Explorador (Gratis): 30ha, 5 análisis/mes, 1 parcela, solo NDVI. Embudo (probadita).
     - Agricultor ($79.000/mes): 100ha, 100 análisis/mes, NDVI+NDMI+SAVI, clima básico.
     - Empresarial ($229.000/mes): 300ha, 500 análisis/mes, todos los índices, monitoreo continuo.
@@ -200,6 +200,6 @@ class Command(BaseCommand):
 
         self.stdout.write('=' * 80)
         self.stdout.write('\n💡 FREE = prueba de 14 días (NDVI básico, 5 análisis/mes, 1 parcela); se desactiva si no se pasa a pago.')
-        self.stdout.write('💰 COSTOS EOSDA: Plan Innovator $125/mes (20,000 requests)')
+        self.stdout.write('💰 DATOS: Sentinel-2/Sentinel-1 (Planetary Computer) + Open-Meteo — sin costo por request')
         self.stdout.write('🎯 BREAK-EVEN: ~15-18 clientes pagos (mes 3-4)')
         self.stdout.write('=' * 80 + '\n')
