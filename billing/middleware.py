@@ -36,6 +36,15 @@ class SubscriptionLimitMiddleware(MiddlewareMixin):
         '/billing/api/wompi/checkout-params/',  # Params del Widget Wompi (público)
         '/billing/api/confirm-payment/',  # Confirmar pago y crear tenant
         '/billing/webhooks/',   # Webhooks de pasarelas
+        # Gestión/renovación de la suscripción: debe funcionar aunque el trial
+        # haya vencido (el usuario necesita ver su plan y pagar).
+        '/billing/mi-suscripcion/',
+        '/billing/api/my-subscription/',
+        '/billing/api/cancel-subscription/',
+        '/billing/api/usage/dashboard/',
+        '/billing/api/usage/history/',
+        '/billing/api/invoice/current/',
+        '/billing/api/status/',
         '/static/',
         '/media/',
         '__debug__',
