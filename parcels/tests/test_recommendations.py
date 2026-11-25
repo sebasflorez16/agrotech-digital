@@ -93,6 +93,25 @@ def test_stage_critical_and_water_need():
     assert "decisión final" in r["disclaimer"].lower()
 
 
+def test_stage_none_summary_is_readable_and_source_note():
+    class FakeCycle:
+        crop_catalog = SimpleNamespace(name="Arroz")
+        current_stage = None
+        days_since_planting = 0
+        progress_percent = 0
+
+        def get_index_interpretation(self, key, value):
+            return {"status": "unknown", "message": "sin etapa"}
+
+    r = build_recommendations(
+        "Lote", _stats(ndvi=0.33, ndmi=0.05, savi=0.50, ndre=0.18),
+        crop_cycle=FakeCycle(), weather=None,
+    )
+    assert "None" not in r["summary"]
+    assert "Arroz" in r["summary"]
+    assert "MISMA escena" in r["source_note"]
+
+
 def test_no_crop_cycle_does_not_crash():
     r = build_recommendations(
         "Lote", _stats(ndvi=0.50, ndmi=0.20, savi=0.40, ndre=0.25), weather=None

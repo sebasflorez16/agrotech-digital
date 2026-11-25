@@ -409,9 +409,25 @@ def build_recommendations(parcel_name, stats, scene=None, crop_cycle=None,
 
     summary_parts = []
     if crop:
-        summary_parts.append(
-            f"{crop['name']} en etapa {crop['stage']} (día {crop['days_since_planting']})."
-        )
+        stage_txt = crop.get("stage")
+        days = crop.get("days_since_planting")
+        if stage_txt:
+            if isinstance(days, int) and days > 0:
+                summary_parts.append(
+                    f"{crop['name']} en etapa {stage_txt} (día {days})."
+                )
+            else:
+                summary_parts.append(f"{crop['name']} en etapa {stage_txt} (día 0).")
+        elif isinstance(days, int) and days == 0:
+            summary_parts.append(
+                f"{crop['name']} (día 0; etapa inicial no definida en el catálogo)."
+            )
+        elif isinstance(days, int):
+            summary_parts.append(
+                f"{crop['name']} (día {days}; etapa no definida en el catálogo)."
+            )
+        else:
+            summary_parts.append(f"{crop['name']} (etapa no definida).")
         if stage_critical:
             summary_parts.append(f"Etapa crítica ({stage_name}): confirma en campo.")
     else:
@@ -442,6 +458,10 @@ def build_recommendations(parcel_name, stats, scene=None, crop_cycle=None,
         "zones": zone_entries,
         "zones_scene_date": zones_scene_date,
         "summary": " ".join(summary_parts),
+        "source_note": (
+            "Los índices (NDVI/NDMI/SAVI/NDRE) provienen de la MISMA escena "
+            "Sentinel-2; no se consultaron fechas distintas."
+        ),
         "actions": actions,
         "disclaimer": (
             "Estas son SUGERENCIAS automáticas de apoyo, no órdenes ni un diagnóstico "
