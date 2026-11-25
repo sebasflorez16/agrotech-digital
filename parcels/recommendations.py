@@ -222,11 +222,11 @@ def _zone_entry(zone, parcel_ndvi, parcel_ndmi, weather):
     wet = bool((weather or {}).get("wet_forecast"))
 
     if ndmi is not None and ndmi < 0.10:
-        action.append("Revisar riego y humedad del suelo en esta zona.")
+        action.append("Sugerencia: revisar humedad y riego en esta zona.")
         timing = "24-48 h"
         prio = "alta"
     elif ndmi is not None and ndmi > 0.40 and wet:
-        action.append("Revisar drenaje; evitar riego por exceso de humedad.")
+        action.append("Sugerencia: revisar drenaje y evitar riego si hay exceso.")
         timing = "48-72 h"
 
     # La brecha_pct ya está calculada contra el promedio del lote en la MISMA
@@ -243,14 +243,14 @@ def _zone_entry(zone, parcel_ndvi, parcel_ndmi, weather):
         )
 
     if low_vs_parcel:
-        action.append("Inspeccionar en campo (plagas, compactación, germinación).")
+        action.append("Sugerencia: inspeccionar en campo (plagas, compactación, germinación).")
         if ndre is not None and ndre < 0.20:
-            action.append("Evaluar nitrógeno con análisis foliar antes de fertilizar.")
+            action.append("Si el vigor sigue bajo, considerar análisis foliar antes de fertilizar.")
         if timing == "1 semana":
             timing = "48-72 h"
 
     if not action:
-        action.append("Mantener el manejo actual y monitorear la evolución.")
+        action.append("Sugerencia: mantener el manejo actual y monitorear.")
         timing = "2 semanas"
 
     return {
@@ -281,17 +281,64 @@ def build_recommendations(parcel_name, stats, scene=None, crop_cycle=None,
     ]
     zone_entries.sort(key=lambda z: _priority_rank(z["priority"]))
 
+    # Contexto de cultivo/etapa (si hay ciclo activo)
+    crop = None
+    stage_critical = False
+    stage_water_need = None
+    stage_name = None
+    stage_note = ""
+    if crop_cycle:
+        try:
+            stage = crop_cycle.current_stage
+            crop = {
+                "name": crop_cycle.crop_catalog.name if crop_cycle.crop_catalog else None,
+                "stage": stage.name if stage else None,
+                "days_since_planting": crop_cycle.days_since_planting,
+                "progress_percent": crop_cycle.progress_percent,
+                "water_need": getattr(stage, "water_need", None) if stage else None,
+                "critical": bool(getattr(stage, "is_critical", False)) if stage else False,
+            }
+            stage_name = stage.name if stage else None
+            stage_critical = bool(getattr(stage, "is_critical", False)) if stage else False
+            stage_water_need = getattr(stage, "water_need", None) if stage else None
+            stage_note = getattr(stage, "critical_alert", "") if stage else ""
+        except Exception:
+            crop = None
+
     dry = bool((weather or {}).get("dry_forecast"))
     wet = bool((weather or {}).get("wet_forecast"))
     heat = bool((weather or {}).get("heat"))
 
     actions = []
 
+    # Etapa crítica: primero los índices en alerta
+    warning_indices = [i for i in indices if i["status"] in ("warning", "critical")]
+    if stage_critical and warning_indices:
+        labels = ", ".join(i["label"] for i in warning_indices)
+        actions.append({
+            "priority": "alta",
+            "title": f"Etapa crítica: {stage_name}",
+            "detail": f"Sugerencia: revisa primero {labels} y confirma en campo."
+                      + (f" {stage_note}" if stage_note else ""),
+            "timing": "24-72 h",
+            "zone": "Lote",
+        })
+
+    # Alta necesidad de agua según la etapa
+    if isinstance(stage_water_need, int) and stage_water_need >= 4:
+        actions.append({
+            "priority": "media",
+            "title": "Alta necesidad de agua",
+            "detail": f"Sugerencia: la etapa {stage_name} requiere agua; revisa humedad y riego.",
+            "timing": "Esta semana",
+            "zone": "Lote",
+        })
+
     if parcel_ndmi is not None and parcel_ndmi < 0.10:
         actions.append({
             "priority": "alta",
-            "title": "Revisar riego del lote",
-            "detail": "El NDMI promedio es bajo (poca agua en la hoja)."
+            "title": "Humedad baja en el lote",
+            "detail": "Sugerencia: revisar humedad del suelo y, si hace falta, ajustar el riego."
                       + (" Se esperan pocas lluvias en 7 días." if dry else ""),
             "timing": "24-48 h",
             "zone": "Todo el lote",
@@ -301,8 +348,8 @@ def build_recommendations(parcel_name, stats, scene=None, crop_cycle=None,
         actions.append({
             "priority": "media",
             "title": "Ventana seca",
-            "detail": f"Lluvia prevista baja ({(weather or {}).get('rain_next_7d_mm')} mm/7d). "
-                      "Prioriza riego y evita fertilizar si el suelo está seco.",
+            "detail": f"Sugerencia: lluvia prevista baja ({(weather or {}).get('rain_next_7d_mm')} mm/7d). "
+                      "Considera priorizar el riego y evitar fertilizar con el suelo seco.",
             "timing": "Esta semana",
             "zone": "Lote",
         })
@@ -311,8 +358,8 @@ def build_recommendations(parcel_name, stats, scene=None, crop_cycle=None,
         actions.append({
             "priority": "media",
             "title": "Revisar drenaje",
-            "detail": f"Se esperan lluvias altas ({(weather or {}).get('rain_next_7d_mm')} mm/7d). "
-                      "Evita riego y revisa encharcamientos.",
+            "detail": f"Sugerencia: se esperan lluvias altas ({(weather or {}).get('rain_next_7d_mm')} mm/7d). "
+                      "Considera evitar riego y revisar encharcamientos.",
             "timing": "48-72 h",
             "zone": "Lote",
         })
@@ -321,8 +368,8 @@ def build_recommendations(parcel_name, stats, scene=None, crop_cycle=None,
         actions.append({
             "priority": "media",
             "title": "Estrés térmico",
-            "detail": f"Tmax promedio {(weather or {}).get('tmax_avg_c')} °C. "
-                      "Riega en horas frescas y vigila el estrés.",
+            "detail": f"Sugerencia: Tmax promedio {(weather or {}).get('tmax_avg_c')} °C. "
+                      "Considera regar en horas frescas y vigilar el estrés.",
             "timing": "Esta semana",
             "zone": "Lote",
         })
@@ -330,9 +377,9 @@ def build_recommendations(parcel_name, stats, scene=None, crop_cycle=None,
     if parcel_ndvi is not None and parcel_ndvi < 0.30:
         actions.append({
             "priority": "alta",
-            "title": "Bajo vigor general",
-            "detail": "NDVI promedio bajo. Revisa nutrición, plagas y compactación; "
-                      "considera análisis foliar.",
+            "title": "Vigor bajo en el lote",
+            "detail": "Sugerencia: revisar nutrición, plagas y compactación; "
+                      "considera un análisis foliar antes de fertilizar.",
             "timing": "48-72 h",
             "zone": "Todo el lote",
         })
@@ -350,8 +397,8 @@ def build_recommendations(parcel_name, stats, scene=None, crop_cycle=None,
     if not actions:
         actions.append({
             "priority": "baja",
-            "title": "Mantener el plan",
-            "detail": "Sin alertas relevantes; continúa el manejo y vuelve a monitorear en 1-2 semanas.",
+            "title": "Sin acciones urgentes",
+            "detail": "Sugerencia: mantener el manejo actual y volver a monitorear en 1-2 semanas.",
             "timing": "2 semanas",
             "zone": "Lote",
         })
@@ -360,26 +407,15 @@ def build_recommendations(parcel_name, stats, scene=None, crop_cycle=None,
     seen = set()
     actions = [a for a in actions if not (a["title"] in seen or seen.add(a["title"]))]
 
-    crop = None
-    if crop_cycle:
-        try:
-            stage = crop_cycle.current_stage
-            crop = {
-                "name": crop_cycle.crop_catalog.name if crop_cycle.crop_catalog else None,
-                "stage": stage.name if stage else None,
-                "days_since_planting": crop_cycle.days_since_planting,
-                "progress_percent": crop_cycle.progress_percent,
-            }
-        except Exception:
-            crop = None
-
     summary_parts = []
     if crop:
         summary_parts.append(
             f"{crop['name']} en etapa {crop['stage']} (día {crop['days_since_planting']})."
         )
+        if stage_critical:
+            summary_parts.append(f"Etapa crítica ({stage_name}): confirma en campo.")
     else:
-        summary_parts.append("Sin ciclo de cultivo asignado; recomendaciones generales.")
+        summary_parts.append("Sin ciclo de cultivo asignado; sugerencias generales.")
     if indices:
         summary_parts.append(
             "Índices: " + ", ".join(f"{i['label']} {i['value']:.2f}" for i in indices) + "."
@@ -408,9 +444,11 @@ def build_recommendations(parcel_name, stats, scene=None, crop_cycle=None,
         "summary": " ".join(summary_parts),
         "actions": actions,
         "disclaimer": (
-            "Recomendaciones de apoyo basadas en datos satelitales y climáticos reales. "
-            "No sustituyen un diagnóstico agronómico; confirma en campo antes de aplicar."
+            "Estas son SUGERENCIAS automáticas de apoyo, no órdenes ni un diagnóstico "
+            "agronómico. La decisión final es del agricultor. Confirma en campo y consulta "
+            "a tu agrónomo antes de aplicar cualquier práctica."
         ),
+        "disclaimer_short": "Sugerencias automáticas, no órdenes. La última decisión es tuya.",
     }
 
 

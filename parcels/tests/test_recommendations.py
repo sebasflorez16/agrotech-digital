@@ -1,5 +1,7 @@
 """Tests del motor de recomendaciones (reglas puras, sin I/O)."""
 
+from types import SimpleNamespace
+
 from parcels.recommendations import build_recommendations
 
 
@@ -27,6 +29,7 @@ def test_dry_and_low_ndmi_generates_water_action():
     assert "riego" in text
     assert r["zones"][0]["priority"] == "alta"
     assert "Norte" in r["summary"]
+    assert "decisión final" in r["disclaimer"].lower()
 
 
 def test_wet_forecast_recommends_drainage():
@@ -55,6 +58,39 @@ def test_high_vigor_zone_is_not_alerted():
     )
     assert r["zones"][0]["priority"] == "baja"
     assert not any("Alto vigor" in a["title"] for a in r["actions"])
+
+
+def test_stage_critical_and_water_need():
+    """Con ciclo activo en etapa crítica y alta necesidad hídrica, sugiere revisar."""
+    class FakeStage:
+        name = "Floración"
+        water_need = 5
+        is_critical = True
+        critical_alert = "Evita estrés hídrico en floración."
+
+    class FakeCycle:
+        crop_catalog = SimpleNamespace(name="Maíz")
+        current_stage = FakeStage()
+        days_since_planting = 60
+        progress_percent = 50
+
+        def get_index_interpretation(self, key, value):
+            return {
+                "status": "warning",
+                "message": f"{key.upper()} bajo para la etapa",
+                "index": {"optimal": 0.6, "range": [0.5, 0.8], "deviation_percent": 20},
+            }
+
+    r = build_recommendations(
+        "Lote", _stats(ndvi=0.35, ndmi=0.08, savi=0.30, ndre=0.15),
+        crop_cycle=FakeCycle(), weather=None,
+    )
+    titles = " ".join(a["title"] for a in r["actions"])
+    assert r["crop"]["critical"] is True
+    assert "Etapa crítica" in titles
+    assert "Alta necesidad de agua" in titles
+    assert "sugerencia" in r["disclaimer"].lower()
+    assert "decisión final" in r["disclaimer"].lower()
 
 
 def test_no_crop_cycle_does_not_crash():
