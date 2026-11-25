@@ -8,6 +8,7 @@ from .metereological import WeatherForecastView
 from .elevation import ElevationView
 from .sentinel2 import Sentinel2IndexImagesView, Sentinel2ScenesView, Sentinel2ObservationView, Sentinel2HistoryView
 from .report_views import CropCycleReportView
+from .recommendation_views import ParcelRecommendationsView
 
 # ELIMINADO: app_name = "parcels" - causaba conflicto con el router DRF
 # El router DRF en parcels.routers no usa app_name, por lo que este tampoco debe usarlo
@@ -67,6 +68,7 @@ urlpatterns = [
     path('parcel/<int:parcel_id>/observation/', Sentinel2ObservationView.as_view(), name='parcel_observation'),
     # Serie temporal de índices Sentinel-2 (histórico)
     path('parcel/<int:parcel_id>/sentinel2-history/', Sentinel2HistoryView.as_view(), name='parcel_sentinel2_history'),
+    path('parcel/<int:parcel_id>/recommendations/', ParcelRecommendationsView.as_view(), name='parcel_recommendations'),
 
     # Salud del cultivo — Monitoreo Continuo Fase 1
     path('parcel/<int:parcel_id>/health/', views.CropHealthAPIView.as_view(), name='parcel_health'),
